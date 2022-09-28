@@ -7,11 +7,11 @@
 
 #include "support/cleanse.h"
 #ifdef WIN32
-#include "compat.h" // for Windows API
+#include "compat.h"  // for Windows API
 #endif
-#include "serialize.h"        // for begin_ptr(vec)
-#include "util.h"             // for LogPrint()
-#include "utilstrencodings.h" // for GetTime()
+#include "serialize.h"         // for begin_ptr(vec)
+#include "util.h"              // for LogPrint()
+#include "utilstrencodings.h"  // for GetTime()
 
 #ifndef WIN32
 #include <sys/time.h>
@@ -19,8 +19,7 @@
 
 #include "sodium.h"
 
-static inline int64_t GetPerformanceCounter()
-{
+static inline int64_t GetPerformanceCounter() {
     int64_t nCounter = 0;
 #ifdef WIN32
     QueryPerformanceCounter((LARGE_INTEGER*)&nCounter);
@@ -32,15 +31,10 @@ static inline int64_t GetPerformanceCounter()
     return nCounter;
 }
 
-void GetRandBytes(unsigned char* buf, size_t num)
-{
-    randombytes_buf(buf, num);
-}
+void GetRandBytes(unsigned char* buf, size_t num) { randombytes_buf(buf, num); }
 
-uint64_t GetRand(uint64_t nMax)
-{
-    if (nMax == 0)
-        return 0;
+uint64_t GetRand(uint64_t nMax) {
+    if (nMax == 0) return 0;
 
     // The range of the random source must be a multiple of the modulus
     // to give every possible output value an equal possibility
@@ -52,13 +46,9 @@ uint64_t GetRand(uint64_t nMax)
     return (nRand % nMax);
 }
 
-int GetRandInt(int nMax)
-{
-    return GetRand(nMax);
-}
+int GetRandInt(int nMax) { return GetRand(nMax); }
 
-uint256 GetRandHash()
-{
+uint256 GetRandHash() {
     uint256 hash;
     GetRandBytes((unsigned char*)&hash, sizeof(hash));
     return hash;
@@ -66,8 +56,7 @@ uint256 GetRandHash()
 
 uint32_t insecure_rand_Rz = 11;
 uint32_t insecure_rand_Rw = 11;
-void seed_insecure_rand(bool fDeterministic)
-{
+void seed_insecure_rand(bool fDeterministic) {
     // The seed values have some unlikely fixed points which we avoid.
     if (fDeterministic) {
         insecure_rand_Rz = insecure_rand_Rw = 11;
@@ -84,7 +73,4 @@ void seed_insecure_rand(bool fDeterministic)
     }
 }
 
-int GenIdentity(int n)
-{
-    return n - 1;
-}
+int GenIdentity(int n) { return n - 1; }

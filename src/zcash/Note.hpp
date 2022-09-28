@@ -1,39 +1,40 @@
 #ifndef ZC_NOTE_H_
 #define ZC_NOTE_H_
 
-#include "uint256.h"
-#include "Zcash.h"
+#include <array>
+
+#include <boost/optional.hpp>
+
 #include "Address.hpp"
 #include "NoteEncryption.hpp"
-
-#include <array>
-#include <boost/optional.hpp>
+#include "Zcash.h"
+#include "uint256.h"
 
 namespace libzcash {
 
 class BaseNote {
-protected:
+  protected:
     uint64_t value_ = 0;
-public:
+
+  public:
     BaseNote() {}
-    BaseNote(uint64_t value) : value_(value) {};
-    virtual ~BaseNote() {};
+    BaseNote(uint64_t value) : value_(value){};
+    virtual ~BaseNote(){};
 
     inline uint64_t value() const { return value_; };
 };
 
 class Note : public BaseNote {
-public:
+  public:
     uint256 a_pk;
     uint256 rho;
     uint256 r;
 
-    Note(uint256 a_pk, uint64_t value, uint256 rho, uint256 r)
-        : BaseNote(value), a_pk(a_pk), rho(rho), r(r) {}
+    Note(uint256 a_pk, uint64_t value, uint256 rho, uint256 r) : BaseNote(value), a_pk(a_pk), rho(rho), r(r) {}
 
     Note();
 
-    virtual ~Note() {};
+    virtual ~Note(){};
 
     uint256 cm() const;
 
@@ -41,21 +42,21 @@ public:
 };
 
 class BaseNotePlaintext {
-protected:
+  protected:
     uint64_t value_ = 0;
     std::array<unsigned char, ZC_MEMO_SIZE> memo_;
-public:
+
+  public:
     BaseNotePlaintext() {}
-    BaseNotePlaintext(const BaseNote& note, std::array<unsigned char, ZC_MEMO_SIZE> memo)
-        : value_(note.value()), memo_(memo) {}
+    BaseNotePlaintext(const BaseNote& note, std::array<unsigned char, ZC_MEMO_SIZE> memo) : value_(note.value()), memo_(memo) {}
     virtual ~BaseNotePlaintext() {}
 
     inline uint64_t value() const { return value_; }
-    inline const std::array<unsigned char, ZC_MEMO_SIZE> & memo() const { return memo_; }
+    inline const std::array<unsigned char, ZC_MEMO_SIZE>& memo() const { return memo_; }
 };
 
 class NotePlaintext : public BaseNotePlaintext {
-public:
+  public:
     uint256 rho;
     uint256 r;
 
@@ -84,18 +85,12 @@ public:
         READWRITE(memo_);
     }
 
-    static NotePlaintext decrypt(const ZCNoteDecryption& decryptor,
-                                 const ZCNoteDecryption::Ciphertext& ciphertext,
-                                 const uint256& ephemeralKey,
-                                 const uint256& h_sig,
-                                 unsigned char nonce
-                                );
+    static NotePlaintext decrypt(const ZCNoteDecryption& decryptor, const ZCNoteDecryption::Ciphertext& ciphertext,
+                                 const uint256& ephemeralKey, const uint256& h_sig, unsigned char nonce);
 
-    ZCNoteEncryption::Ciphertext encrypt(ZCNoteEncryption& encryptor,
-                                         const uint256& pk_enc
-                                        ) const;
+    ZCNoteEncryption::Ciphertext encrypt(ZCNoteEncryption& encryptor, const uint256& pk_enc) const;
 };
 
-}
+}  // namespace libzcash
 
-#endif // ZC_NOTE_H_
+#endif  // ZC_NOTE_H_

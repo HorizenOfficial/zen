@@ -8,17 +8,14 @@ namespace zen {
 /**
  * @brief OriginalFork constructor
  */
-OriginalFork::OriginalFork()
-{
-    setHeightMap({{CBaseChainParams::Network::MAIN,0},
-                  {CBaseChainParams::Network::REGTEST,0},
-                  {CBaseChainParams::Network::TESTNET,0}});
+OriginalFork::OriginalFork() {
+    setHeightMap({{CBaseChainParams::Network::MAIN, 0},
+                  {CBaseChainParams::Network::REGTEST, 0},
+                  {CBaseChainParams::Network::TESTNET, 0}});
 
-    setMinimumTimeMap({
-                               {CBaseChainParams::Network::MAIN,0},
-                               {CBaseChainParams::Network::REGTEST,0},
-                               {CBaseChainParams::Network::TESTNET,0}
-                           });
+    setMinimumTimeMap({{CBaseChainParams::Network::MAIN, 0},
+                       {CBaseChainParams::Network::REGTEST, 0},
+                       {CBaseChainParams::Network::TESTNET, 0}});
 }
 
 /**
@@ -26,9 +23,7 @@ OriginalFork::OriginalFork()
  * @param reward the main reward
  * @return the community reward
  */
-CAmount OriginalFork::getCommunityFundReward(const CAmount& amount, CommunityFundType cfType) const {
-    return (CAmount)0L;
-}
+CAmount OriginalFork::getCommunityFundReward(const CAmount& amount, CommunityFundType cfType) const { return (CAmount)0L; }
 
 /**
  * @brief getCommunityFundAddress returns the community fund address based on the passed in height and maxHeight
@@ -36,7 +31,8 @@ CAmount OriginalFork::getCommunityFundReward(const CAmount& amount, CommunityFun
  * @param maxHeight the maximum height sometimes used in the computation of the proper address
  * @return the community fund address for this height
  */
-const std::string& OriginalFork::getCommunityFundAddress(CBaseChainParams::Network network, int height, int maxHeight, CommunityFundType cfType) const {
+const std::string& OriginalFork::getCommunityFundAddress(CBaseChainParams::Network network, int height, int maxHeight,
+                                                         CommunityFundType cfType) const {
     static std::string emptyAddress = "";
     return emptyAddress;
 }
@@ -48,18 +44,18 @@ const std::string& OriginalFork::getCommunityFundAddress(CBaseChainParams::Netwo
  */
 bool OriginalFork::isTransactionTypeAllowed(txnouttype transactionType) const {
     switch (transactionType) {
-    case TX_NONSTANDARD:
-    case TX_PUBKEY:
-    case TX_PUBKEYHASH:
-    case TX_SCRIPTHASH:
-    case TX_MULTISIG:
-    case TX_NULL_DATA:
+        case TX_NONSTANDARD:
+        case TX_PUBKEY:
+        case TX_PUBKEYHASH:
+        case TX_SCRIPTHASH:
+        case TX_MULTISIG:
+        case TX_NULL_DATA:
 
-    // bug: in testnet blockchain this tx type is before the chainsplit
-    case TX_PUBKEYHASH_REPLAY:   
-        return true;
-    default:
-        return false;
+        // bug: in testnet blockchain this tx type is before the chainsplit
+        case TX_PUBKEYHASH_REPLAY:
+            return true;
+        default:
+            return false;
     }
 }
-}
+}  // namespace zen

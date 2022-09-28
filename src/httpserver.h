@@ -5,11 +5,13 @@
 #ifndef BITCOIN_HTTPSERVER_H
 #define BITCOIN_HTTPSERVER_H
 
+#include <stdint.h>
+
+#include <string>
+
 #include <boost/function.hpp>
 #include <boost/scoped_ptr.hpp>
 #include <boost/thread.hpp>
-#include <stdint.h>
-#include <string>
 
 static const int DEFAULT_HTTP_THREADS = 4;
 static const int DEFAULT_HTTP_WORKQUEUE = 16;
@@ -52,20 +54,20 @@ struct event_base* EventBase();
 /** In-flight HTTP request.
  * Thin C++ wrapper around evhttp_request.
  */
-class HTTPRequest
-{
-private:
+class HTTPRequest {
+  private:
     struct evhttp_request* req;
 
     // For test access
-protected:
+  protected:
     bool replySent;
 
-public:
+  public:
     HTTPRequest(struct evhttp_request* req);
     virtual ~HTTPRequest();
 
-    enum RequestMethod {
+    enum RequestMethod
+    {
         UNKNOWN,
         GET,
         POST,
@@ -119,18 +121,16 @@ public:
 
 /** Event handler closure.
  */
-class HTTPClosure
-{
-public:
+class HTTPClosure {
+  public:
     virtual void operator()() = 0;
     virtual ~HTTPClosure() {}
 };
 
 /** Event class. This can be used either as an cross-thread trigger or as a timer.
  */
-class HTTPEvent
-{
-public:
+class HTTPEvent {
+  public:
     /** Create a new event.
      * deleteWhenTriggered deletes this event object after the event is triggered (and the handler called)
      * handler is the handler to call when the event is triggered.
@@ -146,8 +146,8 @@ public:
     bool deleteWhenTriggered;
     boost::function<void(void)> handler;
 
-private:
+  private:
     struct event* ev;
 };
 
-#endif // BITCOIN_HTTPSERVER_H
+#endif  // BITCOIN_HTTPSERVER_H

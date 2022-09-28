@@ -2,39 +2,35 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "coins.h"
-#include "random.h"
-#include "script/standard.h"
-#include "uint256.h"
-#include "utilstrencodings.h"
-#include "test/test_bitcoin.h"
-#include "consensus/validation.h"
-#include "main.h"
-#include "undo.h"
-#include "pubkey.h"
-
-#include <vector>
 #include <map>
+#include <vector>
 
 #include <boost/test/unit_test.hpp>
+
+#include "coins.h"
+#include "consensus/validation.h"
+#include "main.h"
+#include "pubkey.h"
+#include "random.h"
+#include "script/standard.h"
+#include "test/test_bitcoin.h"
+#include "uint256.h"
+#include "undo.h"
+#include "utilstrencodings.h"
 #include "zcash/IncrementalMerkleTree.hpp"
 
-namespace
-{
-class CCoinsViewTest : public CCoinsView
-{
+namespace {
+class CCoinsViewTest : public CCoinsView {
     uint256 hashBestBlock_;
     uint256 hashBestAnchor_;
     std::map<uint256, CCoins> map_;
     std::map<uint256, ZCIncrementalMerkleTree> mapAnchors_;
     std::map<uint256, bool> mapNullifiers_;
 
-public:
-    CCoinsViewTest() {
-        hashBestAnchor_ = ZCIncrementalMerkleTree::empty_root();
-    }
+  public:
+    CCoinsViewTest() { hashBestAnchor_ = ZCIncrementalMerkleTree::empty_root(); }
 
-    bool GetAnchorAt(const uint256& rt, ZCIncrementalMerkleTree &tree) const override {
+    bool GetAnchorAt(const uint256& rt, ZCIncrementalMerkleTree& tree) const override {
         if (rt == ZCIncrementalMerkleTree::empty_root()) {
             ZCIncrementalMerkleTree new_tree;
             tree = new_tree;
@@ -50,8 +46,7 @@ public:
         }
     }
 
-    bool GetNullifier(const uint256 &nf) const override
-    {
+    bool GetNullifier(const uint256& nf) const override {
         std::map<uint256, bool>::const_iterator it = mapNullifiers_.find(nf);
 
         if (it == mapNullifiers_.end()) {
@@ -65,8 +60,7 @@ public:
 
     uint256 GetBestAnchor() const override { return hashBestAnchor_; }
 
-    bool GetCoins(const uint256& txid, CCoins& coins) const override
-    {
+    bool GetCoins(const uint256& txid, CCoins& coins) const override {
         std::map<uint256, CCoins>::const_iterator it = map_.find(txid);
         if (it == map_.end()) {
             return false;
@@ -79,24 +73,17 @@ public:
         return true;
     }
 
-    bool HaveCoins(const uint256& txid) const override
-    {
+    bool HaveCoins(const uint256& txid) const override {
         CCoins coins;
         return GetCoins(txid, coins);
     }
 
     uint256 GetBestBlock() const override { return hashBestBlock_; }
 
-    bool BatchWrite(CCoinsMap& mapCoins,
-                    const uint256& hashBlock,
-                    const uint256& hashAnchor,
-                    CAnchorsMap& mapAnchors,
-                    CNullifiersMap& mapNullifiers,
-                    CSidechainsMap& mapSidechains,
-                    CSidechainEventsMap& mapSidechainEvents,
-                    CCswNullifiersMap& cswNullifiers) override
-    {
-        for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end(); ) {
+    bool BatchWrite(CCoinsMap& mapCoins, const uint256& hashBlock, const uint256& hashAnchor, CAnchorsMap& mapAnchors,
+                    CNullifiersMap& mapNullifiers, CSidechainsMap& mapSidechains, CSidechainEventsMap& mapSidechainEvents,
+                    CCswNullifiersMap& cswNullifiers) override {
+        for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end();) {
             map_[it->first] = it->second.coins;
             if (it->second.coins.IsPruned() && insecure_rand() % 3 == 0) {
                 // Randomly delete empty entries on write.
@@ -104,7 +91,7 @@ public:
             }
             mapCoins.erase(it++);
         }
-        for (CAnchorsMap::iterator it = mapAnchors.begin(); it != mapAnchors.end(); ) {
+        for (CAnchorsMap::iterator it = mapAnchors.begin(); it != mapAnchors.end();) {
             if (it->second.entered) {
                 std::map<uint256, ZCIncrementalMerkleTree>::iterator ret =
                     mapAnchors_.insert(std::make_pair(it->first, ZCIncrementalMerkleTree())).first;
@@ -115,7 +102,7 @@ public:
             }
             mapAnchors.erase(it++);
         }
-        for (CNullifiersMap::iterator it = mapNullifiers.begin(); it != mapNullifiers.end(); ) {
+        for (CNullifiersMap::iterator it = mapNullifiers.begin(); it != mapNullifiers.end();) {
             if (it->second.entered) {
                 mapNullifiers_[it->first] = true;
             } else {
@@ -134,32 +121,25 @@ public:
     bool GetStats(CCoinsStats& stats) const override { return false; }
 };
 
-class CCoinsViewCacheTest : public CCoinsViewCache
-{
-public:
+class CCoinsViewCacheTest : public CCoinsViewCache {
+  public:
     CCoinsViewCacheTest(CCoinsView* base) : CCoinsViewCache(base) {}
 
-    void SelfTest() const
-    {
+    void SelfTest() const {
         // Manually recompute the dynamic usage of the whole data, and compare it.
-        size_t ret = memusage::DynamicUsage(cacheCoins) +
-                     memusage::DynamicUsage(cacheAnchors) +
-                     memusage::DynamicUsage(cacheNullifiers) +
-                     memusage::DynamicUsage(cacheSidechains) +
-                     memusage::DynamicUsage(cacheSidechainEvents) +
-                     memusage::DynamicUsage(cacheCswNullifiers);
+        size_t ret = memusage::DynamicUsage(cacheCoins) + memusage::DynamicUsage(cacheAnchors) +
+                     memusage::DynamicUsage(cacheNullifiers) + memusage::DynamicUsage(cacheSidechains) +
+                     memusage::DynamicUsage(cacheSidechainEvents) + memusage::DynamicUsage(cacheCswNullifiers);
         for (CCoinsMap::iterator it = cacheCoins.begin(); it != cacheCoins.end(); it++) {
             ret += it->second.coins.DynamicMemoryUsage();
         }
         BOOST_CHECK_EQUAL(DynamicMemoryUsage(), ret);
     }
-
 };
 
-}
+}  // namespace
 
-uint256 appendRandomCommitment(ZCIncrementalMerkleTree &tree)
-{
+uint256 appendRandomCommitment(ZCIncrementalMerkleTree& tree) {
     libzcash::SpendingKey k = libzcash::SpendingKey::random();
     libzcash::PaymentAddress addr = k.address();
 
@@ -172,8 +152,7 @@ uint256 appendRandomCommitment(ZCIncrementalMerkleTree &tree)
 
 BOOST_FIXTURE_TEST_SUITE(coins_tests, BasicTestingSetup)
 
-BOOST_AUTO_TEST_CASE(nullifier_regression_test)
-{
+BOOST_AUTO_TEST_CASE(nullifier_regression_test) {
     // Correct behavior:
     {
         CCoinsViewTest base;
@@ -182,7 +161,7 @@ BOOST_AUTO_TEST_CASE(nullifier_regression_test)
         // Insert a nullifier into the base.
         uint256 nf = GetRandHash();
         cache1.SetNullifier(nf, true);
-        cache1.Flush(); // Flush to base.
+        cache1.Flush();  // Flush to base.
 
         // Remove the nullifier from cache
         cache1.SetNullifier(nf, false);
@@ -199,11 +178,11 @@ BOOST_AUTO_TEST_CASE(nullifier_regression_test)
         // Insert a nullifier into the base.
         uint256 nf = GetRandHash();
         cache1.SetNullifier(nf, true);
-        cache1.Flush(); // Flush to base.
+        cache1.Flush();  // Flush to base.
 
         // Remove the nullifier from cache
         cache1.SetNullifier(nf, false);
-        cache1.Flush(); // Flush to base.
+        cache1.Flush();  // Flush to base.
 
         // The nullifier now should be `false`.
         BOOST_CHECK(!cache1.GetNullifier(nf));
@@ -217,7 +196,7 @@ BOOST_AUTO_TEST_CASE(nullifier_regression_test)
         // Insert a nullifier into the base.
         uint256 nf = GetRandHash();
         cache1.SetNullifier(nf, true);
-        cache1.Flush(); // Empties cache.
+        cache1.Flush();  // Empties cache.
 
         // Create cache on top.
         {
@@ -225,7 +204,7 @@ BOOST_AUTO_TEST_CASE(nullifier_regression_test)
             CCoinsViewCacheTest cache2(&cache1);
             BOOST_CHECK(cache2.GetNullifier(nf));
             cache2.SetNullifier(nf, false);
-            cache2.Flush(); // Empties cache, flushes to cache1.
+            cache2.Flush();  // Empties cache, flushes to cache1.
         }
 
         // The nullifier now should be `false`.
@@ -240,14 +219,14 @@ BOOST_AUTO_TEST_CASE(nullifier_regression_test)
         // Insert a nullifier into the base.
         uint256 nf = GetRandHash();
         cache1.SetNullifier(nf, true);
-        cache1.Flush(); // Empties cache.
+        cache1.Flush();  // Empties cache.
 
         // Create cache on top.
         {
             // Remove the nullifier.
             CCoinsViewCacheTest cache2(&cache1);
             cache2.SetNullifier(nf, false);
-            cache2.Flush(); // Empties cache, flushes to cache1.
+            cache2.Flush();  // Empties cache, flushes to cache1.
         }
 
         // The nullifier now should be `false`.
@@ -255,8 +234,7 @@ BOOST_AUTO_TEST_CASE(nullifier_regression_test)
     }
 }
 
-BOOST_AUTO_TEST_CASE(anchor_pop_regression_test)
-{
+BOOST_AUTO_TEST_CASE(anchor_pop_regression_test) {
     // Correct behavior:
     {
         CCoinsViewTest base;
@@ -305,9 +283,9 @@ BOOST_AUTO_TEST_CASE(anchor_pop_regression_test)
         cache1.PopAnchor(ZCIncrementalMerkleTree::empty_root());
 
         {
-            CCoinsViewCacheTest cache2(&cache1); // Build cache on top
-            cache2.PushAnchor(tree); // Put the same anchor back!
-            cache2.Flush(); // Flush to cache1
+            CCoinsViewCacheTest cache2(&cache1);  // Build cache on top
+            cache2.PushAnchor(tree);              // Put the same anchor back!
+            cache2.Flush();                       // Flush to cache1
         }
 
         // cache2's flush kinda worked, i.e. cache1 thinks the
@@ -316,7 +294,7 @@ BOOST_AUTO_TEST_CASE(anchor_pop_regression_test)
         {
             ZCIncrementalMerkleTree checktree;
             BOOST_CHECK(cache1.GetAnchorAt(tree.root(), checktree));
-            BOOST_CHECK(checktree.root() == tree.root()); // Oh, shucks.
+            BOOST_CHECK(checktree.root() == tree.root());  // Oh, shucks.
         }
 
         // Flushing cache won't help either, just makes the inconsistency
@@ -325,13 +303,12 @@ BOOST_AUTO_TEST_CASE(anchor_pop_regression_test)
         {
             ZCIncrementalMerkleTree checktree;
             BOOST_CHECK(cache1.GetAnchorAt(tree.root(), checktree));
-            BOOST_CHECK(checktree.root() == tree.root()); // Oh, shucks.
+            BOOST_CHECK(checktree.root() == tree.root());  // Oh, shucks.
         }
     }
 }
 
-BOOST_AUTO_TEST_CASE(anchor_regression_test)
-{
+BOOST_AUTO_TEST_CASE(anchor_regression_test) {
     // Correct behavior:
     {
         CCoinsViewTest base;
@@ -415,8 +392,7 @@ BOOST_AUTO_TEST_CASE(anchor_regression_test)
     }
 }
 
-BOOST_AUTO_TEST_CASE(nullifiers_test)
-{
+BOOST_AUTO_TEST_CASE(nullifiers_test) {
     CCoinsViewTest base;
     CCoinsViewCacheTest cache(&base);
 
@@ -439,8 +415,7 @@ BOOST_AUTO_TEST_CASE(nullifiers_test)
     BOOST_CHECK(!cache3.GetNullifier(nf));
 }
 
-BOOST_AUTO_TEST_CASE(anchors_flush_test)
-{
+BOOST_AUTO_TEST_CASE(anchors_flush_test) {
     CCoinsViewTest base;
     uint256 newrt;
     {
@@ -454,7 +429,7 @@ BOOST_AUTO_TEST_CASE(anchors_flush_test)
         cache.PushAnchor(tree);
         cache.Flush();
     }
-    
+
     {
         CCoinsViewCacheTest cache(&base);
         ZCIncrementalMerkleTree tree;
@@ -469,8 +444,7 @@ BOOST_AUTO_TEST_CASE(anchors_flush_test)
     }
 }
 
-BOOST_AUTO_TEST_CASE(chained_joinsplits)
-{
+BOOST_AUTO_TEST_CASE(chained_joinsplits) {
     CCoinsViewTest base;
     CCoinsViewCacheTest cache(&base);
 
@@ -546,8 +520,7 @@ BOOST_AUTO_TEST_CASE(chained_joinsplits)
     }
 }
 
-BOOST_AUTO_TEST_CASE(anchors_test)
-{
+BOOST_AUTO_TEST_CASE(anchors_test) {
     // TODO: These tests should be more methodical.
     //       Or, integrate with Bitcoin's tests later.
 
@@ -601,14 +574,14 @@ BOOST_AUTO_TEST_CASE(anchors_test)
         {
             ZCIncrementalMerkleTree test_tree2;
             cache.GetAnchorAt(newrt, test_tree2);
-            
+
             BOOST_CHECK(test_tree2.root() == newrt);
         }
 
         {
             cache.PopAnchor(newrt);
             ZCIncrementalMerkleTree obtain_tree;
-            assert(!cache.GetAnchorAt(newrt2, obtain_tree)); // should have been popped off
+            assert(!cache.GetAnchorAt(newrt2, obtain_tree));  // should have been popped off
             assert(cache.GetAnchorAt(newrt, obtain_tree));
 
             assert(obtain_tree.root() == newrt);
@@ -627,8 +600,7 @@ static const unsigned int NUM_SIMULATION_ITERATIONS = 40000;
 //
 // During the process, booleans are kept to make sure that the randomized
 // operation hits all branches.
-BOOST_AUTO_TEST_CASE(coins_cache_simulation_test)
-{
+BOOST_AUTO_TEST_CASE(coins_cache_simulation_test) {
     // Various coverage trackers.
     bool removed_all_caches = false;
     bool reached_4_caches = false;
@@ -642,9 +614,9 @@ BOOST_AUTO_TEST_CASE(coins_cache_simulation_test)
     std::map<uint256, CCoins> result;
 
     // The cache stack.
-    CCoinsViewTest base; // A CCoinsViewTest at the bottom.
-    std::vector<CCoinsViewCacheTest*> stack; // A stack of CCoinsViewCaches on top.
-    stack.push_back(new CCoinsViewCacheTest(&base)); // Start with one cache.
+    CCoinsViewTest base;                              // A CCoinsViewTest at the bottom.
+    std::vector<CCoinsViewCacheTest*> stack;          // A stack of CCoinsViewCaches on top.
+    stack.push_back(new CCoinsViewCacheTest(&base));  // Start with one cache.
 
     // Use a limited set of random transaction ids, so we do test overwriting entries.
     std::vector<uint256> txids;
@@ -656,7 +628,7 @@ BOOST_AUTO_TEST_CASE(coins_cache_simulation_test)
     for (unsigned int i = 0; i < NUM_SIMULATION_ITERATIONS; i++) {
         // Do a random modification.
         {
-            uint256 txid = txids[insecure_rand() % txids.size()]; // txid we're going to modify in this iteration.
+            uint256 txid = txids[insecure_rand() % txids.size()];  // txid we're going to modify in this iteration.
             CCoins& coins = result[txid];
             CCoinsModifier entry = stack.back()->ModifyCoins(txid);
             BOOST_CHECK(coins == *entry);
@@ -689,9 +661,7 @@ BOOST_AUTO_TEST_CASE(coins_cache_simulation_test)
                     missed_an_entry = true;
                 }
             }
-            BOOST_FOREACH(const CCoinsViewCacheTest *test, stack) {
-                test->SelfTest();
-            }
+            BOOST_FOREACH (const CCoinsViewCacheTest* test, stack) { test->SelfTest(); }
         }
 
         if (insecure_rand() % 100 == 0) {
@@ -732,8 +702,7 @@ BOOST_AUTO_TEST_CASE(coins_cache_simulation_test)
     BOOST_CHECK(missed_an_entry);
 }
 
-BOOST_AUTO_TEST_CASE(coins_coinbase_spends)
-{
+BOOST_AUTO_TEST_CASE(coins_coinbase_spends) {
     CCoinsViewTest base;
     CCoinsViewCacheTest cache(&base);
 
@@ -761,20 +730,19 @@ BOOST_AUTO_TEST_CASE(coins_coinbase_spends)
 
     {
         CTransaction tx2(mtx2);
-        BOOST_CHECK(Consensus::CheckTxInputs(tx2, state, cache, 100+COINBASE_MATURITY, Params().GetConsensus()));
+        BOOST_CHECK(Consensus::CheckTxInputs(tx2, state, cache, 100 + COINBASE_MATURITY, Params().GetConsensus()));
     }
 
     mtx2.addOut(CTxOut(500, CScript() << OP_1));
 
     {
         CTransaction tx2(mtx2);
-        BOOST_CHECK(!Consensus::CheckTxInputs(tx2, state, cache, 100+COINBASE_MATURITY, Params().GetConsensus()));
+        BOOST_CHECK(!Consensus::CheckTxInputs(tx2, state, cache, 100 + COINBASE_MATURITY, Params().GetConsensus()));
         BOOST_CHECK(state.GetRejectReason() == "bad-txns-coinbase-spend-has-transparent-outputs");
     }
 }
 
-BOOST_AUTO_TEST_CASE(ccoins_serialization_from_tx)
-{
+BOOST_AUTO_TEST_CASE(ccoins_serialization_from_tx) {
     // Good example
     CDataStream ss1(ParseHex("0104835800816115944e077fe7c803cfa57f29b36bf87c1d358bb85e"), SER_DISK, CLIENT_VERSION);
 
@@ -788,9 +756,12 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_tx)
     BOOST_CHECK_EQUAL(cc1.IsAvailable(0), false);
     BOOST_CHECK_EQUAL(cc1.IsAvailable(1), true);
     BOOST_CHECK_EQUAL(cc1.vout[1].nValue, 60000000000ULL);
-    BOOST_CHECK_EQUAL(HexStr(cc1.vout[1].scriptPubKey), HexStr(GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))))));
+    BOOST_CHECK_EQUAL(HexStr(cc1.vout[1].scriptPubKey),
+                      HexStr(GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))))));
     // Good example
-    CDataStream ss2(ParseHex("0109044086ef97d5790061b01caab50f1b8e9c50a5057eb43c2d9563a4eebbd123008c988f1a4a4de2161e0f50aac7f17e7f9555caa486af3b"), SER_DISK, CLIENT_VERSION);
+    CDataStream ss2(ParseHex("0109044086ef97d5790061b01caab50f1b8e9c50a5057eb43c2d9563a4eebbd123008c988f1a4a4de2161e0f50aac7f17"
+                             "e7f9555caa486af3b"),
+                    SER_DISK, CLIENT_VERSION);
 
     CCoins cc2;
     ss2 >> cc2;
@@ -803,9 +774,11 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_tx)
         BOOST_CHECK_EQUAL(cc2.IsAvailable(i), i == 4 || i == 16);
     }
     BOOST_CHECK_EQUAL(cc2.vout[4].nValue, 234925952);
-    BOOST_CHECK_EQUAL(HexStr(cc2.vout[4].scriptPubKey), HexStr(GetScriptForDestination(CKeyID(uint160(ParseHex("61b01caab50f1b8e9c50a5057eb43c2d9563a4ee"))))));
+    BOOST_CHECK_EQUAL(HexStr(cc2.vout[4].scriptPubKey),
+                      HexStr(GetScriptForDestination(CKeyID(uint160(ParseHex("61b01caab50f1b8e9c50a5057eb43c2d9563a4ee"))))));
     BOOST_CHECK_EQUAL(cc2.vout[16].nValue, 110397);
-    BOOST_CHECK_EQUAL(HexStr(cc2.vout[16].scriptPubKey), HexStr(GetScriptForDestination(CKeyID(uint160(ParseHex("8c988f1a4a4de2161e0f50aac7f17e7f9555caa4"))))));
+    BOOST_CHECK_EQUAL(HexStr(cc2.vout[16].scriptPubKey),
+                      HexStr(GetScriptForDestination(CKeyID(uint160(ParseHex("8c988f1a4a4de2161e0f50aac7f17e7f9555caa4"))))));
     // Smallest possible example
     CDataStream ssx(SER_DISK, CLIENT_VERSION);
     BOOST_CHECK_EQUAL(HexStr(ssx.begin(), ssx.end()), "");
@@ -829,7 +802,8 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_tx)
         CCoins cc4;
         ss4 >> cc4;
         BOOST_CHECK_MESSAGE(false, "We should have thrown");
-    } catch (const std::ios_base::failure& e) {}
+    } catch (const std::ios_base::failure& e) {
+    }
 
     // Very large scriptPubKey (3*10^9 bytes) past the end of the stream
     CDataStream tmp(SER_DISK, CLIENT_VERSION);
@@ -844,7 +818,7 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_tx)
     } catch (const std::ios_base::failure& e) {
     }
 
-    //Malformed coins with tx version by non-null originScId will have the latter reset upon deserialization
+    // Malformed coins with tx version by non-null originScId will have the latter reset upon deserialization
     CCoins coinFromTx;
     coinFromTx.fCoinBase = false;
     coinFromTx.vout.resize(2);
@@ -862,18 +836,20 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_tx)
     BOOST_CHECK(retrievedCoin.nBwtMaturityHeight == 0);
 }
 
-BOOST_AUTO_TEST_CASE(ccoins_serialization_from_certs)
-{
-    //Serialize and unserialize back a coin from cert
+BOOST_AUTO_TEST_CASE(ccoins_serialization_from_certs) {
+    // Serialize and unserialize back a coin from cert
     CCoins originalCoin;
     originalCoin.fCoinBase = false;
     originalCoin.vout.resize(3);
     originalCoin.vout[0].nValue = insecure_rand();
-    originalCoin.vout[0].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))));
+    originalCoin.vout[0].scriptPubKey =
+        GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))));
     originalCoin.vout[1].nValue = insecure_rand();
-    originalCoin.vout[1].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("61b01caab50f1b8e9c50a5057eb43c2d9563a4ee"))));
+    originalCoin.vout[1].scriptPubKey =
+        GetScriptForDestination(CKeyID(uint160(ParseHex("61b01caab50f1b8e9c50a5057eb43c2d9563a4ee"))));
     originalCoin.vout[2].nValue = insecure_rand();
-    originalCoin.vout[2].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))));
+    originalCoin.vout[2].scriptPubKey =
+        GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))));
     originalCoin.nHeight = 220;
     originalCoin.nVersion = SC_CERT_VERSION;
     originalCoin.nFirstBwtPos = 2;
@@ -885,22 +861,21 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_certs)
     CCoins retrievedCoin;
     ss1 >> retrievedCoin;
 
-    BOOST_CHECK(retrievedCoin.fCoinBase                      == originalCoin.fCoinBase);
-    BOOST_CHECK(retrievedCoin.vout[0].nValue                 == originalCoin.vout[0].nValue);
-    BOOST_CHECK(retrievedCoin.vout[0].scriptPubKey           == originalCoin.vout[0].scriptPubKey);
-    BOOST_CHECK(retrievedCoin.vout[1].nValue                 == originalCoin.vout[1].nValue);
-    BOOST_CHECK(retrievedCoin.vout[1].scriptPubKey           == originalCoin.vout[1].scriptPubKey);
-    BOOST_CHECK(retrievedCoin.vout[2].nValue                 == originalCoin.vout[2].nValue);
-    BOOST_CHECK(retrievedCoin.vout[2].scriptPubKey           == originalCoin.vout[2].scriptPubKey);
-    BOOST_CHECK(retrievedCoin.nHeight                        == originalCoin.nHeight);
-    BOOST_CHECK(retrievedCoin.nVersion                       != originalCoin.nVersion);
-    BOOST_CHECK( (retrievedCoin.nVersion & 0x7f)             == (originalCoin.nVersion & 0x7f));
-    BOOST_CHECK(retrievedCoin.nFirstBwtPos                   == originalCoin.nFirstBwtPos);
-    BOOST_CHECK(retrievedCoin.nBwtMaturityHeight             == originalCoin.nBwtMaturityHeight);
+    BOOST_CHECK(retrievedCoin.fCoinBase == originalCoin.fCoinBase);
+    BOOST_CHECK(retrievedCoin.vout[0].nValue == originalCoin.vout[0].nValue);
+    BOOST_CHECK(retrievedCoin.vout[0].scriptPubKey == originalCoin.vout[0].scriptPubKey);
+    BOOST_CHECK(retrievedCoin.vout[1].nValue == originalCoin.vout[1].nValue);
+    BOOST_CHECK(retrievedCoin.vout[1].scriptPubKey == originalCoin.vout[1].scriptPubKey);
+    BOOST_CHECK(retrievedCoin.vout[2].nValue == originalCoin.vout[2].nValue);
+    BOOST_CHECK(retrievedCoin.vout[2].scriptPubKey == originalCoin.vout[2].scriptPubKey);
+    BOOST_CHECK(retrievedCoin.nHeight == originalCoin.nHeight);
+    BOOST_CHECK(retrievedCoin.nVersion != originalCoin.nVersion);
+    BOOST_CHECK((retrievedCoin.nVersion & 0x7f) == (originalCoin.nVersion & 0x7f));
+    BOOST_CHECK(retrievedCoin.nFirstBwtPos == originalCoin.nFirstBwtPos);
+    BOOST_CHECK(retrievedCoin.nBwtMaturityHeight == originalCoin.nBwtMaturityHeight);
 }
 
-BOOST_AUTO_TEST_CASE(Certificate_CTxInUndo_serialization)
-{
+BOOST_AUTO_TEST_CASE(Certificate_CTxInUndo_serialization) {
     // CTxInUndo serialization has been updated following certificates introduction.
     // This test verifies the serialization/deserialization pair allow retrieval of complete CTxOut
 
@@ -913,22 +888,23 @@ BOOST_AUTO_TEST_CASE(Certificate_CTxInUndo_serialization)
     coinFromCert.nFirstBwtPos = 0;
     coinFromCert.nBwtMaturityHeight = 230;
 
-    //if the vin about to be written in undo is the last one, all metadata (fCoinBase, version, originScId) are noted
-    CTxInUndo fullCertInUndo(coinFromCert.vout[0], coinFromCert.fCoinBase,
-                             coinFromCert.nHeight, coinFromCert.nVersion, coinFromCert.nFirstBwtPos, coinFromCert.nBwtMaturityHeight);
+    // if the vin about to be written in undo is the last one, all metadata (fCoinBase, version, originScId) are noted
+    CTxInUndo fullCertInUndo(coinFromCert.vout[0], coinFromCert.fCoinBase, coinFromCert.nHeight, coinFromCert.nVersion,
+                             coinFromCert.nFirstBwtPos, coinFromCert.nBwtMaturityHeight);
     CDataStream ssFullCert(SER_DISK, CLIENT_VERSION);
 
     ssFullCert << fullCertInUndo;
     CTxInUndo retrievedFullCertIn;
     ssFullCert >> retrievedFullCertIn;
 
-    BOOST_CHECK(retrievedFullCertIn.fCoinBase                  == coinFromCert.fCoinBase);
-    BOOST_CHECK_MESSAGE((retrievedFullCertIn.nVersion & 0x7f)  == (coinFromCert.nVersion & 0x7f),   retrievedFullCertIn.nVersion);
-    BOOST_CHECK_MESSAGE(retrievedFullCertIn.nHeight            == coinFromCert.nHeight,             retrievedFullCertIn.nHeight);
-    BOOST_CHECK_MESSAGE(retrievedFullCertIn.nFirstBwtPos       == coinFromCert.nFirstBwtPos,        retrievedFullCertIn.nFirstBwtPos);
-    BOOST_CHECK_MESSAGE(retrievedFullCertIn.nBwtMaturityHeight == coinFromCert.nBwtMaturityHeight,  retrievedFullCertIn.nBwtMaturityHeight);
+    BOOST_CHECK(retrievedFullCertIn.fCoinBase == coinFromCert.fCoinBase);
+    BOOST_CHECK_MESSAGE((retrievedFullCertIn.nVersion & 0x7f) == (coinFromCert.nVersion & 0x7f), retrievedFullCertIn.nVersion);
+    BOOST_CHECK_MESSAGE(retrievedFullCertIn.nHeight == coinFromCert.nHeight, retrievedFullCertIn.nHeight);
+    BOOST_CHECK_MESSAGE(retrievedFullCertIn.nFirstBwtPos == coinFromCert.nFirstBwtPos, retrievedFullCertIn.nFirstBwtPos);
+    BOOST_CHECK_MESSAGE(retrievedFullCertIn.nBwtMaturityHeight == coinFromCert.nBwtMaturityHeight,
+                        retrievedFullCertIn.nBwtMaturityHeight);
 
-    //if the vin about to be written in undo is NOT the last one only vout is noted
+    // if the vin about to be written in undo is NOT the last one only vout is noted
     CTxInUndo partialCertInUndo(coinFromCert.vout[0]);
     CDataStream ssPartialCert(SER_DISK, CLIENT_VERSION);
 
@@ -938,8 +914,7 @@ BOOST_AUTO_TEST_CASE(Certificate_CTxInUndo_serialization)
     BOOST_CHECK(retrievedPartialCertIn.txout == coinFromCert.vout[0]);
 }
 
-BOOST_AUTO_TEST_CASE(Transaction_CTxInUndo_serialization)
-{
+BOOST_AUTO_TEST_CASE(Transaction_CTxInUndo_serialization) {
     // CTxInUndo serialization has been updated following certificates introduction.
     // This test verifies the serialization/deserialization pair allow retrieval of complete CTxOut
 
@@ -951,7 +926,7 @@ BOOST_AUTO_TEST_CASE(Transaction_CTxInUndo_serialization)
     coinFromTx.nVersion = TRANSPARENT_TX_VERSION;
     coinFromTx.nFirstBwtPos = BWT_POS_UNSET;
 
-    //if the vin about to be written in undo is the last one, all metadata (fCoinBase, version, NOT originSc) are noted
+    // if the vin about to be written in undo is the last one, all metadata (fCoinBase, version, NOT originSc) are noted
     CTxInUndo fullTxInUndo(coinFromTx.vout[0], coinFromTx.fCoinBase, coinFromTx.nHeight, coinFromTx.nVersion);
     CDataStream ssFullTx(SER_DISK, CLIENT_VERSION);
 
@@ -959,13 +934,13 @@ BOOST_AUTO_TEST_CASE(Transaction_CTxInUndo_serialization)
     CTxInUndo retrievedFullTx;
     ssFullTx >> retrievedFullTx;
 
-    BOOST_CHECK(retrievedFullTx.fCoinBase                  == coinFromTx.fCoinBase);
-    BOOST_CHECK_MESSAGE(retrievedFullTx.nVersion           == coinFromTx.nVersion,   retrievedFullTx.nVersion);
-    BOOST_CHECK_MESSAGE(retrievedFullTx.nHeight            == coinFromTx.nHeight,    retrievedFullTx.nHeight);
-    BOOST_CHECK_MESSAGE(retrievedFullTx.nBwtMaturityHeight == 0,  retrievedFullTx.nBwtMaturityHeight);
+    BOOST_CHECK(retrievedFullTx.fCoinBase == coinFromTx.fCoinBase);
+    BOOST_CHECK_MESSAGE(retrievedFullTx.nVersion == coinFromTx.nVersion, retrievedFullTx.nVersion);
+    BOOST_CHECK_MESSAGE(retrievedFullTx.nHeight == coinFromTx.nHeight, retrievedFullTx.nHeight);
+    BOOST_CHECK_MESSAGE(retrievedFullTx.nBwtMaturityHeight == 0, retrievedFullTx.nBwtMaturityHeight);
     BOOST_CHECK(retrievedFullTx.txout == coinFromTx.vout[0]);
 
-    //if the vin about to be written in undo is NOT the last one only vout is noted
+    // if the vin about to be written in undo is NOT the last one only vout is noted
     CTxInUndo partialTxInUndo(coinFromTx.vout[0]);
     CDataStream ssPartialTx(SER_DISK, CLIENT_VERSION);
 
@@ -974,7 +949,7 @@ BOOST_AUTO_TEST_CASE(Transaction_CTxInUndo_serialization)
     ssPartialTx >> retrievedPartialTxIn;
     BOOST_CHECK(retrievedPartialTxIn.txout == coinFromTx.vout[0]);
 
-    //Todo: missing proof of backward compatibility
+    // Todo: missing proof of backward compatibility
 }
 
 BOOST_AUTO_TEST_SUITE_END()

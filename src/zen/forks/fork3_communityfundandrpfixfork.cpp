@@ -8,34 +8,26 @@ namespace zen {
 /**
  * @brief CommunityFundAndRPFixFork constructor
  */
-CommunityFundAndRPFixFork::CommunityFundAndRPFixFork(){
-    setHeightMap({{CBaseChainParams::Network::MAIN,139200},
-                  {CBaseChainParams::Network::REGTEST,101},
-                  {CBaseChainParams::Network::TESTNET,85500}});
-    setCommunityFundAddressMap({{CBaseChainParams::Network::MAIN,{
-                                     "zsyF68hcYYNLPj5i4PfQJ1kUY6nsFnZkc82",
-                                     "zsfULrmbX7xbhqhAFRffVqCw9RyGv2hqNNG",
-                                     "zsoemTfqjicem2QVU8cgBHquKb1o9JR5p4Z",
-                                     "zt339oiGL6tTgc9Q71f5g1sFTZf6QiXrRUr"
-                                     }},
-                                {CBaseChainParams::Network::REGTEST,{ 
-                                     "zrQWJd1fhtkQtrjbYPXfHFF1c61DUtiXcCD" 
-                                 }},
-                                {CBaseChainParams::Network::TESTNET,{
-                                     "zrRBQ5heytPMN5nY3ssPf3cG4jocXeD8fm1"
-                                 }}}, CommunityFundType::FOUNDATION);
-    addressChangeIntervals = {
-        {CBaseChainParams::Network::MAIN,50000},
-        {CBaseChainParams::Network::REGTEST,100},
-        {CBaseChainParams::Network::TESTNET,10000}
-    };
+CommunityFundAndRPFixFork::CommunityFundAndRPFixFork() {
+    setHeightMap({{CBaseChainParams::Network::MAIN, 139200},
+                  {CBaseChainParams::Network::REGTEST, 101},
+                  {CBaseChainParams::Network::TESTNET, 85500}});
+    setCommunityFundAddressMap({{CBaseChainParams::Network::MAIN,
+                                 {"zsyF68hcYYNLPj5i4PfQJ1kUY6nsFnZkc82", "zsfULrmbX7xbhqhAFRffVqCw9RyGv2hqNNG",
+                                  "zsoemTfqjicem2QVU8cgBHquKb1o9JR5p4Z", "zt339oiGL6tTgc9Q71f5g1sFTZf6QiXrRUr"}},
+                                {CBaseChainParams::Network::REGTEST, {"zrQWJd1fhtkQtrjbYPXfHFF1c61DUtiXcCD"}},
+                                {CBaseChainParams::Network::TESTNET, {"zrRBQ5heytPMN5nY3ssPf3cG4jocXeD8fm1"}}},
+                               CommunityFundType::FOUNDATION);
+    addressChangeIntervals = {{CBaseChainParams::Network::MAIN, 50000},
+                              {CBaseChainParams::Network::REGTEST, 100},
+                              {CBaseChainParams::Network::TESTNET, 10000}};
 }
 
 /*
  * This is the prv key used in REGTEST for getting the community fund p2sh address:
  *
  * "privkey": "cQqMxnYBJUUS3jERyQSJWFuQV54eKTgS2v68wMNHXtNg9HzuyiAk"
- * 
+ *
  * After having imported the relevant priv key:
  *     src/zen-cli --regtest importprivkey <privkey>
  * The multi sig (m=1) redeemscript can be added to the wallet via:
@@ -48,8 +40,10 @@ CommunityFundAndRPFixFork::CommunityFundAndRPFixFork(){
  * @return the community reward
  */
 CAmount CommunityFundAndRPFixFork::getCommunityFundReward(const CAmount& amount, CommunityFundType cfType) const {
-    if (cfType != CommunityFundType::FOUNDATION) { return 0; }
-    return (CAmount)amount*120/1000;
+    if (cfType != CommunityFundType::FOUNDATION) {
+        return 0;
+    }
+    return (CAmount)amount * 120 / 1000;
 }
 
 /**
@@ -58,7 +52,8 @@ CAmount CommunityFundAndRPFixFork::getCommunityFundReward(const CAmount& amount,
  * @param maxHeight the maximum height sometimes used in the computation of the proper address
  * @return the community fund address for this height
  */
-const std::string& CommunityFundAndRPFixFork::getCommunityFundAddress(CBaseChainParams::Network network, int height, int maxHeight, CommunityFundType cfType) const {
+const std::string& CommunityFundAndRPFixFork::getCommunityFundAddress(CBaseChainParams::Network network, int height,
+                                                                      int maxHeight, CommunityFundType cfType) const {
     if (cfType != CommunityFundType::FOUNDATION) {
         static std::string emptyAddress = "";
         return emptyAddress;
@@ -75,9 +70,8 @@ const std::string& CommunityFundAndRPFixFork::getCommunityFundAddress(CBaseChain
  * @return true if allowed, false otherwise
  */
 bool CommunityFundAndRPFixFork::isTransactionTypeAllowed(txnouttype transactionType) const {
-    if (transactionType == TX_SCRIPTHASH_REPLAY)
-        return true;
+    if (transactionType == TX_SCRIPTHASH_REPLAY) return true;
     return ReplayProtectionFork::isTransactionTypeAllowed(transactionType);
 }
 
-}
+}  // namespace zen

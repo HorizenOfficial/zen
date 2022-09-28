@@ -1,5 +1,7 @@
 #include "httprpc.h"
 
+#include <boost/algorithm/string.hpp>  // boost::trim
+
 #include "base58.h"
 #include "chainparams.h"
 #include "httpserver.h"
@@ -11,56 +13,41 @@
 #include "util.h"
 #include "utilstrencodings.h"
 
-#include <boost/algorithm/string.hpp> // boost::trim
-
 /** WWW-Authenticate to present with 401 Unauthorized response */
 static const char* WWW_AUTH_HEADER_DATA = "Basic realm=\"jsonrpc\"";
 
 /** Simple one-shot callback timer to be used by the RPC mechanism to e.g.
  * re-lock the wellet.
  */
-class HTTPRPCTimer : public RPCTimerBase
-{
-public:
-    HTTPRPCTimer(struct event_base* eventBase, boost::function<void(void)>& func, int64_t millis) : ev(eventBase, false, func)
-    {
+class HTTPRPCTimer : public RPCTimerBase {
+  public:
+    HTTPRPCTimer(struct event_base* eventBase, boost::function<void(void)>& func, int64_t millis) : ev(eventBase, false, func) {
         struct timeval tv;
         tv.tv_sec = millis / 1000;
         tv.tv_usec = (millis % 1000) * 1000;
         ev.trigger(&tv);
     }
 
-private:
+  private:
     HTTPEvent ev;
 };
 
-class HTTPRPCTimerInterface : public RPCTimerInterface
-{
-public:
-    HTTPRPCTimerInterface(struct event_base* base) : base(base)
-    {
-    }
-    const char* Name()
-    {
-        return "HTTP";
-    }
-    RPCTimerBase* NewTimer(boost::function<void(void)>& func, int64_t millis)
-    {
-        return new HTTPRPCTimer(base, func, millis);
-    }
+class HTTPRPCTimerInterface : public RPCTimerInterface {
+  public:
+    HTTPRPCTimerInterface(struct event_base* base) : base(base) {}
+    const char* Name() { return "HTTP"; }
+    RPCTimerBase* NewTimer(boost::function<void(void)>& func, int64_t millis) { return new HTTPRPCTimer(base, func, millis); }
 
-private:
+  private:
     struct event_base* base;
 };
-
 
 /* Pre-base64-encoded authentication token */
 static std::string strRPCUserColonPass;
 /* Stored RPC timer interface (for unregistration) */
 static HTTPRPCTimerInterface* httpRPCTimerInterface = 0;
 
-static void JSONErrorReply(HTTPRequest* req, const UniValue& objError, const UniValue& id)
-{
+static void JSONErrorReply(HTTPRequest* req, const UniValue& objError, const UniValue& id) {
     // Send error reply from json-rpc error object
     int nStatus = HTTP_INTERNAL_SERVER_ERROR;
     int code = find_value(objError, "code").get_int();
@@ -76,20 +63,17 @@ static void JSONErrorReply(HTTPRequest* req, const UniValue& objError, const Uni
     req->WriteReply(nStatus, strReply);
 }
 
-static bool RPCAuthorized(const std::string& strAuth)
-{
-    if (strRPCUserColonPass.empty()) // Belt-and-suspenders measure if InitRPCAuthentication was not called
+static bool RPCAuthorized(const std::string& strAuth) {
+    if (strRPCUserColonPass.empty())  // Belt-and-suspenders measure if InitRPCAuthentication was not called
         return false;
-    if (strAuth.substr(0, 6) != "Basic ")
-        return false;
+    if (strAuth.substr(0, 6) != "Basic ") return false;
     std::string strUserPass64 = strAuth.substr(6);
     boost::trim(strUserPass64);
     std::string strUserPass = DecodeBase64(strUserPass64);
     return TimingResistantEqual(strUserPass, strRPCUserColonPass);
 }
 
-static bool HTTPReq_JSONRPC(HTTPRequest* req, const std::string&)
-{
+static bool HTTPReq_JSONRPC(HTTPRequest* req, const std::string&) {
     // JSONRPC handles only POST
     if (req->GetRequestMethod() != HTTPRequest::POST) {
         req->WriteReply(HTTP_BAD_METHOD, "JSONRPC server handles only POST requests");
@@ -120,8 +104,7 @@ static bool HTTPReq_JSONRPC(HTTPRequest* req, const std::string&)
     try {
         // Parse request
         UniValue valRequest;
-        if (!valRequest.read(req->ReadBody()))
-            throw JSONRPCError(RPC_PARSE_ERROR, "Parse error");
+        if (!valRequest.read(req->ReadBody())) throw JSONRPCError(RPC_PARSE_ERROR, "Parse error");
 
         std::string strReply;
         // singleton request
@@ -151,13 +134,12 @@ static bool HTTPReq_JSONRPC(HTTPRequest* req, const std::string&)
     return true;
 }
 
-static bool InitRPCAuthentication()
-{
+static bool InitRPCAuthentication() {
     if (mapArgs["-rpcpassword"] == "") {
         LogPrintf("No rpcpassword set - using random cookie authentication\n");
         if (!GenerateAuthCookie(&strRPCUserColonPass)) {
             uiInterface.ThreadSafeMessageBox(
-                _("Error: A fatal internal error occurred, see debug.log for details"), // Same message as AbortNode
+                _("Error: A fatal internal error occurred, see debug.log for details"),  // Same message as AbortNode
                 "", CClientUIInterface::MSG_ERROR);
             return false;
         }
@@ -167,11 +149,9 @@ static bool InitRPCAuthentication()
     return true;
 }
 
-bool StartHTTPRPC()
-{
+bool StartHTTPRPC() {
     LogPrint("rpc", "Starting HTTP RPC server\n");
-    if (!InitRPCAuthentication())
-        return false;
+    if (!InitRPCAuthentication()) return false;
 
     RegisterHTTPHandler("/", true, HTTPReq_JSONRPC);
 
@@ -181,13 +161,9 @@ bool StartHTTPRPC()
     return true;
 }
 
-void InterruptHTTPRPC()
-{
-    LogPrint("rpc", "Interrupting HTTP RPC server\n");
-}
+void InterruptHTTPRPC() { LogPrint("rpc", "Interrupting HTTP RPC server\n"); }
 
-void StopHTTPRPC()
-{
+void StopHTTPRPC() {
     LogPrint("rpc", "Stopping HTTP RPC server\n");
     UnregisterHTTPHandler("/", true);
     if (httpRPCTimerInterface) {

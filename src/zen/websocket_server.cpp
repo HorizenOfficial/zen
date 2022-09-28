@@ -1,26 +1,27 @@
-#include "../util.h"
 #include <univalue.h>
-#include <boost/unordered_map.hpp>
-#include <boost/beast/core.hpp>
-#include <boost/beast/websocket.hpp>
-#include <boost/asio.hpp>
-#include <boost/asio/ip/tcp.hpp>
+
 #include <cstdlib>
 #include <functional>
 #include <iostream>
+#include <queue>
 #include <string>
 #include <thread>
-#include <boost/thread.hpp>
+
 #include <boost/asio.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/beast/core.hpp>
+#include <boost/beast/websocket.hpp>
 #include <boost/lockfree/queue.hpp>
 #include <boost/lockfree/spsc_queue.hpp>
-#include <queue>
-#include "validationinterface.h"
-#include "main.h"
+#include <boost/thread.hpp>
+#include <boost/unordered_map.hpp>
+
+#include "../util.h"
 #include "consensus/validation.h"
-#include <univalue.h>
+#include "main.h"
 #include "uint256.h"
 #include "utilmoneystr.h"
+#include "validationinterface.h"
 
 extern UniValue sc_send_certificate(const UniValue& params, bool fHelp);
 extern CAmount AmountFromValue(const UniValue& value);
@@ -41,31 +42,28 @@ static int tot_connections = 0;
 class WsNotificationInterface;
 class WsHandler;
 
-static int getblock(const CBlockIndex *pindex, std::string& blockHexStr);
-static int getheader(const CBlockIndex *pindex, std::string& blockHexStr);
-static void ws_updatetip(const CBlockIndex *pindex);
+static int getblock(const CBlockIndex* pindex, std::string& blockHexStr);
+static int getheader(const CBlockIndex* pindex, std::string& blockHexStr);
+static void ws_updatetip(const CBlockIndex* pindex);
 
 static boost::shared_ptr<WsNotificationInterface> wsNotificationInterface;
-static std::list< boost::shared_ptr<WsHandler> > listWsHandler;
+static std::list<boost::shared_ptr<WsHandler>> listWsHandler;
 
 std::atomic<bool> exit_ws_thread{false};
 boost::thread ws_thread;
 std::mutex wsmtx;
 
-static void dumpUniValueError(const UniValue& error, std::string& outMsg)
-{
+static void dumpUniValueError(const UniValue& error, std::string& outMsg) {
     UniValue errCode = find_value(error, "code");
-    UniValue errMsg  = find_value(error, "message");
+    UniValue errMsg = find_value(error, "message");
     std::string strPrint = errCode.isNull() ? "" : "error code: " + errCode.getValStr() + "; ";
-    if (errMsg.isStr())
-    {
+    if (errMsg.isStr()) {
         outMsg = errMsg.get_str();
     }
     LogPrint("ws", "%s():%d - JSON error: %s\n", __func__, __LINE__, (strPrint + outMsg));
 }
 
-static std::string findFieldValue(const std::string& field, const UniValue& request)
-{
+static std::string findFieldValue(const std::string& field, const UniValue& request) {
     const UniValue& clientvalue = find_value(request, field);
     if (clientvalue.isStr()) {
         return clientvalue.get_str();
@@ -77,27 +75,23 @@ static std::string findFieldValue(const std::string& field, const UniValue& requ
     return "";
 }
 
-class WsNotificationInterface: public CValidationInterface
-{
-protected:
-    virtual void UpdatedBlockTip(const CBlockIndex *pindex) {
-        ws_updatetip(pindex);
-    };
-public:
-    ~WsNotificationInterface() 
-    {
-        LogPrint("ws", "%s():%d - called this=%p\n", __func__, __LINE__, this);
-    }
+class WsNotificationInterface : public CValidationInterface {
+  protected:
+    virtual void UpdatedBlockTip(const CBlockIndex* pindex) { ws_updatetip(pindex); };
+
+  public:
+    ~WsNotificationInterface() { LogPrint("ws", "%s():%d - called this=%p\n", __func__, __LINE__, this); }
 };
 
-class WsEvent
-{
-public:
-    enum WsEventType {
+class WsEvent {
+  public:
+    enum WsEventType
+    {
         UPDATE_TIP = 0,
         EVT_UNDEFINED = 0xff
     };
-    enum WsRequestType {
+    enum WsRequestType
+    {
         GET_SINGLE_BLOCK = 0,
         GET_MULTIPLE_BLOCK_HASHES = 1,
         GET_NEW_BLOCK_HASHES = 2,
@@ -107,8 +101,9 @@ public:
         GET_SIDECHAIN_VERSIONS = 6,
         REQ_UNDEFINED = 0xff
     };
-    
-    enum WsMsgType {
+
+    enum WsMsgType
+    {
         MSG_EVENT = 0,
         MSG_REQUEST = 1,
         MSG_RESPONSE = 2,
@@ -116,41 +111,31 @@ public:
         MSG_UNDEFINED = 0xff
     };
 
-    explicit WsEvent(WsMsgType xn): type(xn), payload(UniValue::VOBJ)
-    {
-        payload.pushKV("msgType", type);
-    }
-    WsEvent & operator=(const WsEvent& ws) = delete;
+    explicit WsEvent(WsMsgType xn) : type(xn), payload(UniValue::VOBJ) { payload.pushKV("msgType", type); }
+    WsEvent& operator=(const WsEvent& ws) = delete;
     WsEvent(const WsEvent& ws) = delete;
 
-    UniValue* getPayload() {
-        return &payload;
-    }
+    UniValue* getPayload() { return &payload; }
 
-private:
+  private:
     WsMsgType type;
     UniValue payload;
 };
 
-
-
-class WsHandler
-{
-private:
+class WsHandler {
+  private:
     std::condition_variable writeCV;
     std::mutex writeMutex;
 
-    boost::shared_ptr< websocket::stream<tcp::socket>> localWs;
+    boost::shared_ptr<websocket::stream<tcp::socket>> localWs;
     boost::lockfree::queue<WsEvent*, boost::lockfree::capacity<1024>> wsq;
-    std::atomic<bool> exit_rwhandler_thread_flag { false };
+    std::atomic<bool> exit_rwhandler_thread_flag{false};
 
-    void write(WsEvent* wse)
-    {
+    void write(WsEvent* wse) {
         wsq.push(wse);
         writeCV.notify_one();
     }
-    void sendBlockEvent(int height, const std::string& strHash, const std::string& blockHex, WsEvent::WsEventType eventType)
-    {
+    void sendBlockEvent(int height, const std::string& strHash, const std::string& blockHex, WsEvent::WsEventType eventType) {
         // Send a message to the client:  type = eventType
         WsEvent* wse = new WsEvent(WsEvent::MSG_EVENT);
         LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
@@ -165,9 +150,8 @@ private:
         write(wse);
     }
 
-    void sendBlock(int height, const std::string& strHash, const std::string& blockHex,
-            WsEvent::WsMsgType msgType, std::string clientRequestId = "")
-    {
+    void sendBlock(int height, const std::string& strHash, const std::string& blockHex, WsEvent::WsMsgType msgType,
+                   std::string clientRequestId = "") {
         // Send a message to the client:  type = eventType
         WsEvent* wse = new WsEvent(msgType);
         LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
@@ -177,15 +161,13 @@ private:
         rspPayload.pushKV("block", blockHex);
 
         UniValue* rv = wse->getPayload();
-        if (!clientRequestId.empty())
-            rv->pushKV("requestId", clientRequestId);
+        if (!clientRequestId.empty()) rv->pushKV("requestId", clientRequestId);
         rv->pushKV("responsePayload", rspPayload);
         write(wse);
     }
 
-    void sendHashes(int height, std::list<CBlockIndex*>& listBlock,
-            WsEvent::WsMsgType msgType, std::string clientRequestId = "")
-    {
+    void sendHashes(int height, std::list<CBlockIndex*>& listBlock, WsEvent::WsMsgType msgType,
+                    std::string clientRequestId = "") {
         // Send a message to the client:  type = eventType
         WsEvent* wse = new WsEvent(msgType);
         LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
@@ -202,14 +184,12 @@ private:
         rspPayload.pushKV("hashes", hashes);
 
         UniValue* rv = wse->getPayload();
-        if (!clientRequestId.empty())
-            rv->pushKV("requestId", clientRequestId);
+        if (!clientRequestId.empty()) rv->pushKV("requestId", clientRequestId);
         rv->pushKV("responsePayload", rspPayload);
         write(wse);
     }
 
-    void sendCertificateHash(const UniValue& retCert, WsEvent::WsMsgType msgType, std::string clientRequestId = "")
-    {
+    void sendCertificateHash(const UniValue& retCert, WsEvent::WsMsgType msgType, std::string clientRequestId = "") {
         // Send a message to the client:  type = eventType
         WsEvent* wse = new WsEvent(msgType);
         LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
@@ -218,67 +198,60 @@ private:
         rspPayload.pushKV("certificateHash", retCert);
 
         UniValue* rv = wse->getPayload();
-        if (!clientRequestId.empty())
-            rv->pushKV("requestId", clientRequestId);
+        if (!clientRequestId.empty()) rv->pushKV("requestId", clientRequestId);
         rv->pushKV("responsePayload", rspPayload);
         write(wse);
     }
 
-    void sendBlockHeaders(const UniValue& headers, WsEvent::WsMsgType msgType, std::string clientRequestId = "")
-    {
+    void sendBlockHeaders(const UniValue& headers, WsEvent::WsMsgType msgType, std::string clientRequestId = "") {
         // Send a message to the client:  type = eventType
         WsEvent* wse = new WsEvent(msgType);
         LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
         UniValue rspPayload(UniValue::VOBJ);
-        
+
         rspPayload.pushKV("headers", headers);
 
         UniValue* rv = wse->getPayload();
-        if (!clientRequestId.empty())
-            rv->pushKV("requestId", clientRequestId);
+        if (!clientRequestId.empty()) rv->pushKV("requestId", clientRequestId);
         rv->pushKV("responsePayload", rspPayload);
         write(wse);
     }
-    
-    void sendTopQualityCertificates(const UniValue& mempoolCert, const UniValue& chainCert,
-                                    WsEvent::WsMsgType msgType, std::string clientRequestId = "")
-    {
+
+    void sendTopQualityCertificates(const UniValue& mempoolCert, const UniValue& chainCert, WsEvent::WsMsgType msgType,
+                                    std::string clientRequestId = "") {
         // Send a message to the client:  type = eventType
         WsEvent* wse = new WsEvent(msgType);
         LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
         UniValue rspPayload(UniValue::VOBJ);
-        
+
         rspPayload.push_back(Pair("mempoolTopQualityCert", mempoolCert));
         rspPayload.push_back(Pair("chainTopQualityCert", chainCert));
 
         UniValue* rv = wse->getPayload();
-        if (!clientRequestId.empty())
-            rv->push_back(Pair("requestId", clientRequestId));
+        if (!clientRequestId.empty()) rv->push_back(Pair("requestId", clientRequestId));
         rv->push_back(Pair("responsePayload", rspPayload));
         write(wse);
     }
 
-    void sendSidechainVersions(const UniValue& sidechainVersions, WsEvent::WsMsgType msgType, std::string clientRequestId = "")
-    {
+    void sendSidechainVersions(const UniValue& sidechainVersions, WsEvent::WsMsgType msgType,
+                               std::string clientRequestId = "") {
         WsEvent* wse = new WsEvent(msgType);
         LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
         UniValue rspPayload(UniValue::VOBJ);
-        
+
         rspPayload.push_back(Pair("sidechainVersions", sidechainVersions));
 
         UniValue* rv = wse->getPayload();
-        if (!clientRequestId.empty())
-            rv->push_back(Pair("requestId", clientRequestId));
+        if (!clientRequestId.empty()) rv->push_back(Pair("requestId", clientRequestId));
         rv->push_back(Pair("responsePayload", rspPayload));
         write(wse);
     }
 
-    int getHashByHeight(std::string height, std::string& strHash)
-    {
+    int getHashByHeight(std::string height, std::string& strHash) {
         int nHeight = -1;
         try {
             nHeight = std::stoi(height);
-        } catch (const std::exception &e) {
+        } catch (const std::exception& e) {
             LogPrint("ws", "%s():%d - %s\n", __func__, __LINE__, e.what());
             return INVALID_PARAMETER;
         }
@@ -293,12 +266,10 @@ private:
         return OK;
     }
 
-    int sendBlockByHeight(const std::string& strHeight, const std::string& clientRequestId)
-    {
+    int sendBlockByHeight(const std::string& strHeight, const std::string& clientRequestId) {
         std::string strHash;
         int r = getHashByHeight(strHeight, strHash);
-        if (r != OK)
-        {
+        if (r != OK) {
             return r;
         }
         return sendBlockByHash(strHash, clientRequestId);
@@ -310,51 +281,43 @@ private:
             LOCK(cs_main);
             uint256 hash(uint256S(strHash));
             BlockMap::iterator mi = mapBlockIndex.find(hash);
-            if (mi != mapBlockIndex.end())
-            {
+            if (mi != mapBlockIndex.end()) {
                 pblockindex = (*mi).second;
             }
         }
-        if (pblockindex == NULL)
-        {
+        if (pblockindex == NULL) {
             LogPrint("ws", "%s():%d - block index not found for hash[%s]\n", __func__, __LINE__, strHash);
             return INVALID_PARAMETER;
         }
         std::string block;
         int ret = getblock(pblockindex, block);
-        if (ret != OK)
-        {
+        if (ret != OK) {
             return ret;
         }
         sendBlock(pblockindex->nHeight, strHash, block, WsEvent::MSG_RESPONSE, clientRequestId);
         return OK;
     }
 
-    int sendBlocksFromHeight(const std::string& strHeight, const std::string& strLen, const std::string& clientRequestId)
-    {
+    int sendBlocksFromHeight(const std::string& strHeight, const std::string& strLen, const std::string& clientRequestId) {
         std::string strHash;
         int r = getHashByHeight(strHeight, strHash);
-        if (r != OK)
-            return r;
+        if (r != OK) return r;
         return sendBlocksFromHash(strHash, strLen, clientRequestId);
     }
 
-    int sendBlocksFromHash(const std::string& strHash, const std::string& strLen, const std::string& clientRequestId)
-    {
+    int sendBlocksFromHash(const std::string& strHash, const std::string& strLen, const std::string& clientRequestId) {
         int len = -1;
         try {
             len = std::stoi(strLen);
-        } catch (const std::exception &e) {
+        } catch (const std::exception& e) {
             LogPrint("ws", "%s():%d - %s\n", __func__, __LINE__, e.what());
             return INVALID_PARAMETER;
         }
-        if (len < 1)
-        {
+        if (len < 1) {
             LogPrint("ws", "%s():%d - invalid len %d\n", __func__, __LINE__, len);
             return INVALID_PARAMETER;
         }
-        if (len > MAX_BLOCKS_REQUEST)
-        {
+        if (len > MAX_BLOCKS_REQUEST) {
             LogPrint("ws", "%s():%d - invalid len %d (max is %d)\n", __func__, __LINE__, len, MAX_BLOCKS_REQUEST);
             return INVALID_PARAMETER;
         }
@@ -365,8 +328,7 @@ private:
             LOCK(cs_main);
             uint256 hash(uint256S(strHash));
             BlockMap::iterator mi = mapBlockIndex.find(hash);
-            if (mi != mapBlockIndex.end())
-            {
+            if (mi != mapBlockIndex.end()) {
                 pblockindex = (*mi).second;
             }
             if (pblockindex == NULL) {
@@ -374,8 +336,7 @@ private:
                 return INVALID_PARAMETER;
             }
             CBlockIndex* nextBlock = chainActive.Next(pblockindex);
-            if (nextBlock == NULL)
-            {
+            if (nextBlock == NULL) {
                 LogPrint("ws", "%s():%d - next block index not found for hash[%s]\n", __func__, __LINE__, strHash);
                 return INVALID_PARAMETER;
             }
@@ -383,8 +344,7 @@ private:
             while (n < len) {
                 listBlock.push_back(nextBlock);
                 nextBlock = chainActive.Next(nextBlock);
-                if (nextBlock == NULL)
-                    break;
+                if (nextBlock == NULL) break;
                 n++;
             }
         }
@@ -392,22 +352,19 @@ private:
         return OK;
     }
 
-
     int sendHashFromLocator(const UniValue& hashes, std::string strLen, const std::string& clientRequestId) {
         int len = -1;
         try {
             len = std::stoi(strLen);
-        } catch (const std::exception &e) {
+        } catch (const std::exception& e) {
             LogPrint("ws", "%s():%d - %s\n", __func__, __LINE__, e.what());
             return INVALID_PARAMETER;
         }
-        if (len < 1)
-        {
+        if (len < 1) {
             LogPrint("ws", "%s():%d - invalid len %d\n", __func__, __LINE__, len);
             return INVALID_PARAMETER;
         }
-        if (len > MAX_BLOCKS_REQUEST)
-        {
+        if (len > MAX_BLOCKS_REQUEST) {
             LogPrint("ws", "%s():%d - invalid len %d (max is %d)\n", __func__, __LINE__, len, MAX_BLOCKS_REQUEST);
             return INVALID_PARAMETER;
         }
@@ -415,10 +372,8 @@ private:
         std::list<CBlockIndex*> listBlock;
         CBlockIndex* pblockindexStart = NULL;
         int lastH = 0;
-        for (const UniValue& o : hashes.getValues())
-        {
-            if (o.isObject())
-            {
+        for (const UniValue& o : hashes.getValues()) {
+            if (o.isObject()) {
                 LogPrint("ws", "%s():%d - invalid obj\n", __func__, __LINE__);
                 return INVALID_PARAMETER;
             }
@@ -427,20 +382,16 @@ private:
             {
                 LOCK(cs_main);
                 BlockMap::iterator mi = mapBlockIndex.find(hash);
-                if (mi != mapBlockIndex.end())
-                {
+                if (mi != mapBlockIndex.end()) {
                     pblockindex = (*mi).second;
-                    if (!chainActive.Contains(pblockindex))
-                        pblockindex = NULL;
+                    if (!chainActive.Contains(pblockindex)) pblockindex = NULL;
                 }
             }
-            if (pblockindex == NULL)
-            {
+            if (pblockindex == NULL) {
                 LogPrint("ws", "%s():%d - block index not found for hash[%s], skipping it\n", __func__, __LINE__, o.get_str());
                 continue;
             }
-            if (pblockindex->nHeight > lastH)
-            {
+            if (pblockindex->nHeight > lastH) {
                 lastH = pblockindex->nHeight;
                 pblockindexStart = pblockindex;
             }
@@ -448,8 +399,7 @@ private:
         {
             LOCK(cs_main);
             CBlockIndex* nextBlock = pblockindexStart;
-            if (nextBlock == NULL)
-            {
+            if (nextBlock == NULL) {
                 LogPrint("ws", "%s():%d - start block index not found\n", __func__, __LINE__);
                 return INVALID_PARAMETER;
             }
@@ -457,8 +407,7 @@ private:
             while (n < len) {
                 listBlock.push_back(nextBlock);
                 nextBlock = chainActive.Next(nextBlock);
-                if (nextBlock == NULL)
-                    break;
+                if (nextBlock == NULL) break;
                 n++;
             }
         }
@@ -469,7 +418,7 @@ private:
     int sendCertificate(const UniValue& cmdParams, const std::string& clientRequestId, std::string& outMsg) {
         UniValue ret;
         try {
-             ret = sc_send_certificate(cmdParams, false);
+            ret = sc_send_certificate(cmdParams, false);
         } catch (const UniValue& e) {
             dumpUniValueError(e, outMsg);
             return INVALID_PARAMETER;
@@ -485,21 +434,21 @@ private:
         return OK;
     }
 
-    int sendHeadersFromHashes(const UniValue& hashes, const std::string& clientRequestId)
-    {
+    int sendHeadersFromHashes(const UniValue& hashes, const std::string& clientRequestId) {
         if (hashes.size() > MAX_HEADERS_REQUEST) {
-            LogPrint("ws", "%s():%d - invalid hashes amount %d (max is %d)\n", __func__, __LINE__, hashes.size(), MAX_HEADERS_REQUEST);
+            LogPrint("ws", "%s():%d - invalid hashes amount %d (max is %d)\n", __func__, __LINE__, hashes.size(),
+                     MAX_HEADERS_REQUEST);
             return INVALID_PARAMETER;
         }
-            
+
         UniValue headers(UniValue::VARR);
-            
+
         for (const UniValue& o : hashes.getValues()) {
             if (o.isObject()) {
                 LogPrint("ws", "%s():%d - invalid obj\n", __func__, __LINE__);
                 return INVALID_PARAMETER;
             }
-            
+
             std::string strHash = o.get_str();
             uint256 hash(uint256S(strHash));
             CBlockIndex* pblockindex = NULL;
@@ -512,7 +461,7 @@ private:
                     pblockindex = (*mi).second;
                 }
             }
-            
+
             if (pblockindex == NULL) {
                 LogPrint("ws", "%s():%d - block index not found for hash[%s]\n", __func__, __LINE__, strHash);
                 return INVALID_PARAMETER;
@@ -520,11 +469,10 @@ private:
 
             std::string header;
             int ret = getheader(pblockindex, header);
-            if (ret != OK)
-            {
+            if (ret != OK) {
                 return ret;
             }
-    
+
             headers.push_back(header);
         }
 
@@ -533,13 +481,12 @@ private:
         return OK;
     }
 
-    int sendTopQualityCertificatesForScid(const std::string& scIdString, const std::string& clientRequestId)
-    {
+    int sendTopQualityCertificatesForScid(const std::string& scIdString, const std::string& clientRequestId) {
         uint256 scId;
         scId.SetHex(scIdString);
-        
-        const CCoinsViewCache &view = *pcoinsTip;
-        
+
+        const CCoinsViewCache& view = *pcoinsTip;
+
         UniValue mempoolTopQualityCert(UniValue::VOBJ);
         UniValue chainTopQualityCert(UniValue::VOBJ);
 
@@ -549,16 +496,15 @@ private:
                 LogPrint("ws", "%s():%d - sidechain id not found[%s]\n", __func__, __LINE__, scIdString);
                 return INVALID_PARAMETER;
             }
-        
-            if (mempool.hasSidechainCertificate(scId))
-            {
+
+            if (mempool.hasSidechainCertificate(scId)) {
                 const uint256& topQualCertHash = mempool.mapSidechains.at(scId).GetTopQualityCert()->second;
                 const CScCertificate& topQualCert = mempool.mapCertificate.at(topQualCertHash).GetCertificate();
                 const CAmount certFee = mempool.mapCertificate.at(topQualCertHash).GetFee();
                 CDataStream ssCert(SER_NETWORK, PROTOCOL_VERSION);
                 ssCert << topQualCert;
                 std::string certHex = HexStr(ssCert.begin(), ssCert.end());
-     
+
                 mempoolTopQualityCert.push_back(Pair("quality", topQualCert.quality));
                 mempoolTopQualityCert.push_back(Pair("epoch", topQualCert.epochNumber));
                 mempoolTopQualityCert.push_back(Pair("certHash", topQualCertHash.GetHex()));
@@ -583,25 +529,21 @@ private:
         return OK;
     }
 
-    int sendSidechainVersionsFromId(const UniValue& sidechainIds, const std::string& clientRequestId)
-    {
-        if (sidechainIds.size() > MAX_SIDECHAINS_REQUEST)
-        {
-            LogPrint("ws", "%s():%d - too many sidechain ids as argument %d (max is %d)\n",
-                     __func__, __LINE__, sidechainIds.size(), MAX_SIDECHAINS_REQUEST);
+    int sendSidechainVersionsFromId(const UniValue& sidechainIds, const std::string& clientRequestId) {
+        if (sidechainIds.size() > MAX_SIDECHAINS_REQUEST) {
+            LogPrint("ws", "%s():%d - too many sidechain ids as argument %d (max is %d)\n", __func__, __LINE__,
+                     sidechainIds.size(), MAX_SIDECHAINS_REQUEST);
             return INVALID_PARAMETER;
         }
-            
+
         UniValue versions(UniValue::VARR);
-            
-        for (const UniValue& o : sidechainIds.getValues())
-        {
-            if (o.isObject())
-            {
+
+        for (const UniValue& o : sidechainIds.getValues()) {
+            if (o.isObject()) {
                 LogPrint("ws", "%s():%d - invalid obj\n", __func__, __LINE__);
                 return INVALID_PARAMETER;
             }
-            
+
             std::string strScId = o.get_str();
             uint256 scId;
             scId.SetHex(strScId);
@@ -610,16 +552,14 @@ private:
                 LOCK(cs_main);
                 CCoinsViewCache view(pcoinsTip);
 
-                if (!view.HaveSidechain(scId))
-                {
+                if (!view.HaveSidechain(scId)) {
                     LogPrint("ws", "%s():%d - sidechain id not found[%s]\n", __func__, __LINE__, strScId);
                     return INVALID_PARAMETER;
                 }
 
                 CSidechain sidechainInfo;
 
-                if (view.GetSidechain(scId, sidechainInfo))
-                {
+                if (view.GetSidechain(scId, sidechainInfo)) {
                     UniValue sidechainEntry(UniValue::VOBJ);
                     sidechainEntry.push_back(Pair("scId", strScId));
                     sidechainEntry.push_back(Pair("version", sidechainInfo.fixedParams.version));
@@ -644,42 +584,32 @@ private:
         wsq->push(wse);
     }*/
 
-    void writeLoop()
-    {
+    void writeLoop() {
         localWs->text(localWs->got_text());
 
-        while (!exit_rwhandler_thread_flag)
-        {
+        while (!exit_rwhandler_thread_flag) {
             std::unique_lock<std::mutex> lk(writeMutex);
             // Wait upto 1 sec and check the queue in any case
             writeCV.wait_for(lk, std::chrono::seconds(1));
 
             WsEvent* wse;
-            while (wsq.pop(wse) && wse != NULL)
-            {
+            while (wsq.pop(wse) && wse != NULL) {
                 std::string msg = wse->getPayload()->write();
                 LogPrint("ws", "%s():%d - deleting %p\n", __func__, __LINE__, wse);
                 delete wse;
-                if (localWs->is_open())
-                {
+                if (localWs->is_open()) {
                     boost::beast::error_code ec;
                     localWs->write(boost::asio::buffer(msg), ec);
 
-                    if (ec == websocket::error::closed)
-                    {
-                        LogPrint("ws", "%s():%d - err[%d]: %s\n", __func__, __LINE__,ec.value(), ec.message());
+                    if (ec == websocket::error::closed) {
+                        LogPrint("ws", "%s():%d - err[%d]: %s\n", __func__, __LINE__, ec.value(), ec.message());
                         break;
-                    }
-                    else
-                    if (ec.value() != boost::system::errc::success)
-                    {
+                    } else if (ec.value() != boost::system::errc::success) {
                         LogPrint("ws", "%s():%d - err[%d]: %s\n", __func__, __LINE__, ec.value(), ec.message());
                         break;
                     }
                     LogPrint("ws", "%s():%d - msg[%s] written on client socket\n", __func__, __LINE__, msg);
-                }
-                else
-                {
+                } else {
                     LogPrint("ws", "%s():%d - ws is closed\n", __func__, __LINE__);
                     break;
                 }
@@ -688,28 +618,22 @@ private:
         LogPrint("ws", "%s():%d - write thread exit (this=%p)\n", __func__, __LINE__, this);
     }
 
-    int parseClientMessage(WsEvent::WsRequestType& reqType, std::string& clientRequestId, std::string& outMsg) 
-    {
-        try
-        {
+    int parseClientMessage(WsEvent::WsRequestType& reqType, std::string& clientRequestId, std::string& outMsg) {
+        try {
             std::string msgType;
             std::string requestType;
             boost::beast::multi_buffer buffer;
             boost::beast::error_code ec;
 
             localWs->read(buffer, ec);
-            if (ec == websocket::error::closed || ec == websocket::error::no_connection)
-            {
+            if (ec == websocket::error::closed || ec == websocket::error::no_connection) {
                 // graceful disconnection
-                LogPrint("ws", "%s():%d - code[%d]: %s\n", __func__, __LINE__,ec.value(), ec.message());
+                LogPrint("ws", "%s():%d - code[%d]: %s\n", __func__, __LINE__, ec.value(), ec.message());
                 return READ_ERROR;
-            }
-            else
-            if (ec.value() != boost::system::errc::success)
-            {
+            } else if (ec.value() != boost::system::errc::success) {
                 // any other error but success
                 LogPrint("ws", "%s():%d - connection is open[%s], err[%d]: %s\n", __func__, __LINE__,
-                    (localWs->is_open()?"Y":"N") , ec.value(), ec.message());
+                         (localWs->is_open() ? "Y" : "N"), ec.value(), ec.message());
                 return READ_ERROR;
             }
             LogPrint("ws", "%s():%d - client message received of size=%d\n", __func__, __LINE__, buffer.size());
@@ -721,14 +645,14 @@ private:
                 return INVALID_JSON_FORMAT;
             }
 
-            msgType         = findFieldValue("msgType", request);
+            msgType = findFieldValue("msgType", request);
             clientRequestId = findFieldValue("requestId", request);
-            requestType     = findFieldValue("requestType", request);
+            requestType = findFieldValue("requestType", request);
 
             if (msgType != std::to_string(WsEvent::MSG_REQUEST)) {
                 // just log it and assume it is a request
-                LogPrint("ws", "%s():%d - WARNING: msgType[%d] invalid, assuming MSG_REQUEST (%d)\n",
-                    __func__, __LINE__, msgType, WsEvent::MSG_REQUEST);
+                LogPrint("ws", "%s():%d - WARNING: msgType[%d] invalid, assuming MSG_REQUEST (%d)\n", __func__, __LINE__,
+                         msgType, WsEvent::MSG_REQUEST);
             }
 
             if (requestType.empty()) {
@@ -737,23 +661,20 @@ private:
             }
             LogPrint("ws", "%s():%d - got msg[%s]\n", __func__, __LINE__, msg);
 
-            if (requestType == std::to_string(WsEvent::GET_SINGLE_BLOCK))
-            {
+            if (requestType == std::to_string(WsEvent::GET_SINGLE_BLOCK)) {
                 reqType = WsEvent::GET_SINGLE_BLOCK;
                 if (clientRequestId.empty()) {
                     LogPrint("ws", "%s():%d - clientRequestId empty: msg[%s]\n", __func__, __LINE__, msg);
                     return MISSING_REQID;
                 }
                 const UniValue& reqPayload = find_value(request, "requestPayload");
-                if (reqPayload.isNull())
-                {
+                if (reqPayload.isNull()) {
                     LogPrint("ws", "%s():%d - requestPayload null: msg[%s]\n", __func__, __LINE__, msg);
                     return INVALID_JSON_FORMAT;
                 }
 
                 std::string param1 = findFieldValue("height", reqPayload);
-                if (param1.empty())
-                {
+                if (param1.empty()) {
                     param1 = findFieldValue("hash", reqPayload);
                     if (param1.empty()) {
                         LogPrint("ws", "%s():%d - height/hash param null: msg[%s]\n", __func__, __LINE__, msg);
@@ -764,16 +685,14 @@ private:
                 return sendBlockByHeight(param1, clientRequestId);
             }
 
-            if (requestType == std::to_string(WsEvent::GET_MULTIPLE_BLOCK_HASHES))
-            {
+            if (requestType == std::to_string(WsEvent::GET_MULTIPLE_BLOCK_HASHES)) {
                 reqType = WsEvent::GET_MULTIPLE_BLOCK_HASHES;
                 if (clientRequestId.empty()) {
                     LogPrint("ws", "%s():%d - clientRequestId empty: msg[%s]\n", __func__, __LINE__, msg);
                     return MISSING_REQID;
                 }
                 const UniValue& reqPayload = find_value(request, "requestPayload");
-                if (reqPayload.isNull())
-                {
+                if (reqPayload.isNull()) {
                     LogPrint("ws", "%s():%d - requestPayload null: msg[%s]\n", __func__, __LINE__, msg);
                     return INVALID_JSON_FORMAT;
                 }
@@ -785,8 +704,7 @@ private:
                 }
 
                 std::string param1 = findFieldValue("afterHeight", reqPayload);
-                if (param1.empty())
-                {
+                if (param1.empty()) {
                     param1 = findFieldValue("afterHash", reqPayload);
                     if (param1.empty()) {
                         LogPrint("ws", "%s():%d - afterHeight/afterHash empty: msg[%s]\n", __func__, __LINE__, msg);
@@ -797,8 +715,7 @@ private:
                 return sendBlocksFromHeight(param1, strLen, clientRequestId);
             }
 
-            if (requestType == std::to_string(WsEvent::GET_NEW_BLOCK_HASHES))
-            {
+            if (requestType == std::to_string(WsEvent::GET_NEW_BLOCK_HASHES)) {
                 reqType = WsEvent::GET_NEW_BLOCK_HASHES;
                 if (clientRequestId.empty()) {
                     LogPrint("ws", "%s():%d - clientRequestId empty: msg[%s]\n", __func__, __LINE__, msg);
@@ -816,22 +733,21 @@ private:
                     return MISSING_PARAMETER;
                 }
 
-                const UniValue&  hashArray = find_value(reqPayload, "locatorHashes");
+                const UniValue& hashArray = find_value(reqPayload, "locatorHashes");
                 if (hashArray.isNull()) {
                     LogPrint("ws", "%s():%d - locatorHash empty: msg[%s]\n", __func__, __LINE__, msg);
                     return MISSING_PARAMETER;
                 }
 
                 const UniValue& hashes = hashArray.get_array();
-                if (hashes.size()==0) {
+                if (hashes.size() == 0) {
                     LogPrint("ws", "%s():%d - hash array empty: msg[%s]\n", __func__, __LINE__, msg);
                     return MISSING_PARAMETER;
                 }
                 return sendHashFromLocator(hashes, strLen, clientRequestId);
             }
 
-            if (requestType == std::to_string(WsEvent::SEND_CERTIFICATE))
-            {
+            if (requestType == std::to_string(WsEvent::SEND_CERTIFICATE)) {
                 reqType = WsEvent::SEND_CERTIFICATE;
                 outMsg.clear();
 
@@ -851,20 +767,24 @@ private:
                 // sanity check, report error if unknown/duplicate key-value pairs
                 std::set<std::string> setKeyArgs;
 
-                static const std::set<std::string> validKeyArgs = {
-                    "scid", "epochNumber", "quality", "fee", "endEpochCumCommTreeHash", "scProof",
-                    "backwardTransfers", "vFieldElementCertificateField", "vBitVectorCertificateField",
-                    "forwardTransferScFee", "mainchainBackwardTransferScFee"
-                };
+                static const std::set<std::string> validKeyArgs = {"scid",
+                                                                   "epochNumber",
+                                                                   "quality",
+                                                                   "fee",
+                                                                   "endEpochCumCommTreeHash",
+                                                                   "scProof",
+                                                                   "backwardTransfers",
+                                                                   "vFieldElementCertificateField",
+                                                                   "vBitVectorCertificateField",
+                                                                   "forwardTransferScFee",
+                                                                   "mainchainBackwardTransferScFee"};
 
                 for (const std::string& s : reqPayload.getKeys()) {
-                    if (!validKeyArgs.count(s))
-                        outMsg += " - unknown key: " + s;
-                    if (!setKeyArgs.insert(s).second)
-                        outMsg += " - duplicate key: " + s;
+                    if (!validKeyArgs.count(s)) outMsg += " - unknown key: " + s;
+                    if (!setKeyArgs.insert(s).second) outMsg += " - duplicate key: " + s;
                 }
 
-                if (!outMsg.empty() ) {
+                if (!outMsg.empty()) {
                     LogPrint("ws", "%s():%d - %s: msg[%s]\n", __func__, __LINE__, outMsg, msg);
                     return INVALID_PARAMETER;
                 }
@@ -876,11 +796,11 @@ private:
                     outMsg = "scid empty";
                     LogPrint("ws", "%s():%d - %s: msg[%s]\n", __func__, __LINE__, outMsg, msg);
                     return MISSING_PARAMETER;
-                }    
+                }
                 cmdParams.push_back(scidStr);
 
                 const UniValue& epNumVal = find_value(reqPayload, "epochNumber");
-                if (!epNumVal.isNum() || epNumVal.isNull() ) {
+                if (!epNumVal.isNum() || epNumVal.isNull()) {
                     outMsg = "epochNumber missing or invalid";
                     LogPrint("ws", "%s():%d - %s: msg[%s]\n", __func__, __LINE__, outMsg, msg);
                     return MISSING_PARAMETER;
@@ -900,7 +820,7 @@ private:
                     outMsg = "endEpochCumCommTreeHash empty";
                     LogPrint("ws", "%s():%d - %s: msg[%s]\n", __func__, __LINE__, outMsg, msg);
                     return MISSING_PARAMETER;
-                }    
+                }
                 cmdParams.push_back(endEpochCumScTxCommTreeRootStr);
 
                 std::string scProofStr = findFieldValue("scProof", reqPayload);
@@ -908,7 +828,7 @@ private:
                     outMsg = "scProof empty";
                     LogPrint("ws", "%s():%d - %s: msg[%s]\n", __func__, __LINE__, outMsg, msg);
                     return MISSING_PARAMETER;
-                }    
+                }
                 cmdParams.push_back(scProofStr);
 
                 const UniValue& bwtParam = find_value(reqPayload, "backwardTransfers");
@@ -972,43 +892,41 @@ private:
 
                 // optional, can be null
                 const UniValue& cfe = find_value(reqPayload, "vFieldElementCertificateField");
-                if (!cfe.isNull())
-                {
+                if (!cfe.isNull()) {
                     // Push the default value for fromAddress param(previous parameter).
                     cmdParams.push_back("");
 
                     const UniValue& vCfe = cfe.get_array();
-                    LogPrint("ws", "%s():%d - adding vFieldElementCertificateField, sz(%d): msg[%s]\n", __func__, __LINE__, vCfe.size(), msg);
+                    LogPrint("ws", "%s():%d - adding vFieldElementCertificateField, sz(%d): msg[%s]\n", __func__, __LINE__,
+                             vCfe.size(), msg);
                     cmdParams.push_back(vCfe);
                 }
 
                 // optional, can be null
                 const UniValue& cmt = find_value(reqPayload, "vBitVectorCertificateField");
-                if (!cmt.isNull())
-                {
+                if (!cmt.isNull()) {
                     const UniValue& vCmt = cmt.get_array();
-                    LogPrint("ws", "%s():%d - adding vBitVectorCertificateField, sz(%d): msg[%s]\n", __func__, __LINE__, vCmt.size(), msg);
+                    LogPrint("ws", "%s():%d - adding vBitVectorCertificateField, sz(%d): msg[%s]\n", __func__, __LINE__,
+                             vCmt.size(), msg);
                     cmdParams.push_back(vCmt);
                 }
 
                 return sendCertificate(cmdParams, clientRequestId, outMsg);
             }
-            
-            if (requestType == std::to_string(WsEvent::GET_MULTIPLE_BLOCK_HEADERS))
-            {
+
+            if (requestType == std::to_string(WsEvent::GET_MULTIPLE_BLOCK_HEADERS)) {
                 reqType = WsEvent::GET_MULTIPLE_BLOCK_HEADERS;
                 if (clientRequestId.empty()) {
                     LogPrint("ws", "%s():%d - clientRequestId empty: msg[%s]\n", __func__, __LINE__, msg);
                     return MISSING_REQID;
                 }
                 const UniValue& reqPayload = find_value(request, "requestPayload");
-                if (reqPayload.isNull())
-                {
+                if (reqPayload.isNull()) {
                     LogPrint("ws", "%s():%d - requestPayload null: msg[%s]\n", __func__, __LINE__, msg);
                     return INVALID_JSON_FORMAT;
                 }
 
-                const UniValue&  hashArray = find_value(reqPayload, "hashes");
+                const UniValue& hashArray = find_value(reqPayload, "hashes");
                 if (hashArray.isNull()) {
                     LogPrint("ws", "%s():%d - locatorHash empty: msg[%s]\n", __func__, __LINE__, msg);
                     return MISSING_PARAMETER;
@@ -1016,24 +934,21 @@ private:
 
                 return sendHeadersFromHashes(hashArray, clientRequestId);
             }
-            
-            if (requestType == std::to_string(WsEvent::GET_TOP_QUALITY_CERTIFICATES))
-            {
+
+            if (requestType == std::to_string(WsEvent::GET_TOP_QUALITY_CERTIFICATES)) {
                 reqType = WsEvent::GET_TOP_QUALITY_CERTIFICATES;
                 if (clientRequestId.empty()) {
                     LogPrint("ws", "%s():%d - clientRequestId empty: msg[%s]\n", __func__, __LINE__, msg);
                     return MISSING_REQID;
                 }
                 const UniValue& reqPayload = find_value(request, "requestPayload");
-                if (reqPayload.isNull())
-                {
+                if (reqPayload.isNull()) {
                     LogPrint("ws", "%s():%d - requestPayload null: msg[%s]\n", __func__, __LINE__, msg);
                     return INVALID_JSON_FORMAT;
                 }
 
                 std::string scId = findFieldValue("scid", reqPayload);
-                if (scId.empty())
-                {
+                if (scId.empty()) {
                     LogPrint("ws", "%s():%d - scid empty: msg[%s]\n", __func__, __LINE__, msg);
                     return MISSING_PARAMETER;
                 }
@@ -1041,28 +956,26 @@ private:
                 return sendTopQualityCertificatesForScid(scId, clientRequestId);
             }
 
-            if (requestType == std::to_string(WsEvent::GET_SIDECHAIN_VERSIONS))
-            {
+            if (requestType == std::to_string(WsEvent::GET_SIDECHAIN_VERSIONS)) {
                 reqType = WsEvent::GET_SIDECHAIN_VERSIONS;
                 if (clientRequestId.empty()) {
                     LogPrint("ws", "%s():%d - clientRequestId empty: msg[%s]\n", __func__, __LINE__, msg);
                     return MISSING_REQID;
                 }
                 const UniValue& reqPayload = find_value(request, "requestPayload");
-                if (reqPayload.isNull())
-                {
+                if (reqPayload.isNull()) {
                     LogPrint("ws", "%s():%d - requestPayload null: msg[%s]\n", __func__, __LINE__, msg);
                     return INVALID_JSON_FORMAT;
                 }
 
-                const UniValue&  scIdArray = find_value(reqPayload, "sidechainIds");
+                const UniValue& scIdArray = find_value(reqPayload, "sidechainIds");
                 if (scIdArray.isNull()) {
                     LogPrint("ws", "%s():%d - sidechainIds empty: msg[%s]\n", __func__, __LINE__, msg);
                     return MISSING_PARAMETER;
                 }
 
                 const UniValue& scIds = scIdArray.get_array();
-                if (scIds.size()==0) {
+                if (scIds.size() == 0) {
                     LogPrint("ws", "%s():%d - sidechain ID array empty: msg[%s]\n", __func__, __LINE__, msg);
                     return MISSING_PARAMETER;
                 }
@@ -1073,72 +986,61 @@ private:
             // if we are here that means it is no valid request type, and reqType is an enum defaulting to 255
             *((int*)(&reqType)) = std::stoi(requestType);
 
-            outMsg = "Invalid RequestType Number: " + requestType; 
+            outMsg = "Invalid RequestType Number: " + requestType;
             LogPrint("ws", "%s():%d - %s: msg[%s]\n", __func__, __LINE__, outMsg, msg);
 
             return INVALID_COMMAND;
-        }
-        catch (std::runtime_error const& rte)
-        {
-            // most probably thrown by UniValue lib, that means 
+        } catch (std::runtime_error const& rte) {
+            // most probably thrown by UniValue lib, that means
             // json is formally correct but not compliant with protocol
             outMsg = rte.what();
             return INVALID_COMMAND;
-        }
-        catch (std::exception const& e)
-        {
+        } catch (std::exception const& e) {
             outMsg = e.what();
             LogPrint("ws", "%s():%d - %s\n", __func__, __LINE__, outMsg);
             return READ_ERROR;
         }
     }
 
-    void readLoop()
-    {
-        while (!exit_rwhandler_thread_flag)
-        {
+    void readLoop() {
+        while (!exit_rwhandler_thread_flag) {
             WsEvent::WsRequestType reqType = WsEvent::REQ_UNDEFINED;
             std::string clientRequestId = "";
             std::string outMsg;
             int res = parseClientMessage(reqType, clientRequestId, outMsg);
-            if (res == READ_ERROR)
-            {
+            if (res == READ_ERROR) {
                 LogPrint("ws", "%s():%d - websocket closed exit reading loop\n", __func__, __LINE__);
                 break;
             }
 
-            if (res != OK)
-            {
+            if (res != OK) {
                 std::string msgError = "On requestType[" + std::to_string(reqType) + "]: ";
-                switch (res)
-                {
-                case INVALID_PARAMETER:
-                    msgError += "Invalid parameter";
-                    break;
-                case MISSING_PARAMETER:
-                    msgError += "Missing parameter";
-                    break;
-                case MISSING_REQID:
-                    msgError += "Missing requestId";
-                    break;
-                case INVALID_COMMAND:
-                    msgError += "Invalid command";
-                    break;
-                case INVALID_JSON_FORMAT:
-                    msgError += "Invalid JSON format";
-                    break;
-                default:
-                    msgError += "Generic error";
+                switch (res) {
+                    case INVALID_PARAMETER:
+                        msgError += "Invalid parameter";
+                        break;
+                    case MISSING_PARAMETER:
+                        msgError += "Missing parameter";
+                        break;
+                    case MISSING_REQID:
+                        msgError += "Missing requestId";
+                        break;
+                    case INVALID_COMMAND:
+                        msgError += "Invalid command";
+                        break;
+                    case INVALID_JSON_FORMAT:
+                        msgError += "Invalid JSON format";
+                        break;
+                    default:
+                        msgError += "Generic error";
                 }
-                if (!outMsg.empty())
-                    msgError += " - Details: " + outMsg;
+                if (!outMsg.empty()) msgError += " - Details: " + outMsg;
 
                 // Send a message error to the client:  type = -1
                 WsEvent* wse = new WsEvent(WsEvent::MSG_ERROR);
                 LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
                 UniValue* rv = wse->getPayload();
-                if (!clientRequestId.empty())
-                    rv->pushKV("requestId", clientRequestId);
+                if (!clientRequestId.empty()) rv->pushKV("requestId", clientRequestId);
                 rv->pushKV("errorCode", res);
                 rv->pushKV("message", msgError);
                 write(wse);
@@ -1147,9 +1049,9 @@ private:
         LogPrint("ws", "%s():%d - exit reading loop\n", __func__, __LINE__);
     }
 
-public:
-
-    enum CLIENT_PROCMSG_CODE {
+  public:
+    enum CLIENT_PROCMSG_CODE
+    {
         OK = 0,
         MISSING_PARAMETER = 1,
         INVALID_COMMAND = 2,
@@ -1162,52 +1064,40 @@ public:
     unsigned int t_id = 0;
 
     WsHandler() {}
-    ~WsHandler() {
-        LogPrint("ws", "%s():%d - called this=%p\n", __func__, __LINE__, this);
-    }
+    ~WsHandler() { LogPrint("ws", "%s():%d - called this=%p\n", __func__, __LINE__, this); }
 
-    WsHandler & operator=(const WsHandler& wsh) = delete;
+    WsHandler& operator=(const WsHandler& wsh) = delete;
     WsHandler(const WsHandler& wsh) = delete;
 
-    static void getPeerIdentity(const tcp::socket& socket, std::string& id)
-    { 
+    static void getPeerIdentity(const tcp::socket& socket, std::string& id) {
         auto peer = socket.remote_endpoint();
         std::string addr = peer.address().to_string();
         std::string port = std::to_string(peer.port());
         id = addr + ":" + port;
     }
 
-    void do_session(tcp::socket& socket, unsigned int t_id)
-    {
+    void do_session(tcp::socket& socket, unsigned int t_id) {
         // will be referenced when shutting down in order not destroying ptr while executing this thread
         boost::shared_ptr<WsHandler> thisRef;
 
         this->t_id = t_id;
 
-        try
-        {
-            localWs.reset(new websocket::stream<tcp::socket> { std::move(socket) });
+        try {
+            localWs.reset(new websocket::stream<tcp::socket>{std::move(socket)});
             LogPrint("ws", "%s():%d - allocated localWs %p\n", __func__, __LINE__, localWs.get());
 
-            localWs->set_option(
-                websocket::stream_base::decorator(
-                    [](websocket::response_type& res)
-                        {
-                            res.set(http::field::server,
-                            std::string(BOOST_BEAST_VERSION_STRING) + " Horizen-sidechain-connector");
-                        }));
+            localWs->set_option(websocket::stream_base::decorator([](websocket::response_type& res) {
+                res.set(http::field::server, std::string(BOOST_BEAST_VERSION_STRING) + " Horizen-sidechain-connector");
+            }));
 
-            localWs->control_callback(
-                [](websocket::frame_type kind, boost::string_view payload)
-                {
-                    if (kind == websocket::frame_type::ping)
-                    {
-                        std::string payl(payload);
-                        LogPrint("ws", "%s():%d - ping received... payload[%s]\n", __func__, __LINE__, payl);
-                    }
-                    // Do something with the payload
-                    boost::ignore_unused(kind, payload);
-                });
+            localWs->control_callback([](websocket::frame_type kind, boost::string_view payload) {
+                if (kind == websocket::frame_type::ping) {
+                    std::string payl(payload);
+                    LogPrint("ws", "%s():%d - ping received... payload[%s]\n", __func__, __LINE__, payl);
+                }
+                // Do something with the payload
+                boost::ignore_unused(kind, payload);
+            });
 
             localWs->accept();
 
@@ -1216,17 +1106,12 @@ public:
             exit_rwhandler_thread_flag = true;
             write_t.join();
             socket.close();
-        }
-        catch (boost::system::system_error const& se)
-        {
-            if (se.code() != websocket::error::closed)
-            {
+        } catch (boost::system::system_error const& se) {
+            if (se.code() != websocket::error::closed) {
                 LogPrint("ws", "%s():%d - boost error %s\n", __func__, __LINE__, se.code().message());
             }
             LogPrint("ws", "%s():%d - websocket close\n", __func__, __LINE__);
-        }
-        catch (std::exception const& e)
-        {
+        } catch (std::exception const& e) {
             LogPrint("ws", "%s():%d - error: %s\n", __func__, __LINE__, std::string(e.what()));
         }
         LogPrint("ws", "%s():%d - exit thread final\n", __func__, __LINE__);
@@ -1237,48 +1122,36 @@ public:
             LogPrint("ws", "%s():%d - connection[%u] closed: tot[%d]\n", __func__, __LINE__, t_id, tot_connections);
 
             auto it = listWsHandler.begin();
-            while (it != listWsHandler.end())
-            {
-                if (this == (*it).get() )
-                {
+            while (it != listWsHandler.end()) {
+                if (this == (*it).get()) {
                     thisRef = (*it);
                     LogPrint("ws", "%s():%d - removing handler obj from list\n", __func__, __LINE__);
                     listWsHandler.erase(it++);
-                }
-                else
-                {
+                } else {
                     ++it;
                 }
             }
         }
     }
 
-    void send_tip_update(int height, const std::string& strHash, const std::string& blockHex)
-    {
+    void send_tip_update(int height, const std::string& strHash, const std::string& blockHex) {
         sendBlockEvent(height, strHash, blockHex, WsEvent::UPDATE_TIP);
     }
 
-    void shutdown()
-    {
-        try
-        {
+    void shutdown() {
+        try {
             exit_rwhandler_thread_flag = true;
-            if (this->localWs)
-            {
+            if (this->localWs) {
                 LogPrint("ws", "%s():%d - closing socket\n", __func__, __LINE__);
                 this->localWs->next_layer().close();
             }
-        }
-        catch (std::exception const& e)
-        {
+        } catch (std::exception const& e) {
             LogPrint("ws", "%s():%d - error: %s\n", __func__, __LINE__, e.what());
         }
     }
 };
 
-
-static int getblock(const CBlockIndex *pindex, std::string& strHex)
-{
+static int getblock(const CBlockIndex* pindex, std::string& strHex) {
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     {
         LOCK(cs_main);
@@ -1293,9 +1166,7 @@ static int getblock(const CBlockIndex *pindex, std::string& strHex)
     return WsHandler::OK;
 }
 
-
-static int getheader(const CBlockIndex *pindex, std::string& strHex)
-{
+static int getheader(const CBlockIndex* pindex, std::string& strHex) {
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     {
         LOCK(cs_main);
@@ -1305,43 +1176,34 @@ static int getheader(const CBlockIndex *pindex, std::string& strHex)
     return WsHandler::OK;
 }
 
-
-static void ws_updatetip(const CBlockIndex *pindex)
-{
+static void ws_updatetip(const CBlockIndex* pindex) {
     std::string strHex;
     int ret = getblock(pindex, strHex);
-    if (ret != WsHandler::OK)
-    {
+    if (ret != WsHandler::OK) {
         // should not happen
         LogPrint("ws", "%s():%d - ERROR: can not update tip\n", __func__, __LINE__);
         return;
     }
     {
         std::unique_lock<std::mutex> lck(wsmtx);
-        if (listWsHandler.size() )
-        {
+        if (listWsHandler.size()) {
             LogPrint("ws", "%s():%d - update tip loop on ws clients\n", __func__, __LINE__);
             auto it = listWsHandler.begin();
-            while (it != listWsHandler.end())
-            {
+            while (it != listWsHandler.end()) {
                 LogPrint("ws", "%s():%d - call wshandler_send_tip_update to connection[%u]\n", __func__, __LINE__, (*it)->t_id);
                 (*it)->send_tip_update(pindex->nHeight, pindex->GetBlockHash().GetHex(), strHex);
                 ++it;
             }
-        }
-        else
-        {
+        } else {
             LogPrint("ws", "%s():%d - there are no connected ws clients\n", __func__, __LINE__);
         }
     }
 }
 
-
 //------------------------------------------------------------------------------
 
 static tcp::acceptor* acceptor = NULL;
-void ws_main(std::string strAddressWs, int portWs)
-{
+void ws_main(std::string strAddressWs, int portWs) {
     std::string peerId;
 
     try {
@@ -1351,15 +1213,14 @@ void ws_main(std::string strAddressWs, int portWs)
         auto const address = boost::asio::ip::make_address(strAddressWs);
         auto const port = static_cast<unsigned short>(portWs);
 
-        net::io_context ioc { 1 };
-        tcp::acceptor _acceptor = tcp::acceptor { ioc, { address, port } };
+        net::io_context ioc{1};
+        tcp::acceptor _acceptor = tcp::acceptor{ioc, {address, port}};
         acceptor = &_acceptor;
         LogPrint("ws", "%s():%d - assigned %p\n", __func__, __LINE__, acceptor);
         unsigned int t_id = 0;
 
-        while (!exit_ws_thread)
-        {
-            tcp::socket socket { ioc };
+        while (!exit_ws_thread) {
+            tcp::socket socket{ioc};
 
             // TODO //  - possible DoS, limit number of connections
             LogPrint("ws", "%s():%d - waiting to get a new connection\n", __func__, __LINE__);
@@ -1369,8 +1230,7 @@ void ws_main(std::string strAddressWs, int portWs)
             boost::shared_ptr<WsHandler> w(new WsHandler());
             LogPrint("ws", "%s():%d - allocated ws handler %p\n", __func__, __LINE__, w.get());
 
-            std::thread { std::bind(&WsHandler::do_session, w.get(),
-                    std::move(socket), t_id) }.detach();
+            std::thread{std::bind(&WsHandler::do_session, w.get(), std::move(socket), t_id)}.detach();
             {
                 std::unique_lock<std::mutex> lck(wsmtx);
                 listWsHandler.push_back(w);
@@ -1378,27 +1238,22 @@ void ws_main(std::string strAddressWs, int portWs)
             }
             t_id++;
 
-            LogPrint("ws", "%s():%d - new connection[%u] received from %s: tot[%d]\n",
-                __func__, __LINE__, t_id, peerId, tot_connections);
+            LogPrint("ws", "%s():%d - new connection[%u] received from %s: tot[%d]\n", __func__, __LINE__, t_id, peerId,
+                     tot_connections);
         }
-    }
-    catch (const std::exception& e)
-    {
+    } catch (const std::exception& e) {
         LogPrint("ws", "%s():%d - error: %s\n", __func__, __LINE__, std::string(e.what()));
     }
     LogPrint("ws", "%s():%d - websocket service stop\n", __func__, __LINE__);
 }
 
-static void shutdown()
-{
-    if (listWsHandler.size() != 0)
-    {
+static void shutdown() {
+    if (listWsHandler.size() != 0) {
         // list objects are smart_ptrs and will clean up when they go out of scope
         LogPrint("ws", "%s():%d - shutdown %d threads/sockets thread... \n", __func__, __LINE__, listWsHandler.size());
         std::unique_lock<std::mutex> lck(wsmtx);
         auto it = listWsHandler.begin();
-        while (it != listWsHandler.end())
-        {
+        while (it != listWsHandler.end()) {
             LogPrint("ws", "%s():%d - calling shutdown on handler connection[%u]\n", __func__, __LINE__, (*it)->t_id);
             (*it)->shutdown();
             ++it;
@@ -1406,10 +1261,8 @@ static void shutdown()
     }
 }
 
-bool StartWsServer()
-{
-    try
-    {
+bool StartWsServer() {
+    try {
         // websocket is still unauthenticated, care must be taken to not expose it publicly
         std::string strAddress = GetArg("-wsaddress", "127.0.0.1");
         int port = GetArg("-wsport", 8888);
@@ -1418,42 +1271,31 @@ bool StartWsServer()
         ws_thread.detach();
 
         wsNotificationInterface.reset(new WsNotificationInterface());
-        LogPrint("ws", "%s():%d - starting server at %s:%d, allocated notif if %p\n",
-            __func__, __LINE__, strAddress, port, wsNotificationInterface.get());
+        LogPrint("ws", "%s():%d - starting server at %s:%d, allocated notif if %p\n", __func__, __LINE__, strAddress, port,
+                 wsNotificationInterface.get());
         RegisterValidationInterface(wsNotificationInterface.get());
-    }
-    catch (const std::exception& e)
-    {
+    } catch (const std::exception& e) {
         LogPrint("ws", "%s():%d - error: %s\n", __func__, __LINE__, std::string(e.what()));
         return false;
     }
     return true;
 }
 
-bool StopWsServer()
-{
-    try
-    {
+bool StopWsServer() {
+    try {
         shutdown();
         exit_ws_thread = true;
-        if (acceptor != NULL)
-        {
+        if (acceptor != NULL) {
             LogPrint("ws", "%s():%d - closing static acceptor %p\n", __func__, __LINE__, acceptor);
             acceptor->close();
             acceptor = NULL;
         }
-        if (wsNotificationInterface.get() != NULL)
-        {
+        if (wsNotificationInterface.get() != NULL) {
             UnregisterValidationInterface(wsNotificationInterface.get());
         }
-    }
-    catch (const std::exception& e)
-    {
+    } catch (const std::exception& e) {
         LogPrint("ws", "%s():%d - error: %s\n", __func__, __LINE__, e.what());
         return false;
     }
     return true;
 }
-
-
-

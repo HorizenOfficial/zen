@@ -4,16 +4,15 @@
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 
-
 #ifndef SECP256K1_ECDSA_IMPL_H
 #define SECP256K1_ECDSA_IMPL_H
 
-#include "scalar.h"
-#include "field.h"
-#include "group.h"
+#include "ecdsa.h"
 #include "ecmult.h"
 #include "ecmult_gen.h"
-#include "ecdsa.h"
+#include "field.h"
+#include "group.h"
+#include "scalar.h"
 
 /** Group order for secp256k1 defined as 'n' in "Standards for Efficient Cryptography" (SEC2) 2.7.1
  *  sage: for t in xrange(1023, -1, -1):
@@ -29,9 +28,7 @@
  *   'fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141'
  */
 static const secp256k1_fe secp256k1_ecdsa_const_order_as_fe = SECP256K1_FE_CONST(
-    0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFEUL,
-    0xBAAEDCE6UL, 0xAF48A03BUL, 0xBFD25E8CUL, 0xD0364141UL
-);
+    0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFEUL, 0xBAAEDCE6UL, 0xAF48A03BUL, 0xBFD25E8CUL, 0xD0364141UL);
 
 /** Difference between field and order, values 'p' and 'n' values defined in
  *  "Standards for Efficient Cryptography" (SEC2) 2.7.1.
@@ -42,11 +39,10 @@ static const secp256k1_fe secp256k1_ecdsa_const_order_as_fe = SECP256K1_FE_CONST
  *  sage: '%x' % (p - EllipticCurve ([F (a), F (b)]).order())
  *   '14551231950b75fc4402da1722fc9baee'
  */
-static const secp256k1_fe secp256k1_ecdsa_const_p_minus_order = SECP256K1_FE_CONST(
-    0, 0, 0, 1, 0x45512319UL, 0x50B75FC4UL, 0x402DA172UL, 0x2FC9BAEEUL
-);
+static const secp256k1_fe secp256k1_ecdsa_const_p_minus_order =
+    SECP256K1_FE_CONST(0, 0, 0, 1, 0x45512319UL, 0x50B75FC4UL, 0x402DA172UL, 0x2FC9BAEEUL);
 
-static int secp256k1_der_read_len(const unsigned char **sigp, const unsigned char *sigend) {
+static int secp256k1_der_read_len(const unsigned char** sigp, const unsigned char* sigend) {
     int lenleft, b1;
     size_t ret = 0;
     if (*sigp >= sigend) {
@@ -96,7 +92,7 @@ static int secp256k1_der_read_len(const unsigned char **sigp, const unsigned cha
     return ret;
 }
 
-static int secp256k1_der_parse_integer(secp256k1_scalar *r, const unsigned char **sig, const unsigned char *sigend) {
+static int secp256k1_der_parse_integer(secp256k1_scalar* r, const unsigned char** sig, const unsigned char* sigend) {
     int overflow = 0;
     unsigned char ra[32] = {0};
     int rlen;
@@ -142,8 +138,8 @@ static int secp256k1_der_parse_integer(secp256k1_scalar *r, const unsigned char 
     return 1;
 }
 
-static int secp256k1_ecdsa_sig_parse(secp256k1_scalar *rr, secp256k1_scalar *rs, const unsigned char *sig, size_t size) {
-    const unsigned char *sigend = sig + size;
+static int secp256k1_ecdsa_sig_parse(secp256k1_scalar* rr, secp256k1_scalar* rs, const unsigned char* sig, size_t size) {
+    const unsigned char* sigend = sig + size;
     int rlen;
     if (sig == sigend || *(sig++) != 0x30) {
         /* The encoding doesn't start with a constructed sequence (X.690-0207 8.9.1). */
@@ -174,15 +170,22 @@ static int secp256k1_ecdsa_sig_parse(secp256k1_scalar *rr, secp256k1_scalar *rs,
     return 1;
 }
 
-static int secp256k1_ecdsa_sig_serialize(unsigned char *sig, size_t *size, const secp256k1_scalar* ar, const secp256k1_scalar* as) {
+static int secp256k1_ecdsa_sig_serialize(unsigned char* sig, size_t* size, const secp256k1_scalar* ar,
+                                         const secp256k1_scalar* as) {
     unsigned char r[33] = {0}, s[33] = {0};
     unsigned char *rp = r, *sp = s;
     size_t lenR = 33, lenS = 33;
     secp256k1_scalar_get_b32(&r[1], ar);
     secp256k1_scalar_get_b32(&s[1], as);
-    while (lenR > 1 && rp[0] == 0 && rp[1] < 0x80) { lenR--; rp++; }
-    while (lenS > 1 && sp[0] == 0 && sp[1] < 0x80) { lenS--; sp++; }
-    if (*size < 6+lenS+lenR) {
+    while (lenR > 1 && rp[0] == 0 && rp[1] < 0x80) {
+        lenR--;
+        rp++;
+    }
+    while (lenS > 1 && sp[0] == 0 && sp[1] < 0x80) {
+        lenS--;
+        sp++;
+    }
+    if (*size < 6 + lenS + lenR) {
         *size = 6 + lenS + lenR;
         return 0;
     }
@@ -191,14 +194,16 @@ static int secp256k1_ecdsa_sig_serialize(unsigned char *sig, size_t *size, const
     sig[1] = 4 + lenS + lenR;
     sig[2] = 0x02;
     sig[3] = lenR;
-    memcpy(sig+4, rp, lenR);
-    sig[4+lenR] = 0x02;
-    sig[5+lenR] = lenS;
-    memcpy(sig+lenR+6, sp, lenS);
+    memcpy(sig + 4, rp, lenR);
+    sig[4 + lenR] = 0x02;
+    sig[5 + lenR] = lenS;
+    memcpy(sig + lenR + 6, sp, lenS);
     return 1;
 }
 
-static int secp256k1_ecdsa_sig_verify(const secp256k1_ecmult_context *ctx, const secp256k1_scalar *sigr, const secp256k1_scalar *sigs, const secp256k1_ge *pubkey, const secp256k1_scalar *message) {
+static int secp256k1_ecdsa_sig_verify(const secp256k1_ecmult_context* ctx, const secp256k1_scalar* sigr,
+                                      const secp256k1_scalar* sigs, const secp256k1_ge* pubkey,
+                                      const secp256k1_scalar* message) {
     unsigned char c[32];
     secp256k1_scalar sn, u1, u2;
 #if !defined(EXHAUSTIVE_TEST_ORDER)
@@ -221,16 +226,16 @@ static int secp256k1_ecdsa_sig_verify(const secp256k1_ecmult_context *ctx, const
     }
 
 #if defined(EXHAUSTIVE_TEST_ORDER)
-{
-    secp256k1_scalar computed_r;
-    secp256k1_ge pr_ge;
-    secp256k1_ge_set_gej(&pr_ge, &pr);
-    secp256k1_fe_normalize(&pr_ge.x);
+    {
+        secp256k1_scalar computed_r;
+        secp256k1_ge pr_ge;
+        secp256k1_ge_set_gej(&pr_ge, &pr);
+        secp256k1_fe_normalize(&pr_ge.x);
 
-    secp256k1_fe_get_b32(c, &pr_ge.x);
-    secp256k1_scalar_set_b32(&computed_r, c, NULL);
-    return secp256k1_scalar_eq(sigr, &computed_r);
-}
+        secp256k1_fe_get_b32(c, &pr_ge.x);
+        secp256k1_scalar_set_b32(&computed_r, c, NULL);
+        return secp256k1_scalar_eq(sigr, &computed_r);
+    }
 #else
     secp256k1_scalar_get_b32(c, sigr);
     secp256k1_fe_set_b32(&xr, c);
@@ -268,7 +273,9 @@ static int secp256k1_ecdsa_sig_verify(const secp256k1_ecmult_context *ctx, const
 #endif
 }
 
-static int secp256k1_ecdsa_sig_sign(const secp256k1_ecmult_gen_context *ctx, secp256k1_scalar *sigr, secp256k1_scalar *sigs, const secp256k1_scalar *seckey, const secp256k1_scalar *message, const secp256k1_scalar *nonce, int *recid) {
+static int secp256k1_ecdsa_sig_sign(const secp256k1_ecmult_gen_context* ctx, secp256k1_scalar* sigr, secp256k1_scalar* sigs,
+                                    const secp256k1_scalar* seckey, const secp256k1_scalar* message,
+                                    const secp256k1_scalar* nonce, int* recid) {
     unsigned char b[32];
     secp256k1_gej rp;
     secp256k1_ge r;

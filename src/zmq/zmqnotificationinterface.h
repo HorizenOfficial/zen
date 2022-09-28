@@ -5,33 +5,33 @@
 #ifndef BITCOIN_ZMQ_ZMQNOTIFICATIONINTERFACE_H
 #define BITCOIN_ZMQ_ZMQNOTIFICATIONINTERFACE_H
 
-#include "validationinterface.h"
-#include <string>
 #include <map>
+#include <string>
+
+#include "validationinterface.h"
 
 class CBlockIndex;
 class CZMQAbstractNotifier;
 
-class CZMQNotificationInterface : public CValidationInterface
-{
-public:
+class CZMQNotificationInterface : public CValidationInterface {
+  public:
     virtual ~CZMQNotificationInterface();
 
-    static CZMQNotificationInterface* CreateWithArguments(const std::map<std::string, std::string> &args);
+    static CZMQNotificationInterface* CreateWithArguments(const std::map<std::string, std::string>& args);
 
-protected:
+  protected:
     bool Initialize();
     void Shutdown();
 
     // CValidationInterface
-    void SyncTransaction(const CTransaction &tx, const CBlock *pblock);
-    void UpdatedBlockTip(const CBlockIndex *pindex);
+    void SyncTransaction(const CTransaction& tx, const CBlock* pblock);
+    void UpdatedBlockTip(const CBlockIndex* pindex);
 
-private:
+  private:
     CZMQNotificationInterface();
 
-    void *pcontext;
+    void* pcontext;
     std::list<CZMQAbstractNotifier*> notifiers;
 };
 
-#endif // BITCOIN_ZMQ_ZMQNOTIFICATIONINTERFACE_H
+#endif  // BITCOIN_ZMQ_ZMQNOTIFICATIONINTERFACE_H

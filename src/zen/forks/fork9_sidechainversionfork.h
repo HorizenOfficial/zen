@@ -5,9 +5,8 @@
 
 namespace zen {
 
-class SidechainVersionFork : public SidechainFork
-{
-public:
+class SidechainVersionFork : public SidechainFork {
+  public:
     SidechainVersionFork();
 
     /**
@@ -16,5 +15,5 @@ public:
     inline virtual uint8_t getMaxSidechainVersion() const { return 1; }
 };
 
-}
-#endif // _SIDECHAINVERSIONFORK_H
+}  // namespace zen
+#endif  // _SIDECHAINVERSIONFORK_H

@@ -1,9 +1,13 @@
-#include <boost/filesystem.hpp>
+#include "zcbenchmarks.h"
+
+#include <unistd.h>
+
 #include <cstdio>
 #include <future>
 #include <map>
 #include <thread>
-#include <unistd.h>
+
+#include <boost/filesystem.hpp>
 
 #include "base58.h"
 #include "chain.h"
@@ -24,28 +28,21 @@
 #include "util.h"
 #include "utiltest.h"
 #include "wallet/wallet.h"
-
-#include "zcbenchmarks.h"
-
 #include "zcash/IncrementalMerkleTree.hpp"
 #include "zcash/Zcash.h"
 
 using namespace libzcash;
 // This method is based on Shutdown from init.cpp
-void pre_wallet_load()
-{
+void pre_wallet_load() {
     LogPrintf("%s: In progress...\n", __func__);
-    if (ShutdownRequested())
-        throw new std::runtime_error("The node is shutting down");
+    if (ShutdownRequested()) throw new std::runtime_error("The node is shutting down");
 
-    if (pwalletMain)
-        pwalletMain->Flush(false);
+    if (pwalletMain) pwalletMain->Flush(false);
 #ifdef ENABLE_MINING
     GenerateBitcoins(false, NULL, 0);
 #endif
     UnregisterNodeSignals(GetNodeSignals());
-    if (pwalletMain)
-        pwalletMain->Flush(true);
+    if (pwalletMain) pwalletMain->Flush(true);
 
     UnregisterValidationInterface(pwalletMain);
     delete pwalletMain;
@@ -55,8 +52,7 @@ void pre_wallet_load()
     LogPrintf("%s: done\n", __func__);
 }
 
-void post_wallet_load()
-{
+void post_wallet_load() {
     RegisterValidationInterface(pwalletMain);
 #ifdef ENABLE_MINING
     // Generate coins in the background
@@ -65,32 +61,24 @@ void post_wallet_load()
 #endif
 }
 
+void timer_start(timeval& tv_start) { gettimeofday(&tv_start, 0); }
 
-void timer_start(timeval& tv_start)
-{
-    gettimeofday(&tv_start, 0);
-}
-
-double timer_stop(timeval& tv_start)
-{
+double timer_stop(timeval& tv_start) {
     double elapsed;
     struct timeval tv_end;
     gettimeofday(&tv_end, 0);
-    elapsed = double(tv_end.tv_sec - tv_start.tv_sec) +
-              (tv_end.tv_usec - tv_start.tv_usec) / double(1000000);
+    elapsed = double(tv_end.tv_sec - tv_start.tv_sec) + (tv_end.tv_usec - tv_start.tv_usec) / double(1000000);
     return elapsed;
 }
 
-double benchmark_sleep()
-{
+double benchmark_sleep() {
     struct timeval tv_start;
     timer_start(tv_start);
     sleep(1);
     return timer_stop(tv_start);
 }
 
-double benchmark_parameter_loading()
-{
+double benchmark_parameter_loading() {
     // FIXME: this is duplicated with the actual loading code
     boost::filesystem::path pk_path = ZC_GetParamsDir() / "sprout-proving.key";
     boost::filesystem::path vk_path = ZC_GetParamsDir() / "sprout-verifying.key";
@@ -107,8 +95,7 @@ double benchmark_parameter_loading()
     return ret;
 }
 
-double benchmark_create_joinsplit()
-{
+double benchmark_create_joinsplit() {
     uint256 pubKeyHash;
 
     /* Get the anchor of an empty commitment tree. */
@@ -116,14 +103,7 @@ double benchmark_create_joinsplit()
 
     struct timeval tv_start;
     timer_start(tv_start);
-    JSDescription jsdesc(true,
-                         *pzcashParams,
-                         pubKeyHash,
-                         anchor,
-                         {JSInput(), JSInput()},
-                         {JSOutput(), JSOutput()},
-                         0,
-                         0);
+    JSDescription jsdesc(true, *pzcashParams, pubKeyHash, anchor, {JSInput(), JSInput()}, {JSOutput(), JSOutput()}, 0, 0);
     double ret = timer_stop(tv_start);
 
     auto verifier = libzcash::ProofVerifier::Strict();
@@ -131,8 +111,7 @@ double benchmark_create_joinsplit()
     return ret;
 }
 
-std::vector<double> benchmark_create_joinsplit_threaded(int nThreads)
-{
+std::vector<double> benchmark_create_joinsplit_threaded(int nThreads) {
     std::vector<double> ret;
     std::vector<std::future<double>> tasks;
     std::vector<std::thread> threads;
@@ -152,8 +131,7 @@ std::vector<double> benchmark_create_joinsplit_threaded(int nThreads)
     return ret;
 }
 
-double benchmark_verify_joinsplit(const JSDescription& joinsplit)
-{
+double benchmark_verify_joinsplit(const JSDescription& joinsplit) {
     struct timeval tv_start;
     timer_start(tv_start);
     uint256 pubKeyHash;
@@ -163,8 +141,7 @@ double benchmark_verify_joinsplit(const JSDescription& joinsplit)
 }
 
 #ifdef ENABLE_MINING
-double benchmark_solve_equihash()
-{
+double benchmark_solve_equihash() {
     CBlock pblock;
     CEquihashInput I{pblock};
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
@@ -178,20 +155,16 @@ double benchmark_solve_equihash()
 
     uint256 nonce;
     randombytes_buf(nonce.begin(), 32);
-    crypto_generichash_blake2b_update(&eh_state,
-                                      nonce.begin(),
-                                      nonce.size());
+    crypto_generichash_blake2b_update(&eh_state, nonce.begin(), nonce.size());
 
     struct timeval tv_start;
     timer_start(tv_start);
     std::set<std::vector<unsigned int>> solns;
-    EhOptimisedSolveUncancellable(n, k, eh_state,
-                                  [](std::vector<unsigned char> soln) { return false; });
+    EhOptimisedSolveUncancellable(n, k, eh_state, [](std::vector<unsigned char> soln) { return false; });
     return timer_stop(tv_start);
 }
 
-std::vector<double> benchmark_solve_equihash_threaded(int nThreads)
-{
+std::vector<double> benchmark_solve_equihash_threaded(int nThreads) {
     std::vector<double> ret;
     std::vector<std::future<double>> tasks;
     std::vector<std::thread> threads;
@@ -210,10 +183,9 @@ std::vector<double> benchmark_solve_equihash_threaded(int nThreads)
     }
     return ret;
 }
-#endif // ENABLE_MINING
+#endif  // ENABLE_MINING
 
-double benchmark_verify_equihash()
-{
+double benchmark_verify_equihash() {
     CChainParams params = Params(CBaseChainParams::MAIN);
     CBlock genesis = Params(CBaseChainParams::MAIN).GenesisBlock();
     CBlockHeader genesis_header = genesis.GetBlockHeader();
@@ -223,8 +195,7 @@ double benchmark_verify_equihash()
     return timer_stop(tv_start);
 }
 
-double benchmark_large_tx()
-{
+double benchmark_large_tx() {
     // Number of inputs in the spending transaction that we will simulate
     const size_t NUM_INPUTS = 555;
 
@@ -259,9 +230,9 @@ double benchmark_large_tx()
     {
         CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
         ss << spending_tx;
-        //std::cout << "SIZE OF SPENDING TX: " << ss.size() << std::endl;
+        // std::cout << "SIZE OF SPENDING TX: " << ss.size() << std::endl;
 
-        auto error = MAX_TX_SIZE / 20; // 5% error
+        auto error = MAX_TX_SIZE / 20;  // 5% error
         assert(ss.size() < MAX_TX_SIZE + error);
         assert(ss.size() > MAX_TX_SIZE - error);
     }
@@ -274,17 +245,13 @@ double benchmark_large_tx()
     timer_start(tv_start);
     for (size_t i = 0; i < NUM_INPUTS; i++) {
         ScriptError serror = SCRIPT_ERR_OK;
-        assert(VerifyScript(final_spending_tx.GetVin()[i].scriptSig,
-                            prevPubKey,
-                            STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS,
-                            TransactionSignatureChecker(&final_spending_tx, i, nullptr),
-                            &serror));
+        assert(VerifyScript(final_spending_tx.GetVin()[i].scriptSig, prevPubKey, STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS,
+                            TransactionSignatureChecker(&final_spending_tx, i, nullptr), &serror));
     }
     return timer_stop(tv_start);
 }
 
-double benchmark_try_decrypt_notes(size_t nAddrs)
-{
+double benchmark_try_decrypt_notes(size_t nAddrs) {
     CWallet wallet;
     for (int i = 0; i < nAddrs; i++) {
         auto sk = libzcash::SpendingKey::random();
@@ -300,8 +267,7 @@ double benchmark_try_decrypt_notes(size_t nAddrs)
     return timer_stop(tv_start);
 }
 
-double benchmark_increment_note_witnesses(size_t nTxs)
-{
+double benchmark_increment_note_witnesses(size_t nTxs) {
     CWallet wallet;
     ZCIncrementalMerkleTree tree;
 
@@ -357,16 +323,14 @@ double benchmark_increment_note_witnesses(size_t nTxs)
 }
 
 // Fake the input of a given block
-class FakeCoinsViewDB : public CCoinsViewDB
-{
+class FakeCoinsViewDB : public CCoinsViewDB {
     uint256 hash;
     ZCIncrementalMerkleTree t;
 
-public:
+  public:
     FakeCoinsViewDB(std::string dbName, uint256& hash) : CCoinsViewDB(dbName, 100, false, false), hash(hash) {}
 
-    bool GetAnchorAt(const uint256& rt, ZCIncrementalMerkleTree& tree) const override
-    {
+    bool GetAnchorAt(const uint256& rt, ZCIncrementalMerkleTree& tree) const override {
         if (rt == t.root()) {
             tree = t;
             return true;
@@ -374,47 +338,27 @@ public:
         return false;
     }
 
-    bool GetNullifier(const uint256& nf) const override
-    {
+    bool GetNullifier(const uint256& nf) const override { return false; }
+
+    uint256 GetBestBlock() const override { return hash; }
+
+    uint256 GetBestAnchor() const override { return t.root(); }
+
+    bool BatchWrite(CCoinsMap& mapCoins, const uint256& hashBlock, const uint256& hashAnchor, CAnchorsMap& mapAnchors,
+                    CNullifiersMap& mapNullifiers, CSidechainsMap& mapSidechains, CSidechainEventsMap& mapSidechainEvents,
+                    CCswNullifiersMap& cswNullifiers) override {
         return false;
     }
 
-    uint256 GetBestBlock() const override
-    {
-        return hash;
-    }
-
-    uint256 GetBestAnchor() const override
-    {
-        return t.root();
-    }
-
-    bool BatchWrite(CCoinsMap& mapCoins,
-                    const uint256& hashBlock,
-                    const uint256& hashAnchor,
-                    CAnchorsMap& mapAnchors,
-                    CNullifiersMap& mapNullifiers,
-                    CSidechainsMap& mapSidechains,
-                    CSidechainEventsMap& mapSidechainEvents,
-                    CCswNullifiersMap& cswNullifiers) override
-    {
-        return false;
-    }
-
-    bool GetStats(CCoinsStats& stats) const override
-    {
-        return false;
-    }
+    bool GetStats(CCoinsStats& stats) const override { return false; }
 };
 
-double benchmark_connectblock_slow()
-{
+double benchmark_connectblock_slow() {
     // Test for issue 2017-05-01.a
     SelectParams(CBaseChainParams::MAIN);
     CBlock block;
     FILE* fp = fopen((GetDataDir() / "benchmark/block-107134.dat").string().c_str(), "rb");
-    if (!fp)
-        throw new std::runtime_error("Failed to open block data file");
+    if (!fp) throw new std::runtime_error("Failed to open block data file");
     CAutoFile blkFile(fp, SER_DISK, CLIENT_VERSION);
     blkFile >> block;
     blkFile.fclose();
@@ -440,8 +384,8 @@ double benchmark_connectblock_slow()
     CValidationState state;
     struct timeval tv_start;
     timer_start(tv_start);
-    assert(ConnectBlock(block, state, &index, view, chain, flagBlockProcessingType::CHECK_ONLY,
-                        flagScRelatedChecks::ON, flagScProofVerification::ON, flagLevelDBIndexesWrite::OFF));
+    assert(ConnectBlock(block, state, &index, view, chain, flagBlockProcessingType::CHECK_ONLY, flagScRelatedChecks::ON,
+                        flagScProofVerification::ON, flagLevelDBIndexesWrite::OFF));
     auto duration = timer_stop(tv_start);
 
     // Undo alterations to global state
@@ -451,8 +395,7 @@ double benchmark_connectblock_slow()
     return duration;
 }
 
-double benchmark_sendtoaddress(CAmount amount)
-{
+double benchmark_sendtoaddress(CAmount amount) {
     UniValue params(UniValue::VARR);
     auto addr = getnewaddress(params, false);
 
@@ -465,8 +408,7 @@ double benchmark_sendtoaddress(CAmount amount)
     return timer_stop(tv_start);
 }
 
-double benchmark_loadwallet()
-{
+double benchmark_loadwallet() {
     pre_wallet_load();
     struct timeval tv_start;
     bool fFirstRunRet = true;
@@ -478,8 +420,7 @@ double benchmark_loadwallet()
     return res;
 }
 
-double benchmark_listunspent()
-{
+double benchmark_listunspent() {
     UniValue params(UniValue::VARR);
     struct timeval tv_start;
     timer_start(tv_start);

@@ -2,24 +2,17 @@
 
 #include "chainparams.h"
 
-class SidechainTypesTestSuite: public ::testing::Test
-{
-public:
-    void SetUp() override
-    {
-        SelectParams(CBaseChainParams::REGTEST);
-    };
+class SidechainTypesTestSuite : public ::testing::Test {
+  public:
+    void SetUp() override { SelectParams(CBaseChainParams::REGTEST); };
 
-    void TearDown() override
-    {
-    };
+    void TearDown() override{};
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////// CZendooBatchProofVerifierResult ///////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainTypesTestSuite, CZendooBatchProofVerifierResultDestructor)
-{
+TEST_F(SidechainTypesTestSuite, CZendooBatchProofVerifierResultDestructor) {
     size_t arraySize = 5;
 
     // Initialize a raw pointer

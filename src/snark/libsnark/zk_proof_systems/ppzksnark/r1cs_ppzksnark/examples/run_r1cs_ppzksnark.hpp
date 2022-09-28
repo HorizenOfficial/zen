@@ -24,12 +24,11 @@ namespace libsnark {
  * Optionally, also test the serialization routines for keys and proofs.
  * (This takes additional time.)
  */
-template<typename ppT>
-bool run_r1cs_ppzksnark(const r1cs_example<Fr<ppT> > &example,
-                        const bool test_serialization);
+template <typename ppT>
+bool run_r1cs_ppzksnark(const r1cs_example<Fr<ppT> >& example, const bool test_serialization);
 
-} // libsnark
+}  // namespace libsnark
 
 #include "zk_proof_systems/ppzksnark/r1cs_ppzksnark/examples/run_r1cs_ppzksnark.tcc"
 
-#endif // RUN_R1CS_PPZKSNARK_HPP_
+#endif  // RUN_R1CS_PPZKSNARK_HPP_

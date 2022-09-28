@@ -21,16 +21,12 @@
 using namespace std;
 
 // Helpers:
-static std::vector<unsigned char>
-Serialize(const CScript& s)
-{
+static std::vector<unsigned char> Serialize(const CScript& s) {
     std::vector<unsigned char> sSerialized(s);
     return sSerialized;
 }
 
-static bool
-Verify(const CScript& scriptSig, const CScript& scriptPubKey, bool fStrict, ScriptError& err)
-{
+static bool Verify(const CScript& scriptSig, const CScript& scriptPubKey, bool fStrict, ScriptError& err) {
     // Create dummy to/from transactions:
     CMutableTransaction txFrom;
     txFrom.resizeOut(1);
@@ -44,14 +40,13 @@ Verify(const CScript& scriptSig, const CScript& scriptPubKey, bool fStrict, Scri
     txTo.vin[0].scriptSig = scriptSig;
     txTo.getOut(0).nValue = 1;
 
-    return VerifyScript(scriptSig, scriptPubKey, fStrict ? SCRIPT_VERIFY_P2SH : SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo, 0), &err);
+    return VerifyScript(scriptSig, scriptPubKey, fStrict ? SCRIPT_VERIFY_P2SH : SCRIPT_VERIFY_NONE,
+                        MutableTransactionSignatureChecker(&txTo, 0), &err);
 }
-
 
 BOOST_FIXTURE_TEST_SUITE(script_P2SH_tests, BasicTestingSetup)
 
-BOOST_AUTO_TEST_CASE(sign)
-{
+BOOST_AUTO_TEST_CASE(sign) {
     LOCK(cs_main);
     // Pay-to-script-hash looks like this:
     // scriptSig:    <sig> <sig...> <serialized_script>
@@ -60,8 +55,7 @@ BOOST_AUTO_TEST_CASE(sign)
     // Test SignSignature() (and therefore the version of Solver() that signs transactions)
     CBasicKeyStore keystore;
     CKey key[4];
-    for (int i = 0; i < 4; i++)
-    {
+    for (int i = 0; i < 4; i++) {
         key[i].MakeNewKey(true);
         keystore.AddKey(key[i]);
     }
@@ -74,8 +68,7 @@ BOOST_AUTO_TEST_CASE(sign)
     standardScripts[2] << ToByteVector(key[1].GetPubKey()) << OP_CHECKSIG;
     standardScripts[3] = GetScriptForDestination(key[2].GetPubKey().GetID());
     CScript evalScripts[4];
-    for (int i = 0; i < 4; i++)
-    {
+    for (int i = 0; i < 4; i++) {
         keystore.AddCScript(standardScripts[i]);
         evalScripts[i] = GetScriptForDestination(CScriptID(standardScripts[i]));
     }
@@ -83,18 +76,16 @@ BOOST_AUTO_TEST_CASE(sign)
     CMutableTransaction txFrom;  // Funding transaction:
     string reason;
     txFrom.resizeOut(8);
-    for (int i = 0; i < 4; i++)
-    {
+    for (int i = 0; i < 4; i++) {
         txFrom.getOut(i).scriptPubKey = evalScripts[i];
         txFrom.getOut(i).nValue = COIN;
-        txFrom.getOut(i+4).scriptPubKey = standardScripts[i];
-        txFrom.getOut(i+4).nValue = COIN;
+        txFrom.getOut(i + 4).scriptPubKey = standardScripts[i];
+        txFrom.getOut(i + 4).nValue = COIN;
     }
     BOOST_CHECK(IsStandardTx(txFrom, reason, 0));
 
-    CMutableTransaction txTo[8]; // Spending transactions
-    for (int i = 0; i < 8; i++)
-    {
+    CMutableTransaction txTo[8];  // Spending transactions
+    for (int i = 0; i < 8; i++) {
         txTo[i].vin.resize(1);
         txTo[i].resizeOut(1);
         txTo[i].vin[0].prevout.n = i;
@@ -104,18 +95,17 @@ BOOST_AUTO_TEST_CASE(sign)
         BOOST_CHECK_MESSAGE(IsMine(keystore, txFrom.getOut(i).scriptPubKey), strprintf("IsMine %d", i));
 #endif
     }
-    for (int i = 0; i < 8; i++)
-    {
+    for (int i = 0; i < 8; i++) {
         BOOST_CHECK_MESSAGE(SignSignature(keystore, txFrom, txTo[i], 0), strprintf("SignSignature %d", i));
     }
     // All of the above should be OK, and the txTos have valid signatures
     // Check to make sure signature verification fails if we use the wrong ScriptSig:
     for (int i = 0; i < 8; i++)
-        for (int j = 0; j < 8; j++)
-        {
+        for (int j = 0; j < 8; j++) {
             CScript sigSave = txTo[i].vin[0].scriptSig;
             txTo[i].vin[0].scriptSig = txTo[j].vin[0].scriptSig;
-            bool sigOK = CScriptCheck(CCoins(txFrom, 0), txTo[i], 0, nullptr, SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_STRICTENC, false)();
+            bool sigOK =
+                CScriptCheck(CCoins(txFrom, 0), txTo[i], 0, nullptr, SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_STRICTENC, false)();
             if (i == j)
                 BOOST_CHECK_MESSAGE(sigOK, strprintf("VerifySignature %d %d", i, j));
             else
@@ -124,8 +114,7 @@ BOOST_AUTO_TEST_CASE(sign)
         }
 }
 
-BOOST_AUTO_TEST_CASE(norecurse)
-{
+BOOST_AUTO_TEST_CASE(norecurse) {
     ScriptError err;
     // Make sure only the outer pay-to-script-hash does the
     // extra-validation thing:
@@ -151,15 +140,13 @@ BOOST_AUTO_TEST_CASE(norecurse)
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
 }
 
-BOOST_AUTO_TEST_CASE(set)
-{
+BOOST_AUTO_TEST_CASE(set) {
     LOCK(cs_main);
     // Test the CScript::Set* methods
     CBasicKeyStore keystore;
     CKey key[4];
     std::vector<CPubKey> keys;
-    for (int i = 0; i < 4; i++)
-    {
+    for (int i = 0; i < 4; i++) {
         key[i].MakeNewKey(true);
         keystore.AddKey(key[i]);
         keys.push_back(key[i].GetPubKey());
@@ -167,13 +154,12 @@ BOOST_AUTO_TEST_CASE(set)
 
     CScript inner[4];
     inner[0] = GetScriptForDestination(key[0].GetPubKey().GetID());
-    inner[1] = GetScriptForMultisig(2, std::vector<CPubKey>(keys.begin(), keys.begin()+2));
-    inner[2] = GetScriptForMultisig(1, std::vector<CPubKey>(keys.begin(), keys.begin()+2));
-    inner[3] = GetScriptForMultisig(2, std::vector<CPubKey>(keys.begin(), keys.begin()+3));
+    inner[1] = GetScriptForMultisig(2, std::vector<CPubKey>(keys.begin(), keys.begin() + 2));
+    inner[2] = GetScriptForMultisig(1, std::vector<CPubKey>(keys.begin(), keys.begin() + 2));
+    inner[3] = GetScriptForMultisig(2, std::vector<CPubKey>(keys.begin(), keys.begin() + 3));
 
     CScript outer[4];
-    for (int i = 0; i < 4; i++)
-    {
+    for (int i = 0; i < 4; i++) {
         outer[i] = GetScriptForDestination(CScriptID(inner[i]));
         keystore.AddCScript(inner[i]);
     }
@@ -181,35 +167,31 @@ BOOST_AUTO_TEST_CASE(set)
     CMutableTransaction txFrom;  // Funding transaction:
     string reason;
     txFrom.resizeOut(4);
-    for (int i = 0; i < 4; i++)
-    {
+    for (int i = 0; i < 4; i++) {
         txFrom.getOut(i).scriptPubKey = outer[i];
         txFrom.getOut(i).nValue = CENT;
     }
     BOOST_CHECK(IsStandardTx(txFrom, reason, 0));
 
-    CMutableTransaction txTo[4]; // Spending transactions
-    for (int i = 0; i < 4; i++)
-    {
+    CMutableTransaction txTo[4];  // Spending transactions
+    for (int i = 0; i < 4; i++) {
         txTo[i].vin.resize(1);
         txTo[i].resizeOut(1);
         txTo[i].vin[0].prevout.n = i;
         txTo[i].vin[0].prevout.hash = txFrom.GetHash();
-        txTo[i].getOut(0).nValue = 1*CENT;
+        txTo[i].getOut(0).nValue = 1 * CENT;
         txTo[i].getOut(0).scriptPubKey = inner[i];
 #ifdef ENABLE_WALLET
         BOOST_CHECK_MESSAGE(IsMine(keystore, txFrom.getOut(i).scriptPubKey), strprintf("IsMine %d", i));
 #endif
     }
-    for (int i = 0; i < 4; i++)
-    {
+    for (int i = 0; i < 4; i++) {
         BOOST_CHECK_MESSAGE(SignSignature(keystore, txFrom, txTo[i], 0), strprintf("SignSignature %d", i));
         BOOST_CHECK_MESSAGE(IsStandardTx(txTo[i], reason, 0), strprintf("txTo[%d].IsStandard", i));
     }
 }
 
-BOOST_AUTO_TEST_CASE(is)
-{
+BOOST_AUTO_TEST_CASE(is) {
     // Test CScript::IsPayToScriptHash()
     uint160 dummy;
     CScript p2sh;
@@ -217,45 +199,84 @@ BOOST_AUTO_TEST_CASE(is)
     BOOST_CHECK(p2sh.IsPayToScriptHash());
 
     // Not considered pay-to-script-hash if using one of the OP_PUSHDATA opcodes:
-    static const unsigned char direct[] =    { OP_HASH160, 20, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, OP_EQUAL };
-    BOOST_CHECK(CScript(direct, direct+sizeof(direct)).IsPayToScriptHash());
-    static const unsigned char pushdata1[] = { OP_HASH160, OP_PUSHDATA1, 20, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, OP_EQUAL };
-    BOOST_CHECK(!CScript(pushdata1, pushdata1+sizeof(pushdata1)).IsPayToScriptHash());
-    static const unsigned char pushdata2[] = { OP_HASH160, OP_PUSHDATA2, 20,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, OP_EQUAL };
-    BOOST_CHECK(!CScript(pushdata2, pushdata2+sizeof(pushdata2)).IsPayToScriptHash());
-    static const unsigned char pushdata4[] = { OP_HASH160, OP_PUSHDATA4, 20,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, OP_EQUAL };
-    BOOST_CHECK(!CScript(pushdata4, pushdata4+sizeof(pushdata4)).IsPayToScriptHash());
+    static const unsigned char direct[] = {OP_HASH160, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0,       0,
+                                           0,          0,  0, 0, 0, 0, 0, 0, 0, 0, OP_EQUAL};
+    BOOST_CHECK(CScript(direct, direct + sizeof(direct)).IsPayToScriptHash());
+    static const unsigned char pushdata1[] = {
+        OP_HASH160, OP_PUSHDATA1, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, OP_EQUAL};
+    BOOST_CHECK(!CScript(pushdata1, pushdata1 + sizeof(pushdata1)).IsPayToScriptHash());
+    static const unsigned char pushdata2[] = {
+        OP_HASH160, OP_PUSHDATA2, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, OP_EQUAL};
+    BOOST_CHECK(!CScript(pushdata2, pushdata2 + sizeof(pushdata2)).IsPayToScriptHash());
+    static const unsigned char pushdata4[] = {
+        OP_HASH160, OP_PUSHDATA4, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, OP_EQUAL};
+    BOOST_CHECK(!CScript(pushdata4, pushdata4 + sizeof(pushdata4)).IsPayToScriptHash());
 
     // Test for pay-to-script-hash with OP_CHECKBLOCKATHEIGHT
-    static const unsigned char direct_checkblock[] = { OP_HASH160, 20, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, OP_EQUAL,
-            4, 0,0,0,0, 32, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, OP_CHECKBLOCKATHEIGHT };
-    BOOST_CHECK(CScript(direct_checkblock, direct_checkblock+sizeof(direct_checkblock)).IsPayToScriptHash());
+    static const unsigned char direct_checkblock[] = {OP_HASH160, 20,
+                                                      0,          0,
+                                                      0,          0,
+                                                      0,          0,
+                                                      0,          0,
+                                                      0,          0,
+                                                      0,          0,
+                                                      0,          0,
+                                                      0,          0,
+                                                      0,          0,
+                                                      0,          0,
+                                                      OP_EQUAL,   4,
+                                                      0,          0,
+                                                      0,          0,
+                                                      32,         0,
+                                                      0,          0,
+                                                      0,          0,
+                                                      0,          0,
+                                                      0,          0,
+                                                      0,          0,
+                                                      0,          0,
+                                                      0,          0,
+                                                      0,          0,
+                                                      0,          0,
+                                                      0,          0,
+                                                      0,          0,
+                                                      0,          0,
+                                                      0,          0,
+                                                      0,          0,
+                                                      0,          0,
+                                                      0,          OP_CHECKBLOCKATHEIGHT};
+    BOOST_CHECK(CScript(direct_checkblock, direct_checkblock + sizeof(direct_checkblock)).IsPayToScriptHash());
 
     CScript not_p2sh;
     BOOST_CHECK(!not_p2sh.IsPayToScriptHash());
 
-    not_p2sh.clear(); not_p2sh << OP_HASH160 << ToByteVector(dummy) << ToByteVector(dummy) << OP_EQUAL;
+    not_p2sh.clear();
+    not_p2sh << OP_HASH160 << ToByteVector(dummy) << ToByteVector(dummy) << OP_EQUAL;
     BOOST_CHECK(!not_p2sh.IsPayToScriptHash());
 
-    not_p2sh.clear(); not_p2sh << OP_NOP << ToByteVector(dummy) << OP_EQUAL;
+    not_p2sh.clear();
+    not_p2sh << OP_NOP << ToByteVector(dummy) << OP_EQUAL;
     BOOST_CHECK(!not_p2sh.IsPayToScriptHash());
 
-    not_p2sh.clear(); not_p2sh << OP_HASH160 << ToByteVector(dummy) << OP_CHECKSIG;
+    not_p2sh.clear();
+    not_p2sh << OP_HASH160 << ToByteVector(dummy) << OP_CHECKSIG;
     BOOST_CHECK(!not_p2sh.IsPayToScriptHash());
 
     // tests for pay-to-script-hash with OP_CHECKBLOCKATHEIGHT
-    not_p2sh.clear(); not_p2sh << OP_HASH160 << ToByteVector(dummy) << OP_EQUAL << ToByteVector(uint256()) << 0x1 << OP_NOP4;
+    not_p2sh.clear();
+    not_p2sh << OP_HASH160 << ToByteVector(dummy) << OP_EQUAL << ToByteVector(uint256()) << 0x1 << OP_NOP4;
     BOOST_CHECK(!not_p2sh.IsPayToScriptHash());
 
-    not_p2sh.clear(); not_p2sh << OP_HASH160 << ToByteVector(dummy) << OP_EQUAL << ToByteVector(uint256()) << ToByteVector(uint256()) << OP_CHECKBLOCKATHEIGHT;
+    not_p2sh.clear();
+    not_p2sh << OP_HASH160 << ToByteVector(dummy) << OP_EQUAL << ToByteVector(uint256()) << ToByteVector(uint256())
+             << OP_CHECKBLOCKATHEIGHT;
     BOOST_CHECK(!not_p2sh.IsPayToScriptHash());
 
-    not_p2sh.clear(); not_p2sh << OP_HASH160 << ToByteVector(dummy) << OP_NOP4 << ToByteVector(uint256()) << 0x1 << OP_CHECKBLOCKATHEIGHT;
+    not_p2sh.clear();
+    not_p2sh << OP_HASH160 << ToByteVector(dummy) << OP_NOP4 << ToByteVector(uint256()) << 0x1 << OP_CHECKBLOCKATHEIGHT;
     BOOST_CHECK(!not_p2sh.IsPayToScriptHash());
 }
 
-BOOST_AUTO_TEST_CASE(switchover)
-{
+BOOST_AUTO_TEST_CASE(switchover) {
     // Test switch over code
     CScript notValid;
     ScriptError err;
@@ -265,7 +286,6 @@ BOOST_AUTO_TEST_CASE(switchover)
 
     CScript fund = GetScriptForDestination(CScriptID(notValid));
 
-
     // Validation should succeed under old rules (hash is correct):
     BOOST_CHECK(Verify(scriptSig, fund, false, err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
@@ -274,21 +294,18 @@ BOOST_AUTO_TEST_CASE(switchover)
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EQUALVERIFY, ScriptErrorString(err));
 }
 
-BOOST_AUTO_TEST_CASE(AreInputsStandard)
-{
+BOOST_AUTO_TEST_CASE(AreInputsStandard) {
     LOCK(cs_main);
     CCoinsView coinsDummy;
     CCoinsViewCache coins(&coinsDummy);
     CBasicKeyStore keystore;
     CKey key[6];
     vector<CPubKey> keys;
-    for (int i = 0; i < 6; i++)
-    {
+    for (int i = 0; i < 6; i++) {
         key[i].MakeNewKey(true);
         keystore.AddKey(key[i]);
     }
-    for (int i = 0; i < 3; i++)
-        keys.push_back(key[i].GetPubKey());
+    for (int i = 0; i < 3; i++) keys.push_back(key[i].GetPubKey());
 
     CMutableTransaction txFrom;
     txFrom.resizeOut(7);
@@ -298,39 +315,43 @@ BOOST_AUTO_TEST_CASE(AreInputsStandard)
     keystore.AddCScript(pay1);
     CScript pay1of3 = GetScriptForMultisig(1, keys);
 
-    txFrom.getOut(0).scriptPubKey = GetScriptForDestination(CScriptID(pay1)); // P2SH (OP_CHECKSIG)
+    txFrom.getOut(0).scriptPubKey = GetScriptForDestination(CScriptID(pay1));  // P2SH (OP_CHECKSIG)
     txFrom.getOut(0).nValue = 1000;
-    txFrom.getOut(1).scriptPubKey = pay1; // ordinary OP_CHECKSIG
+    txFrom.getOut(1).scriptPubKey = pay1;  // ordinary OP_CHECKSIG
     txFrom.getOut(1).nValue = 2000;
-    txFrom.getOut(2).scriptPubKey = pay1of3; // ordinary OP_CHECKMULTISIG
+    txFrom.getOut(2).scriptPubKey = pay1of3;  // ordinary OP_CHECKMULTISIG
     txFrom.getOut(2).nValue = 3000;
 
     // vout[3] is complicated 1-of-3 AND 2-of-3
     // ... that is OK if wrapped in P2SH:
     CScript oneAndTwo;
-    oneAndTwo << OP_1 << ToByteVector(key[0].GetPubKey()) << ToByteVector(key[1].GetPubKey()) << ToByteVector(key[2].GetPubKey());
+    oneAndTwo << OP_1 << ToByteVector(key[0].GetPubKey()) << ToByteVector(key[1].GetPubKey())
+              << ToByteVector(key[2].GetPubKey());
     oneAndTwo << OP_3 << OP_CHECKMULTISIGVERIFY;
-    oneAndTwo << OP_2 << ToByteVector(key[3].GetPubKey()) << ToByteVector(key[4].GetPubKey()) << ToByteVector(key[5].GetPubKey());
+    oneAndTwo << OP_2 << ToByteVector(key[3].GetPubKey()) << ToByteVector(key[4].GetPubKey())
+              << ToByteVector(key[5].GetPubKey());
     oneAndTwo << OP_3 << OP_CHECKMULTISIG;
     keystore.AddCScript(oneAndTwo);
     txFrom.getOut(3).scriptPubKey = GetScriptForDestination(CScriptID(oneAndTwo));
     txFrom.getOut(3).nValue = 4000;
 
     // vout[4] is max sigops:
-    CScript fifteenSigops; fifteenSigops << OP_1;
-    for (unsigned i = 0; i < MAX_P2SH_SIGOPS; i++)
-        fifteenSigops << ToByteVector(key[i%3].GetPubKey());
+    CScript fifteenSigops;
+    fifteenSigops << OP_1;
+    for (unsigned i = 0; i < MAX_P2SH_SIGOPS; i++) fifteenSigops << ToByteVector(key[i % 3].GetPubKey());
     fifteenSigops << OP_15 << OP_CHECKMULTISIG;
     keystore.AddCScript(fifteenSigops);
     txFrom.getOut(4).scriptPubKey = GetScriptForDestination(CScriptID(fifteenSigops));
     txFrom.getOut(4).nValue = 5000;
 
     // vout[5/6] are non-standard because they exceed MAX_P2SH_SIGOPS
-    CScript sixteenSigops; sixteenSigops << OP_16 << OP_CHECKMULTISIG;
+    CScript sixteenSigops;
+    sixteenSigops << OP_16 << OP_CHECKMULTISIG;
     keystore.AddCScript(sixteenSigops);
     txFrom.getOut(5).scriptPubKey = GetScriptForDestination(CScriptID(fifteenSigops));
     txFrom.getOut(5).nValue = 5000;
-    CScript twentySigops; twentySigops << OP_CHECKMULTISIG;
+    CScript twentySigops;
+    twentySigops << OP_CHECKMULTISIG;
     keystore.AddCScript(twentySigops);
     txFrom.getOut(6).scriptPubKey = GetScriptForDestination(CScriptID(twentySigops));
     txFrom.getOut(6).nValue = 6000;
@@ -342,8 +363,7 @@ BOOST_AUTO_TEST_CASE(AreInputsStandard)
     txTo.getOut(0).scriptPubKey = GetScriptForDestination(key[1].GetPubKey().GetID());
 
     txTo.vin.resize(5);
-    for (int i = 0; i < 5; i++)
-    {
+    for (int i = 0; i < 5; i++) {
         txTo.vin[i].prevout.n = i;
         txTo.vin[i].prevout.hash = txFrom.GetHash();
     }
@@ -361,8 +381,7 @@ BOOST_AUTO_TEST_CASE(AreInputsStandard)
     BOOST_CHECK_EQUAL(GetP2SHSigOpCount(txTo, coins), 22U);
 
     // Make sure adding crap to the scriptSigs makes them non-standard:
-    for (int i = 0; i < 3; i++)
-    {
+    for (int i = 0; i < 3; i++) {
         CScript t = txTo.vin[i].scriptSig;
         txTo.vin[i].scriptSig = (CScript() << 11) + t;
         BOOST_CHECK(!::AreInputsStandard(txTo, coins));

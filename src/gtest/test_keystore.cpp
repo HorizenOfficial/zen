@@ -104,17 +104,16 @@ TEST(keystore_tests, StoreAndRetrieveViewingKey) {
 }
 
 #ifdef ENABLE_WALLET
-class TestCCryptoKeyStore : public CCryptoKeyStore
-{
-public:
+class TestCCryptoKeyStore : public CCryptoKeyStore {
+  public:
     bool EncryptKeys(CKeyingMaterial& vMasterKeyIn) { return CCryptoKeyStore::EncryptKeys(vMasterKeyIn); }
     bool Unlock(const CKeyingMaterial& vMasterKeyIn) { return CCryptoKeyStore::Unlock(vMasterKeyIn); }
 };
 
 TEST(keystore_tests, store_and_retrieve_spending_key_in_encrypted_store) {
     TestCCryptoKeyStore keyStore;
-    uint256 r {GetRandHash()};
-    CKeyingMaterial vMasterKey (r.begin(), r.end());
+    uint256 r{GetRandHash()};
+    CKeyingMaterial vMasterKey(r.begin(), r.end());
     libzcash::SpendingKey keyOut;
     ZCNoteDecryption decOut;
     std::set<libzcash::PaymentAddress> addrs;
@@ -138,12 +137,12 @@ TEST(keystore_tests, store_and_retrieve_spending_key_in_encrypted_store) {
     EXPECT_EQ(ZCNoteDecryption(sk.receiving_key()), decOut);
 
     // Unlocking with a random key should fail
-    uint256 r2 {GetRandHash()};
-    CKeyingMaterial vRandomKey (r2.begin(), r2.end());
+    uint256 r2{GetRandHash()};
+    CKeyingMaterial vRandomKey(r2.begin(), r2.end());
     EXPECT_FALSE(keyStore.Unlock(vRandomKey));
 
     // Unlocking with a slightly-modified vMasterKey should fail
-    CKeyingMaterial vModifiedKey (r.begin(), r.end());
+    CKeyingMaterial vModifiedKey(r.begin(), r.end());
     vModifiedKey[0] += 1;
     EXPECT_FALSE(keyStore.Unlock(vModifiedKey));
 

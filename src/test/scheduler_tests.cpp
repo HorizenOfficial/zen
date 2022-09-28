@@ -2,39 +2,35 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "random.h"
-#include "scheduler.h"
-
-#include "test/test_bitcoin.h"
-
 #include <boost/bind.hpp>
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
-#include <boost/thread.hpp>
 #include <boost/test/unit_test.hpp>
+#include <boost/thread.hpp>
+
+#include "random.h"
+#include "scheduler.h"
+#include "test/test_bitcoin.h"
 
 BOOST_AUTO_TEST_SUITE(scheduler_tests)
 
-static void microTask(CScheduler& s, boost::mutex& mutex, int& counter, int delta, boost::chrono::system_clock::time_point rescheduleTime)
-{
+static void microTask(CScheduler& s, boost::mutex& mutex, int& counter, int delta,
+                      boost::chrono::system_clock::time_point rescheduleTime) {
     {
         boost::unique_lock<boost::mutex> lock(mutex);
         counter += delta;
     }
     boost::chrono::system_clock::time_point noTime = boost::chrono::system_clock::time_point::min();
     if (rescheduleTime != noTime) {
-        CScheduler::Function f = boost::bind(&microTask, boost::ref(s), boost::ref(mutex), boost::ref(counter), -delta + 1, noTime);
+        CScheduler::Function f =
+            boost::bind(&microTask, boost::ref(s), boost::ref(mutex), boost::ref(counter), -delta + 1, noTime);
         s.schedule(f, rescheduleTime);
     }
 }
 
-static void MicroSleep(uint64_t n)
-{
-    boost::this_thread::sleep_for(boost::chrono::microseconds(n));
-}
+static void MicroSleep(uint64_t n) { boost::this_thread::sleep_for(boost::chrono::microseconds(n)); }
 
-BOOST_AUTO_TEST_CASE(manythreads)
-{
+BOOST_AUTO_TEST_CASE(manythreads) {
     seed_insecure_rand(false);
 
     // Stress test: hundreds of microsecond-scheduled tasks,
@@ -50,7 +46,7 @@ BOOST_AUTO_TEST_CASE(manythreads)
     CScheduler microTasks;
 
     boost::mutex counterMutex[10];
-    int counter[10] = { 0 };
+    int counter[10] = {0};
     boost::random::mt19937 rng(insecure_rand());
     boost::random::uniform_int_distribution<> zeroToNine(0, 9);
     boost::random::uniform_int_distribution<> randomMsec(-11, 1000);
@@ -66,9 +62,8 @@ BOOST_AUTO_TEST_CASE(manythreads)
         boost::chrono::system_clock::time_point t = now + boost::chrono::microseconds(randomMsec(rng));
         boost::chrono::system_clock::time_point tReschedule = now + boost::chrono::microseconds(500 + randomMsec(rng));
         int whichCounter = zeroToNine(rng);
-        CScheduler::Function f = boost::bind(&microTask, boost::ref(microTasks),
-                                             boost::ref(counterMutex[whichCounter]), boost::ref(counter[whichCounter]),
-                                             randomDelta(rng), tReschedule);
+        CScheduler::Function f = boost::bind(&microTask, boost::ref(microTasks), boost::ref(counterMutex[whichCounter]),
+                                             boost::ref(counter[whichCounter]), randomDelta(rng), tReschedule);
         microTasks.schedule(f, t);
     }
     nTasks = microTasks.getQueueInfo(first, last);
@@ -78,28 +73,25 @@ BOOST_AUTO_TEST_CASE(manythreads)
 
     // As soon as these are created they will start running and servicing the queue
     boost::thread_group microThreads;
-    for (int i = 0; i < 5; i++)
-        microThreads.create_thread(boost::bind(&CScheduler::serviceQueue, &microTasks));
+    for (int i = 0; i < 5; i++) microThreads.create_thread(boost::bind(&CScheduler::serviceQueue, &microTasks));
 
     MicroSleep(600);
     now = boost::chrono::system_clock::now();
 
     // More threads and more tasks:
-    for (int i = 0; i < 5; i++)
-        microThreads.create_thread(boost::bind(&CScheduler::serviceQueue, &microTasks));
+    for (int i = 0; i < 5; i++) microThreads.create_thread(boost::bind(&CScheduler::serviceQueue, &microTasks));
     for (int i = 0; i < 100; i++) {
         boost::chrono::system_clock::time_point t = now + boost::chrono::microseconds(randomMsec(rng));
         boost::chrono::system_clock::time_point tReschedule = now + boost::chrono::microseconds(500 + randomMsec(rng));
         int whichCounter = zeroToNine(rng);
-        CScheduler::Function f = boost::bind(&microTask, boost::ref(microTasks),
-                                             boost::ref(counterMutex[whichCounter]), boost::ref(counter[whichCounter]),
-                                             randomDelta(rng), tReschedule);
+        CScheduler::Function f = boost::bind(&microTask, boost::ref(microTasks), boost::ref(counterMutex[whichCounter]),
+                                             boost::ref(counter[whichCounter]), randomDelta(rng), tReschedule);
         microTasks.schedule(f, t);
     }
 
     // Drain the task queue then exit threads
     microTasks.stop(true);
-    microThreads.join_all(); // ... wait until all the threads are done
+    microThreads.join_all();  // ... wait until all the threads are done
 
     int counterSum = 0;
     for (int i = 0; i < 10; i++) {

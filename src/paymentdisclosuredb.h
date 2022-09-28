@@ -5,8 +5,6 @@
 #ifndef ZCASH_PAYMENTDISCLOSUREDB_H
 #define ZCASH_PAYMENTDISCLOSUREDB_H
 
-#include "paymentdisclosure.h"
-
 #include <cstdint>
 #include <future>
 #include <memory>
@@ -14,20 +12,19 @@
 #include <string>
 
 #include <boost/optional.hpp>
-
 #include <leveldb/db.h>
 
+#include "paymentdisclosure.h"
 
-class PaymentDisclosureDB
-{
-protected:
+class PaymentDisclosureDB {
+  protected:
     leveldb::DB* db = nullptr;
     leveldb::Options options;
     leveldb::ReadOptions readOptions;
     leveldb::WriteOptions writeOptions;
     mutable std::mutex lock_;
 
-public:
+  public:
     static std::shared_ptr<PaymentDisclosureDB> sharedInstance();
 
     PaymentDisclosureDB();
@@ -38,5 +35,4 @@ public:
     bool Get(const PaymentDisclosureKey& key, PaymentDisclosureInfo& info);
 };
 
-
-#endif // ZCASH_PAYMENTDISCLOSUREDB_H
+#endif  // ZCASH_PAYMENTDISCLOSUREDB_H

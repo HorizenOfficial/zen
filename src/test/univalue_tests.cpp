@@ -3,20 +3,21 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <stdint.h>
-#include <vector>
-#include <string>
-#include <map>
 #include <univalue.h>
-#include "test/test_bitcoin.h"
+
+#include <map>
+#include <string>
+#include <vector>
 
 #include <boost/test/unit_test.hpp>
+
+#include "test/test_bitcoin.h"
 
 using namespace std;
 
 BOOST_FIXTURE_TEST_SUITE(univalue_tests, BasicTestingSetup)
 
-BOOST_AUTO_TEST_CASE(univalue_constructor)
-{
+BOOST_AUTO_TEST_CASE(univalue_constructor) {
     UniValue v1;
     BOOST_CHECK(v1.isNull());
 
@@ -57,14 +58,13 @@ BOOST_AUTO_TEST_CASE(univalue_constructor)
     BOOST_CHECK(v8.isStr());
     BOOST_CHECK_EQUAL(v8.getValStr(), "yawn");
 
-    const char *vcs = "zappa";
+    const char* vcs = "zappa";
     UniValue v9(vcs);
     BOOST_CHECK(v9.isStr());
     BOOST_CHECK_EQUAL(v9.getValStr(), "zappa");
 }
 
-BOOST_AUTO_TEST_CASE(univalue_typecheck)
-{
+BOOST_AUTO_TEST_CASE(univalue_typecheck) {
     UniValue v1;
     BOOST_CHECK(v1.setNumStr("1"));
     BOOST_CHECK(v1.isNum());
@@ -105,8 +105,7 @@ BOOST_AUTO_TEST_CASE(univalue_typecheck)
     BOOST_CHECK_THROW(vals[1].get_bool(), runtime_error);
 }
 
-BOOST_AUTO_TEST_CASE(univalue_set)
-{
+BOOST_AUTO_TEST_CASE(univalue_set) {
     UniValue v(UniValue::VSTR, "foo");
     v.clear();
     BOOST_CHECK(v.isNull());
@@ -164,8 +163,7 @@ BOOST_AUTO_TEST_CASE(univalue_set)
     BOOST_CHECK(v.isNull());
 }
 
-BOOST_AUTO_TEST_CASE(univalue_array)
-{
+BOOST_AUTO_TEST_CASE(univalue_array) {
     UniValue arr(UniValue::VARR);
 
     UniValue v((int64_t)1023LL);
@@ -174,7 +172,7 @@ BOOST_AUTO_TEST_CASE(univalue_array)
     string vStr("zippy");
     BOOST_CHECK(arr.push_back(vStr));
 
-    const char *s = "pippy";
+    const char* s = "pippy";
     BOOST_CHECK(arr.push_back(s));
 
     vector<UniValue> vec;
@@ -202,8 +200,7 @@ BOOST_AUTO_TEST_CASE(univalue_array)
     BOOST_CHECK_EQUAL(arr.size(), 0);
 }
 
-BOOST_AUTO_TEST_CASE(univalue_object)
-{
+BOOST_AUTO_TEST_CASE(univalue_object) {
     UniValue obj(UniValue::VOBJ);
     string strKey, strVal;
     UniValue v;
@@ -217,20 +214,20 @@ BOOST_AUTO_TEST_CASE(univalue_object)
     BOOST_CHECK(obj.pushKV(strKey, strVal));
 
     strKey = "last";
-    const char *cVal = "Smith";
+    const char* cVal = "Smith";
     BOOST_CHECK(obj.pushKV(strKey, cVal));
 
     strKey = "distance";
-    BOOST_CHECK(obj.pushKV(strKey, (int64_t) 25));
+    BOOST_CHECK(obj.pushKV(strKey, (int64_t)25));
 
     strKey = "time";
-    BOOST_CHECK(obj.pushKV(strKey, (uint64_t) 3600));
+    BOOST_CHECK(obj.pushKV(strKey, (uint64_t)3600));
 
     strKey = "calories";
-    BOOST_CHECK(obj.pushKV(strKey, (int) 12));
+    BOOST_CHECK(obj.pushKV(strKey, (int)12));
 
     strKey = "temperature";
-    BOOST_CHECK(obj.pushKV(strKey, (double) 90.012));
+    BOOST_CHECK(obj.pushKV(strKey, (double)90.012));
 
     UniValue obj2(UniValue::VOBJ);
     BOOST_CHECK(obj2.pushKV("cat1", 9000));
@@ -285,11 +282,10 @@ BOOST_AUTO_TEST_CASE(univalue_object)
     BOOST_CHECK_EQUAL(obj.size(), 0);
 }
 
-static const char *json1 =
-"[1.10000000,{\"key1\":\"str\\u0000\",\"key2\":800,\"key3\":{\"name\":\"martian http://test.com\"}}]";
+static const char* json1 =
+    "[1.10000000,{\"key1\":\"str\\u0000\",\"key2\":800,\"key3\":{\"name\":\"martian http://test.com\"}}]";
 
-BOOST_AUTO_TEST_CASE(univalue_readwrite)
-{
+BOOST_AUTO_TEST_CASE(univalue_readwrite) {
     UniValue v;
     BOOST_CHECK(v.read(json1));
 
@@ -317,4 +313,3 @@ BOOST_AUTO_TEST_CASE(univalue_readwrite)
 }
 
 BOOST_AUTO_TEST_SUITE_END()
-

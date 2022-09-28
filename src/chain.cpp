@@ -15,19 +15,16 @@ using namespace std;
 
 const CFieldElement CBlockIndex::defaultScCumTreeHash = CFieldElement::GetPhantomHash();
 
-CBlockLocator CChain::GetLocator(const CBlockIndex* pindex) const
-{
+CBlockLocator CChain::GetLocator(const CBlockIndex* pindex) const {
     int nStep = 1;
     std::vector<uint256> vHave;
     vHave.reserve(32);
 
-    if (!pindex)
-        pindex = Tip();
+    if (!pindex) pindex = Tip();
     while (pindex) {
         vHave.push_back(pindex->GetBlockHash());
         // Stop when we have added the genesis block.
-        if (pindex->nHeight == 0)
-            break;
+        if (pindex->nHeight == 0) break;
         // Exponentially larger steps back, plus the genesis block.
         int nHeight = std::max(pindex->nHeight - nStep, 0);
         if (Contains(pindex)) {
@@ -37,19 +34,15 @@ CBlockLocator CChain::GetLocator(const CBlockIndex* pindex) const
             // Otherwise, use O(log n) skiplist.
             pindex = pindex->GetAncestor(nHeight);
         }
-        if (vHave.size() > 10)
-            nStep *= 2;
+        if (vHave.size() > 10) nStep *= 2;
     }
 
     return CBlockLocator(vHave);
 }
 
-const CBlockIndex* CChain::FindFork(const CBlockIndex* pindex) const
-{
-    if (pindex->nHeight > Height())
-        pindex = pindex->GetAncestor(Height());
-    while (pindex && !Contains(pindex))
-        pindex = pindex->pprev;
+const CBlockIndex* CChain::FindFork(const CBlockIndex* pindex) const {
+    if (pindex->nHeight > Height()) pindex = pindex->GetAncestor(Height());
+    while (pindex && !Contains(pindex)) pindex = pindex->pprev;
     return pindex;
 }
 
@@ -57,10 +50,8 @@ const CBlockIndex* CChain::FindFork(const CBlockIndex* pindex) const
 int static inline InvertLowestOne(int n) { return n & (n - 1); }
 
 /** Compute what height to jump back to with the CBlockIndex::pskip pointer. */
-int static inline GetSkipHeight(int height)
-{
-    if (height < 2)
-        return 0;
+int static inline GetSkipHeight(int height) {
+    if (height < 2) return 0;
 
     // Determine which height to jump back to. Any number strictly lower than height is acceptable,
     // but the following expression seems to perform well in simulations (max 110 steps to go back
@@ -68,10 +59,8 @@ int static inline GetSkipHeight(int height)
     return (height & 1) ? InvertLowestOne(InvertLowestOne(height - 1)) + 1 : InvertLowestOne(height);
 }
 
-CBlockIndex* CBlockIndex::GetAncestor(int height)
-{
-    if (height > nHeight || height < 0)
-        return NULL;
+CBlockIndex* CBlockIndex::GetAncestor(int height) {
+    if (height > nHeight || height < 0) return NULL;
 
     CBlockIndex* pindexWalk = this;
     int heightWalk = nHeight;
@@ -79,9 +68,7 @@ CBlockIndex* CBlockIndex::GetAncestor(int height)
         int heightSkip = GetSkipHeight(heightWalk);
         int heightSkipPrev = GetSkipHeight(heightWalk - 1);
         if (pindexWalk->pskip != NULL &&
-            (heightSkip == height ||
-             (heightSkip > height && !(heightSkipPrev < heightSkip - 2 &&
-                                       heightSkipPrev >= height)))) {
+            (heightSkip == height || (heightSkip > height && !(heightSkipPrev < heightSkip - 2 && heightSkipPrev >= height)))) {
             // Only follow pskip if pprev->pskip isn't better than pskip->pprev.
             pindexWalk = pindexWalk->pskip;
             heightWalk = heightSkip;
@@ -93,26 +80,17 @@ CBlockIndex* CBlockIndex::GetAncestor(int height)
     return pindexWalk;
 }
 
-const CBlockIndex* CBlockIndex::GetAncestor(int height) const
-{
-    return const_cast<CBlockIndex*>(this)->GetAncestor(height);
+const CBlockIndex* CBlockIndex::GetAncestor(int height) const { return const_cast<CBlockIndex*>(this)->GetAncestor(height); }
+
+void CBlockIndex::BuildSkip() {
+    if (pprev) pskip = pprev->GetAncestor(GetSkipHeight(nHeight));
 }
 
-void CBlockIndex::BuildSkip()
-{
-    if (pprev)
-        pskip = pprev->GetAncestor(GetSkipHeight(nHeight));
-}
-
-void CHistoricalChain::SetHeight(const int nHeight)
-{
+void CHistoricalChain::SetHeight(const int nHeight) {
     if (nHeight > chain.Height()) {
         throw std::runtime_error(strprintf("%s: Cannot set a height beyond parent!", __func__));
     }
     my_height = nHeight;
 }
 
-void CHistoricalChain::SetTip(CBlockIndex* pindex)
-{
-    throw std::runtime_error("Cannot SetTip of a CHistoricalChain!");
-}
+void CHistoricalChain::SetTip(CBlockIndex* pindex) { throw std::runtime_error("Cannot SetTip of a CHistoricalChain!"); }

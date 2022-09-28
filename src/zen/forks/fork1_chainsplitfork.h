@@ -8,15 +8,13 @@ namespace zen {
 /**
  * @brief The ChainsplitFork class represents the original chainsplit fork
  */
-class ChainsplitFork : public OriginalFork
-{
-public:
-    
+class ChainsplitFork : public OriginalFork {
+  public:
     /**
      * @brief ChainsplitFork constructor
      */
     ChainsplitFork();
-    
+
     /**
      * @brief getCommunityFundReward returns the community fund reward based on the height and passed-in reward
      */
@@ -25,7 +23,8 @@ public:
     /**
      * @brief getCommunityFundAddress returns the community fund address based on the passed in height and maxHeight
      */
-    virtual const std::string& getCommunityFundAddress(CBaseChainParams::Network network, int height, int maxHeight, CommunityFundType cfType) const;
+    virtual const std::string& getCommunityFundAddress(CBaseChainParams::Network network, int height, int maxHeight,
+                                                       CommunityFundType cfType) const;
 
     /**
      * @brief isAfterChainsplit returns true if this height is after the original chain split, false otherwise
@@ -37,6 +36,6 @@ public:
      */
     virtual bool isTransactionTypeAllowed(txnouttype transactionType) const;
 };
-}
+}  // namespace zen
 
-#endif // CHAINSPLITFORK_H
+#endif  // CHAINSPLITFORK_H

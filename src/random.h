@@ -6,11 +6,12 @@
 #ifndef BITCOIN_RANDOM_H
 #define BITCOIN_RANDOM_H
 
-#include "uint256.h"
+#include <stdint.h>
 
 #include <functional>
 #include <limits>
-#include <stdint.h>
+
+#include "uint256.h"
 
 /**
  * Functions to gather random data via the libsodium CSPRNG
@@ -23,24 +24,16 @@ uint256 GetRandHash();
 /**
  * Implementation of a C++ Uniform Random Number Generator, backed by GetRandBytes.
  */
-class ZcashRandomEngine
-{
-public:
+class ZcashRandomEngine {
+  public:
     typedef uint64_t result_type;
 
     explicit ZcashRandomEngine() {}
 
-    static constexpr result_type min()
-    {
-        return std::numeric_limits<result_type>::min();
-    }
-    static constexpr result_type max()
-    {
-        return std::numeric_limits<result_type>::max();
-    }
+    static constexpr result_type min() { return std::numeric_limits<result_type>::min(); }
+    static constexpr result_type max() { return std::numeric_limits<result_type>::max(); }
 
-    result_type operator()()
-    {
+    result_type operator()() {
         result_type nRand = 0;
         GetRandBytes((unsigned char*)&nRand, sizeof(nRand));
         return nRand;
@@ -63,11 +56,7 @@ int GenIdentity(int n);
  * gen takes an integer n and produces a uniform random output in [0,n).
  */
 template <typename RandomAccessIterator, typename MapRandomAccessIterator>
-void MappedShuffle(RandomAccessIterator first,
-                   MapRandomAccessIterator mapFirst,
-                   size_t len,
-                   std::function<int(int)> gen)
-{
+void MappedShuffle(RandomAccessIterator first, MapRandomAccessIterator mapFirst, size_t len, std::function<int(int)> gen) {
     for (size_t i = len - 1; i > 0; --i) {
         auto r = gen(i + 1);
         assert(r >= 0);
@@ -92,11 +81,10 @@ void seed_insecure_rand(bool fDeterministic = false);
  */
 extern uint32_t insecure_rand_Rz;
 extern uint32_t insecure_rand_Rw;
-static inline uint32_t insecure_rand(void)
-{
+static inline uint32_t insecure_rand(void) {
     insecure_rand_Rz = 36969 * (insecure_rand_Rz & 65535) + (insecure_rand_Rz >> 16);
     insecure_rand_Rw = 18000 * (insecure_rand_Rw & 65535) + (insecure_rand_Rw >> 16);
     return (insecure_rand_Rw << 16) + insecure_rand_Rz;
 }
 
-#endif // BITCOIN_RANDOM_H
+#endif  // BITCOIN_RANDOM_H

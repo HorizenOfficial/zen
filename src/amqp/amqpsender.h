@@ -5,16 +5,16 @@
 #ifndef ZCASH_AMQP_AMQPSENDER_H
 #define ZCASH_AMQP_AMQPSENDER_H
 
-#include "amqpconfig.h"
-
 #include <deque>
-#include <memory>
 #include <future>
 #include <iostream>
+#include <memory>
+
+#include "amqpconfig.h"
 
 class AMQPSender : public proton::messaging_handler {
   private:
-    std::deque<proton::message> messages_; 
+    std::deque<proton::message> messages_;
     proton::url url_;
     proton::connection conn_;
     proton::sender sender_;
@@ -22,30 +22,27 @@ class AMQPSender : public proton::messaging_handler {
     std::atomic<bool> terminated_ = {false};
 
   public:
-
     AMQPSender(const std::string& url) : url_(url) {}
 
     // Callback to initialize the container when run() is invoked
     void on_container_start(proton::container& c) override {
-        proton::duration t(10000);   // milliseconds
+        proton::duration t(10000);  // milliseconds
         proton::connection_options opts = proton::connection_options().idle_timeout(t);
         conn_ = c.connect(url_, opts);
         sender_ = conn_.open_sender(url_.path());
     }
 
-    // Remote end signals when the local end can send (i.e. has credit) 
-    void on_sendable(proton::sender &s) override {
-        dispatch();
-    }
+    // Remote end signals when the local end can send (i.e. has credit)
+    void on_sendable(proton::sender& s) override { dispatch(); }
 
     // Publish message by adding to queue and trying to dispatch it
-    void publish(const proton::message &m) {
+    void publish(const proton::message& m) {
         add_message(m);
         dispatch();
     }
 
     // Add message to queue
-    void add_message(const proton::message &m) {
+    void add_message(const proton::message& m) {
         std::lock_guard<std::mutex> guard(lock_);
         messages_.push_back(m);
     }
@@ -80,36 +77,32 @@ class AMQPSender : public proton::messaging_handler {
         terminated_.store(true);
     }
 
-    bool isTerminated() const {
-        return terminated_.load();
-    }
+    bool isTerminated() const { return terminated_.load(); }
 
-    void on_transport_error(proton::transport &t) override {
+    void on_transport_error(proton::transport& t) override {
         t.connection().close();
         throw t.error();
     }
 
-    void on_connection_error(proton::connection &c) override {
+    void on_connection_error(proton::connection& c) override {
         c.close();
         throw c.error();
     }
 
-    void on_session_error(proton::session &s) override {
+    void on_session_error(proton::session& s) override {
         s.connection().close();
         throw s.error();
     }
 
-    void on_receiver_error(proton::receiver &r) override {
+    void on_receiver_error(proton::receiver& r) override {
         r.connection().close();
         throw r.error();
     }
 
-    void on_sender_error(proton::sender &s) override {
+    void on_sender_error(proton::sender& s) override {
         s.connection().close();
         throw s.error();
     }
-
 };
 
-
-#endif //ZCASH_AMQP_AMQPSENDER_H
+#endif  // ZCASH_AMQP_AMQPSENDER_H

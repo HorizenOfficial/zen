@@ -6,19 +6,19 @@
 #ifndef BITCOIN_COINS_H
 #define BITCOIN_COINS_H
 
+#include <assert.h>
+#include <stdint.h>
+
+#include <boost/unordered_map.hpp>
+#include <consensus/validation.h>
+#include <sc/sidechain.h>
+
 #include "compressor.h"
 #include "core_memusage.h"
 #include "memusage.h"
 #include "serialize.h"
 #include "uint256.h"
-
-#include <assert.h>
-#include <stdint.h>
-
 #include "zcash/IncrementalMerkleTree.hpp"
-#include <boost/unordered_map.hpp>
-#include <consensus/validation.h>
-#include <sc/sidechain.h>
 
 class CBlockUndo;
 class CBlockTreeDB;
@@ -35,7 +35,7 @@ struct CAddressIndexKey;
 struct CAddressIndexValue;
 struct CAddressUnspentKey;
 struct CAddressUnspentValue;
-#endif // ENABLE_ADDRESS_INDEXING
+#endif  // ENABLE_ADDRESS_INDEXING
 
 static const int BWT_POS_UNSET = -1;
 
@@ -97,9 +97,8 @@ static const int BWT_POS_UNSET = -1;
  *              * 8c988f1a4a4de2161e0f50aac7f17e7f9555caa4: address uint160
  *  - height = 120891
  */
-class CCoins
-{
-public:
+class CCoins {
+  public:
     //! whether transaction is a coinbase
     bool fCoinBase;
 
@@ -136,7 +135,7 @@ public:
 
     void Clear();
 
-    //!remove spent outputs at the end of vout
+    //! remove spent outputs at the end of vout
     void Cleanup();
 
     void ClearUnspendable();
@@ -150,7 +149,8 @@ public:
     bool IsCoinBase() const;
     bool IsFromCert() const;
 
-    enum class outputMaturity {
+    enum class outputMaturity
+    {
         NOT_APPLICABLE = 0,
         MATURE,
         IMMATURE
@@ -170,15 +170,15 @@ public:
 
     size_t DynamicMemoryUsage() const;
 
-    unsigned int GetSerializeSize(int nType, int nVersion) const
-    {
+    unsigned int GetSerializeSize(int nType, int nVersion) const {
         unsigned int nSize = 0;
         unsigned int nMaskSize = 0, nMaskCode = 0;
         CalcMaskSize(nMaskSize, nMaskCode);
         bool fFirst = vout.size() > 0 && !vout[0].IsNull();
         bool fSecond = vout.size() > 1 && !vout[1].IsNull();
         assert(fFirst || fSecond || nMaskCode);
-        unsigned int nCode = 8 * (nMaskCode - (fFirst || fSecond ? 0 : 1)) + (fCoinBase ? 1 : 0) + (fFirst ? 2 : 0) + (fSecond ? 4 : 0);
+        unsigned int nCode =
+            8 * (nMaskCode - (fFirst || fSecond ? 0 : 1)) + (fCoinBase ? 1 : 0) + (fFirst ? 2 : 0) + (fSecond ? 4 : 0);
         // version
         nSize += ::GetSerializeSize(VARINT(this->nVersion), nType, nVersion);
         // size of header code
@@ -187,8 +187,7 @@ public:
         nSize += nMaskSize;
         // txouts themself
         for (unsigned int i = 0; i < vout.size(); i++)
-            if (!vout[i].IsNull())
-                nSize += ::GetSerializeSize(CTxOutCompressor(REF(vout[i])), nType, nVersion);
+            if (!vout[i].IsNull()) nSize += ::GetSerializeSize(CTxOutCompressor(REF(vout[i])), nType, nVersion);
         // height
         nSize += ::GetSerializeSize(VARINT(nHeight), nType, nVersion);
 
@@ -201,14 +200,14 @@ public:
     }
 
     template <typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const
-    {
+    void Serialize(Stream& s, int nType, int nVersion) const {
         unsigned int nMaskSize = 0, nMaskCode = 0;
         CalcMaskSize(nMaskSize, nMaskCode);
         bool fFirst = vout.size() > 0 && !vout[0].IsNull();
         bool fSecond = vout.size() > 1 && !vout[1].IsNull();
         assert(fFirst || fSecond || nMaskCode);
-        unsigned int nCode = 8 * (nMaskCode - (fFirst || fSecond ? 0 : 1)) + (fCoinBase ? 1 : 0) + (fFirst ? 2 : 0) + (fSecond ? 4 : 0);
+        unsigned int nCode =
+            8 * (nMaskCode - (fFirst || fSecond ? 0 : 1)) + (fCoinBase ? 1 : 0) + (fFirst ? 2 : 0) + (fSecond ? 4 : 0);
         // version
         ::Serialize(s, VARINT(this->nVersion), nType, nVersion);
         // header code
@@ -217,14 +216,12 @@ public:
         for (unsigned int b = 0; b < nMaskSize; b++) {
             unsigned char chAvail = 0;
             for (unsigned int i = 0; i < 8 && 2 + b * 8 + i < vout.size(); i++)
-                if (!vout[2 + b * 8 + i].IsNull())
-                    chAvail |= (1 << i);
+                if (!vout[2 + b * 8 + i].IsNull()) chAvail |= (1 << i);
             ::Serialize(s, chAvail, nType, nVersion);
         }
         // txouts themself
         for (unsigned int i = 0; i < vout.size(); i++) {
-            if (!vout[i].IsNull())
-                ::Serialize(s, CTxOutCompressor(REF(vout[i])), nType, nVersion);
+            if (!vout[i].IsNull()) ::Serialize(s, CTxOutCompressor(REF(vout[i])), nType, nVersion);
         }
 
         // coinbase height
@@ -237,8 +234,7 @@ public:
     }
 
     template <typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion)
-    {
+    void Unserialize(Stream& s, int nType, int nVersion) {
         unsigned int nCode = 0;
         // version
         ::Unserialize(s, VARINT(this->nVersion), nType, nVersion);
@@ -257,14 +253,12 @@ public:
                 bool f = (chAvail & (1 << p)) != 0;
                 vAvail.push_back(f);
             }
-            if (chAvail != 0)
-                nMaskCode--;
+            if (chAvail != 0) nMaskCode--;
         }
         // txouts themself
         vout.assign(vAvail.size(), CTxOut());
         for (unsigned int i = 0; i < vAvail.size(); i++) {
-            if (vAvail[i])
-                ::Unserialize(s, REF(CTxOutCompressor(vout[i])), nType, nVersion);
+            if (vAvail[i]) ::Unserialize(s, REF(CTxOutCompressor(vout[i])), nType, nVersion);
         }
         // coinbase height
         ::Unserialize(s, VARINT(nHeight), nType, nVersion);
@@ -278,16 +272,15 @@ public:
         Cleanup();
     }
 
-private:
+  private:
     void CalcMaskSize(unsigned int& nBytes, unsigned int& nNonzeroBytes) const;
 };
 
-class CCoinsKeyHasher
-{
-private:
+class CCoinsKeyHasher {
+  private:
     uint256 salt;
 
-public:
+  public:
     CCoinsKeyHasher();
 
     /**
@@ -295,19 +288,15 @@ public:
      * unordered_map will behave unpredictably if the custom hasher returns a
      * uint64_t, resulting in failures when syncing the chain (#4634).
      */
-    size_t operator()(const uint256& key) const
-    {
-        return key.GetHash(salt);
-    }
+    size_t operator()(const uint256& key) const { return key.GetHash(salt); }
 };
 
-class CCswNullifiersKeyHasher
-{
-private:
+class CCswNullifiersKeyHasher {
+  private:
     static const size_t BUF_LEN = (sizeof(uint256) + CFieldElement::ByteSize()) / sizeof(uint32_t);
     uint32_t salt[BUF_LEN];
 
-public:
+  public:
     CCswNullifiersKeyHasher();
 
     /**
@@ -319,112 +308,117 @@ public:
 };
 
 struct CCoinsCacheEntry {
-    CCoins coins; // The actual cached data.
+    CCoins coins;  // The actual cached data.
     unsigned char flags;
 
-    enum Flags {
-        DIRTY = (1 << 0), // This cache entry is potentially different from the version in the parent view.
-        FRESH = (1 << 1), // The parent view does not have this entry (or it is pruned).
+    enum Flags
+    {
+        DIRTY = (1 << 0),  // This cache entry is potentially different from the version in the parent view.
+        FRESH = (1 << 1),  // The parent view does not have this entry (or it is pruned).
     };
 
     CCoinsCacheEntry() : coins(), flags(0) {}
 };
 
 struct CAnchorsCacheEntry {
-    bool entered;                 // This will be false if the anchor is removed from the cache
-    ZCIncrementalMerkleTree tree; // The tree itself
+    bool entered;                  // This will be false if the anchor is removed from the cache
+    ZCIncrementalMerkleTree tree;  // The tree itself
     unsigned char flags;
 
-    enum Flags {
-        DIRTY = (1 << 0), // This cache entry is potentially different from the version in the parent view.
+    enum Flags
+    {
+        DIRTY = (1 << 0),  // This cache entry is potentially different from the version in the parent view.
     };
 
     CAnchorsCacheEntry() : entered(false), flags(0) {}
 };
 
 struct CNullifiersCacheEntry {
-    bool entered; // If the nullifier is spent or not
+    bool entered;  // If the nullifier is spent or not
     unsigned char flags;
 
-    enum Flags {
-        DIRTY = (1 << 0), // This cache entry is potentially different from the version in the parent view.
+    enum Flags
+    {
+        DIRTY = (1 << 0),  // This cache entry is potentially different from the version in the parent view.
     };
 
     CNullifiersCacheEntry() : entered(false), flags(0) {}
 };
 
 struct CMutableSidechainCacheEntry {
-    enum class Flags {
+    enum class Flags
+    {
         DEFAULT = 0,
-        DIRTY = (1 << 0),  // This cache entry is potentially different from the version in the parent view.
-        FRESH = (1 << 1),  // The parent view does not have this entry
-        ERASED = (1 << 2), // The parent view does have this entry but current one have it erased
+        DIRTY = (1 << 0),   // This cache entry is potentially different from the version in the parent view.
+        FRESH = (1 << 1),   // The parent view does not have this entry
+        ERASED = (1 << 2),  // The parent view does have this entry but current one have it erased
     } flag;
 
     CMutableSidechainCacheEntry(Flags _flag) : flag(_flag) {}
 };
 
 template <typename KeyType, typename ValueType, template <typename...> class MapType, typename... TOthers>
-void WriteMutableEntry(const KeyType& key, const ValueType& value, MapType<KeyType, ValueType, TOthers...>& destinationMap)
-{
+void WriteMutableEntry(const KeyType& key, const ValueType& value, MapType<KeyType, ValueType, TOthers...>& destinationMap) {
     typename MapType<KeyType, ValueType, TOthers...>::iterator itLocalCacheEntry = destinationMap.find(key);
 
     switch (value.flag) {
-    case CMutableSidechainCacheEntry::Flags::FRESH:
-        assert(
-            itLocalCacheEntry == destinationMap.end() ||
-            itLocalCacheEntry->second.flag == CMutableSidechainCacheEntry::Flags::ERASED); //A fresh entry should not exist in localCache or be already erased
-        destinationMap[key] = value;
-        break;
-    case CMutableSidechainCacheEntry::Flags::DIRTY: //A dirty entry may or may not exist in localCache
-        destinationMap[key] = value;
-        break;
-    case CMutableSidechainCacheEntry::Flags::ERASED:
-        if (itLocalCacheEntry != destinationMap.end())
-            itLocalCacheEntry->second.flag = CMutableSidechainCacheEntry::Flags::ERASED;
-        break;
-    case CMutableSidechainCacheEntry::Flags::DEFAULT:
-        assert(itLocalCacheEntry != destinationMap.end());
-        assert(itLocalCacheEntry->second.flag != CMutableSidechainCacheEntry::Flags::ERASED);
-        assert(itLocalCacheEntry->second.ContentCheck(value));
-        break; //nothing to do. entry is already persisted and has not been modified
-    default:
-        assert(false);
+        case CMutableSidechainCacheEntry::Flags::FRESH:
+            assert(itLocalCacheEntry == destinationMap.end() ||
+                   itLocalCacheEntry->second.flag ==
+                       CMutableSidechainCacheEntry::Flags::ERASED);  // A fresh entry should not exist in localCache or be
+                                                                     // already erased
+            destinationMap[key] = value;
+            break;
+        case CMutableSidechainCacheEntry::Flags::DIRTY:  // A dirty entry may or may not exist in localCache
+            destinationMap[key] = value;
+            break;
+        case CMutableSidechainCacheEntry::Flags::ERASED:
+            if (itLocalCacheEntry != destinationMap.end())
+                itLocalCacheEntry->second.flag = CMutableSidechainCacheEntry::Flags::ERASED;
+            break;
+        case CMutableSidechainCacheEntry::Flags::DEFAULT:
+            assert(itLocalCacheEntry != destinationMap.end());
+            assert(itLocalCacheEntry->second.flag != CMutableSidechainCacheEntry::Flags::ERASED);
+            assert(itLocalCacheEntry->second.ContentCheck(value));
+            break;  // nothing to do. entry is already persisted and has not been modified
+        default:
+            assert(false);
     }
 }
 
 struct CImmutableSidechainCacheEntry {
-    enum class Flags {
+    enum class Flags
+    {
         DEFAULT = 0,
-        FRESH = (1 << 1),  // The parent view does not have this entry
-        ERASED = (1 << 2), // The parent view does have this entry but current one have it erased
+        FRESH = (1 << 1),   // The parent view does not have this entry
+        ERASED = (1 << 2),  // The parent view does have this entry but current one have it erased
     } flag;
 
     CImmutableSidechainCacheEntry(Flags _flag) : flag(_flag) {}
 };
 
 template <typename KeyType, typename ValueType, template <typename...> class MapType, typename... TOthers>
-void WriteImmutableEntry(const KeyType& key, const ValueType& value, MapType<KeyType, ValueType, TOthers...>& destinationMap)
-{
+void WriteImmutableEntry(const KeyType& key, const ValueType& value, MapType<KeyType, ValueType, TOthers...>& destinationMap) {
     typename MapType<KeyType, ValueType, TOthers...>::iterator itLocalCacheEntry = destinationMap.find(key);
 
     switch (value.flag) {
-    case CImmutableSidechainCacheEntry::Flags::FRESH:
-        assert(
-            itLocalCacheEntry == destinationMap.end() ||
-            itLocalCacheEntry->second.flag == CImmutableSidechainCacheEntry::Flags::ERASED); //A fresh entry should not exist in localCache or be already erased
-        destinationMap[key] = value;
-        break;
-    case CImmutableSidechainCacheEntry::Flags::ERASED:
-        if (itLocalCacheEntry != destinationMap.end())
-            itLocalCacheEntry->second.flag = CImmutableSidechainCacheEntry::Flags::ERASED;
-        break;
-    case CImmutableSidechainCacheEntry::Flags::DEFAULT:
-        assert(itLocalCacheEntry != destinationMap.end());
-        assert(itLocalCacheEntry->second.flag != CImmutableSidechainCacheEntry::Flags::ERASED);
-        break; //nothing to do. entry is already persisted and has not been modified
-    default:
-        assert(false);
+        case CImmutableSidechainCacheEntry::Flags::FRESH:
+            assert(itLocalCacheEntry == destinationMap.end() ||
+                   itLocalCacheEntry->second.flag ==
+                       CImmutableSidechainCacheEntry::Flags::ERASED);  // A fresh entry should not exist in localCache or be
+                                                                       // already erased
+            destinationMap[key] = value;
+            break;
+        case CImmutableSidechainCacheEntry::Flags::ERASED:
+            if (itLocalCacheEntry != destinationMap.end())
+                itLocalCacheEntry->second.flag = CImmutableSidechainCacheEntry::Flags::ERASED;
+            break;
+        case CImmutableSidechainCacheEntry::Flags::DEFAULT:
+            assert(itLocalCacheEntry != destinationMap.end());
+            assert(itLocalCacheEntry->second.flag != CImmutableSidechainCacheEntry::Flags::ERASED);
+            break;  // nothing to do. entry is already persisted and has not been modified
+        default:
+            assert(false);
     }
 }
 
@@ -432,7 +426,8 @@ struct CSidechainsCacheEntry : public CMutableSidechainCacheEntry {
     CSidechain sidechain;
 
     CSidechainsCacheEntry() : CMutableSidechainCacheEntry(Flags::DEFAULT), sidechain() {}
-    CSidechainsCacheEntry(const CSidechain& _sidechain, Flags _flag) : CMutableSidechainCacheEntry(_flag), sidechain(_sidechain) {}
+    CSidechainsCacheEntry(const CSidechain& _sidechain, Flags _flag)
+        : CMutableSidechainCacheEntry(_flag), sidechain(_sidechain) {}
 
     // Not an equality operator since we want to neglect flag
     bool ContentCheck(const CSidechainsCacheEntry& rhs) { return this->sidechain == rhs.sidechain; }
@@ -442,7 +437,8 @@ struct CSidechainEventsCacheEntry : public CMutableSidechainCacheEntry {
     CSidechainEvents scEvents;
 
     CSidechainEventsCacheEntry() : CMutableSidechainCacheEntry(Flags::DEFAULT), scEvents() {}
-    CSidechainEventsCacheEntry(const CSidechainEvents& _scList, Flags _flag) : CMutableSidechainCacheEntry(_flag), scEvents(_scList) {}
+    CSidechainEventsCacheEntry(const CSidechainEvents& _scList, Flags _flag)
+        : CMutableSidechainCacheEntry(_flag), scEvents(_scList) {}
 
     // Not an equality operator since we want to neglect flag
     bool ContentCheck(const CSidechainEventsCacheEntry& rhs) { return this->scEvents == rhs.scEvents; }
@@ -458,7 +454,8 @@ typedef boost::unordered_map<uint256, CNullifiersCacheEntry, CCoinsKeyHasher> CN
 
 typedef boost::unordered_map<uint256, CSidechainsCacheEntry, CCoinsKeyHasher> CSidechainsMap;
 typedef boost::unordered_map<int, CSidechainEventsCacheEntry> CSidechainEventsMap;
-typedef boost::unordered_map<std::pair<uint256, CFieldElement>, CCswNullifiersCacheEntry, CCswNullifiersKeyHasher> CCswNullifiersMap;
+typedef boost::unordered_map<std::pair<uint256, CFieldElement>, CCswNullifiersCacheEntry, CCswNullifiersKeyHasher>
+    CCswNullifiersMap;
 
 struct CCoinsStats {
     int nHeight;
@@ -472,11 +469,9 @@ struct CCoinsStats {
     CCoinsStats() : nHeight(0), nTransactions(0), nTransactionOutputs(0), nSerializedSize(0), nTotalAmount(0) {}
 };
 
-
 /** Abstract view on the open txout dataset. */
-class CCoinsView
-{
-public:
+class CCoinsView {
+  public:
     //! Retrieve the tree at a particular anchored root in the chain
     virtual bool GetAnchorAt(const uint256& rt, ZCIncrementalMerkleTree& tree) const;
 
@@ -515,18 +510,12 @@ public:
     virtual uint256 GetBestAnchor() const;
 
     //! Retrieve existance of CSW nullifier for specified Sidechain.
-    virtual bool HaveCswNullifier(const uint256& scId,
-                                  const CFieldElement& nullifier) const;
+    virtual bool HaveCswNullifier(const uint256& scId, const CFieldElement& nullifier) const;
 
     //! Do a bulk modification (multiple CCoins changes + BestBlock change).
     //! The passed mapCoins can be modified.
-    virtual bool BatchWrite(CCoinsMap& mapCoins,
-                            const uint256& hashBlock,
-                            const uint256& hashAnchor,
-                            CAnchorsMap& mapAnchors,
-                            CNullifiersMap& mapNullifiers,
-                            CSidechainsMap& mapSidechains,
-                            CSidechainEventsMap& mapCeasedScs,
+    virtual bool BatchWrite(CCoinsMap& mapCoins, const uint256& hashBlock, const uint256& hashAnchor, CAnchorsMap& mapAnchors,
+                            CNullifiersMap& mapNullifiers, CSidechainsMap& mapSidechains, CSidechainEventsMap& mapCeasedScs,
                             CCswNullifiersMap& cswNullifiers);
 
     //! Calculate statistics about the unspent transaction output set
@@ -536,14 +525,12 @@ public:
     virtual ~CCoinsView() {}
 };
 
-
 /** CCoinsView backed by another CCoinsView */
-class CCoinsViewBacked : public CCoinsView
-{
-protected:
+class CCoinsViewBacked : public CCoinsView {
+  protected:
     CCoinsView* base;
 
-public:
+  public:
     CCoinsViewBacked(CCoinsView* viewIn);
     bool GetAnchorAt(const uint256& rt, ZCIncrementalMerkleTree& tree) const override;
     bool GetNullifier(const uint256& nullifier) const override;
@@ -557,37 +544,29 @@ public:
     bool CheckQuality(const CScCertificate& cert) const override;
     uint256 GetBestBlock() const override;
     uint256 GetBestAnchor() const override;
-    bool HaveCswNullifier(const uint256& scId,
-                          const CFieldElement& nullifier) const override;
+    bool HaveCswNullifier(const uint256& scId, const CFieldElement& nullifier) const override;
     void SetBackend(CCoinsView& viewIn);
-    bool BatchWrite(CCoinsMap& mapCoins,
-                    const uint256& hashBlock,
-                    const uint256& hashAnchor,
-                    CAnchorsMap& mapAnchors,
-                    CNullifiersMap& mapNullifiers,
-                    CSidechainsMap& mapSidechains,
-                    CSidechainEventsMap& mapCeasedScs,
+    bool BatchWrite(CCoinsMap& mapCoins, const uint256& hashBlock, const uint256& hashAnchor, CAnchorsMap& mapAnchors,
+                    CNullifiersMap& mapNullifiers, CSidechainsMap& mapSidechains, CSidechainEventsMap& mapCeasedScs,
                     CCswNullifiersMap& cswNullifiers) override;
     bool GetStats(CCoinsStats& stats) const override;
 };
 
-
 class CCoinsViewCache;
 
-/** 
+/**
  * A reference to a mutable cache entry. Encapsulating it allows us to run
  *  cleanup code after the modification is finished, and keeping track of
- *  concurrent modifications. 
+ *  concurrent modifications.
  */
-class CCoinsModifier
-{
-private:
+class CCoinsModifier {
+  private:
     CCoinsViewCache& cache;
     CCoinsMap::iterator it;
-    size_t cachedCoinUsage; // Cached memory usage of the CCoins object before modification
+    size_t cachedCoinUsage;  // Cached memory usage of the CCoins object before modification
     CCoinsModifier(CCoinsViewCache& cache_, CCoinsMap::iterator it_, size_t usage);
 
-public:
+  public:
     CCoins* operator->() { return &it->second.coins; }
     CCoins& operator*() { return it->second.coins; }
     ~CCoinsModifier();
@@ -595,16 +574,14 @@ public:
 };
 
 /** CCoinsView that adds a memory cache for transactions to another CCoinsView */
-class CCoinsViewCache : public CCoinsViewBacked
-{
-protected:
+class CCoinsViewCache : public CCoinsViewBacked {
+  protected:
     /* Whether this cache has an active modifier. */
     bool hasModifier;
 
-
     /**
      * Make mutable so that we can "fill the cache" even from Get-methods
-     * declared as "const".  
+     * declared as "const".
      */
     mutable uint256 hashBlock;
     mutable CCoinsMap cacheCoins;
@@ -618,9 +595,10 @@ protected:
     /* Cached dynamic memory usage for the inner CCoins objects. */
     mutable size_t cachedCoinsUsage;
 
-public:
+  public:
     CCoinsViewCache(CCoinsView* baseIn);
-    CCoinsViewCache(const CCoinsViewCache&) = delete; //we prevent accidentally using it when one intends to create a cache on top of a base cache.
+    CCoinsViewCache(const CCoinsViewCache&) =
+        delete;  // we prevent accidentally using it when one intends to create a cache on top of a base cache.
     ~CCoinsViewCache();
 
     // Standard CCoinsView methods
@@ -630,18 +608,12 @@ public:
     bool HaveCoins(const uint256& txid) const override;
     uint256 GetBestBlock() const override;
     uint256 GetBestAnchor() const override;
-    int GetHeight() const; // Return view height, which is inputs.GetBestBlock() (aka parent block) one.
+    int GetHeight() const;  // Return view height, which is inputs.GetBestBlock() (aka parent block) one.
     void SetBestBlock(const uint256& hashBlock);
     size_t WriteCoins(const uint256& key, CCoinsCacheEntry& value);
-    bool BatchWrite(CCoinsMap& mapCoins,
-                    const uint256& hashBlock,
-                    const uint256& hashAnchor,
-                    CAnchorsMap& mapAnchors,
-                    CNullifiersMap& mapNullifiers,
-                    CSidechainsMap& mapSidechains,
-                    CSidechainEventsMap& mapCeasedScs,
+    bool BatchWrite(CCoinsMap& mapCoins, const uint256& hashBlock, const uint256& hashAnchor, CAnchorsMap& mapAnchors,
+                    CNullifiersMap& mapNullifiers, CSidechainsMap& mapSidechains, CSidechainEventsMap& mapCeasedScs,
                     CCswNullifiersMap& cswNullifiers) override;
-
 
     // Adds the tree to mapAnchors and sets the current commitment
     // root to this root.
@@ -674,12 +646,13 @@ public:
      * If false is returned, the state of this cache (and its backing view) will be undefined.
      */
 
-    //SIDECHAIN RELATED PUBLIC MEMBERS
+    // SIDECHAIN RELATED PUBLIC MEMBERS
     bool HaveSidechain(const uint256& scId) const override;
     bool GetSidechain(const uint256& scId, CSidechain& targetSidechain) const override;
     void GetScIds(std::set<uint256>& scIdsList) const override;
 
-    CValidationState::Code IsScTxApplicableToState(const CTransaction& tx, Sidechain::ScFeeCheckFlag scCheckType, bool* banSenderNode = nullptr) const;
+    CValidationState::Code IsScTxApplicableToState(const CTransaction& tx, Sidechain::ScFeeCheckFlag scCheckType,
+                                                   bool* banSenderNode = nullptr) const;
     bool CheckScTxTiming(const uint256& scId) const;
 
     bool IsFtScFeeApplicable(const CTxForwardTransferOut& ftOutput) const;
@@ -692,13 +665,11 @@ public:
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
     int getScCoinsMaturity();
 
-    //CERTIFICATES RELATED PUBLIC MEMBERS
+    // CERTIFICATES RELATED PUBLIC MEMBERS
     CValidationState::Code IsCertApplicableToState(const CScCertificate& cert, bool* banSenderNode = nullptr) const;
 
-    CValidationState::Code CheckEndEpochCumScTxCommTreeRoot(
-        const CSidechain& sidechain,
-        int epochNumber,
-        const CFieldElement& endCumScTxCommTreeRoot) const;
+    CValidationState::Code CheckEndEpochCumScTxCommTreeRoot(const CSidechain& sidechain, int epochNumber,
+                                                            const CFieldElement& endCumScTxCommTreeRoot) const;
 
     bool CheckCertTiming(const uint256& scId, int certEpoch) const;
     bool UpdateSidechain(const CScCertificate& cert, CBlockUndo& blockUndo);
@@ -714,37 +685,48 @@ public:
      * When disconnecting a block, a lower quality certificate becomes a top quality one
      * and its Backward Transfers must be restored.
      */
-    enum class flagIndexesUpdateType {
+    enum class flagIndexesUpdateType
+    {
         SUPERSEDE_CERTIFICATE, /**< Perform the normal/complete procedure applying changes. */
         RESTORE_CERTIFICATE    /**< Perofrm only the validity check and do not apply any changes. */
     };
 
-    void UpdateBackwardTransferIndexes(const uint256& certHash,
-                                       int certIndex,
+    void UpdateBackwardTransferIndexes(const uint256& certHash, int certIndex,
                                        std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>>& addressIndex,
                                        std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>& addressUnspentIndex,
                                        flagIndexesUpdateType updateType);
-#endif // ENABLE_ADDRESS_INDEXING
+#endif  // ENABLE_ADDRESS_INDEXING
 
-    //SIDECHAINS EVENTS RELATED MEMBERS
+    // SIDECHAINS EVENTS RELATED MEMBERS
     bool HaveSidechainEvents(int height) const override;
     bool GetSidechainEvents(int height, CSidechainEvents& scEvents) const override;
 
     bool HandleSidechainEvents(int height, CBlockUndo& blockUndo, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
-    bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
+    bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height,
+                               std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
 
-    void HandleTxIndexSidechainEvents(int height, CBlockTreeDB* pblocktree, std::vector<std::pair<uint256, CTxIndexValue>>& txIndex);
-    void RevertTxIndexSidechainEvents(int height, CBlockUndo& blockUndo, CBlockTreeDB* pblocktree, std::vector<std::pair<uint256, CTxIndexValue>>& txIndex);
+    void HandleTxIndexSidechainEvents(int height, CBlockTreeDB* pblocktree,
+                                      std::vector<std::pair<uint256, CTxIndexValue>>& txIndex);
+    void RevertTxIndexSidechainEvents(int height, CBlockUndo& blockUndo, CBlockTreeDB* pblocktree,
+                                      std::vector<std::pair<uint256, CTxIndexValue>>& txIndex);
 
-    void HandleMaturityHeightIndexSidechainEvents(int height, CBlockTreeDB* pblocktree, std::vector<std::pair<CMaturityHeightKey, CMaturityHeightValue>>& maturityHeightIndex);
-    void RevertMaturityHeightIndexSidechainEvents(int height, CBlockUndo& blockUndo, CBlockTreeDB* pblocktree, std::vector<std::pair<CMaturityHeightKey, CMaturityHeightValue>>& maturityHeightIndex);
+    void HandleMaturityHeightIndexSidechainEvents(
+        int height, CBlockTreeDB* pblocktree,
+        std::vector<std::pair<CMaturityHeightKey, CMaturityHeightValue>>& maturityHeightIndex);
+    void RevertMaturityHeightIndexSidechainEvents(
+        int height, CBlockUndo& blockUndo, CBlockTreeDB* pblocktree,
+        std::vector<std::pair<CMaturityHeightKey, CMaturityHeightValue>>& maturityHeightIndex);
 #ifdef ENABLE_ADDRESS_INDEXING
-    void HandleIndexesSidechainEvents(int height, CBlockTreeDB* pblocktree, std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>>& addressIndex, std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>& addressUnspentIndex);
+    void HandleIndexesSidechainEvents(int height, CBlockTreeDB* pblocktree,
+                                      std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>>& addressIndex,
+                                      std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>& addressUnspentIndex);
 
-    void RevertIndexesSidechainEvents(int height, CBlockUndo& blockUndo, CBlockTreeDB* pblocktree, std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>>& addressIndex, std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>& addressUnspentIndex);
-#endif // ENABLE_ADDRESS_INDEXING
+    void RevertIndexesSidechainEvents(int height, CBlockUndo& blockUndo, CBlockTreeDB* pblocktree,
+                                      std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>>& addressIndex,
+                                      std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>& addressUnspentIndex);
+#endif  // ENABLE_ADDRESS_INDEXING
 
-    //CSW NULLIFIER PUBLIC MEMBERS
+    // CSW NULLIFIER PUBLIC MEMBERS
     bool HaveCswNullifier(const uint256& scId, const CFieldElement& nullifier) const override;
     bool AddCswNullifier(const uint256& scId, const CFieldElement& nullifier);
     bool RemoveCswNullifier(const uint256& scId, const CFieldElement& nullifier);
@@ -761,7 +743,7 @@ public:
     //! Calculate the size of the cache (in bytes)
     size_t DynamicMemoryUsage() const;
 
-    /** 
+    /**
      * Amount of bitcoins coming in to a transaction
      * Note that lightweight clients may not know anything besides the hash of previous transactions,
      * so may not be able to calculate this.
@@ -784,7 +766,7 @@ public:
 
     friend class CCoinsModifier;
 
-private:
+  private:
     CCoinsMap::const_iterator FetchCoins(const uint256& txid) const;
     CCoinsMap::iterator FetchCoins(const uint256& txid);
     CSidechainsMap::const_iterator FetchSidechains(const uint256& scId) const;
@@ -795,7 +777,8 @@ private:
 
     static int getInitScCoinsMaturity();
 
-    bool DecrementImmatureAmount(const uint256& scId, const CSidechainsMap::iterator& targetEntry, CAmount nValue, int maturityHeight);
+    bool DecrementImmatureAmount(const uint256& scId, const CSidechainsMap::iterator& targetEntry, CAmount nValue,
+                                 int maturityHeight);
 };
 
-#endif // BITCOIN_COINS_H
+#endif  // BITCOIN_COINS_H

@@ -1,13 +1,12 @@
 #include "Note.hpp"
-#include "prf.h"
+
 #include "crypto/sha256.h"
-
-#include "random.h"
-#include "version.h"
-#include "streams.h"
-
-#include "zcash/util.h"
 #include "librustzcash.h"
+#include "prf.h"
+#include "random.h"
+#include "streams.h"
+#include "version.h"
+#include "zcash/util.h"
 
 using namespace libzcash;
 
@@ -36,31 +35,17 @@ uint256 Note::cm() const {
     return result;
 }
 
-uint256 Note::nullifier(const SpendingKey& a_sk) const {
-    return PRF_nf(a_sk, rho);
-}
+uint256 Note::nullifier(const SpendingKey& a_sk) const { return PRF_nf(a_sk, rho); }
 
-
-NotePlaintext::NotePlaintext(
-    const Note& note,
-    std::array<unsigned char, ZC_MEMO_SIZE> memo) : BaseNotePlaintext(note, memo)
-{   
-	rho = note.rho;
+NotePlaintext::NotePlaintext(const Note& note, std::array<unsigned char, ZC_MEMO_SIZE> memo) : BaseNotePlaintext(note, memo) {
+    rho = note.rho;
     r = note.r;
 }
 
-Note NotePlaintext::note(const PaymentAddress& addr) const
-{
-    return Note(addr.a_pk, value_, rho, r);
-}
+Note NotePlaintext::note(const PaymentAddress& addr) const { return Note(addr.a_pk, value_, rho, r); }
 
-NotePlaintext NotePlaintext::decrypt(const ZCNoteDecryption& decryptor,
-                                     const ZCNoteDecryption::Ciphertext& ciphertext,
-                                     const uint256& ephemeralKey,
-                                     const uint256& h_sig,
-                                     unsigned char nonce
-                                    )
-{
+NotePlaintext NotePlaintext::decrypt(const ZCNoteDecryption& decryptor, const ZCNoteDecryption::Ciphertext& ciphertext,
+                                     const uint256& ephemeralKey, const uint256& h_sig, unsigned char nonce) {
     auto plaintext = decryptor.decrypt(ciphertext, ephemeralKey, h_sig, nonce);
 
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
@@ -74,10 +59,7 @@ NotePlaintext NotePlaintext::decrypt(const ZCNoteDecryption& decryptor,
     return ret;
 }
 
-ZCNoteEncryption::Ciphertext NotePlaintext::encrypt(ZCNoteEncryption& encryptor,
-                                                    const uint256& pk_enc
-                                                   ) const
-{
+ZCNoteEncryption::Ciphertext NotePlaintext::encrypt(ZCNoteEncryption& encryptor, const uint256& pk_enc) const {
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss << (*this);
 

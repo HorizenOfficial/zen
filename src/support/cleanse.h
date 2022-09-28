@@ -8,6 +8,6 @@
 
 #include <stdlib.h>
 
-void memory_cleanse(void *ptr, size_t len);
+void memory_cleanse(void* ptr, size_t len);
 
-#endif // BITCOIN_SUPPORT_CLEANSE_H
+#endif  // BITCOIN_SUPPORT_CLEANSE_H

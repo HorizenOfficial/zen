@@ -5,6 +5,10 @@
 
 #include "pow.h"
 
+#include <metrics.h>
+
+#include <primitives/block.h>
+
 #include "arith_uint256.h"
 #include "chain.h"
 #include "chainparams.h"
@@ -15,16 +19,12 @@
 #include "streams.h"
 #include "uint256.h"
 #include "util.h"
-#include <metrics.h>
-#include <primitives/block.h>
 
-unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader* pblock, const Consensus::Params& params)
-{
+unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader* pblock, const Consensus::Params& params) {
     unsigned int nProofOfWorkLimit = UintToArith256(params.powLimit).GetCompact();
 
     // Genesis block
-    if (pindexLast == NULL)
-        return nProofOfWorkLimit;
+    if (pindexLast == NULL) return nProofOfWorkLimit;
 
     // Find the first block in the averaging interval
     const CBlockIndex* pindexFirst = pindexLast;
@@ -37,19 +37,15 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHead
     }
 
     // Check we have enough blocks
-    if (pindexFirst == NULL)
-        return nProofOfWorkLimit;
+    if (pindexFirst == NULL) return nProofOfWorkLimit;
 
     arith_uint256 bnAvg{bnTot / params.nPowAveragingWindow};
 
     return CalculateNextWorkRequired(bnAvg, pindexLast->GetMedianTimePast(), pindexFirst->GetMedianTimePast(), params);
 }
 
-unsigned int CalculateNextWorkRequired(arith_uint256 bnAvg,
-                                       int64_t nLastBlockTime,
-                                       int64_t nFirstBlockTime,
-                                       const Consensus::Params& params)
-{
+unsigned int CalculateNextWorkRequired(arith_uint256 bnAvg, int64_t nLastBlockTime, int64_t nFirstBlockTime,
+                                       const Consensus::Params& params) {
     // Limit adjustment step
     // Use medians to prevent time-warp attacks
     int64_t nActualTimespan = nLastBlockTime - nFirstBlockTime;
@@ -57,10 +53,8 @@ unsigned int CalculateNextWorkRequired(arith_uint256 bnAvg,
     nActualTimespan = params.AveragingWindowTimespan() + (nActualTimespan - params.AveragingWindowTimespan()) / 4;
     LogPrint("pow", "  nActualTimespan = %d  before bounds\n", nActualTimespan);
 
-    if (nActualTimespan < params.MinActualTimespan())
-        nActualTimespan = params.MinActualTimespan();
-    if (nActualTimespan > params.MaxActualTimespan())
-        nActualTimespan = params.MaxActualTimespan();
+    if (nActualTimespan < params.MinActualTimespan()) nActualTimespan = params.MinActualTimespan();
+    if (nActualTimespan > params.MaxActualTimespan()) nActualTimespan = params.MaxActualTimespan();
 
     // Retarget
     const arith_uint256 bnPowLimit = UintToArith256(params.powLimit);
@@ -68,20 +62,19 @@ unsigned int CalculateNextWorkRequired(arith_uint256 bnAvg,
     bnNew /= params.AveragingWindowTimespan();
     bnNew *= nActualTimespan;
 
-    if (bnNew > bnPowLimit)
-        bnNew = bnPowLimit;
+    if (bnNew > bnPowLimit) bnNew = bnPowLimit;
 
     /// debug print
     LogPrint("pow", "GetNextWorkRequired RETARGET\n");
-    LogPrint("pow", "params.AveragingWindowTimespan() = %d    nActualTimespan = %d\n", params.AveragingWindowTimespan(), nActualTimespan);
+    LogPrint("pow", "params.AveragingWindowTimespan() = %d    nActualTimespan = %d\n", params.AveragingWindowTimespan(),
+             nActualTimespan);
     LogPrint("pow", "Current average: %08x  %s\n", bnAvg.GetCompact(), bnAvg.ToString());
     LogPrint("pow", "After:  %08x  %s\n", bnNew.GetCompact(), bnNew.ToString());
 
     return bnNew.GetCompact();
 }
 
-bool CheckEquihashSolution(const CBlockHeader* pblock, const CChainParams& params)
-{
+bool CheckEquihashSolution(const CBlockHeader* pblock, const CChainParams& params) {
     unsigned int n = params.EquihashN();
     unsigned int k = params.EquihashK();
 
@@ -101,16 +94,14 @@ bool CheckEquihashSolution(const CBlockHeader* pblock, const CChainParams& param
 
     bool isValid;
     EhIsValidSolution(n, k, state, pblock->nSolution, isValid);
-    if (!isValid)
-        return error("CheckEquihashSolution(): invalid solution");
+    if (!isValid) return error("CheckEquihashSolution(): invalid solution");
 
     return true;
 }
 
 /** extracted from rpc command generate and reused in UTs **/
-void generateEquihash(CBlock& block)
-{
-    //in rpc command this function should be used on regtest only
+void generateEquihash(CBlock& block) {
+    // in rpc command this function should be used on regtest only
     assert(Params().MineBlocksOnDemand());
 
     unsigned int n = Params().EquihashN();
@@ -137,17 +128,14 @@ void generateEquihash(CBlock& block)
         // H(I||V||...
         crypto_generichash_blake2b_state curr_state;
         curr_state = eh_state;
-        crypto_generichash_blake2b_update(&curr_state,
-                                          block.nNonce.begin(),
-                                          block.nNonce.size());
+        crypto_generichash_blake2b_update(&curr_state, block.nNonce.begin(), block.nNonce.size());
 
         // (x_1, x_2, ...) = A(I, V, n, k)
-        std::function<bool(std::vector<unsigned char>)> validBlock =
-            [&block](std::vector<unsigned char> soln) {
-                block.nSolution = soln;
-                solutionTargetChecks.increment();
-                return CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus());
-            };
+        std::function<bool(std::vector<unsigned char>)> validBlock = [&block](std::vector<unsigned char> soln) {
+            block.nSolution = soln;
+            solutionTargetChecks.increment();
+            return CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus());
+        };
         fSolutionFound = EhBasicSolveUncancellable(n, k, curr_state, validBlock);
         ehSolverRuns.increment();
     }
@@ -155,8 +143,7 @@ void generateEquihash(CBlock& block)
     return;
 }
 
-bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params& params)
-{
+bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params& params) {
     bool fNegative;
     bool fOverflow;
     arith_uint256 bnTarget;
@@ -181,14 +168,12 @@ bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params&
     return true;
 }
 
-arith_uint256 GetBlockProof(const CBlockIndex& block)
-{
+arith_uint256 GetBlockProof(const CBlockIndex& block) {
     arith_uint256 bnTarget;
     bool fNegative;
     bool fOverflow;
     bnTarget.SetCompact(block.nBits, &fNegative, &fOverflow);
-    if (fNegative || fOverflow || bnTarget == 0)
-        return 0;
+    if (fNegative || fOverflow || bnTarget == 0) return 0;
     // We need to compute 2**256 / (bnTarget+1), but we can't represent 2**256
     // as it's too large for a arith_uint256. However, as 2**256 is at least as large
     // as bnTarget+1, it is equal to ((2**256 - bnTarget - 1) / (bnTarget+1)) + 1,
@@ -196,8 +181,8 @@ arith_uint256 GetBlockProof(const CBlockIndex& block)
     return (~bnTarget / (bnTarget + 1)) + 1;
 }
 
-int64_t GetBlockProofEquivalentTime(const CBlockIndex& to, const CBlockIndex& from, const CBlockIndex& tip, const Consensus::Params& params)
-{
+int64_t GetBlockProofEquivalentTime(const CBlockIndex& to, const CBlockIndex& from, const CBlockIndex& tip,
+                                    const Consensus::Params& params) {
     arith_uint256 r;
     int sign = 1;
     if (to.nChainWork > from.nChainWork) {

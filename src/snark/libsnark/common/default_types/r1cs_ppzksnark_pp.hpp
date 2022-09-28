@@ -17,6 +17,6 @@
 
 namespace libsnark {
 typedef default_ec_pp default_r1cs_ppzksnark_pp;
-} // libsnark
+}  // namespace libsnark
 
-#endif // R1CS_PPZKSNARK_PP_HPP_
+#endif  // R1CS_PPZKSNARK_PP_HPP_

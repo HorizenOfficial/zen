@@ -5,9 +5,9 @@
 #ifndef BITCOIN_CHECKPOINTS_H
 #define BITCOIN_CHECKPOINTS_H
 
-#include "uint256.h"
-
 #include <map>
+
+#include "uint256.h"
 
 class CBlockIndex;
 
@@ -15,8 +15,7 @@ class CBlockIndex;
  * Block-chain checkpoints are compiled-in sanity checks.
  * They are updated every release or three.
  */
-namespace Checkpoints
-{
+namespace Checkpoints {
 typedef std::map<int, uint256> MapCheckpoints;
 
 struct CCheckpointData {
@@ -33,7 +32,6 @@ CBlockIndex* GetLastCheckpoint(const CCheckpointData& data);
 
 double GuessVerificationProgress(const CCheckpointData& data, CBlockIndex* pindex, bool fSigchecks = true);
 
+}  // namespace Checkpoints
 
-} //namespace Checkpoints
-
-#endif // BITCOIN_CHECKPOINTS_H
+#endif  // BITCOIN_CHECKPOINTS_H

@@ -15,10 +15,10 @@ using ::testing::Return;
 
 #ifdef ENABLE_WALLET
 class MockReserveKey : public CReserveKey {
-public:
-    MockReserveKey() : CReserveKey(nullptr) { }
+  public:
+    MockReserveKey() : CReserveKey(nullptr) {}
 
-    MOCK_METHOD1(GetReservedKey, bool(CPubKey &pubkey));
+    MOCK_METHOD1(GetReservedKey, bool(CPubKey& pubkey));
 };
 #endif
 
@@ -28,8 +28,7 @@ TEST(Miner, GetMinerScriptPubKey) {
     boost::optional<CScript> scriptPubKey;
 #ifdef ENABLE_WALLET
     MockReserveKey reservekey;
-    EXPECT_CALL(reservekey, GetReservedKey(::testing::_))
-        .WillRepeatedly(Return(false));
+    EXPECT_CALL(reservekey, GetReservedKey(::testing::_)).WillRepeatedly(Return(false));
 #endif
 
     // No miner address set
@@ -38,7 +37,7 @@ TEST(Miner, GetMinerScriptPubKey) {
 #else
     scriptPubKey = GetMinerScriptPubKey();
 #endif
-    EXPECT_FALSE((bool) scriptPubKey);
+    EXPECT_FALSE((bool)scriptPubKey);
 
     mapArgs["-mineraddress"] = "notAnAddress";
 #ifdef ENABLE_WALLET
@@ -46,7 +45,7 @@ TEST(Miner, GetMinerScriptPubKey) {
 #else
     scriptPubKey = GetMinerScriptPubKey();
 #endif
-    EXPECT_FALSE((bool) scriptPubKey);
+    EXPECT_FALSE((bool)scriptPubKey);
 
     // Partial address
     mapArgs["-mineraddress"] = "t1T8yaLVhNqxA5KJcmiqq";
@@ -55,7 +54,7 @@ TEST(Miner, GetMinerScriptPubKey) {
 #else
     scriptPubKey = GetMinerScriptPubKey();
 #endif
-    EXPECT_FALSE((bool) scriptPubKey);
+    EXPECT_FALSE((bool)scriptPubKey);
 
     // Typo in address
     mapArgs["-mineraddress"] = "t1TByaLVhNqxA5KJcmiqqFN88e8DNp2PBfF";
@@ -64,7 +63,7 @@ TEST(Miner, GetMinerScriptPubKey) {
 #else
     scriptPubKey = GetMinerScriptPubKey();
 #endif
-    EXPECT_FALSE((bool) scriptPubKey);
+    EXPECT_FALSE((bool)scriptPubKey);
 
     // Set up expected scriptPubKey for t1T8yaLVhNqxA5KJcmiqqFN88e8DNp2PBfF
     CKeyID keyID;
@@ -78,7 +77,7 @@ TEST(Miner, GetMinerScriptPubKey) {
 #else
     scriptPubKey = GetMinerScriptPubKey();
 #endif
-    EXPECT_TRUE((bool) scriptPubKey);
+    EXPECT_TRUE((bool)scriptPubKey);
     EXPECT_EQ(expectedScriptPubKey, *scriptPubKey);
 
     // Valid address with leading whitespace
@@ -88,7 +87,7 @@ TEST(Miner, GetMinerScriptPubKey) {
 #else
     scriptPubKey = GetMinerScriptPubKey();
 #endif
-    EXPECT_TRUE((bool) scriptPubKey);
+    EXPECT_TRUE((bool)scriptPubKey);
     EXPECT_EQ(expectedScriptPubKey, *scriptPubKey);
 
     // Valid address with trailing whitespace
@@ -98,6 +97,6 @@ TEST(Miner, GetMinerScriptPubKey) {
 #else
     scriptPubKey = GetMinerScriptPubKey();
 #endif
-    EXPECT_TRUE((bool) scriptPubKey);
+    EXPECT_TRUE((bool)scriptPubKey);
     EXPECT_EQ(expectedScriptPubKey, *scriptPubKey);
 }

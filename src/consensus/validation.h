@@ -9,11 +9,10 @@
 #include <string>
 
 /** Capture information about block/transaction validation */
-class CValidationState
-{
-public:
+class CValidationState {
+  public:
     CValidationState() : mode(State::VALID), nDoS(0), chRejectCode(Code::OK), corruptionPossible(false) {}
-    ~CValidationState() {};
+    ~CValidationState(){};
 
     /** "reject" message codes */
     enum class Code : unsigned char
@@ -24,9 +23,9 @@ public:
         OBSOLETE = 0x11,
         DUPLICATED = 0x12,
         NONSTANDARD = 0x40,
-        DUST = 0x41,       //unused apparently
+        DUST = 0x41,  // unused apparently
         INSUFFICIENT_FEE = 0x42,
-        CHECKPOINT = 0x43, //unused apparently
+        CHECKPOINT = 0x43,  // unused apparently
         CHECKBLOCKATHEIGHT_NOT_FOUND = 0x44,
         SCID_NOT_FOUND = 0x45,
         INSUFFICIENT_SCID_FUNDS = 0x46,
@@ -40,53 +39,45 @@ public:
     };
 
     // The following makes CValidationState::Code serializable
-    static unsigned char CodeToChar(Code code)
-    {
-        return static_cast<unsigned char>(code);
-    }
+    static unsigned char CodeToChar(Code code) { return static_cast<unsigned char>(code); }
 
-    bool DoS(int level, bool ret = false, Code chRejectCodeIn = Code::OK,
-            std::string strRejectReasonIn="", bool corruptionIn=false)
-    {
+    bool DoS(int level, bool ret = false, Code chRejectCodeIn = Code::OK, std::string strRejectReasonIn = "",
+             bool corruptionIn = false) {
         chRejectCode = chRejectCodeIn;
         strRejectReason = strRejectReasonIn;
         corruptionPossible = corruptionIn;
-        if (mode == State::RUNTIME_ERROR)
-            return ret;
+        if (mode == State::RUNTIME_ERROR) return ret;
         nDoS += level;
         mode = State::INVALID;
         return ret;
     }
 
-    bool Invalid(bool ret = false, Code _chRejectCode=Code::OK, std::string _strRejectReason="")
-    {
+    bool Invalid(bool ret = false, Code _chRejectCode = Code::OK, std::string _strRejectReason = "") {
         return DoS(0, ret, _chRejectCode, _strRejectReason);
     }
 
-    bool Error(const std::string& strRejectReasonIn)
-    {
-        if (mode == State::VALID)
-            strRejectReason = strRejectReasonIn;
+    bool Error(const std::string& strRejectReasonIn) {
+        if (mode == State::VALID) strRejectReason = strRejectReasonIn;
         mode = State::RUNTIME_ERROR;
         return false;
     }
 
-    bool IsValid()   const { return mode == State::VALID; }
+    bool IsValid() const { return mode == State::VALID; }
     bool IsInvalid() const { return mode == State::INVALID; }
-    bool IsError()   const { return mode == State::RUNTIME_ERROR; }
+    bool IsError() const { return mode == State::RUNTIME_ERROR; }
 
     int GetDoS() const { return nDoS; }
 
-    bool CorruptionPossible()     const { return corruptionPossible; }
+    bool CorruptionPossible() const { return corruptionPossible; }
     Code GetRejectCode() const { return chRejectCode; }
     std::string GetRejectReason() const { return strRejectReason; }
 
-private:
+  private:
     enum class State
     {
-        VALID,   //! everything ok
-        INVALID, //! network rule violation (DoS value may be set)
-        RUNTIME_ERROR,   //! run-time error
+        VALID,          //! everything ok
+        INVALID,        //! network rule violation (DoS value may be set)
+        RUNTIME_ERROR,  //! run-time error
     } mode;
 
     int nDoS;
@@ -95,4 +86,4 @@ private:
     bool corruptionPossible;
 };
 
-#endif // BITCOIN_CONSENSUS_VALIDATION_H
+#endif  // BITCOIN_CONSENSUS_VALIDATION_H

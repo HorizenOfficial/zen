@@ -16,25 +16,19 @@ struct CSpentIndexKey {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
-    {
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(txid);
         READWRITE(outputIndex);
     }
 
-    CSpentIndexKey(uint256 t, unsigned int i)
-    {
+    CSpentIndexKey(uint256 t, unsigned int i) {
         txid = t;
         outputIndex = i;
     }
 
-    CSpentIndexKey()
-    {
-        SetNull();
-    }
+    CSpentIndexKey() { SetNull(); }
 
-    void SetNull()
-    {
+    void SetNull() {
         txid.SetNull();
         outputIndex = 0;
     }
@@ -51,8 +45,7 @@ struct CSpentIndexValue {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
-    {
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(txid);
         READWRITE(inputIndex);
         READWRITE(blockHeight);
@@ -61,8 +54,7 @@ struct CSpentIndexValue {
         READWRITE(addressHash);
     }
 
-    CSpentIndexValue(uint256 t, unsigned int i, int h, CAmount s, int type, uint160 a)
-    {
+    CSpentIndexValue(uint256 t, unsigned int i, int h, CAmount s, int type, uint160 a) {
         txid = t;
         inputIndex = i;
         blockHeight = h;
@@ -71,13 +63,9 @@ struct CSpentIndexValue {
         addressHash = a;
     }
 
-    CSpentIndexValue()
-    {
-        SetNull();
-    }
+    CSpentIndexValue() { SetNull(); }
 
-    void SetNull()
-    {
+    void SetNull() {
         txid.SetNull();
         inputIndex = 0;
         blockHeight = 0;
@@ -86,15 +74,11 @@ struct CSpentIndexValue {
         addressHash.SetNull();
     }
 
-    bool IsNull() const
-    {
-        return txid.IsNull();
-    }
+    bool IsNull() const { return txid.IsNull(); }
 };
 
 struct CSpentIndexKeyCompare {
-    bool operator()(const CSpentIndexKey& a, const CSpentIndexKey& b) const
-    {
+    bool operator()(const CSpentIndexKey& a, const CSpentIndexKey& b) const {
         if (a.txid == b.txid) {
             return a.outputIndex < b.outputIndex;
         } else {
@@ -103,4 +87,4 @@ struct CSpentIndexKeyCompare {
     }
 };
 
-#endif // BITCOIN_SPENTINDEX_H
+#endif  // BITCOIN_SPENTINDEX_H

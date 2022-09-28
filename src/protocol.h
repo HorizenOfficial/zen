@@ -10,13 +10,14 @@
 #ifndef BITCOIN_PROTOCOL_H
 #define BITCOIN_PROTOCOL_H
 
+#include <stdint.h>
+
+#include <string>
+
 #include "netbase.h"
 #include "serialize.h"
 #include "uint256.h"
 #include "version.h"
-
-#include <stdint.h>
-#include <string>
 
 #define MESSAGE_START_SIZE 4
 
@@ -26,9 +27,8 @@
  * (4) size.
  * (4) checksum.
  */
-class CMessageHeader
-{
-public:
+class CMessageHeader {
+  public:
     typedef unsigned char MessageStartChars[MESSAGE_START_SIZE];
 
     CMessageHeader(const MessageStartChars& pchMessageStartIn);
@@ -40,8 +40,7 @@ public:
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
-    {
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(FLATDATA(pchMessageStart));
         READWRITE(FLATDATA(pchCommand));
         READWRITE(nMessageSize);
@@ -49,8 +48,9 @@ public:
     }
 
     // TODO: make private (improves encapsulation)
-public:
-    enum {
+  public:
+    enum
+    {
         COMMAND_SIZE = 12,
         MESSAGE_SIZE_SIZE = sizeof(int),
         CHECKSUM_SIZE = sizeof(int),
@@ -66,7 +66,8 @@ public:
 };
 
 /** nServices flags */
-enum {
+enum
+{
     // NODE_NETWORK means that the node is capable of serving the block chain. It is currently
     // set by all Bitcoin Core nodes, and is unset by SPV clients or other peers that just want
     // network services but don't provide them.
@@ -86,9 +87,8 @@ enum {
 };
 
 /** A CService with information about it as peer */
-class CAddress : public CService
-{
-public:
+class CAddress : public CService {
+  public:
     CAddress();
     explicit CAddress(CService ipIn, uint64_t nServicesIn = NODE_NETWORK);
 
@@ -97,21 +97,16 @@ public:
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
-    {
-        if (ser_action.ForRead())
-            Init();
-        if (nType & SER_DISK)
-            READWRITE(nVersion);
-        if ((nType & SER_DISK) ||
-            (nVersion >= CADDR_TIME_VERSION && !(nType & SER_GETHASH)))
-            READWRITE(nTime);
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        if (ser_action.ForRead()) Init();
+        if (nType & SER_DISK) READWRITE(nVersion);
+        if ((nType & SER_DISK) || (nVersion >= CADDR_TIME_VERSION && !(nType & SER_GETHASH))) READWRITE(nTime);
         READWRITE(nServices);
         READWRITE(*(CService*)this);
     }
 
     // TODO: make private (improves encapsulation)
-public:
+  public:
     uint64_t nServices;
 
     // disk and network only
@@ -119,9 +114,8 @@ public:
 };
 
 /** inv message data */
-class CInv
-{
-public:
+class CInv {
+  public:
     CInv();
     CInv(int typeIn, const uint256& hashIn);
     CInv(const std::string& strType, const uint256& hashIn);
@@ -129,8 +123,7 @@ public:
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
-    {
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(type);
         READWRITE(hash);
     }
@@ -142,12 +135,13 @@ public:
     std::string ToString() const;
 
     // TODO: make private (improves encapsulation)
-public:
+  public:
     int type;
     uint256 hash;
 };
 
-enum {
+enum
+{
     MSG_TX = 1,
     MSG_BLOCK,
     // Nodes may always request a MSG_FILTERED_BLOCK in a getdata, however,
@@ -155,4 +149,4 @@ enum {
     MSG_FILTERED_BLOCK
 };
 
-#endif // BITCOIN_PROTOCOL_H
+#endif  // BITCOIN_PROTOCOL_H

@@ -19,22 +19,26 @@
  *  Following the introduction of sidechain certificates and backward transfer,
  *  nFirstBwtPos is serialized for certificates.
  */
-class CTxInUndo
-{
-public:
-    CTxOut txout;           // the txout data before being spent
-    bool fCoinBase;         // if the outpoint was the last unspent: whether it belonged to a coinbase
-    unsigned int nHeight;   // if the outpoint was the last unspent: its height
-    int nVersion;           // if the outpoint was the last unspent: its version
-    int nFirstBwtPos;       // if the outpoint was the last unspent: its nFirstBwtPos, serialized only for certificates
-    int nBwtMaturityHeight; // if the outpoint was the last unspent: its nBwtMaturityHeight, introduced with certificates
+class CTxInUndo {
+  public:
+    CTxOut txout;            // the txout data before being spent
+    bool fCoinBase;          // if the outpoint was the last unspent: whether it belonged to a coinbase
+    unsigned int nHeight;    // if the outpoint was the last unspent: its height
+    int nVersion;            // if the outpoint was the last unspent: its version
+    int nFirstBwtPos;        // if the outpoint was the last unspent: its nFirstBwtPos, serialized only for certificates
+    int nBwtMaturityHeight;  // if the outpoint was the last unspent: its nBwtMaturityHeight, introduced with certificates
 
     CTxInUndo() : txout(), fCoinBase(false), nHeight(0), nVersion(0), nFirstBwtPos(BWT_POS_UNSET), nBwtMaturityHeight(0) {}
-    CTxInUndo(const CTxOut& txoutIn, bool fCoinBaseIn = false, unsigned int nHeightIn = 0, int nVersionIn = 0, int firstBwtPos = BWT_POS_UNSET, int bwtMaturityHeight = 0) : txout(txoutIn), fCoinBase(fCoinBaseIn), nHeight(nHeightIn), nVersion(nVersionIn),
-                                                                                                                                                                             nFirstBwtPos(firstBwtPos), nBwtMaturityHeight(bwtMaturityHeight) {}
+    CTxInUndo(const CTxOut& txoutIn, bool fCoinBaseIn = false, unsigned int nHeightIn = 0, int nVersionIn = 0,
+              int firstBwtPos = BWT_POS_UNSET, int bwtMaturityHeight = 0)
+        : txout(txoutIn),
+          fCoinBase(fCoinBaseIn),
+          nHeight(nHeightIn),
+          nVersion(nVersionIn),
+          nFirstBwtPos(firstBwtPos),
+          nBwtMaturityHeight(bwtMaturityHeight) {}
 
-    unsigned int GetSerializeSize(int nType, int nVersion) const
-    {
+    unsigned int GetSerializeSize(int nType, int nVersion) const {
         unsigned int totalSize = 0;
         totalSize = ::GetSerializeSize(VARINT(nHeight * 2 + (fCoinBase ? 1 : 0)), nType, nVersion) +
                     (nHeight > 0 ? ::GetSerializeSize(VARINT(this->nVersion), nType, nVersion) : 0) +
@@ -47,11 +51,9 @@ public:
     }
 
     template <typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const
-    {
+    void Serialize(Stream& s, int nType, int nVersion) const {
         ::Serialize(s, VARINT(nHeight * 2 + (fCoinBase ? 1 : 0)), nType, nVersion);
-        if (nHeight > 0)
-            ::Serialize(s, VARINT(this->nVersion), nType, nVersion);
+        if (nHeight > 0) ::Serialize(s, VARINT(this->nVersion), nType, nVersion);
         ::Serialize(s, CTxOutCompressor(REF(txout)), nType, nVersion);
 
         if ((nHeight > 0) && ((this->nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f))) {
@@ -61,14 +63,12 @@ public:
     }
 
     template <typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion)
-    {
+    void Unserialize(Stream& s, int nType, int nVersion) {
         unsigned int nCode = 0;
         ::Unserialize(s, VARINT(nCode), nType, nVersion);
         nHeight = nCode / 2;
         fCoinBase = nCode & 1;
-        if (nHeight > 0)
-            ::Unserialize(s, VARINT(this->nVersion), nType, nVersion);
+        if (nHeight > 0) ::Unserialize(s, VARINT(this->nVersion), nType, nVersion);
         ::Unserialize(s, REF(CTxOutCompressor(REF(txout))), nType, nVersion);
 
         if ((nHeight > 0) && ((this->nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f))) {
@@ -77,8 +77,7 @@ public:
         }
     }
 
-    std::string ToString() const
-    {
+    std::string ToString() const {
         std::string str;
         str += strprintf("txout(%s)\n", txout.ToString());
         str += strprintf("        fCoinBase         = %d\n", fCoinBase);
@@ -91,37 +90,31 @@ public:
 };
 
 /** Undo information for a CTransaction */
-class CTxUndo
-{
-public:
-    std::vector<CTxInUndo> vprevout; // undo information for all txins
+class CTxUndo {
+  public:
+    std::vector<CTxInUndo> vprevout;  // undo information for all txins
     CTxUndo() : vprevout() {}
 
-    size_t GetSerializeSize(int nType, int nVersion) const
-    {
+    size_t GetSerializeSize(int nType, int nVersion) const {
         CSizeComputer s(nType, nVersion);
         NCONST_PTR(this)->Serialize(s, nType, nVersion);
         return s.size();
     };
 
     template <typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const
-    {
+    void Serialize(Stream& s, int nType, int nVersion) const {
         ::Serialize(s, vprevout, nType, nVersion);
     };
 
     template <typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion)
-    {
+    void Unserialize(Stream& s, int nType, int nVersion) {
         ::Unserialize(s, vprevout, nType, nVersion);
     };
 
-    std::string ToString() const
-    {
+    std::string ToString() const {
         std::string str;
         str += strprintf("vprevout.size %u\n", vprevout.size());
-        for (const CTxInUndo& in : vprevout)
-            str += strprintf("\n  [%s]\n", in.ToString());
+        for (const CTxInUndo& in : vprevout) str += strprintf("\n  [%s]\n", in.ToString());
 
         return str;
     }
@@ -129,7 +122,8 @@ public:
 
 struct CSidechainUndoData {
     uint32_t sidechainUndoDataVersion;
-    enum AvailableSections : uint8_t {
+    enum AvailableSections : uint8_t
+    {
         UNDEFINED = 0,
         MATURED_AMOUNTS = 1,
         CROSS_EPOCH_CERT_DATA = 2,
@@ -159,14 +153,21 @@ struct CSidechainUndoData {
     // CEASED_CERTIFICATE_DATA
     std::vector<CTxInUndo> ceasedBwts;
 
-    CSidechainUndoData() : sidechainUndoDataVersion(0), contentBitMask(AvailableSections::UNDEFINED),
-                           appliedMaturedAmount(0), pastEpochTopQualityCertView(), scFees(),
-                           prevTopCommittedCertHash(), prevTopCommittedCertReferencedEpoch(CScCertificate::EPOCH_NULL),
-                           prevTopCommittedCertQuality(CScCertificate::QUALITY_NULL), prevTopCommittedCertBwtAmount(0),
-                           lastTopQualityCertView(), lowQualityBwts(), ceasedBwts() {}
+    CSidechainUndoData()
+        : sidechainUndoDataVersion(0),
+          contentBitMask(AvailableSections::UNDEFINED),
+          appliedMaturedAmount(0),
+          pastEpochTopQualityCertView(),
+          scFees(),
+          prevTopCommittedCertHash(),
+          prevTopCommittedCertReferencedEpoch(CScCertificate::EPOCH_NULL),
+          prevTopCommittedCertQuality(CScCertificate::QUALITY_NULL),
+          prevTopCommittedCertBwtAmount(0),
+          lastTopQualityCertView(),
+          lowQualityBwts(),
+          ceasedBwts() {}
 
-    size_t GetSerializeSize(int nType, int nVersion) const
-    {
+    size_t GetSerializeSize(int nType, int nVersion) const {
         unsigned int totalSize = ::GetSerializeSize(sidechainUndoDataVersion, nType, nVersion);
         totalSize += ::GetSerializeSize(contentBitMask, nType, nVersion);
         if (contentBitMask & AvailableSections::MATURED_AMOUNTS) {
@@ -192,8 +193,7 @@ struct CSidechainUndoData {
     }
 
     template <typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const
-    {
+    void Serialize(Stream& s, int nType, int nVersion) const {
         ::Serialize(s, sidechainUndoDataVersion, nType, nVersion);
         ::Serialize(s, contentBitMask, nType, nVersion);
         if (contentBitMask & AvailableSections::MATURED_AMOUNTS) {
@@ -220,8 +220,7 @@ struct CSidechainUndoData {
     }
 
     template <typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion)
-    {
+    void Unserialize(Stream& s, int nType, int nVersion) {
         ::Unserialize(s, sidechainUndoDataVersion, nType, nVersion);
         ::Unserialize(s, contentBitMask, nType, nVersion);
         if (contentBitMask & AvailableSections::MATURED_AMOUNTS) {
@@ -247,8 +246,7 @@ struct CSidechainUndoData {
         return;
     }
 
-    std::string ToString() const
-    {
+    std::string ToString() const {
         std::string res;
         res += strprintf("contentBitMask=%u\n", contentBitMask);
         if (contentBitMask & AvailableSections::MATURED_AMOUNTS)
@@ -261,7 +259,8 @@ struct CSidechainUndoData {
             res += strprintf("prevTopCommittedCertHash=%s\n", prevTopCommittedCertHash.ToString());
             res += strprintf("prevTopCommittedCertReferencedEpoch=%d\n", prevTopCommittedCertReferencedEpoch);
             res += strprintf("prevTopCommittedCertQuality=%d\n", prevTopCommittedCertQuality);
-            res += strprintf("prevTopCommittedCertBwtAmount=%d.%08d\n", prevTopCommittedCertBwtAmount / COIN, prevTopCommittedCertBwtAmount % COIN);
+            res += strprintf("prevTopCommittedCertBwtAmount=%d.%08d\n", prevTopCommittedCertBwtAmount / COIN,
+                             prevTopCommittedCertBwtAmount % COIN);
             res += strprintf("lastTopQualityCertView=%s\n", lastTopQualityCertView.ToString());
         }
 
@@ -272,32 +271,33 @@ struct CSidechainUndoData {
         }
 
         res += strprintf("ceasedBwts.size()=%u\n", ceasedBwts.size());
-        for (const auto& voidCertOutput : ceasedBwts)
-            res += voidCertOutput.ToString() + "\n";
+        for (const auto& voidCertOutput : ceasedBwts) res += voidCertOutput.ToString() + "\n";
 
         res += strprintf("lowQualityBwts.size %u\n", lowQualityBwts.size());
-        for (const auto& voidCertUndo : lowQualityBwts)
-            res += voidCertUndo.ToString() + "\n";
+        for (const auto& voidCertUndo : lowQualityBwts) res += voidCertUndo.ToString() + "\n";
 
         return res;
     }
 };
 
-enum class IncludeScAttributes { ON,
-                                 OFF };
+enum class IncludeScAttributes
+{
+    ON,
+    OFF
+};
 
 /** Undo information for a CBlock */
-class CBlockUndo
-{
+class CBlockUndo {
     /** Magic number read from the value expressing the size of vtxundo vector.
      *  It is used for distinguish new version of CBlockUndo instance from old ones.
      *  The maximum number of tx+cert in a block is roughly:
      *      BLOCK_TX_PARTITION_SIZE / MIN_TX_SIZE + (MAX_BLOCK_SIZE - BLOCK_TX_PARTITION_SIZE) / MIN_CERT_SIZE =
-     *      2M / 61bytes + 2M / 1186bytes =~ 35K = 0x8912  
+     *      2M / 61bytes + 2M / 1186bytes =~ 35K = 0x8912
      * Therefore the magic number must be a number greater than this limit. */
     static const uint64_t _marker = 0xffff;
 
-    static_assert(_marker > (BLOCK_TX_PARTITION_SIZE / MIN_TX_SIZE + (MAX_BLOCK_SIZE - BLOCK_TX_PARTITION_SIZE) / MIN_CERT_SIZE),
+    static_assert(_marker >
+                      (BLOCK_TX_PARTITION_SIZE / MIN_TX_SIZE + (MAX_BLOCK_SIZE - BLOCK_TX_PARTITION_SIZE) / MIN_CERT_SIZE),
                   "CBlockUndo::_marker must be greater than max number of tx in a block!");
 
     static_assert(_marker <= MAX_SERIALIZED_COMPACT_SIZE,
@@ -306,7 +306,7 @@ class CBlockUndo
     /** memory only */
     bool includesSidechainAttributes;
 
-public:
+  public:
     std::vector<CTxUndo> vtxundo;
     uint256 old_tree_root;
     std::map<uint256, CSidechainUndoData> scUndoDatabyScId;
@@ -315,16 +315,14 @@ public:
     CBlockUndo() = delete;
     CBlockUndo(IncludeScAttributes includeSC) : includesSidechainAttributes(includeSC == IncludeScAttributes::ON) {}
 
-    size_t GetSerializeSize(int nType, int nVersion) const
-    {
+    size_t GetSerializeSize(int nType, int nVersion) const {
         CSizeComputer s(nType, nVersion);
         NCONST_PTR(this)->Serialize(s, nType, nVersion);
         return s.size();
     }
 
     template <typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const
-    {
+    void Serialize(Stream& s, int nType, int nVersion) const {
         if (includesSidechainAttributes) {
             WriteCompactSize(s, _marker);
             ::Serialize(s, vtxundo, nType, nVersion);
@@ -337,8 +335,7 @@ public:
     }
 
     template <typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion)
-    {
+    void Unserialize(Stream& s, int nType, int nVersion) {
         // reading from data stream to memory
         vtxundo.clear();
         includesSidechainAttributes = false;
@@ -357,14 +354,13 @@ public:
         }
     };
 
-    std::string ToString() const
-    {
-        std::string str = "\n=== CBlockUndo START ===========================================================================\n";
+    std::string ToString() const {
+        std::string str =
+            "\n=== CBlockUndo START ===========================================================================\n";
         str += strprintf("includesSidechainAttributes=%u (mem only)\n", includesSidechainAttributes);
         str += strprintf("vtxundo.size %u\n", vtxundo.size());
 
-        for (const CTxUndo& txUndo : vtxundo)
-            str += txUndo.ToString() + "\n";
+        for (const CTxUndo& txUndo : vtxundo) str += txUndo.ToString() + "\n";
 
         str += strprintf("old_tree_root %s\n", old_tree_root.ToString().substr(0, 10));
 
@@ -382,4 +378,4 @@ public:
     /** for testing */
     bool IncludesSidechainAttributes() const { return includesSidechainAttributes; }
 };
-#endif // BITCOIN_UNDO_H
+#endif  // BITCOIN_UNDO_H

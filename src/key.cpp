@@ -5,14 +5,15 @@
 
 #include "key.h"
 
+#include <secp256k1.h>
+
+#include <secp256k1_recovery.h>
+
 #include "arith_uint256.h"
 #include "crypto/common.h"
 #include "crypto/hmac_sha512.h"
 #include "pubkey.h"
 #include "random.h"
-
-#include <secp256k1.h>
-#include <secp256k1_recovery.h>
 
 static secp256k1_context* secp256k1_context_sign = NULL;
 
@@ -33,8 +34,8 @@ static secp256k1_context* secp256k1_context_sign = NULL;
  *
  * out32 must point to an output buffer of length at least 32 bytes.
  */
-static int ec_privkey_import_der(const secp256k1_context* ctx, unsigned char* out32, const unsigned char* privkey, size_t privkeylen)
-{
+static int ec_privkey_import_der(const secp256k1_context* ctx, unsigned char* out32, const unsigned char* privkey,
+                                 size_t privkeylen) {
     const unsigned char* end = privkey + privkeylen;
     memset(out32, 0, 32);
     /* sequence header */
@@ -92,12 +93,11 @@ static int ec_privkey_import_der(const secp256k1_context* ctx, unsigned char* ou
  * will be set to the number of bytes used in the buffer.
  * key32 must point to a 32-byte raw private key.
  */
-static int ec_privkey_export_der(const secp256k1_context* ctx, unsigned char* privkey, size_t* privkeylen, const unsigned char* key32, int compressed)
-{
+static int ec_privkey_export_der(const secp256k1_context* ctx, unsigned char* privkey, size_t* privkeylen,
+                                 const unsigned char* key32, int compressed) {
     assert(*privkeylen >= PRIVATE_KEY_SIZE);
-    static_assert(
-        PRIVATE_KEY_SIZE >= COMPRESSED_PRIVATE_KEY_SIZE,
-        "COMPRESSED_PRIVATE_KEY_SIZE is larger than PRIVATE_KEY_SIZE");
+    static_assert(PRIVATE_KEY_SIZE >= COMPRESSED_PRIVATE_KEY_SIZE,
+                  "COMPRESSED_PRIVATE_KEY_SIZE is larger than PRIVATE_KEY_SIZE");
     secp256k1_pubkey pubkey;
     size_t pubkeylen = 0;
     if (!secp256k1_ec_pubkey_create(ctx, &pubkey, key32)) {
@@ -105,18 +105,16 @@ static int ec_privkey_export_der(const secp256k1_context* ctx, unsigned char* pr
         return 0;
     }
     if (compressed) {
-        static const unsigned char begin[] = {
-            0x30, 0x81, 0xD3, 0x02, 0x01, 0x01, 0x04, 0x20};
+        static const unsigned char begin[] = {0x30, 0x81, 0xD3, 0x02, 0x01, 0x01, 0x04, 0x20};
         static const unsigned char middle[] = {
-            0xA0, 0x81, 0x85, 0x30, 0x81, 0x82, 0x02, 0x01, 0x01, 0x30, 0x2C, 0x06, 0x07, 0x2A, 0x86, 0x48,
-            0xCE, 0x3D, 0x01, 0x01, 0x02, 0x21, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-            0xFF, 0xFF, 0xFE, 0xFF, 0xFF, 0xFC, 0x2F, 0x30, 0x06, 0x04, 0x01, 0x00, 0x04, 0x01, 0x07, 0x04,
-            0x21, 0x02, 0x79, 0xBE, 0x66, 0x7E, 0xF9, 0xDC, 0xBB, 0xAC, 0x55, 0xA0, 0x62, 0x95, 0xCE, 0x87,
-            0x0B, 0x07, 0x02, 0x9B, 0xFC, 0xDB, 0x2D, 0xCE, 0x28, 0xD9, 0x59, 0xF2, 0x81, 0x5B, 0x16, 0xF8,
-            0x17, 0x98, 0x02, 0x21, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-            0xFF, 0xFF, 0xFF, 0xFF, 0xFE, 0xBA, 0xAE, 0xDC, 0xE6, 0xAF, 0x48, 0xA0, 0x3B, 0xBF, 0xD2, 0x5E,
-            0x8C, 0xD0, 0x36, 0x41, 0x41, 0x02, 0x01, 0x01, 0xA1, 0x24, 0x03, 0x22, 0x00};
+            0xA0, 0x81, 0x85, 0x30, 0x81, 0x82, 0x02, 0x01, 0x01, 0x30, 0x2C, 0x06, 0x07, 0x2A, 0x86, 0x48, 0xCE, 0x3D,
+            0x01, 0x01, 0x02, 0x21, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFE, 0xFF, 0xFF, 0xFC,
+            0x2F, 0x30, 0x06, 0x04, 0x01, 0x00, 0x04, 0x01, 0x07, 0x04, 0x21, 0x02, 0x79, 0xBE, 0x66, 0x7E, 0xF9, 0xDC,
+            0xBB, 0xAC, 0x55, 0xA0, 0x62, 0x95, 0xCE, 0x87, 0x0B, 0x07, 0x02, 0x9B, 0xFC, 0xDB, 0x2D, 0xCE, 0x28, 0xD9,
+            0x59, 0xF2, 0x81, 0x5B, 0x16, 0xF8, 0x17, 0x98, 0x02, 0x21, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFE, 0xBA, 0xAE, 0xDC, 0xE6, 0xAF, 0x48, 0xA0, 0x3B, 0xBF,
+            0xD2, 0x5E, 0x8C, 0xD0, 0x36, 0x41, 0x41, 0x02, 0x01, 0x01, 0xA1, 0x24, 0x03, 0x22, 0x00};
         unsigned char* ptr = privkey;
         memcpy(ptr, begin, sizeof(begin));
         ptr += sizeof(begin);
@@ -130,20 +128,18 @@ static int ec_privkey_export_der(const secp256k1_context* ctx, unsigned char* pr
         *privkeylen = ptr - privkey;
         assert(*privkeylen == COMPRESSED_PRIVATE_KEY_SIZE);
     } else {
-        static const unsigned char begin[] = {
-            0x30, 0x82, 0x01, 0x13, 0x02, 0x01, 0x01, 0x04, 0x20};
+        static const unsigned char begin[] = {0x30, 0x82, 0x01, 0x13, 0x02, 0x01, 0x01, 0x04, 0x20};
         static const unsigned char middle[] = {
-            0xA0, 0x81, 0xA5, 0x30, 0x81, 0xA2, 0x02, 0x01, 0x01, 0x30, 0x2C, 0x06, 0x07, 0x2A, 0x86, 0x48,
-            0xCE, 0x3D, 0x01, 0x01, 0x02, 0x21, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-            0xFF, 0xFF, 0xFE, 0xFF, 0xFF, 0xFC, 0x2F, 0x30, 0x06, 0x04, 0x01, 0x00, 0x04, 0x01, 0x07, 0x04,
-            0x41, 0x04, 0x79, 0xBE, 0x66, 0x7E, 0xF9, 0xDC, 0xBB, 0xAC, 0x55, 0xA0, 0x62, 0x95, 0xCE, 0x87,
-            0x0B, 0x07, 0x02, 0x9B, 0xFC, 0xDB, 0x2D, 0xCE, 0x28, 0xD9, 0x59, 0xF2, 0x81, 0x5B, 0x16, 0xF8,
-            0x17, 0x98, 0x48, 0x3A, 0xDA, 0x77, 0x26, 0xA3, 0xC4, 0x65, 0x5D, 0xA4, 0xFB, 0xFC, 0x0E, 0x11,
-            0x08, 0xA8, 0xFD, 0x17, 0xB4, 0x48, 0xA6, 0x85, 0x54, 0x19, 0x9C, 0x47, 0xD0, 0x8F, 0xFB, 0x10,
-            0xD4, 0xB8, 0x02, 0x21, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-            0xFF, 0xFF, 0xFF, 0xFF, 0xFE, 0xBA, 0xAE, 0xDC, 0xE6, 0xAF, 0x48, 0xA0, 0x3B, 0xBF, 0xD2, 0x5E,
-            0x8C, 0xD0, 0x36, 0x41, 0x41, 0x02, 0x01, 0x01, 0xA1, 0x44, 0x03, 0x42, 0x00};
+            0xA0, 0x81, 0xA5, 0x30, 0x81, 0xA2, 0x02, 0x01, 0x01, 0x30, 0x2C, 0x06, 0x07, 0x2A, 0x86, 0x48, 0xCE, 0x3D,
+            0x01, 0x01, 0x02, 0x21, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFE, 0xFF, 0xFF, 0xFC,
+            0x2F, 0x30, 0x06, 0x04, 0x01, 0x00, 0x04, 0x01, 0x07, 0x04, 0x41, 0x04, 0x79, 0xBE, 0x66, 0x7E, 0xF9, 0xDC,
+            0xBB, 0xAC, 0x55, 0xA0, 0x62, 0x95, 0xCE, 0x87, 0x0B, 0x07, 0x02, 0x9B, 0xFC, 0xDB, 0x2D, 0xCE, 0x28, 0xD9,
+            0x59, 0xF2, 0x81, 0x5B, 0x16, 0xF8, 0x17, 0x98, 0x48, 0x3A, 0xDA, 0x77, 0x26, 0xA3, 0xC4, 0x65, 0x5D, 0xA4,
+            0xFB, 0xFC, 0x0E, 0x11, 0x08, 0xA8, 0xFD, 0x17, 0xB4, 0x48, 0xA6, 0x85, 0x54, 0x19, 0x9C, 0x47, 0xD0, 0x8F,
+            0xFB, 0x10, 0xD4, 0xB8, 0x02, 0x21, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFE, 0xBA, 0xAE, 0xDC, 0xE6, 0xAF, 0x48, 0xA0, 0x3B, 0xBF, 0xD2, 0x5E, 0x8C, 0xD0,
+            0x36, 0x41, 0x41, 0x02, 0x01, 0x01, 0xA1, 0x44, 0x03, 0x42, 0x00};
         unsigned char* ptr = privkey;
         memcpy(ptr, begin, sizeof(begin));
         ptr += sizeof(begin);
@@ -160,13 +156,9 @@ static int ec_privkey_export_der(const secp256k1_context* ctx, unsigned char* pr
     return 1;
 }
 
-bool CKey::Check(const unsigned char* vch)
-{
-    return secp256k1_ec_seckey_verify(secp256k1_context_sign, vch);
-}
+bool CKey::Check(const unsigned char* vch) { return secp256k1_ec_seckey_verify(secp256k1_context_sign, vch); }
 
-void CKey::MakeNewKey(bool fCompressedIn)
-{
+void CKey::MakeNewKey(bool fCompressedIn) {
     do {
         GetRandBytes(vch, sizeof(vch));
     } while (!Check(vch));
@@ -174,61 +166,57 @@ void CKey::MakeNewKey(bool fCompressedIn)
     fCompressed = fCompressedIn;
 }
 
-bool CKey::SetPrivKey(const CPrivKey& privkey, bool fCompressedIn)
-{
-    if (!ec_privkey_import_der(secp256k1_context_sign, (unsigned char*)begin(), &privkey[0], privkey.size()))
-        return false;
+bool CKey::SetPrivKey(const CPrivKey& privkey, bool fCompressedIn) {
+    if (!ec_privkey_import_der(secp256k1_context_sign, (unsigned char*)begin(), &privkey[0], privkey.size())) return false;
     fCompressed = fCompressedIn;
     fValid = true;
     return true;
 }
 
-CPrivKey CKey::GetPrivKey() const
-{
+CPrivKey CKey::GetPrivKey() const {
     assert(fValid);
     CPrivKey privkey;
     int ret;
     size_t privkeylen;
     privkey.resize(PRIVATE_KEY_SIZE);
     privkeylen = PRIVATE_KEY_SIZE;
-    ret = ec_privkey_export_der(secp256k1_context_sign, (unsigned char*)&privkey[0], &privkeylen, begin(), fCompressed ? SECP256K1_EC_COMPRESSED : SECP256K1_EC_UNCOMPRESSED);
+    ret = ec_privkey_export_der(secp256k1_context_sign, (unsigned char*)&privkey[0], &privkeylen, begin(),
+                                fCompressed ? SECP256K1_EC_COMPRESSED : SECP256K1_EC_UNCOMPRESSED);
     assert(ret);
     privkey.resize(privkeylen);
     return privkey;
 }
 
-CPubKey CKey::GetPubKey() const
-{
+CPubKey CKey::GetPubKey() const {
     assert(fValid);
     secp256k1_pubkey pubkey;
     size_t clen = PUBLIC_KEY_SIZE;
     CPubKey result;
     int ret = secp256k1_ec_pubkey_create(secp256k1_context_sign, &pubkey, begin());
     assert(ret);
-    secp256k1_ec_pubkey_serialize(secp256k1_context_sign, (unsigned char*)result.begin(), &clen, &pubkey, fCompressed ? SECP256K1_EC_COMPRESSED : SECP256K1_EC_UNCOMPRESSED);
+    secp256k1_ec_pubkey_serialize(secp256k1_context_sign, (unsigned char*)result.begin(), &clen, &pubkey,
+                                  fCompressed ? SECP256K1_EC_COMPRESSED : SECP256K1_EC_UNCOMPRESSED);
     assert(result.size() == clen);
     assert(result.IsValid());
     return result;
 }
 
-bool CKey::Sign(const uint256& hash, std::vector<unsigned char>& vchSig, uint32_t test_case) const
-{
-    if (!fValid)
-        return false;
+bool CKey::Sign(const uint256& hash, std::vector<unsigned char>& vchSig, uint32_t test_case) const {
+    if (!fValid) return false;
     vchSig.resize(SIGNATURE_SIZE);
     size_t nSigLen = SIGNATURE_SIZE;
     unsigned char extra_entropy[32] = {0};
     WriteLE32(extra_entropy, test_case);
     secp256k1_ecdsa_signature sig;
-    int ret = secp256k1_ecdsa_sign(secp256k1_context_sign, &sig, hash.begin(), begin(), secp256k1_nonce_function_rfc6979, test_case ? extra_entropy : NULL);
+    int ret = secp256k1_ecdsa_sign(secp256k1_context_sign, &sig, hash.begin(), begin(), secp256k1_nonce_function_rfc6979,
+                                   test_case ? extra_entropy : NULL);
     assert(ret);
     secp256k1_ecdsa_signature_serialize_der(secp256k1_context_sign, (unsigned char*)&vchSig[0], &nSigLen, &sig);
     vchSig.resize(nSigLen);
     return true;
 }
 
-bool CKey::VerifyPubKey(const CPubKey& pubkey) const
-{
+bool CKey::VerifyPubKey(const CPubKey& pubkey) const {
     if (pubkey.IsCompressed() != fCompressed) {
         return false;
     }
@@ -242,14 +230,13 @@ bool CKey::VerifyPubKey(const CPubKey& pubkey) const
     return pubkey.Verify(hash, vchSig);
 }
 
-bool CKey::SignCompact(const uint256& hash, std::vector<unsigned char>& vchSig) const
-{
-    if (!fValid)
-        return false;
+bool CKey::SignCompact(const uint256& hash, std::vector<unsigned char>& vchSig) const {
+    if (!fValid) return false;
     vchSig.resize(COMPACT_SIGNATURE_SIZE);
     int rec = -1;
     secp256k1_ecdsa_recoverable_signature sig;
-    int ret = secp256k1_ecdsa_sign_recoverable(secp256k1_context_sign, &sig, hash.begin(), begin(), secp256k1_nonce_function_rfc6979, NULL);
+    int ret = secp256k1_ecdsa_sign_recoverable(secp256k1_context_sign, &sig, hash.begin(), begin(),
+                                               secp256k1_nonce_function_rfc6979, NULL);
     assert(ret);
     secp256k1_ecdsa_recoverable_signature_serialize_compact(secp256k1_context_sign, (unsigned char*)&vchSig[1], &rec, &sig);
     assert(ret);
@@ -258,21 +245,17 @@ bool CKey::SignCompact(const uint256& hash, std::vector<unsigned char>& vchSig) 
     return true;
 }
 
-bool CKey::Load(CPrivKey& privkey, CPubKey& vchPubKey, bool fSkipCheck = false)
-{
-    if (!ec_privkey_import_der(secp256k1_context_sign, (unsigned char*)begin(), &privkey[0], privkey.size()))
-        return false;
+bool CKey::Load(CPrivKey& privkey, CPubKey& vchPubKey, bool fSkipCheck = false) {
+    if (!ec_privkey_import_der(secp256k1_context_sign, (unsigned char*)begin(), &privkey[0], privkey.size())) return false;
     fCompressed = vchPubKey.IsCompressed();
     fValid = true;
 
-    if (fSkipCheck)
-        return true;
+    if (fSkipCheck) return true;
 
     return VerifyPubKey(vchPubKey);
 }
 
-bool CKey::Derive(CKey& keyChild, ChainCode& ccChild, unsigned int nChild, const ChainCode& cc) const
-{
+bool CKey::Derive(CKey& keyChild, ChainCode& ccChild, unsigned int nChild, const ChainCode& cc) const {
     assert(IsValid());
     assert(IsCompressed());
     unsigned char out[64];
@@ -294,8 +277,7 @@ bool CKey::Derive(CKey& keyChild, ChainCode& ccChild, unsigned int nChild, const
     return ret;
 }
 
-bool CExtKey::Derive(CExtKey& out, unsigned int nChild) const
-{
+bool CExtKey::Derive(CExtKey& out, unsigned int nChild) const {
     out.nDepth = nDepth + 1;
     CKeyID id = key.GetPubKey().GetID();
     memcpy(&out.vchFingerprint[0], &id, 4);
@@ -303,8 +285,7 @@ bool CExtKey::Derive(CExtKey& out, unsigned int nChild) const
     return key.Derive(out.key, out.chaincode, nChild, chaincode);
 }
 
-void CExtKey::SetMaster(const unsigned char* seed, unsigned int nSeedLen)
-{
+void CExtKey::SetMaster(const unsigned char* seed, unsigned int nSeedLen) {
     static const unsigned char hashkey[] = {'B', 'i', 't', 'c', 'o', 'i', 'n', ' ', 's', 'e', 'e', 'd'};
     unsigned char out[64];
     LockObject(out);
@@ -317,8 +298,7 @@ void CExtKey::SetMaster(const unsigned char* seed, unsigned int nSeedLen)
     memset(vchFingerprint, 0, sizeof(vchFingerprint));
 }
 
-CExtPubKey CExtKey::Neuter() const
-{
+CExtPubKey CExtKey::Neuter() const {
     CExtPubKey ret;
     ret.nDepth = nDepth;
     memcpy(&ret.vchFingerprint[0], &vchFingerprint[0], 4);
@@ -328,8 +308,7 @@ CExtPubKey CExtKey::Neuter() const
     return ret;
 }
 
-void CExtKey::Encode(unsigned char code[74]) const
-{
+void CExtKey::Encode(unsigned char code[74]) const {
     code[0] = nDepth;
     memcpy(code + 1, vchFingerprint, 4);
     code[5] = (nChild >> 24) & 0xFF;
@@ -342,8 +321,7 @@ void CExtKey::Encode(unsigned char code[74]) const
     memcpy(code + 42, key.begin(), 32);
 }
 
-void CExtKey::Decode(const unsigned char code[74])
-{
+void CExtKey::Decode(const unsigned char code[74]) {
     nDepth = code[0];
     memcpy(vchFingerprint, code + 1, 4);
     nChild = (code[5] << 24) | (code[6] << 16) | (code[7] << 8) | code[8];
@@ -351,16 +329,14 @@ void CExtKey::Decode(const unsigned char code[74])
     key.Set(code + 42, code + 74, true);
 }
 
-bool ECC_InitSanityCheck()
-{
+bool ECC_InitSanityCheck() {
     CKey key;
     key.MakeNewKey(true);
     CPubKey pubkey = key.GetPubKey();
     return key.VerifyPubKey(pubkey);
 }
 
-void ECC_Start()
-{
+void ECC_Start() {
     assert(secp256k1_context_sign == NULL);
 
     secp256k1_context* ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
@@ -379,8 +355,7 @@ void ECC_Start()
     secp256k1_context_sign = ctx;
 }
 
-void ECC_Stop()
-{
+void ECC_Stop() {
     secp256k1_context* ctx = secp256k1_context_sign;
     secp256k1_context_sign = NULL;
 

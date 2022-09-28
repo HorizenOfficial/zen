@@ -4,44 +4,38 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "uint256.h"
-#include "utilstrencodings.h"
 
 #include <stdio.h>
 #include <string.h>
 
+#include "utilstrencodings.h"
+
 template <unsigned int BITS>
-base_blob<BITS>::base_blob(const std::vector<unsigned char>& vch)
-{
+base_blob<BITS>::base_blob(const std::vector<unsigned char>& vch) {
     assert(vch.size() == sizeof(data));
     memcpy(data, &vch[0], sizeof(data));
 }
 
 template <unsigned int BITS>
-std::string base_blob<BITS>::GetHex() const
-{
+std::string base_blob<BITS>::GetHex() const {
     char psz[sizeof(data) * 2 + 1];
-    for (unsigned int i = 0; i < sizeof(data); i++)
-        sprintf(psz + i * 2, "%02x", data[sizeof(data) - i - 1]);
+    for (unsigned int i = 0; i < sizeof(data); i++) sprintf(psz + i * 2, "%02x", data[sizeof(data) - i - 1]);
     return std::string(psz, psz + sizeof(data) * 2);
 }
 
 template <unsigned int BITS>
-void base_blob<BITS>::SetHex(const char* psz)
-{
+void base_blob<BITS>::SetHex(const char* psz) {
     memset(data, 0, sizeof(data));
 
     // skip leading spaces
-    while (isspace(*psz))
-        psz++;
+    while (isspace(*psz)) psz++;
 
     // skip 0x
-    if (psz[0] == '0' && tolower(psz[1]) == 'x')
-        psz += 2;
+    if (psz[0] == '0' && tolower(psz[1]) == 'x') psz += 2;
 
     // hex string to uint
     const char* pbegin = psz;
-    while (::HexDigit(*psz) != -1)
-        psz++;
+    while (::HexDigit(*psz) != -1) psz++;
     psz--;
     unsigned char* p1 = (unsigned char*)data;
     unsigned char* pend = p1 + WIDTH;
@@ -55,14 +49,12 @@ void base_blob<BITS>::SetHex(const char* psz)
 }
 
 template <unsigned int BITS>
-void base_blob<BITS>::SetHex(const std::string& str)
-{
+void base_blob<BITS>::SetHex(const std::string& str) {
     SetHex(str.c_str());
 }
 
 template <unsigned int BITS>
-std::string base_blob<BITS>::ToString() const
-{
+std::string base_blob<BITS>::ToString() const {
     return (GetHex());
 }
 
@@ -80,8 +72,7 @@ template std::string base_blob<256>::ToString() const;
 template void base_blob<256>::SetHex(const char*);
 template void base_blob<256>::SetHex(const std::string&);
 
-static void inline HashMix(uint32_t& a, uint32_t& b, uint32_t& c)
-{
+static void inline HashMix(uint32_t& a, uint32_t& b, uint32_t& c) {
     // Taken from lookup3, by Bob Jenkins.
     a -= c;
     a ^= ((c << 4) | (c >> 28));
@@ -103,8 +94,7 @@ static void inline HashMix(uint32_t& a, uint32_t& b, uint32_t& c)
     b += a;
 }
 
-static void inline HashFinal(uint32_t& a, uint32_t& b, uint32_t& c)
-{
+static void inline HashFinal(uint32_t& a, uint32_t& b, uint32_t& c) {
     // Taken from lookup3, by Bob Jenkins.
     c ^= b;
     c -= ((b << 14) | (b >> 18));
@@ -122,8 +112,7 @@ static void inline HashFinal(uint32_t& a, uint32_t& b, uint32_t& c)
     c -= ((b << 24) | (b >> 8));
 }
 
-uint64_t uint256::GetHash(const uint256& salt) const
-{
+uint64_t uint256::GetHash(const uint256& salt) const {
     uint32_t a, b, c;
     const uint32_t* pn = (const uint32_t*)data;
     const uint32_t* salt_pn = (const uint32_t*)salt.data;
@@ -144,13 +133,12 @@ uint64_t uint256::GetHash(const uint256& salt) const
     return ((((uint64_t)b) << 32) | c);
 }
 
-uint64_t CalculateHash(const uint32_t* const src, size_t length, const uint32_t* const salt)
-{
+uint64_t CalculateHash(const uint32_t* const src, size_t length, const uint32_t* const salt) {
     // Taken from lookup3, by Bob Jenkins.
     uint32_t a, b, c;
     const uint32_t* pn = (const uint32_t*)src;
     const uint32_t* salt_pn = (const uint32_t*)salt;
-    size_t width = length * sizeof(uint32_t); // length of uint32_t to bytes length
+    size_t width = length * sizeof(uint32_t);  // length of uint32_t to bytes length
     a = b = c = 0xdeadbeef + width;
 
     while (length > 3) {
@@ -165,15 +153,15 @@ uint64_t CalculateHash(const uint32_t* const src, size_t length, const uint32_t*
     }
 
     switch (length) {
-    case 3:
-        c += pn[2] ^ salt_pn[2];
-    case 2:
-        b += pn[1] ^ salt_pn[1];
-    case 1:
-        a += pn[0] ^ salt_pn[0];
-        HashFinal(a, b, c);
-    case 0:
-        break;
+        case 3:
+            c += pn[2] ^ salt_pn[2];
+        case 2:
+            b += pn[1] ^ salt_pn[1];
+        case 1:
+            a += pn[0] ^ salt_pn[0];
+            HashFinal(a, b, c);
+        case 0:
+            break;
     }
 
     return ((((uint64_t)b) << 32) | c);

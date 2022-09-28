@@ -11,20 +11,18 @@
 #include <cassert>
 #include <cstdio>
 
+#include <gtest/gtest.h>
+
 #include "algebra/curves/alt_bn128/alt_bn128_pp.hpp"
 #include "common/profiling.hpp"
 #include "common/utils.hpp"
 #include "relations/constraint_satisfaction_problems/r1cs/examples/r1cs_examples.hpp"
 #include "zk_proof_systems/ppzksnark/r1cs_ppzksnark/examples/run_r1cs_ppzksnark.hpp"
 
-#include <gtest/gtest.h>
-
 using namespace libsnark;
 
-template<typename ppT>
-void test_r1cs_ppzksnark(size_t num_constraints,
-                         size_t input_size)
-{
+template <typename ppT>
+void test_r1cs_ppzksnark(size_t num_constraints, size_t input_size) {
     print_header("(enter) Test R1CS ppzkSNARK");
 
     const bool test_serialization = true;
@@ -36,8 +34,7 @@ void test_r1cs_ppzksnark(size_t num_constraints,
     print_header("(leave) Test R1CS ppzkSNARK");
 }
 
-TEST(zk_proof_systems, r1cs_ppzksnark)
-{
+TEST(zk_proof_systems, r1cs_ppzksnark) {
     start_profiling();
 
     test_r1cs_ppzksnark<alt_bn128_pp>(1000, 20);

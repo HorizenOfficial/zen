@@ -3,20 +3,11 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "zmqabstractnotifier.h"
+
 #include "util.h"
 
+CZMQAbstractNotifier::~CZMQAbstractNotifier() { assert(!psocket); }
 
-CZMQAbstractNotifier::~CZMQAbstractNotifier()
-{
-    assert(!psocket);
-}
+bool CZMQAbstractNotifier::NotifyBlock(const CBlockIndex* /*CBlockIndex*/) { return true; }
 
-bool CZMQAbstractNotifier::NotifyBlock(const CBlockIndex * /*CBlockIndex*/)
-{
-    return true;
-}
-
-bool CZMQAbstractNotifier::NotifyTransaction(const CTransaction &/*transaction*/)
-{
-    return true;
-}
+bool CZMQAbstractNotifier::NotifyTransaction(const CTransaction& /*transaction*/) { return true; }

@@ -6,7 +6,8 @@
 
 extern ZCJoinSplit* params;
 
-extern bool ReceivedBlockTransactions(const CBlock &block, CValidationState& state, CBlockIndex *pindexNew, const CDiskBlockPos& pos, BlockSet* sForkTips);
+extern bool ReceivedBlockTransactions(const CBlock& block, CValidationState& state, CBlockIndex* pindexNew,
+                                      const CDiskBlockPos& pos, BlockSet* sForkTips);
 
 void ExpectOptionalAmount(CAmount expected, boost::optional<CAmount> actual) {
     EXPECT_TRUE((bool)actual);
@@ -17,24 +18,16 @@ void ExpectOptionalAmount(CAmount expected, boost::optional<CAmount> actual) {
 
 // Fake an empty view
 class FakeCoinsViewDB : public CCoinsView {
-public:
+  public:
     FakeCoinsViewDB() {}
 
-    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const override {
-        return false;
-    }
+    bool GetAnchorAt(const uint256& rt, ZCIncrementalMerkleTree& tree) const override { return false; }
 
-    bool GetNullifier(const uint256 &nf) const override {
-        return false;
-    }
+    bool GetNullifier(const uint256& nf) const override { return false; }
 
-    bool GetCoins(const uint256 &txid, CCoins &coins) const override {
-        return false;
-    }
+    bool GetCoins(const uint256& txid, CCoins& coins) const override { return false; }
 
-    bool HaveCoins(const uint256 &txid) const override {
-        return false;
-    }
+    bool HaveCoins(const uint256& txid) const override { return false; }
 
     uint256 GetBestBlock() const override {
         uint256 a;
@@ -46,21 +39,13 @@ public:
         return a;
     }
 
-    bool BatchWrite(CCoinsMap &mapCoins,
-                    const uint256 &hashBlock,
-                    const uint256 &hashAnchor,
-                    CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers,
-                    CSidechainsMap& mapSidechains,
-                    CSidechainEventsMap& mapSidechainEvents,
-                    CCswNullifiersMap& cswNullifiersss) override
-    {
+    bool BatchWrite(CCoinsMap& mapCoins, const uint256& hashBlock, const uint256& hashAnchor, CAnchorsMap& mapAnchors,
+                    CNullifiersMap& mapNullifiers, CSidechainsMap& mapSidechains, CSidechainEventsMap& mapSidechainEvents,
+                    CCswNullifiersMap& cswNullifiersss) override {
         return false;
     }
 
-    bool GetStats(CCoinsStats &stats) const override {
-        return false;
-    }
+    bool GetStats(CCoinsStats& stats) const override { return false; }
 };
 
 TEST(Validation, ContextualCheckInputsPassesWithCoinbase) {
@@ -75,7 +60,8 @@ TEST(Validation, ContextualCheckInputsPassesWithCoinbase) {
     CCoinsViewCache view(&fakeDB);
 
     CValidationState state;
-    EXPECT_TRUE(ContextualCheckTxInputs(tx, state, view, false, chainActive, 0, false, Params(CBaseChainParams::MAIN).GetConsensus()));
+    EXPECT_TRUE(
+        ContextualCheckTxInputs(tx, state, view, false, chainActive, 0, false, Params(CBaseChainParams::MAIN).GetConsensus()));
 }
 
 TEST(Validation, ReceivedBlockTransactions) {
@@ -85,14 +71,14 @@ TEST(Validation, ReceivedBlockTransactions) {
     CBlock block1;
     block1.vtx.push_back(GetValidReceive(*params, sk, 5, true).getWrappedTx());
     block1.hashMerkleRoot = block1.BuildMerkleTree();
-    CBlockIndex fakeIndex1 {block1};
+    CBlockIndex fakeIndex1{block1};
 
     // Create a fake child block
     CBlock block2;
     block2.hashPrevBlock = block1.GetHash();
     block2.vtx.push_back(GetValidReceive(*params, sk, 10, true).getWrappedTx());
     block2.hashMerkleRoot = block2.BuildMerkleTree();
-    CBlockIndex fakeIndex2 {block2};
+    CBlockIndex fakeIndex2{block2};
     fakeIndex2.pprev = &fakeIndex1;
 
     CDiskBlockPos pos1;

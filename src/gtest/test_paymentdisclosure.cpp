@@ -1,30 +1,27 @@
-#include <gtest/gtest.h>
-
-#include "main.h"
-#include "utilmoneystr.h"
-#include "chainparams.h"
-#include "utilstrencodings.h"
-#include "zcash/Address.hpp"
-#include "wallet/wallet.h"
-#include "amount.h"
-
 #include <array>
-#include <memory>
-#include <string>
-#include <set>
-#include <vector>
-#include <boost/filesystem.hpp>
 #include <iostream>
-#include "util.h"
+#include <memory>
+#include <set>
+#include <string>
+#include <vector>
 
-#include "paymentdisclosure.h"
-#include "paymentdisclosuredb.h"
-
-#include "sodium.h"
-
+#include <boost/filesystem.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <gtest/gtest.h>
+
+#include "amount.h"
+#include "chainparams.h"
+#include "main.h"
+#include "paymentdisclosure.h"
+#include "paymentdisclosuredb.h"
+#include "sodium.h"
+#include "util.h"
+#include "utilmoneystr.h"
+#include "utilstrencodings.h"
+#include "wallet/wallet.h"
+#include "zcash/Address.hpp"
 
 using namespace std;
 
@@ -43,8 +40,7 @@ using namespace std;
 
 static boost::uuids::random_generator uuidgen;
 
-static uint256 random_uint256()
-{
+static uint256 random_uint256() {
     uint256 ret;
     randombytes_buf(ret.begin(), 32);
     return ret;
@@ -52,7 +48,7 @@ static uint256 random_uint256()
 
 // Subclass of PaymentDisclosureDB to add debugging methods
 class PaymentDisclosureDBTest : public PaymentDisclosureDB {
-public:
+  public:
     PaymentDisclosureDBTest(const boost::filesystem::path& dbPath) : PaymentDisclosureDB(dbPath) {}
 
     void DebugDumpAllStdout() {
@@ -85,8 +81,6 @@ public:
     }
 };
 
-
-
 // This test creates random payment disclosure blobs and checks that they can be
 // 1. inserted and retrieved from a database
 // 2. serialized and deserialized without corruption
@@ -103,21 +97,21 @@ TEST(paymentdisclosure, mainnet) {
 
     PaymentDisclosureDBTest mydb(pathTemp);
 
-    for (int i=0; i<NUM_TRIES; i++) {
+    for (int i = 0; i < NUM_TRIES; i++) {
         // Generate an ephemeral keypair for joinsplit sig.
         uint256 joinSplitPubKey;
         unsigned char buffer[crypto_sign_SECRETKEYBYTES] = {0};
         crypto_sign_keypair(joinSplitPubKey.begin(), &buffer[0]);
 
         // First 32 bytes contain private key, second 32 bytes contain public key.
-        ASSERT_EQ(0, memcmp(joinSplitPubKey.begin(), &buffer[0]+32, 32));
+        ASSERT_EQ(0, memcmp(joinSplitPubKey.begin(), &buffer[0] + 32, 32));
         std::vector<unsigned char> vch(&buffer[0], &buffer[0] + 32);
         uint256 joinSplitPrivKey = uint256(vch);
 
         // Create payment disclosure key and info data to store in test database
         size_t js = random_uint256().GetCheapHash() % std::numeric_limits<size_t>::max();
         uint8_t n = random_uint256().GetCheapHash() % std::numeric_limits<uint8_t>::max();
-        PaymentDisclosureKey key { random_uint256(), js, n};
+        PaymentDisclosureKey key{random_uint256(), js, n};
         PaymentDisclosureInfo info;
         info.esk = random_uint256();
         info.joinSplitPrivKey = joinSplitPrivKey;
@@ -132,7 +126,7 @@ TEST(paymentdisclosure, mainnet) {
         // Modify this local variable and confirm it no longer matches
         info2.esk = random_uint256();
         info2.joinSplitPrivKey = random_uint256();
-        info2.zaddr = libzcash::SpendingKey::random().address();        
+        info2.zaddr = libzcash::SpendingKey::random().address();
         ASSERT_NE(info, info2);
 
         // Using the payment info object, let's create a dummy payload
@@ -142,7 +136,7 @@ TEST(paymentdisclosure, mainnet) {
         payload.txid = key.hash;
         payload.js = key.js;
         payload.n = key.n;
-        payload.message = "random-" + boost::uuids::to_string(uuidgen());   // random message
+        payload.message = "random-" + boost::uuids::to_string(uuidgen());  // random message
         payload.zaddr = info.zaddr;
 
         // Serialize and hash the payload to generate a signature
@@ -150,20 +144,14 @@ TEST(paymentdisclosure, mainnet) {
 
         // Compute the payload signature
         unsigned char payloadSig[64];
-        if (!(crypto_sign_detached(&payloadSig[0], NULL,
-            dataToBeSigned.begin(), 32,
-            &buffer[0] // buffer containing both private and public key required
-            ) == 0))
-        {
+        if (!(crypto_sign_detached(&payloadSig[0], NULL, dataToBeSigned.begin(), 32,
+                                   &buffer[0]  // buffer containing both private and public key required
+                                   ) == 0)) {
             throw std::runtime_error("crypto_sign_detached failed");
         }
 
         // Sanity check
-        if (!(crypto_sign_verify_detached(&payloadSig[0],
-            dataToBeSigned.begin(), 32,
-            joinSplitPubKey.begin()
-            ) == 0))
-        {
+        if (!(crypto_sign_verify_detached(&payloadSig[0], dataToBeSigned.begin(), 32, joinSplitPubKey.begin()) == 0)) {
             throw std::runtime_error("crypto_sign_verify_detached failed");
         }
 
@@ -198,7 +186,7 @@ TEST(paymentdisclosure, mainnet) {
         // Verify marker
         ASSERT_EQ(pd.payload.marker, PAYMENT_DISCLOSURE_PAYLOAD_MAGIC_BYTES);
         ASSERT_EQ(pdTmp.payload.marker, PAYMENT_DISCLOSURE_PAYLOAD_MAGIC_BYTES);
-        ASSERT_EQ(0, ssHexString.find("706462ff")); // Little endian encoding of PAYMENT_DISCLOSURE_PAYLOAD_MAGIC_BYTES value
+        ASSERT_EQ(0, ssHexString.find("706462ff"));  // Little endian encoding of PAYMENT_DISCLOSURE_PAYLOAD_MAGIC_BYTES value
 
         // Sanity check
         PaymentDisclosure pdDummy;

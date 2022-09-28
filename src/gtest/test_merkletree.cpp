@@ -1,48 +1,40 @@
-#include <gtest/gtest.h>
+#include <iostream>
+#include <stdexcept>
 
+#include <boost/foreach.hpp>
+#include <gtest/gtest.h>
+#include <libsnark/common/default_types/r1cs_ppzksnark_pp.hpp>
+#include <libsnark/gadgetlib1/gadgets/hashes/sha256/sha256_gadget.hpp>
+#include <libsnark/gadgetlib1/gadgets/merkle_tree/merkle_tree_check_read_gadget.hpp>
+#include <libsnark/zk_proof_systems/ppzksnark/r1cs_ppzksnark/r1cs_ppzksnark.hpp>
+
+#include "json_test_vectors.h"
+#include "serialize.h"
+#include "streams.h"
+#include "test/data/merkle_commitments.json.h"
+#include "test/data/merkle_path.json.h"
 #include "test/data/merkle_roots.json.h"
 #include "test/data/merkle_roots_empty.json.h"
 #include "test/data/merkle_serialization.json.h"
 #include "test/data/merkle_witness_serialization.json.h"
-#include "test/data/merkle_path.json.h"
-#include "test/data/merkle_commitments.json.h"
-
-#include <iostream>
-
-#include <stdexcept>
-
 #include "utilstrencodings.h"
 #include "version.h"
-#include "serialize.h"
-#include "streams.h"
-
 #include "zcash/IncrementalMerkleTree.hpp"
 #include "zcash/util.h"
-
-#include <libsnark/common/default_types/r1cs_ppzksnark_pp.hpp>
-#include <libsnark/zk_proof_systems/ppzksnark/r1cs_ppzksnark/r1cs_ppzksnark.hpp>
-#include <libsnark/gadgetlib1/gadgets/hashes/sha256/sha256_gadget.hpp>
-#include <libsnark/gadgetlib1/gadgets/merkle_tree/merkle_tree_check_read_gadget.hpp>
-
-#include <boost/foreach.hpp>
-
-#include "json_test_vectors.h"
 
 using namespace std;
 using namespace libsnark;
 
-template<>
-void expect_deser_same(const ZCTestingIncrementalWitness& expected)
-{
+template <>
+void expect_deser_same(const ZCTestingIncrementalWitness& expected) {
     // Cannot check this; IncrementalWitness cannot be
     // deserialized because it can only be constructed by
     // IncrementalMerkleTree, and it does not yet have a
     // canonical serialized representation.
 }
 
-template<>
-void expect_deser_same(const libzcash::MerklePath& expected)
-{
+template <>
+void expect_deser_same(const libzcash::MerklePath& expected) {
     // This deserialization check is pointless for MerklePath,
     // since we only serialize it to check it against test
     // vectors. See `expect_test_vector` for that. Also,
@@ -50,20 +42,14 @@ void expect_deser_same(const libzcash::MerklePath& expected)
     // deserialized by Bitcoin's serialization code.
 }
 
-template<typename A, typename B, typename C>
+template <typename A, typename B, typename C>
 void expect_ser_test_vector(B& b, const C& c, const A& tree) {
     expect_test_vector<B, C>(b, c);
 }
 
-template<typename Tree, typename Witness>
-void test_tree(
-    UniValue commitment_tests,
-    UniValue root_tests,
-    UniValue ser_tests,
-    UniValue witness_ser_tests,
-    UniValue path_tests
-)
-{
+template <typename Tree, typename Witness>
+void test_tree(UniValue commitment_tests, UniValue root_tests, UniValue ser_tests, UniValue witness_ser_tests,
+               UniValue path_tests) {
     size_t witness_ser_i = 0;
     size_t path_i = 0;
 
@@ -94,7 +80,7 @@ void test_tree(
         tree.append(test_commitment);
 
         // Size incremented by one.
-        ASSERT_TRUE(tree.size() == i+1);
+        ASSERT_TRUE(tree.size() == i + 1);
 
         // Last element added to the tree was `test_commitment`
         ASSERT_TRUE(tree.last() == test_commitment);
@@ -105,9 +91,8 @@ void test_tree(
         // Check serialization of tree
         expect_ser_test_vector(ser_tests[i], tree, tree);
 
-        bool first = true; // The first witness can never form a path
-        BOOST_FOREACH(Witness& wit, witnesses)
-        {
+        bool first = true;  // The first witness can never form a path
+        BOOST_FOREACH (Witness& wit, witnesses) {
             // Append the same commitment to all the witnesses
             wit.append(test_commitment);
 
@@ -119,7 +104,7 @@ void test_tree(
 
                 {
                     expect_test_vector(path_tests[path_i++], path);
-                    
+
                     typedef Fr<default_r1cs_ppzksnark_pp> FieldT;
 
                     protoboard<FieldT> pb;
@@ -127,10 +112,10 @@ void test_tree(
                     digest_variable<FieldT> commitment(pb, 256, "commitment");
                     digest_variable<FieldT> root(pb, 256, "root");
                     positions.allocate(pb, INCREMENTAL_MERKLE_TREE_DEPTH_TESTING, "pos");
-                    merkle_authentication_path_variable<FieldT, sha256_two_to_one_hash_gadget<FieldT>> authvars(pb, INCREMENTAL_MERKLE_TREE_DEPTH_TESTING, "auth");
+                    merkle_authentication_path_variable<FieldT, sha256_two_to_one_hash_gadget<FieldT>> authvars(
+                        pb, INCREMENTAL_MERKLE_TREE_DEPTH_TESTING, "auth");
                     merkle_tree_check_read_gadget<FieldT, sha256_two_to_one_hash_gadget<FieldT>> auth(
-                        pb, INCREMENTAL_MERKLE_TREE_DEPTH_TESTING, positions, commitment, root, authvars, ONE, "path"
-                    );
+                        pb, INCREMENTAL_MERKLE_TREE_DEPTH_TESTING, positions, commitment, root, authvars, ONE, "path");
                     commitment.generate_r1cs_constraints();
                     root.generate_r1cs_constraints();
                     authvars.generate_r1cs_constraints();
@@ -182,14 +167,11 @@ void test_tree(
         // Tree should be full now
         ASSERT_THROW(tree.append(uint256()), std::runtime_error);
 
-        BOOST_FOREACH(Witness& wit, witnesses)
-        {
-            ASSERT_THROW(wit.append(uint256()), std::runtime_error);
-        }
+        BOOST_FOREACH (Witness& wit, witnesses) { ASSERT_THROW(wit.append(uint256()), std::runtime_error); }
     }
 }
 
-#define MAKE_STRING(x) std::string((x), (x)+sizeof(x))
+#define MAKE_STRING(x) std::string((x), (x) + sizeof(x))
 
 TEST(merkletree, vectors) {
     UniValue root_tests = read_json(MAKE_STRING(json_tests::merkle_roots));
@@ -198,7 +180,8 @@ TEST(merkletree, vectors) {
     UniValue path_tests = read_json(MAKE_STRING(json_tests::merkle_path));
     UniValue commitment_tests = read_json(MAKE_STRING(json_tests::merkle_commitments));
 
-    test_tree<ZCTestingIncrementalMerkleTree, ZCTestingIncrementalWitness>(commitment_tests, root_tests, ser_tests, witness_ser_tests, path_tests);
+    test_tree<ZCTestingIncrementalMerkleTree, ZCTestingIncrementalWitness>(commitment_tests, root_tests, ser_tests,
+                                                                           witness_ser_tests, path_tests);
 }
 
 TEST(merkletree, emptyroots) {
@@ -238,16 +221,13 @@ TEST(merkletree, deserializeInvalid) {
     ss << newTree;
 
     ZCTestingIncrementalMerkleTree newTreeSmall;
-    ASSERT_THROW({ss >> newTreeSmall;}, std::ios_base::failure);
+    ASSERT_THROW({ ss >> newTreeSmall; }, std::ios_base::failure);
 }
 
 TEST(merkletree, deserializeInvalid2) {
     // the most ancestral parent is empty
-    CDataStream ss(
-        ParseHex("0155b852781b9995a44c939b64e441ae2724b96f99c8f4fb9a141cfc9842c4b0e3000100"),
-        SER_NETWORK,
-        PROTOCOL_VERSION
-    );
+    CDataStream ss(ParseHex("0155b852781b9995a44c939b64e441ae2724b96f99c8f4fb9a141cfc9842c4b0e3000100"), SER_NETWORK,
+                   PROTOCOL_VERSION);
 
     ZCIncrementalMerkleTree tree;
     ASSERT_THROW(ss >> tree, std::ios_base::failure);
@@ -255,11 +235,8 @@ TEST(merkletree, deserializeInvalid2) {
 
 TEST(merkletree, deserializeInvalid3) {
     // left doesn't exist but right does
-    CDataStream ss(
-        ParseHex("000155b852781b9995a44c939b64e441ae2724b96f99c8f4fb9a141cfc9842c4b0e300"),
-        SER_NETWORK,
-        PROTOCOL_VERSION
-    );
+    CDataStream ss(ParseHex("000155b852781b9995a44c939b64e441ae2724b96f99c8f4fb9a141cfc9842c4b0e300"), SER_NETWORK,
+                   PROTOCOL_VERSION);
 
     ZCIncrementalMerkleTree tree;
     ASSERT_THROW(ss >> tree, std::ios_base::failure);
@@ -267,11 +244,8 @@ TEST(merkletree, deserializeInvalid3) {
 
 TEST(merkletree, deserializeInvalid4) {
     // left doesn't exist but a parent does
-    CDataStream ss(
-        ParseHex("000001018695873d63ec0bceeadb5bf4ccc6723ac803c1826fc7cfb34fc76180305ae27d"),
-        SER_NETWORK,
-        PROTOCOL_VERSION
-    );
+    CDataStream ss(ParseHex("000001018695873d63ec0bceeadb5bf4ccc6723ac803c1826fc7cfb34fc76180305ae27d"), SER_NETWORK,
+                   PROTOCOL_VERSION);
 
     ZCIncrementalMerkleTree tree;
     ASSERT_THROW(ss >> tree, std::ios_base::failure);

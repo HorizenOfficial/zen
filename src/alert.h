@@ -6,13 +6,14 @@
 #ifndef BITCOIN_ALERT_H
 #define BITCOIN_ALERT_H
 
-#include "serialize.h"
-#include "sync.h"
+#include <stdint.h>
 
 #include <map>
 #include <set>
-#include <stdint.h>
 #include <string>
+
+#include "serialize.h"
+#include "sync.h"
 
 class CAlert;
 class CNode;
@@ -27,18 +28,17 @@ extern CCriticalSection cs_mapAlerts;
  * not read the entire buffer if the alert is for a newer version, but older
  * versions can still relay the original data.
  */
-class CUnsignedAlert
-{
-public:
+class CUnsignedAlert {
+  public:
     int nVersion;
-    int64_t nRelayUntil; // when newer nodes stop relaying to newer nodes
+    int64_t nRelayUntil;  // when newer nodes stop relaying to newer nodes
     int64_t nExpiration;
     int nID;
     int nCancel;
     std::set<int> setCancel;
-    int nMinVer;                     // lowest version inclusive
-    int nMaxVer;                     // highest version inclusive
-    std::set<std::string> setSubVer; // empty matches all
+    int nMinVer;                      // lowest version inclusive
+    int nMaxVer;                      // highest version inclusive
+    std::set<std::string> setSubVer;  // empty matches all
     int nPriority;
 
     // Actions
@@ -49,8 +49,7 @@ public:
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
-    {
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(this->nVersion);
         nVersion = this->nVersion;
         READWRITE(nRelayUntil);
@@ -74,22 +73,17 @@ public:
 };
 
 /** An alert is a combination of a serialized CUnsignedAlert and a signature. */
-class CAlert : public CUnsignedAlert
-{
-public:
+class CAlert : public CUnsignedAlert {
+  public:
     std::vector<unsigned char> vchMsg;
     std::vector<unsigned char> vchSig;
 
-    CAlert()
-    {
-        SetNull();
-    }
+    CAlert() { SetNull(); }
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
-    {
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(vchMsg);
         READWRITE(vchSig);
     }
@@ -103,7 +97,8 @@ public:
     bool AppliesToMe() const;
     bool RelayTo(CNode* pnode) const;
     bool CheckSignature(const std::vector<unsigned char>& alertKey) const;
-    bool ProcessAlert(const std::vector<unsigned char>& alertKey, bool fThread = true); // fThread means run -alertnotify in a free-running thread
+    bool ProcessAlert(const std::vector<unsigned char>& alertKey,
+                      bool fThread = true);  // fThread means run -alertnotify in a free-running thread
     static void Notify(const std::string& strMessage, bool fThread);
 
     /*
@@ -112,4 +107,4 @@ public:
     static CAlert getAlertByHash(const uint256& hash);
 };
 
-#endif // BITCOIN_ALERT_H
+#endif  // BITCOIN_ALERT_H

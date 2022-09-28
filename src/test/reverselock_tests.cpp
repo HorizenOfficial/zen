@@ -2,15 +2,14 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <boost/test/unit_test.hpp>
+
 #include "reverselock.h"
 #include "test/test_bitcoin.h"
 
-#include <boost/test/unit_test.hpp>
-
 BOOST_FIXTURE_TEST_SUITE(reverselock_tests, BasicTestingSetup)
 
-BOOST_AUTO_TEST_CASE(reverselock_basics)
-{
+BOOST_AUTO_TEST_CASE(reverselock_basics) {
     boost::mutex mutex;
     boost::unique_lock<boost::mutex> lock(mutex);
 
@@ -22,8 +21,7 @@ BOOST_AUTO_TEST_CASE(reverselock_basics)
     BOOST_CHECK(lock.owns_lock());
 }
 
-BOOST_AUTO_TEST_CASE(reverselock_errors)
-{
+BOOST_AUTO_TEST_CASE(reverselock_errors) {
     boost::mutex mutex;
     boost::unique_lock<boost::mutex> lock(mutex);
 
@@ -35,7 +33,7 @@ BOOST_AUTO_TEST_CASE(reverselock_errors)
     bool failed = false;
     try {
         reverse_lock<boost::unique_lock<boost::mutex> > rlock(lock);
-    } catch(...) {
+    } catch (...) {
         failed = true;
     }
 

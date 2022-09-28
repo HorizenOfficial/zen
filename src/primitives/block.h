@@ -6,8 +6,8 @@
 #ifndef BITCOIN_PRIMITIVES_BLOCK_H
 #define BITCOIN_PRIMITIVES_BLOCK_H
 
-#include "primitives/transaction.h"
 #include "primitives/certificate.h"
+#include "primitives/transaction.h"
 #include "sc/sidechaintypes.h"
 #include "serialize.h"
 #include "uint256.h"
@@ -21,11 +21,10 @@ class CCoinsViewCache;
  * in the block is a special one that creates a new coin owned by the creator
  * of the block.
  */
-class CBlockHeader
-{
-public:
+class CBlockHeader {
+  public:
     // header
-    static const size_t HEADER_SIZE=4+32+32+32+4+4+32; // excluding Equihash solution
+    static const size_t HEADER_SIZE = 4 + 32 + 32 + 32 + 4 + 4 + 32;  // excluding Equihash solution
 
     int32_t nVersion;
     uint256 hashPrevBlock;
@@ -36,10 +35,7 @@ public:
     uint256 nNonce;
     std::vector<unsigned char> nSolution;
 
-    CBlockHeader()
-    {
-        SetNull();
-    }
+    CBlockHeader() { SetNull(); }
 
     ADD_SERIALIZE_METHODS;
 
@@ -56,8 +52,7 @@ public:
         READWRITE(nSolution);
     }
 
-    void SetNull()
-    {
+    void SetNull() {
         nVersion = 0;
         hashPrevBlock.SetNull();
         hashMerkleRoot.SetNull();
@@ -68,33 +63,20 @@ public:
         nSolution.clear();
     }
 
-    bool IsNull() const
-    {
-        return (nBits == 0);
-    }
+    bool IsNull() const { return (nBits == 0); }
 
     uint256 GetHash() const;
 
-    int64_t GetBlockTime() const
-    {
-        return (int64_t)nTime;
-    }
+    int64_t GetBlockTime() const { return (int64_t)nTime; }
 };
 
-class CBlockHeaderForNetwork : public CBlockHeader
-{
+class CBlockHeaderForNetwork : public CBlockHeader {
     std::vector<CTransaction> vtx_dummy;
-public:
 
-    CBlockHeaderForNetwork()
-    {
-        SetNull();
-    }
+  public:
+    CBlockHeaderForNetwork() { SetNull(); }
 
-    explicit CBlockHeaderForNetwork(const CBlockHeader &header)
-    {
-        *static_cast<CBlockHeader*>(this) = header;
-    }
+    explicit CBlockHeaderForNetwork(const CBlockHeader& header) { *static_cast<CBlockHeader*>(this) = header; }
 
     ADD_SERIALIZE_METHODS;
 
@@ -104,32 +86,24 @@ public:
         READWRITE(vtx_dummy);
     }
 
-    void SetNull()
-    {
+    void SetNull() {
         CBlockHeader::SetNull();
         vtx_dummy.clear();
     }
 };
 
-class CBlock : public CBlockHeader
-{
-public:
+class CBlock : public CBlockHeader {
+  public:
     // network and disk
     std::vector<CTransaction> vtx;
     std::vector<CScCertificate> vcert;
 
     // memory only
     mutable std::vector<uint256> vMerkleTree;
-    
-    CBlock()
-    {
-        SetNull();
-    }
 
-    void SetBlockHeader(const CBlockHeader &header)
-    {
-        *static_cast<CBlockHeader*>(this) = header;
-    }
+    CBlock() { SetNull(); }
+
+    void SetBlockHeader(const CBlockHeader& header) { *static_cast<CBlockHeader*>(this) = header; }
 
     ADD_SERIALIZE_METHODS;
 
@@ -137,8 +111,7 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(*(CBlockHeader*)this);
         READWRITE(vtx);
-        if (this->nVersion == BLOCK_VERSION_SC_SUPPORT)
-        {
+        if (this->nVersion == BLOCK_VERSION_SC_SUPPORT) {
             READWRITE(vcert);
         }
     }
@@ -153,25 +126,23 @@ public:
     // rturns as out params the size of header, total tx size and total cert size
     size_t GetSerializeComponentsSize(size_t& headerSize, size_t& totTxSize, size_t& totCertSize) const;
 
-    void SetNull()
-    {
+    void SetNull() {
         CBlockHeader::SetNull();
         vtx.clear();
         vcert.clear();
         vMerkleTree.clear();
     }
 
-    CBlockHeader GetBlockHeader() const
-    {
+    CBlockHeader GetBlockHeader() const {
         CBlockHeader block;
-        block.nVersion       = nVersion;
-        block.hashPrevBlock  = hashPrevBlock;
+        block.nVersion = nVersion;
+        block.hashPrevBlock = hashPrevBlock;
         block.hashMerkleRoot = hashMerkleRoot;
         block.hashScTxsCommitment = hashScTxsCommitment;
-        block.nTime          = nTime;
-        block.nBits          = nBits;
-        block.nNonce         = nNonce;
-        block.nSolution      = nSolution;
+        block.nTime = nTime;
+        block.nBits = nBits;
+        block.nNonce = nNonce;
+        block.nSolution = nSolution;
         return block;
     }
 
@@ -184,7 +155,7 @@ public:
     // return the sc txs commitment calculated as described in zendoo paper. It is based on contribution from
     // sidechains-related txes and certificates contained in this block
     uint256 BuildScTxsCommitment(const CCoinsViewCache& view);
-    
+
     std::vector<uint256> GetMerkleBranch(int nIndex) const;
     std::string ToString() const;
 
@@ -197,16 +168,13 @@ public:
     static uint256 CheckMerkleBranch(uint256 hash, const std::vector<uint256>& vMerkleBranch, int nIndex);
 };
 
-
 /**
  * Custom serializer for CBlockHeader that omits the nonce and solution, for use
  * as input to Equihash.
  */
-class CEquihashInput : private CBlockHeader
-{
-public:
-    CEquihashInput(const CBlockHeader &header)
-    {
+class CEquihashInput : private CBlockHeader {
+  public:
+    CEquihashInput(const CBlockHeader& header) {
         CBlockHeader::SetNull();
         *((CBlockHeader*)this) = header;
     }
@@ -225,44 +193,30 @@ public:
     }
 };
 
-
 /** Describes a place in the block chain to another node such that if the
  * other node doesn't have the same branch, it can find a recent common trunk.
  * The further back it is, the further before the fork it may be.
  */
-struct CBlockLocator
-{
+struct CBlockLocator {
     std::vector<uint256> vHave;
 
     CBlockLocator() {}
 
-    CBlockLocator(const std::vector<uint256>& vHaveIn)
-    {
-        vHave = vHaveIn;
-    }
+    CBlockLocator(const std::vector<uint256>& vHaveIn) { vHave = vHaveIn; }
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        if (!(nType & SER_GETHASH))
-            READWRITE(nVersion);
+        if (!(nType & SER_GETHASH)) READWRITE(nVersion);
         READWRITE(vHave);
     }
 
-    void SetNull()
-    {
-        vHave.clear();
-    }
+    void SetNull() { vHave.clear(); }
 
-    bool IsNull() const
-    {
-        return vHave.empty();
-    }
+    bool IsNull() const { return vHave.empty(); }
 
-    friend bool operator==(const CBlockLocator& a, const CBlockLocator& b) {
-        return (a.vHave == b.vHave);
-    }
+    friend bool operator==(const CBlockLocator& a, const CBlockLocator& b) { return (a.vHave == b.vHave); }
 };
 
-#endif // BITCOIN_PRIMITIVES_BLOCK_H
+#endif  // BITCOIN_PRIMITIVES_BLOCK_H

@@ -5,6 +5,16 @@
 
 #include "alert.h"
 
+#include <stdint.h>
+
+#include <algorithm>
+#include <map>
+
+#include <boost/algorithm/string/classification.hpp>
+#include <boost/algorithm/string/replace.hpp>
+#include <boost/foreach.hpp>
+#include <boost/thread.hpp>
+
 #include "clientversion.h"
 #include "net.h"
 #include "pubkey.h"
@@ -12,22 +22,12 @@
 #include "ui_interface.h"
 #include "util.h"
 
-#include <algorithm>
-#include <map>
-#include <stdint.h>
-
-#include <boost/algorithm/string/classification.hpp>
-#include <boost/algorithm/string/replace.hpp>
-#include <boost/foreach.hpp>
-#include <boost/thread.hpp>
-
 using namespace std;
 
 map<uint256, CAlert> mapAlerts;
 CCriticalSection cs_mapAlerts;
 
-void CUnsignedAlert::SetNull()
-{
+void CUnsignedAlert::SetNull() {
     nVersion = 1;
     nRelayUntil = 0;
     nExpiration = 0;
@@ -44,8 +44,7 @@ void CUnsignedAlert::SetNull()
     strRPCError.clear();
 }
 
-std::string CUnsignedAlert::ToString() const
-{
+std::string CUnsignedAlert::ToString() const {
     std::string strSetCancel;
     BOOST_FOREACH (int n, setCancel)
         strSetCancel += strprintf("%d ", n);
@@ -68,75 +67,43 @@ std::string CUnsignedAlert::ToString() const
         "    strStatusBar = \"%s\"\n"
         "    strRPCError  = \"%s\"\n"
         ")\n",
-        nVersion,
-        nRelayUntil,
-        nExpiration,
-        nID,
-        nCancel,
-        strSetCancel,
-        nMinVer,
-        nMaxVer,
-        strSetSubVer,
-        nPriority,
-        strComment,
-        strStatusBar,
-        strRPCError);
+        nVersion, nRelayUntil, nExpiration, nID, nCancel, strSetCancel, nMinVer, nMaxVer, strSetSubVer, nPriority, strComment,
+        strStatusBar, strRPCError);
 }
 
-void CAlert::SetNull()
-{
+void CAlert::SetNull() {
     CUnsignedAlert::SetNull();
     vchMsg.clear();
     vchSig.clear();
 }
 
-bool CAlert::IsNull() const
-{
-    return (nExpiration == 0);
-}
+bool CAlert::IsNull() const { return (nExpiration == 0); }
 
-uint256 CAlert::GetHash() const
-{
-    return Hash(this->vchMsg.begin(), this->vchMsg.end());
-}
+uint256 CAlert::GetHash() const { return Hash(this->vchMsg.begin(), this->vchMsg.end()); }
 
-bool CAlert::IsInEffect() const
-{
-    return (GetTime() < nExpiration);
-}
+bool CAlert::IsInEffect() const { return (GetTime() < nExpiration); }
 
-bool CAlert::Cancels(const CAlert& alert) const
-{
-    if (!IsInEffect())
-        return false; // this was a no-op before 31403
+bool CAlert::Cancels(const CAlert& alert) const {
+    if (!IsInEffect()) return false;  // this was a no-op before 31403
     return (alert.nID <= nCancel || setCancel.count(alert.nID));
 }
 
-bool CAlert::AppliesTo(int nVersion, const std::string& strSubVerIn) const
-{
+bool CAlert::AppliesTo(int nVersion, const std::string& strSubVerIn) const {
     // TODO: rework for client-version-embedded-in-strSubVer ?
-    return (IsInEffect() &&
-            nMinVer <= nVersion && nVersion <= nMaxVer &&
-            (setSubVer.empty() || setSubVer.count(strSubVerIn)));
+    return (IsInEffect() && nMinVer <= nVersion && nVersion <= nMaxVer && (setSubVer.empty() || setSubVer.count(strSubVerIn)));
 }
 
-bool CAlert::AppliesToMe() const
-{
+bool CAlert::AppliesToMe() const {
     return AppliesTo(PROTOCOL_VERSION, FormatSubVersion(CLIENT_NAME, CLIENT_VERSION, std::vector<std::string>()));
 }
 
-bool CAlert::RelayTo(CNode* pnode) const
-{
-    if (!IsInEffect())
-        return false;
+bool CAlert::RelayTo(CNode* pnode) const {
+    if (!IsInEffect()) return false;
     // don't relay to nodes which haven't sent their version message
-    if (pnode->nVersion == 0)
-        return false;
+    if (pnode->nVersion == 0) return false;
     // returns true if wasn't already contained in the set
     if (pnode->setKnown.insert(GetHash()).second) {
-        if (AppliesTo(pnode->nVersion, pnode->strSubVer) ||
-            AppliesToMe() ||
-            GetTime() < nRelayUntil) {
+        if (AppliesTo(pnode->nVersion, pnode->strSubVer) || AppliesToMe() || GetTime() < nRelayUntil) {
             pnode->PushMessage("alert", *this);
             return true;
         }
@@ -144,8 +111,7 @@ bool CAlert::RelayTo(CNode* pnode) const
     return false;
 }
 
-bool CAlert::CheckSignature(const std::vector<unsigned char>& alertKey) const
-{
+bool CAlert::CheckSignature(const std::vector<unsigned char>& alertKey) const {
     CPubKey key(alertKey);
     if (!key.Verify(Hash(vchMsg.begin(), vchMsg.end()), vchSig))
         return error("CAlert::CheckSignature(): verify signature failed");
@@ -156,24 +122,19 @@ bool CAlert::CheckSignature(const std::vector<unsigned char>& alertKey) const
     return true;
 }
 
-CAlert CAlert::getAlertByHash(const uint256& hash)
-{
+CAlert CAlert::getAlertByHash(const uint256& hash) {
     CAlert retval;
     {
         LOCK(cs_mapAlerts);
         map<uint256, CAlert>::iterator mi = mapAlerts.find(hash);
-        if (mi != mapAlerts.end())
-            retval = mi->second;
+        if (mi != mapAlerts.end()) retval = mi->second;
     }
     return retval;
 }
 
-bool CAlert::ProcessAlert(const std::vector<unsigned char>& alertKey, bool fThread)
-{
-    if (!CheckSignature(alertKey))
-        return false;
-    if (!IsInEffect())
-        return false;
+bool CAlert::ProcessAlert(const std::vector<unsigned char>& alertKey, bool fThread) {
+    if (!CheckSignature(alertKey)) return false;
+    if (!IsInEffect()) return false;
 
     // alert.nID=max is reserved for if the alert key is
     // compromised. It must have a pre-defined message,
@@ -184,14 +145,8 @@ bool CAlert::ProcessAlert(const std::vector<unsigned char>& alertKey, bool fThre
     // cannot be overridden):
     int maxInt = std::numeric_limits<int>::max();
     if (nID == maxInt) {
-        if (!(
-                nExpiration == maxInt &&
-                nCancel == (maxInt - 1) &&
-                nMinVer == 0 &&
-                nMaxVer == maxInt &&
-                setSubVer.empty() &&
-                nPriority == maxInt &&
-                strStatusBar == "URGENT: Alert key compromised, upgrade required"))
+        if (!(nExpiration == maxInt && nCancel == (maxInt - 1) && nMinVer == 0 && nMaxVer == maxInt && setSubVer.empty() &&
+              nPriority == maxInt && strStatusBar == "URGENT: Alert key compromised, upgrade required"))
             return false;
     }
 
@@ -234,11 +189,9 @@ bool CAlert::ProcessAlert(const std::vector<unsigned char>& alertKey, bool fThre
     return true;
 }
 
-void CAlert::Notify(const std::string& strMessage, bool fThread)
-{
+void CAlert::Notify(const std::string& strMessage, bool fThread) {
     std::string strCmd = GetArg("-alertnotify", "");
-    if (strCmd.empty())
-        return;
+    if (strCmd.empty()) return;
 
     // Alert text should be plain ascii coming from a trusted source, but to
     // be safe we first strip anything not in safeChars, then add single quotes around
@@ -249,7 +202,7 @@ void CAlert::Notify(const std::string& strMessage, bool fThread)
     boost::replace_all(strCmd, "%s", safeStatus);
 
     if (fThread)
-        boost::thread t(runCommand, strCmd); // thread runs free
+        boost::thread t(runCommand, strCmd);  // thread runs free
     else
         runCommand(strCmd);
 }

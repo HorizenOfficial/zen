@@ -6,13 +6,13 @@
 #ifndef BITCOIN_INIT_H
 #define BITCOIN_INIT_H
 
-#include "zcash/JoinSplit.hpp"
 #include <string>
+
+#include "zcash/JoinSplit.hpp"
 
 class CScheduler;
 class CWallet;
-namespace boost
-{
+namespace boost {
 class thread_group;
 }
 
@@ -27,11 +27,10 @@ void Shutdown();
 bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler);
 
 /** The help message mode determines what help message to show */
-enum HelpMessageMode {
-    HMM_BITCOIND
-};
+enum HelpMessageMode
+{ HMM_BITCOIND };
 
 /** Help for options shared between UI and daemon (for -help) */
 std::string HelpMessage(HelpMessageMode mode);
 
-#endif // BITCOIN_INIT_H
+#endif  // BITCOIN_INIT_H

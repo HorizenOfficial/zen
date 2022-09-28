@@ -14,29 +14,25 @@
 
 namespace libsnark {
 
-template<typename FieldT>
+template <typename FieldT>
 class digest_selector_gadget : public gadget<FieldT> {
-public:
+  public:
     size_t digest_size;
     digest_variable<FieldT> input;
     pb_linear_combination<FieldT> is_right;
     digest_variable<FieldT> left;
     digest_variable<FieldT> right;
 
-    digest_selector_gadget(protoboard<FieldT> &pb,
-                           const size_t digest_size,
-                           const digest_variable<FieldT> &input,
-                           const pb_linear_combination<FieldT> &is_right,
-                           const digest_variable<FieldT> &left,
-                           const digest_variable<FieldT> &right,
-                           const std::string &annotation_prefix);
+    digest_selector_gadget(protoboard<FieldT>& pb, const size_t digest_size, const digest_variable<FieldT>& input,
+                           const pb_linear_combination<FieldT>& is_right, const digest_variable<FieldT>& left,
+                           const digest_variable<FieldT>& right, const std::string& annotation_prefix);
 
     void generate_r1cs_constraints();
     void generate_r1cs_witness();
 };
 
-} // libsnark
+}  // namespace libsnark
 
 #include "gadgetlib1/gadgets/hashes/digest_selector_gadget.tcc"
 
-#endif // DIGEST_SELECTOR_GADGET_HPP_
+#endif  // DIGEST_SELECTOR_GADGET_HPP_

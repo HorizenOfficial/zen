@@ -36,9 +36,8 @@ void SyncWithWallets(const CScCertificate& cert, const CBlock* pblock = NULL, in
 /** Push to wallets updates about bwt state and related sidechain information */
 void SyncCertStatusUpdate(const CScCertificateStatusUpdateInfo& certStatusInfo);
 
-class CValidationInterface
-{
-protected:
+class CValidationInterface {
+  protected:
     virtual ~CValidationInterface() {}
     virtual void UpdatedBlockTip(const CBlockIndex* pindex) {}
     virtual void SyncTransaction(const CTransaction& tx, const CBlock* pblock) {}
@@ -83,4 +82,4 @@ struct CMainSignals {
 
 CMainSignals& GetMainSignals();
 
-#endif // BITCOIN_VALIDATIONINTERFACE_H
+#endif  // BITCOIN_VALIDATIONINTERFACE_H

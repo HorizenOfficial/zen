@@ -36,16 +36,16 @@ extern std::map<std::string, int64_t> cumulative_times;
 
 void clear_profiling_counters();
 
-void print_cumulative_time_entry(const std::string &key, const int64_t factor=1);
-void print_cumulative_times(const int64_t factor=1);
-void print_cumulative_op_counts(const bool only_fq=false);
+void print_cumulative_time_entry(const std::string& key, const int64_t factor = 1);
+void print_cumulative_times(const int64_t factor = 1);
+void print_cumulative_op_counts(const bool only_fq = false);
 
-void enter_block(const std::string &msg, const bool indent=true);
-void leave_block(const std::string &msg, const bool indent=true);
+void enter_block(const std::string& msg, const bool indent = true);
+void leave_block(const std::string& msg, const bool indent = true);
 
-void print_mem(const std::string &s = "");
+void print_mem(const std::string& s = "");
 void print_compilation_info();
 
-} // libsnark
+}  // namespace libsnark
 
-#endif // PROFILING_HPP_
+#endif  // PROFILING_HPP_

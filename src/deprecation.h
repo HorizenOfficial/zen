@@ -10,7 +10,7 @@ static const int WEEKS_UNTIL_DEPRECATION = 30;
 static const int DEPRECATION_HEIGHT = APPROX_RELEASE_HEIGHT + (WEEKS_UNTIL_DEPRECATION * 7 * 24 * 24);
 
 // Number of blocks before deprecation to warn users
-static const int DEPRECATION_WARN_LIMIT = 14 * 24 * 24; // 2 weeks
+static const int DEPRECATION_WARN_LIMIT = 14 * 24 * 24;  // 2 weeks
 
 /**
  * Checks whether the node is deprecated based on the current block height, and
@@ -19,4 +19,4 @@ static const int DEPRECATION_WARN_LIMIT = 14 * 24 * 24; // 2 weeks
  */
 void EnforceNodeDeprecation(int nHeight, bool forceLogging = false);
 
-#endif // ZCASH_DEPRECATION_H
+#endif  // ZCASH_DEPRECATION_H

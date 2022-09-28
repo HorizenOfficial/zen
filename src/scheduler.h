@@ -10,10 +10,11 @@
 // boost::thread / boost::function / boost::chrono should be ported to
 // std::thread / std::function / std::chrono when we support C++11.
 //
+#include <map>
+
 #include <boost/chrono/chrono.hpp>
 #include <boost/function.hpp>
 #include <boost/thread.hpp>
-#include <map>
 
 //
 // Simple class for background tasks that should be run
@@ -33,9 +34,8 @@
 // delete s; // Must be done after thread is interrupted/joined.
 //
 
-class CScheduler
-{
-public:
+class CScheduler {
+  public:
     CScheduler();
     ~CScheduler();
 
@@ -67,10 +67,9 @@ public:
 
     // Returns number of tasks waiting to be serviced,
     // and first and last task times
-    size_t getQueueInfo(boost::chrono::system_clock::time_point& first,
-                        boost::chrono::system_clock::time_point& last) const;
+    size_t getQueueInfo(boost::chrono::system_clock::time_point& first, boost::chrono::system_clock::time_point& last) const;
 
-private:
+  private:
     std::multimap<boost::chrono::system_clock::time_point, Function> taskQueue;
     boost::condition_variable newTaskScheduled;
     mutable boost::mutex newTaskMutex;

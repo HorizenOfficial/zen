@@ -29,14 +29,17 @@ struct constraint_profiling_entry {
 
 extern std::vector<constraint_profiling_entry> constraint_profiling_table;
 
-#define PROFILE_CONSTRAINTS(pb, annotation)                             \
-    for (size_t _num_constraints_before = pb.num_constraints(), _iter = (++constraint_profiling_indent, 0), _cp_pos = constraint_profiling_table.size(); \
-         _iter == 0;                                                    \
-         constraint_profiling_table.insert(constraint_profiling_table.begin() + _cp_pos, constraint_profiling_entry{--constraint_profiling_indent, annotation, pb.num_constraints() - _num_constraints_before}), \
-         _iter = 1)
+#define PROFILE_CONSTRAINTS(pb, annotation)                                                                             \
+    for (size_t _num_constraints_before = pb.num_constraints(), _iter = (++constraint_profiling_indent, 0),             \
+                _cp_pos = constraint_profiling_table.size();                                                            \
+         _iter == 0;                                                                                                    \
+         constraint_profiling_table.insert(constraint_profiling_table.begin() + _cp_pos,                                \
+                                           constraint_profiling_entry{--constraint_profiling_indent, annotation,        \
+                                                                      pb.num_constraints() - _num_constraints_before}), \
+                _iter = 1)
 
-size_t PRINT_CONSTRAINT_PROFILING(); // returns # of top level constraints
+size_t PRINT_CONSTRAINT_PROFILING();  // returns # of top level constraints
 
-} // libsnark
+}  // namespace libsnark
 
-#endif // CONSTRAINT_PROFILING_HPP_
+#endif  // CONSTRAINT_PROFILING_HPP_

@@ -33,10 +33,9 @@ namespace libsnark {
 /**
  * An evaluation domain.
  */
-template<typename FieldT>
+template <typename FieldT>
 class evaluation_domain {
-public:
-
+  public:
     const size_t m;
 
     /**
@@ -44,7 +43,7 @@ public:
      *
      * (See the function get_evaluation_domain below.)
      */
-    evaluation_domain(const size_t m) : m(m) {};
+    evaluation_domain(const size_t m) : m(m){};
 
     /**
      * Get the idx-th element in S.
@@ -54,22 +53,22 @@ public:
     /**
      * Compute the FFT, over the domain S, of the vector a.
      */
-    virtual void FFT(std::vector<FieldT> &a) = 0;
+    virtual void FFT(std::vector<FieldT>& a) = 0;
 
     /**
      * Compute the inverse FFT, over the domain S, of the vector a.
      */
-    virtual void iFFT(std::vector<FieldT> &a) = 0;
+    virtual void iFFT(std::vector<FieldT>& a) = 0;
 
     /**
      * Compute the FFT, over the domain g*S, of the vector a.
      */
-    virtual void cosetFFT(std::vector<FieldT> &a, const FieldT &g) = 0;
+    virtual void cosetFFT(std::vector<FieldT>& a, const FieldT& g) = 0;
 
     /**
      * Compute the inverse FFT, over the domain g*S, of the vector a.
      */
-    virtual void icosetFFT(std::vector<FieldT> &a, const FieldT &g) = 0;
+    virtual void icosetFFT(std::vector<FieldT>& a, const FieldT& g) = 0;
 
     /**
      * Evaluate all Lagrange polynomials.
@@ -80,29 +79,29 @@ public:
      * The output is a vector (b_{0},...,b_{m-1})
      * where b_{i} is the evaluation of L_{i,S}(z) at z = t.
      */
-    virtual std::vector<FieldT> lagrange_coeffs(const FieldT &t) = 0;
+    virtual std::vector<FieldT> lagrange_coeffs(const FieldT& t) = 0;
 
     /**
      * Evaluate the vanishing polynomial of S at the field element t.
      */
-    virtual FieldT compute_Z(const FieldT &t) = 0;
+    virtual FieldT compute_Z(const FieldT& t) = 0;
 
     /**
      * Add the coefficients of the vanishing polynomial of S to the coefficients of the polynomial H.
      */
-    virtual void add_poly_Z(const FieldT &coeff, std::vector<FieldT> &H) = 0;
+    virtual void add_poly_Z(const FieldT& coeff, std::vector<FieldT>& H) = 0;
 
     /**
      * Multiply by the evaluation, on a coset of S, of the inverse of the vanishing polynomial of S.
      */
-    virtual void divide_by_Z_on_coset(std::vector<FieldT> &P) = 0;
+    virtual void divide_by_Z_on_coset(std::vector<FieldT>& P) = 0;
 };
 
 /**
  * Return an evaluation domain object in which the domain S has size |S| >= min_size.
  * The function chooses from different supported domains, depending on min_size.
  */
-template<typename FieldT>
+template <typename FieldT>
 std::shared_ptr<evaluation_domain<FieldT> > get_evaluation_domain(const size_t min_size);
 
 /**
@@ -115,11 +114,11 @@ std::shared_ptr<evaluation_domain<FieldT> > get_evaluation_domain(const size_t m
  * - an index idx in {0,...,m-1}
  * The output is the polynomial L_{idx,S}(z) evaluated at z = t.
  */
-template<typename FieldT>
-FieldT lagrange_eval(const size_t m, const std::vector<FieldT> &domain, const FieldT &t, const size_t idx);
+template <typename FieldT>
+FieldT lagrange_eval(const size_t m, const std::vector<FieldT>& domain, const FieldT& t, const size_t idx);
 
-} // libsnark
+}  // namespace libsnark
 
 #include "algebra/evaluation_domain/evaluation_domain.tcc"
 
-#endif // EVALUATION_DOMAIN_HPP_
+#endif  // EVALUATION_DOMAIN_HPP_

@@ -2,6 +2,7 @@
 #define BENCHMARKS_H
 
 #include <stdlib.h>
+
 #include <sys/time.h>
 
 extern double benchmark_sleep();

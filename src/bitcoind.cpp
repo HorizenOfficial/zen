@@ -3,6 +3,12 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <stdio.h>
+
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/thread.hpp>
+
 #include "clientversion.h"
 #include "httprpc.h"
 #include "httpserver.h"
@@ -13,32 +19,27 @@
 #include "scheduler.h"
 #include "util.h"
 
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/thread.hpp>
-
-#include <stdio.h>
-
 /* Introduction text for doxygen: */
 
 /*! \mainpage Developer documentation
  *
  * \section intro_sec Introduction
  *
- * This is the developer documentation of the reference client for an experimental new digital currency called Bitcoin (https://www.bitcoin.org/),
- * which enables instant payments to anyone, anywhere in the world. Bitcoin uses peer-to-peer technology to operate
- * with no central authority: managing transactions and issuing money are carried out collectively by the network.
+ * This is the developer documentation of the reference client for an experimental new digital currency called Bitcoin
+ * (https://www.bitcoin.org/), which enables instant payments to anyone, anywhere in the world. Bitcoin uses peer-to-peer
+ * technology to operate with no central authority: managing transactions and issuing money are carried out collectively by the
+ * network.
  *
  * The software is a community-driven open source project, released under the MIT license.
  *
  * \section Navigation
- * Use the buttons <code>Namespaces</code>, <code>Classes</code> or <code>Files</code> at the top of the page to start navigating the code.
+ * Use the buttons <code>Namespaces</code>, <code>Classes</code> or <code>Files</code> at the top of the page to start
+ * navigating the code.
  */
 
 static bool fDaemon;
 
-void WaitForShutdown(boost::thread_group* threadGroup)
-{
+void WaitForShutdown(boost::thread_group* threadGroup) {
     bool fShutdown = ShutdownRequested();
     // Tell the main threads to shutdown.
     while (!fShutdown) {
@@ -55,8 +56,7 @@ void WaitForShutdown(boost::thread_group* threadGroup)
 //
 // Start
 //
-bool AppInit(int argc, char* argv[])
-{
+bool AppInit(int argc, char* argv[]) {
     boost::thread_group threadGroup;
     CScheduler scheduler;
 
@@ -75,8 +75,7 @@ bool AppInit(int argc, char* argv[])
         if (mapArgs.count("-version")) {
             strUsage += LicenseInfo();
         } else {
-            strUsage += "\n" + _("Usage:") + "\n" +
-                        "  zend [options]                     " + _("Start Zen Daemon") + "\n";
+            strUsage += "\n" + _("Usage:") + "\n" + "  zend [options]                     " + _("Start Zen Daemon") + "\n";
 
             strUsage += "\n" + HelpMessage(HMM_BITCOIND);
         }
@@ -135,7 +134,6 @@ bool AppInit(int argc, char* argv[])
                         "           You will not see this warning again.\n"
                         "------------------------------------------------------------------\n");
 
-
 #ifdef __APPLE__
                 // On Mac OS try to copy the default config file if zend is started from source folder zen/src/zend
                 std::string strConfPath("../contrib/debian/examples/zen.conf");
@@ -193,8 +191,7 @@ bool AppInit(int argc, char* argv[])
         // Command-line RPC
         bool fCommandLine = false;
         for (int i = 1; i < argc; i++)
-            if (!IsSwitchChar(argv[i][0]) && !boost::algorithm::istarts_with(argv[i], "zen:"))
-                fCommandLine = true;
+            if (!IsSwitchChar(argv[i][0]) && !boost::algorithm::istarts_with(argv[i], "zen:")) fCommandLine = true;
 
         if (fCommandLine) {
             fprintf(stderr, "Error: There is no RPC client functionality in zend. Use the zen-cli utility instead.\n");
@@ -211,15 +208,14 @@ bool AppInit(int argc, char* argv[])
                 fprintf(stderr, "Error: fork() returned %d errno %d\n", pid, errno);
                 return false;
             }
-            if (pid > 0) // Parent process, pid is child process id
+            if (pid > 0)  // Parent process, pid is child process id
             {
                 return true;
             }
             // Child process falls through to rest of initialization
 
             pid_t sid = setsid();
-            if (sid < 0)
-                fprintf(stderr, "Error: setsid() returned %d errno %d\n", sid, errno);
+            if (sid < 0) fprintf(stderr, "Error: setsid() returned %d errno %d\n", sid, errno);
         }
 #endif
         SoftSetBoolArg("-server", true);
@@ -244,8 +240,7 @@ bool AppInit(int argc, char* argv[])
     return fRet;
 }
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
     SetupEnvironment();
 
     // Connect bitcoind signal handlers

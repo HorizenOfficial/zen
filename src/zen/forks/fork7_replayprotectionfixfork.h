@@ -6,17 +6,15 @@
 
 namespace zen {
 
-class ReplayProtectionFixFork : public TimeBlockFork
-{
-public:
+class ReplayProtectionFixFork : public TimeBlockFork {
+  public:
     ReplayProtectionFixFork();
 
     /**
      * @brief getReplayProtectionLevel returns the replay protection level provided by the current fork
      */
     inline virtual ReplayProtectionLevel getReplayProtectionLevel() const { return RPLEVEL_FIXED_2; }
-
 };
 
-}
-#endif // _REPLAY_PROT_FIX_FORK_H
+}  // namespace zen
+#endif  // _REPLAY_PROT_FIX_FORK_H

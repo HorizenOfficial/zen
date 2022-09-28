@@ -1,8 +1,9 @@
 #ifndef SIDECHAIN_TX_COMMITMENT_BUILDER
 #define SIDECHAIN_TX_COMMITMENT_BUILDER
 
-#include "coins.h"
 #include <sc/sidechaintypes.h>
+
+#include "coins.h"
 
 class CTransaction;
 class CScCertificate;
@@ -14,9 +15,8 @@ class CBwtRequestOut;
 
 class CTxCeasedSidechainWithdrawalInput;
 
-class SidechainTxsCommitmentBuilder
-{
-public:
+class SidechainTxsCommitmentBuilder {
+  public:
     SidechainTxsCommitmentBuilder();
     ~SidechainTxsCommitmentBuilder();
 
@@ -29,19 +29,19 @@ public:
 
     static const uint256& getEmptyCommitment();
 
-private:
+  private:
     const commitment_tree_t* const _cmt;
 
     // private initializer for instantiating the const ptr in the ctor initializer lists
     const commitment_tree_t* const initPtr();
 
     bool add_scc(const CTxScCreationOut& ccout, const BufferWithSize& bws_tx_hash, uint32_t out_idx, CctpErrorCode& ret_code);
-    bool add_fwt(const CTxForwardTransferOut& ccout, const BufferWithSize& bws_tx_hash, uint32_t out_idx, CctpErrorCode& ret_code);
+    bool add_fwt(const CTxForwardTransferOut& ccout, const BufferWithSize& bws_tx_hash, uint32_t out_idx,
+                 CctpErrorCode& ret_code);
     bool add_bwtr(const CBwtRequestOut& ccout, const BufferWithSize& bws_tx_hash, uint32_t out_idx, CctpErrorCode& ret_code);
 
     bool add_csw(const CTxCeasedSidechainWithdrawalInput& ccin, CctpErrorCode& ret_code);
     bool add_cert(const CScCertificate& cert, Sidechain::ScFixedParameters scFixedParams, CctpErrorCode& ret_code);
-
 };
 
 #endif

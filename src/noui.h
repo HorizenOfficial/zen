@@ -7,4 +7,4 @@
 
 extern void noui_connect();
 
-#endif // BITCOIN_NOUI_H
+#endif  // BITCOIN_NOUI_H

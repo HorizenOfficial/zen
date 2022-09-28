@@ -8,16 +8,16 @@
 #ifdef CURVE_BN128
 #include "algebra/curves/bn128/bn128_pp.hpp"
 #endif
-#include "algebra/curves/alt_bn128/alt_bn128_pp.hpp"
 #include <sstream>
 
 #include <gtest/gtest.h>
 
+#include "algebra/curves/alt_bn128/alt_bn128_pp.hpp"
+
 using namespace libsnark;
 
-template<typename GroupT>
-void test_mixed_add()
-{
+template <typename GroupT>
+void test_mixed_add() {
     GroupT base, el, result;
 
     base = GroupT::zero();
@@ -51,9 +51,8 @@ void test_mixed_add()
     EXPECT_EQ(result, base.dbl());
 }
 
-template<typename GroupT>
-void test_group()
-{
+template <typename GroupT>
+void test_group() {
     bigint<1> rand1 = bigint<1>("76749407");
     bigint<1> rand2 = bigint<1>("44410867");
     bigint<1> randsum = bigint<1>("121160274");
@@ -69,7 +68,7 @@ void test_group()
     GroupT three = bigint<1>(3l) * GroupT::one();
     GroupT four = bigint<1>(4l) * GroupT::one();
 
-    EXPECT_EQ(two+five, three+four);
+    EXPECT_EQ(two + five, three + four);
 
     GroupT a = GroupT::random_element();
     GroupT b = GroupT::random_element();
@@ -110,20 +109,17 @@ void test_group()
     test_mixed_add<GroupT>();
 }
 
-template<typename GroupT>
-void test_mul_by_q()
-{
+template <typename GroupT>
+void test_mul_by_q() {
     GroupT a = GroupT::random_element();
-    EXPECT_EQ((GroupT::base_field_char()*a), a.mul_by_q());
+    EXPECT_EQ((GroupT::base_field_char() * a), a.mul_by_q());
 }
 
-template<typename GroupT>
-void test_output()
-{
+template <typename GroupT>
+void test_output() {
     GroupT g = GroupT::zero();
 
-    for (size_t i = 0; i < 1000; ++i)
-    {
+    for (size_t i = 0; i < 1000; ++i) {
         std::stringstream ss;
         ss << g;
         GroupT gg;
@@ -134,8 +130,7 @@ void test_output()
     }
 }
 
-TEST(algebra, groups)
-{
+TEST(algebra, groups) {
     alt_bn128_pp::init_public_params();
     test_group<G1<alt_bn128_pp> >();
     test_output<G1<alt_bn128_pp> >();
@@ -143,7 +138,7 @@ TEST(algebra, groups)
     test_output<G2<alt_bn128_pp> >();
     test_mul_by_q<G2<alt_bn128_pp> >();
 
-#ifdef CURVE_BN128       // BN128 has fancy dependencies so it may be disabled
+#ifdef CURVE_BN128  // BN128 has fancy dependencies so it may be disabled
     bn128_pp::init_public_params();
     test_group<G1<bn128_pp> >();
     test_output<G1<bn128_pp> >();

@@ -10,6 +10,7 @@
 #define BITCOIN_UTILSTRENCODINGS_H
 
 #include <stdint.h>
+
 #include <string>
 #include <vector>
 
@@ -65,16 +66,13 @@ bool ParseInt64(const std::string& str, int64_t* out);
 bool ParseDouble(const std::string& str, double* out);
 
 template <typename T>
-std::string HexStr(const T itbegin, const T itend, bool fSpaces = false)
-{
+std::string HexStr(const T itbegin, const T itend, bool fSpaces = false) {
     std::string rv;
-    static const char hexmap[16] = {'0', '1', '2', '3', '4', '5', '6', '7',
-                                    '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+    static const char hexmap[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
     rv.reserve((itend - itbegin) * 3);
     for (T it = itbegin; it < itend; ++it) {
         unsigned char val = (unsigned char)(*it);
-        if (fSpaces && it != itbegin)
-            rv.push_back(' ');
+        if (fSpaces && it != itbegin) rv.push_back(' ');
         rv.push_back(hexmap[val >> 4]);
         rv.push_back(hexmap[val & 15]);
     }
@@ -83,8 +81,7 @@ std::string HexStr(const T itbegin, const T itend, bool fSpaces = false)
 }
 
 template <typename T>
-inline std::string HexStr(const T& vch, bool fSpaces = false)
-{
+inline std::string HexStr(const T& vch, bool fSpaces = false) {
     return HexStr(vch.begin(), vch.end(), fSpaces);
 }
 
@@ -100,13 +97,10 @@ std::string FormatParagraph(const std::string& in, size_t width = 79, size_t ind
  * of first argument.
  */
 template <typename T>
-bool TimingResistantEqual(const T& a, const T& b)
-{
-    if (b.size() == 0)
-        return a.size() == 0;
+bool TimingResistantEqual(const T& a, const T& b) {
+    if (b.size() == 0) return a.size() == 0;
     size_t accumulator = a.size() ^ b.size();
-    for (size_t i = 0; i < a.size(); i++)
-        accumulator |= a[i] ^ b[i % b.size()];
+    for (size_t i = 0; i < a.size(); i++) accumulator |= a[i] ^ b[i % b.size()];
     return accumulator == 0;
 }
 
@@ -117,4 +111,4 @@ bool TimingResistantEqual(const T& a, const T& b)
  */
 bool ParseFixedPoint(const std::string& val, int decimals, int64_t* amount_out);
 
-#endif // BITCOIN_UTILSTRENCODINGS_H
+#endif  // BITCOIN_UTILSTRENCODINGS_H

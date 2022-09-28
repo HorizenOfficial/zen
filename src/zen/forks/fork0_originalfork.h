@@ -1,8 +1,8 @@
 #ifndef ORIGINALFORK_H
 #define ORIGINALFORK_H
 
-#include "fork.h"
 #include "chain.h"
+#include "fork.h"
 
 namespace zen {
 
@@ -10,10 +10,8 @@ namespace zen {
  * @brief The OriginalFork class represents the original fork at block 0
  * This is the ZClassic original fork before the chainsplit
  */
-class OriginalFork : public Fork
-{
-public:
-    
+class OriginalFork : public Fork {
+  public:
     /**
      * @brief OriginalFork constructor
      */
@@ -22,7 +20,8 @@ public:
     /**
      * @brief getCommunityFundAddress returns the community fund address based on the passed in height and maxHeight
      */
-    virtual const std::string& getCommunityFundAddress(CBaseChainParams::Network network, int height, int maxHeight, CommunityFundType cfType) const;
+    virtual const std::string& getCommunityFundAddress(CBaseChainParams::Network network, int height, int maxHeight,
+                                                       CommunityFundType cfType) const;
 
     /**
      * @brief getCommunityFundReward returns the community fund reward based on the height and passed-in reward
@@ -50,29 +49,29 @@ public:
     virtual bool isTransactionTypeAllowed(txnouttype transactionType) const;
 
     /**
-	 * @brief returns phpgr,groth,... tx version based on block height
-	 */
+     * @brief returns phpgr,groth,... tx version based on block height
+     */
     inline virtual int getShieldedTxVersion() const { return 2; }
 
     /**
-	 * @brief returns sidechain tx version based on block height, if sidechains are not supported return 0
-	 */
-	inline virtual int getSidechainTxVersion() const { return 0; }
+     * @brief returns sidechain tx version based on block height, if sidechains are not supported return 0
+     */
+    inline virtual int getSidechainTxVersion() const { return 0; }
 
     /**
-	 * @brief returns sidechain cert version based on block height, if sidechains are not supported return 0
-	 */
-	inline virtual int getCertificateVersion() const { return 0; }
+     * @brief returns sidechain cert version based on block height, if sidechains are not supported return 0
+     */
+    inline virtual int getCertificateVersion() const { return 0; }
 
     /**
-	 * @brief returns true sidechains are supported based on block height, false otherwise
-	 */
-	inline virtual bool areSidechainsSupported() const { return false; }
+     * @brief returns true sidechains are supported based on block height, false otherwise
+     */
+    inline virtual bool areSidechainsSupported() const { return false; }
 
     /**
-	 * @brief returns supported new block version based on block height
-	 */
-	inline virtual int getNewBlockVersion() const { return BLOCK_VERSION_ORIGINAL; }
+     * @brief returns supported new block version based on block height
+     */
+    inline virtual int getNewBlockVersion() const { return BLOCK_VERSION_ORIGINAL; }
 
     /**
      * @brief returns true if the nVersion is valid at input block height
@@ -80,8 +79,8 @@ public:
     inline virtual bool isValidBlockVersion(int nVersion) const { return (nVersion >= BLOCK_VERSION_ORIGINAL); }
 
     /**
-	 * @brief returns true if the miner has to use MAX_FUTURE_BLOCK_TIME_MTP
-	 */
+     * @brief returns true if the miner has to use MAX_FUTURE_BLOCK_TIME_MTP
+     */
     inline virtual bool isFutureMiningTimeStampActive() const { return false; }
 
     /**
@@ -95,5 +94,5 @@ public:
     inline virtual uint8_t getMaxSidechainVersion() const { return 0; };
 };
 
-}
-#endif // ORIGINALFORK_H
+}  // namespace zen
+#endif  // ORIGINALFORK_H

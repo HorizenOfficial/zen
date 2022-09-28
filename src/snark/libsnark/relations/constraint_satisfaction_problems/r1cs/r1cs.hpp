@@ -29,14 +29,14 @@ namespace libsnark {
 
 /************************* R1CS constraint ***********************************/
 
-template<typename FieldT>
+template <typename FieldT>
 class r1cs_constraint;
 
-template<typename FieldT>
-std::ostream& operator<<(std::ostream &out, const r1cs_constraint<FieldT> &c);
+template <typename FieldT>
+std::ostream& operator<<(std::ostream& out, const r1cs_constraint<FieldT>& c);
 
-template<typename FieldT>
-std::istream& operator>>(std::istream &in, r1cs_constraint<FieldT> &c);
+template <typename FieldT>
+std::istream& operator>>(std::istream& in, r1cs_constraint<FieldT>& c);
 
 /**
  * A R1CS constraint is a formal expression of the form
@@ -48,25 +48,23 @@ std::istream& operator>>(std::istream &in, r1cs_constraint<FieldT> &c);
  *
  * A R1CS constraint is used to construct a R1CS constraint system (see below).
  */
-template<typename FieldT>
+template <typename FieldT>
 class r1cs_constraint {
-public:
-
+  public:
     linear_combination<FieldT> a, b, c;
 
-    r1cs_constraint() {};
-    r1cs_constraint(const linear_combination<FieldT> &a,
-                    const linear_combination<FieldT> &b,
-                    const linear_combination<FieldT> &c);
+    r1cs_constraint(){};
+    r1cs_constraint(const linear_combination<FieldT>& a, const linear_combination<FieldT>& b,
+                    const linear_combination<FieldT>& c);
 
-    r1cs_constraint(const std::initializer_list<linear_combination<FieldT> > &A,
-                    const std::initializer_list<linear_combination<FieldT> > &B,
-                    const std::initializer_list<linear_combination<FieldT> > &C);
+    r1cs_constraint(const std::initializer_list<linear_combination<FieldT> >& A,
+                    const std::initializer_list<linear_combination<FieldT> >& B,
+                    const std::initializer_list<linear_combination<FieldT> >& C);
 
-    bool operator==(const r1cs_constraint<FieldT> &other) const;
+    bool operator==(const r1cs_constraint<FieldT>& other) const;
 
-    friend std::ostream& operator<< <FieldT>(std::ostream &out, const r1cs_constraint<FieldT> &c);
-    friend std::istream& operator>> <FieldT>(std::istream &in, r1cs_constraint<FieldT> &c);
+    friend std::ostream& operator<<<FieldT>(std::ostream& out, const r1cs_constraint<FieldT>& c);
+    friend std::istream& operator>><FieldT>(std::istream& in, r1cs_constraint<FieldT>& c);
 };
 
 /************************* R1CS variable assignment **************************/
@@ -77,25 +75,26 @@ public:
  */
 
 /* TODO: specify that it does *NOT* include the constant 1 */
-template<typename FieldT>
+template <typename FieldT>
 using r1cs_primary_input = std::vector<FieldT>;
 
-template<typename FieldT>
+template <typename FieldT>
 using r1cs_auxiliary_input = std::vector<FieldT>;
 
-template<typename FieldT>
-using r1cs_variable_assignment = std::vector<FieldT>; /* note the changed name! (TODO: remove this comment after primary_input transition is complete) */
+template <typename FieldT>
+using r1cs_variable_assignment =
+    std::vector<FieldT>; /* note the changed name! (TODO: remove this comment after primary_input transition is complete) */
 
 /************************* R1CS constraint system ****************************/
 
-template<typename FieldT>
+template <typename FieldT>
 class r1cs_constraint_system;
 
-template<typename FieldT>
-std::ostream& operator<<(std::ostream &out, const r1cs_constraint_system<FieldT> &cs);
+template <typename FieldT>
+std::ostream& operator<<(std::ostream& out, const r1cs_constraint_system<FieldT>& cs);
 
-template<typename FieldT>
-std::istream& operator>>(std::istream &in, r1cs_constraint_system<FieldT> &cs);
+template <typename FieldT>
+std::istream& operator>>(std::istream& in, r1cs_constraint_system<FieldT>& cs);
 
 /**
  * A system of R1CS constraints looks like
@@ -109,9 +108,9 @@ std::istream& operator>>(std::istream &in, r1cs_constraint_system<FieldT> &cs);
  * The 0-th variable (i.e., "x_{0}") always represents the constant 1.
  * Thus, the 0-th variable is not included in num_variables.
  */
-template<typename FieldT>
+template <typename FieldT>
 class r1cs_constraint_system {
-public:
+  public:
     size_t primary_input_size;
     size_t auxiliary_input_size;
 
@@ -129,25 +128,24 @@ public:
 #endif
 
     bool is_valid() const;
-    bool is_satisfied(const r1cs_primary_input<FieldT> &primary_input,
-                      const r1cs_auxiliary_input<FieldT> &auxiliary_input) const;
+    bool is_satisfied(const r1cs_primary_input<FieldT>& primary_input,
+                      const r1cs_auxiliary_input<FieldT>& auxiliary_input) const;
 
-    void add_constraint(const r1cs_constraint<FieldT> &c);
-    void add_constraint(const r1cs_constraint<FieldT> &c, const std::string &annotation);
+    void add_constraint(const r1cs_constraint<FieldT>& c);
+    void add_constraint(const r1cs_constraint<FieldT>& c, const std::string& annotation);
 
     void swap_AB_if_beneficial();
 
-    bool operator==(const r1cs_constraint_system<FieldT> &other) const;
+    bool operator==(const r1cs_constraint_system<FieldT>& other) const;
 
-    friend std::ostream& operator<< <FieldT>(std::ostream &out, const r1cs_constraint_system<FieldT> &cs);
-    friend std::istream& operator>> <FieldT>(std::istream &in, r1cs_constraint_system<FieldT> &cs);
+    friend std::ostream& operator<<<FieldT>(std::ostream& out, const r1cs_constraint_system<FieldT>& cs);
+    friend std::istream& operator>><FieldT>(std::istream& in, r1cs_constraint_system<FieldT>& cs);
 
     void report_linear_constraint_statistics() const;
 };
 
-
-} // libsnark
+}  // namespace libsnark
 
 #include "relations/constraint_satisfaction_problems/r1cs/r1cs.tcc"
 
-#endif // R1CS_HPP_
+#endif  // R1CS_HPP_

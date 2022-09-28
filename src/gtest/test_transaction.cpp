@@ -1,16 +1,15 @@
 #include <gtest/gtest.h>
 
 #include "primitives/transaction.h"
-#include "zcash/Note.hpp"
 #include "zcash/Address.hpp"
+#include "zcash/Note.hpp"
 
 extern ZCJoinSplit* params;
 extern int GenZero(int n);
 extern int GenMax(int n);
 
-//TEST(Transaction, JSDescriptionRandomized) {
-static void do_test(bool isGroth)
-{
+// TEST(Transaction, JSDescriptionRandomized) {
+static void do_test(bool isGroth) {
     // construct a merkle tree
     ZCIncrementalMerkleTree merkleTree;
 
@@ -34,87 +33,67 @@ static void do_test(bool isGroth)
     uint256 pubKeyHash;
     std::array<libzcash::JSInput, ZC_NUM_JS_INPUTS> inputs = {
         libzcash::JSInput(witness, note, k),
-        libzcash::JSInput() // dummy input of zero value
+        libzcash::JSInput()  // dummy input of zero value
     };
-    std::array<libzcash::JSOutput, ZC_NUM_JS_OUTPUTS> outputs = {
-        libzcash::JSOutput(addr, 50),
-        libzcash::JSOutput(addr, 50)
-    };
-    #ifdef __LP64__ // required for building on MacOS
+    std::array<libzcash::JSOutput, ZC_NUM_JS_OUTPUTS> outputs = {libzcash::JSOutput(addr, 50), libzcash::JSOutput(addr, 50)};
+#ifdef __LP64__  // required for building on MacOS
     std::array<uint64_t, ZC_NUM_JS_INPUTS> inputMap;
     std::array<uint64_t, ZC_NUM_JS_OUTPUTS> outputMap;
-    #else
+#else
     std::array<size_t, ZC_NUM_JS_INPUTS> inputMap;
     std::array<size_t, ZC_NUM_JS_OUTPUTS> outputMap;
-    #endif
+#endif
     {
-        auto jsdesc = JSDescription::Randomized(
-            isGroth,
-            *params, pubKeyHash, rt,
-            inputs, outputs,
-            inputMap, outputMap,
-            0, 0, false);
-        #ifdef __LP64__ // required for building on MacOS
+        auto jsdesc =
+            JSDescription::Randomized(isGroth, *params, pubKeyHash, rt, inputs, outputs, inputMap, outputMap, 0, 0, false);
+#ifdef __LP64__  // required for building on MacOS
         std::set<uint64_t> inputSet(inputMap.begin(), inputMap.end());
-        std::set<uint64_t> expectedInputSet {0, 1};
-        #else
+        std::set<uint64_t> expectedInputSet{0, 1};
+#else
         std::set<size_t> inputSet(inputMap.begin(), inputMap.end());
-        std::set<size_t> expectedInputSet {0, 1};
-        #endif
+        std::set<size_t> expectedInputSet{0, 1};
+#endif
         EXPECT_EQ(expectedInputSet, inputSet);
 
-        #ifdef __LP64__ // required for building on MacOS
+#ifdef __LP64__  // required for building on MacOS
         std::set<uint64_t> outputSet(outputMap.begin(), outputMap.end());
-        std::set<uint64_t> expectedOutputSet {0, 1};
-        #else
+        std::set<uint64_t> expectedOutputSet{0, 1};
+#else
         std::set<size_t> outputSet(outputMap.begin(), outputMap.end());
-        std::set<size_t> expectedOutputSet {0, 1};
-        #endif
+        std::set<size_t> expectedOutputSet{0, 1};
+#endif
         EXPECT_EQ(expectedOutputSet, outputSet);
     }
 
     {
-        auto jsdesc = JSDescription::Randomized(
-            isGroth,
-            *params, pubKeyHash, rt,
-            inputs, outputs,
-            inputMap, outputMap,
-            0, 0, false, nullptr, GenZero);       
-        #ifdef __LP64__ // required for building on MacOS
-        std::array<uint64_t, ZC_NUM_JS_INPUTS> expectedInputMap {1, 0};
-        std::array<uint64_t, ZC_NUM_JS_OUTPUTS> expectedOutputMap {1, 0};
-        #else
-        std::array<size_t, ZC_NUM_JS_INPUTS> expectedInputMap {1, 0};
-        std::array<size_t, ZC_NUM_JS_OUTPUTS> expectedOutputMap {1, 0};
-        #endif
+        auto jsdesc = JSDescription::Randomized(isGroth, *params, pubKeyHash, rt, inputs, outputs, inputMap, outputMap, 0, 0,
+                                                false, nullptr, GenZero);
+#ifdef __LP64__  // required for building on MacOS
+        std::array<uint64_t, ZC_NUM_JS_INPUTS> expectedInputMap{1, 0};
+        std::array<uint64_t, ZC_NUM_JS_OUTPUTS> expectedOutputMap{1, 0};
+#else
+        std::array<size_t, ZC_NUM_JS_INPUTS> expectedInputMap{1, 0};
+        std::array<size_t, ZC_NUM_JS_OUTPUTS> expectedOutputMap{1, 0};
+#endif
         EXPECT_EQ(expectedInputMap, inputMap);
         EXPECT_EQ(expectedOutputMap, outputMap);
     }
 
     {
-        auto jsdesc = JSDescription::Randomized(
-            isGroth,
-            *params, pubKeyHash, rt,
-            inputs, outputs,
-            inputMap, outputMap,
-            0, 0, false, nullptr, GenMax);
-        #ifdef __LP64__ // required for building on MacOS
-        std::array<uint64_t, ZC_NUM_JS_INPUTS> expectedInputMap {0, 1};
-        std::array<uint64_t, ZC_NUM_JS_OUTPUTS> expectedOutputMap {0, 1};
-        #else
-        std::array<size_t, ZC_NUM_JS_INPUTS> expectedInputMap {0, 1};
-        std::array<size_t, ZC_NUM_JS_OUTPUTS> expectedOutputMap {0, 1};
-        #endif
+        auto jsdesc = JSDescription::Randomized(isGroth, *params, pubKeyHash, rt, inputs, outputs, inputMap, outputMap, 0, 0,
+                                                false, nullptr, GenMax);
+#ifdef __LP64__  // required for building on MacOS
+        std::array<uint64_t, ZC_NUM_JS_INPUTS> expectedInputMap{0, 1};
+        std::array<uint64_t, ZC_NUM_JS_OUTPUTS> expectedOutputMap{0, 1};
+#else
+        std::array<size_t, ZC_NUM_JS_INPUTS> expectedInputMap{0, 1};
+        std::array<size_t, ZC_NUM_JS_OUTPUTS> expectedOutputMap{0, 1};
+#endif
         EXPECT_EQ(expectedInputMap, inputMap);
         EXPECT_EQ(expectedOutputMap, outputMap);
     }
 }
 
-TEST(Transaction, JSDescriptionRandomizedPhgr) {
-    do_test(false);
-}
+TEST(Transaction, JSDescriptionRandomizedPhgr) { do_test(false); }
 
-TEST(Transaction, JSDescriptionRandomizedGroth) {
-    do_test(true);
-}
-
+TEST(Transaction, JSDescriptionRandomizedGroth) { do_test(true); }

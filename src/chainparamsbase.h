@@ -12,10 +12,10 @@
  * CBaseChainParams defines the base parameters (shared between bitcoin-cli and bitcoind)
  * of a given instance of the Bitcoin system.
  */
-class CBaseChainParams
-{
-public:
-    enum Network {
+class CBaseChainParams {
+  public:
+    enum Network
+    {
         MAIN,
         TESTNET,
         REGTEST,
@@ -26,7 +26,7 @@ public:
     const std::string& DataDir() const { return strDataDir; }
     int RPCPort() const { return nRPCPort; }
 
-protected:
+  protected:
     CBaseChainParams() {}
 
     int nRPCPort = 0;
@@ -60,4 +60,4 @@ bool SelectBaseParamsFromCommandLine();
  */
 bool AreBaseParamsConfigured();
 
-#endif // BITCOIN_CHAINPARAMSBASE_H
+#endif  // BITCOIN_CHAINPARAMSBASE_H

@@ -21,12 +21,12 @@ namespace libsnark {
 const size_t SHA256_digest_size = 256;
 const size_t SHA256_block_size = 512;
 
-template<typename FieldT>
-pb_linear_combination_array<FieldT> SHA256_default_IV(protoboard<FieldT> &pb);
+template <typename FieldT>
+pb_linear_combination_array<FieldT> SHA256_default_IV(protoboard<FieldT>& pb);
 
-template<typename FieldT>
+template <typename FieldT>
 class sha256_message_schedule_gadget : public gadget<FieldT> {
-public:
+  public:
     std::vector<pb_variable_array<FieldT> > W_bits;
     std::vector<std::shared_ptr<packing_gadget<FieldT> > > pack_W;
 
@@ -36,20 +36,19 @@ public:
     std::vector<std::shared_ptr<small_sigma_gadget<FieldT> > > compute_sigma1;
     std::vector<pb_variable<FieldT> > unreduced_W;
     std::vector<std::shared_ptr<lastbits_gadget<FieldT> > > mod_reduce_W;
-public:
+
+  public:
     pb_variable_array<FieldT> M;
     pb_variable_array<FieldT> packed_W;
-    sha256_message_schedule_gadget(protoboard<FieldT> &pb,
-                                   const pb_variable_array<FieldT> &M,
-                                   const pb_variable_array<FieldT> &packed_W,
-                                   const std::string &annotation_prefix);
+    sha256_message_schedule_gadget(protoboard<FieldT>& pb, const pb_variable_array<FieldT>& M,
+                                   const pb_variable_array<FieldT>& packed_W, const std::string& annotation_prefix);
     void generate_r1cs_constraints();
     void generate_r1cs_witness();
 };
 
-template<typename FieldT>
+template <typename FieldT>
 class sha256_round_function_gadget : public gadget<FieldT> {
-public:
+  public:
     pb_variable<FieldT> sigma0;
     pb_variable<FieldT> sigma1;
     std::shared_ptr<big_sigma_gadget<FieldT> > compute_sigma0;
@@ -68,7 +67,8 @@ public:
     std::shared_ptr<lastbits_gadget<FieldT> > mod_reduce_new_e;
     pb_variable<FieldT> packed_new_a;
     pb_variable<FieldT> packed_new_e;
-public:
+
+  public:
     pb_linear_combination_array<FieldT> a;
     pb_linear_combination_array<FieldT> b;
     pb_linear_combination_array<FieldT> c;
@@ -82,27 +82,20 @@ public:
     pb_linear_combination_array<FieldT> new_a;
     pb_linear_combination_array<FieldT> new_e;
 
-    sha256_round_function_gadget(protoboard<FieldT> &pb,
-                                 const pb_linear_combination_array<FieldT> &a,
-                                 const pb_linear_combination_array<FieldT> &b,
-                                 const pb_linear_combination_array<FieldT> &c,
-                                 const pb_linear_combination_array<FieldT> &d,
-                                 const pb_linear_combination_array<FieldT> &e,
-                                 const pb_linear_combination_array<FieldT> &f,
-                                 const pb_linear_combination_array<FieldT> &g,
-                                 const pb_linear_combination_array<FieldT> &h,
-                                 const pb_variable<FieldT> &W,
-                                 const uint32_t &K,
-                                 const pb_linear_combination_array<FieldT> &new_a,
-                                 const pb_linear_combination_array<FieldT> &new_e,
-                                 const std::string &annotation_prefix);
+    sha256_round_function_gadget(protoboard<FieldT>& pb, const pb_linear_combination_array<FieldT>& a,
+                                 const pb_linear_combination_array<FieldT>& b, const pb_linear_combination_array<FieldT>& c,
+                                 const pb_linear_combination_array<FieldT>& d, const pb_linear_combination_array<FieldT>& e,
+                                 const pb_linear_combination_array<FieldT>& f, const pb_linear_combination_array<FieldT>& g,
+                                 const pb_linear_combination_array<FieldT>& h, const pb_variable<FieldT>& W, const uint32_t& K,
+                                 const pb_linear_combination_array<FieldT>& new_a,
+                                 const pb_linear_combination_array<FieldT>& new_e, const std::string& annotation_prefix);
 
     void generate_r1cs_constraints();
     void generate_r1cs_witness();
 };
 
-} // libsnark
+}  // namespace libsnark
 
 #include "gadgetlib1/gadgets/hashes/sha256/sha256_components.tcc"
 
-#endif // SHA256_COMPONENTS_HPP_
+#endif  // SHA256_COMPONENTS_HPP_

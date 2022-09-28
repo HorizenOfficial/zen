@@ -9,22 +9,19 @@
  * An RAII-style reverse lock. Unlocks on construction and locks on destruction.
  */
 template <typename Lock>
-class reverse_lock
-{
-public:
-    explicit reverse_lock(Lock& lock) : lock(lock)
-    {
+class reverse_lock {
+  public:
+    explicit reverse_lock(Lock& lock) : lock(lock) {
         lock.unlock();
         lock.swap(templock);
     }
 
-    ~reverse_lock()
-    {
+    ~reverse_lock() {
         templock.lock();
         templock.swap(lock);
     }
 
-private:
+  private:
     reverse_lock(reverse_lock const&);
     reverse_lock& operator=(reverse_lock const&);
 
@@ -32,4 +29,4 @@ private:
     Lock templock;
 };
 
-#endif // BITCOIN_REVERSELOCK_H
+#endif  // BITCOIN_REVERSELOCK_H

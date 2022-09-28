@@ -4,8 +4,6 @@
 
 #include "clientversion.h"
 
-#include "tinyformat.h"
-
 #include <string>
 
 #include <boost/preprocessor/arithmetic/add.hpp>
@@ -13,6 +11,8 @@
 #include <boost/preprocessor/comparison/equal.hpp>
 #include <boost/preprocessor/comparison/less.hpp>
 #include <boost/preprocessor/control/if.hpp>
+
+#include "tinyformat.h"
 
 /**
  * Name of client reported in the 'version' message. Report the same name
@@ -23,13 +23,12 @@
 const std::string CLIENT_NAME("zenai");
 #else
 const std::string CLIENT_NAME("zen");
-#endif // ENABLE_ADDRESS_INDEXING
+#endif  // ENABLE_ADDRESS_INDEXING
 
 /**
  * Client version number
  */
 #define CLIENT_VERSION_SUFFIX ""
-
 
 /**
  * The following part of the code determines the CLIENT_BUILD variable.
@@ -62,17 +61,10 @@ const std::string CLIENT_NAME("zen");
 #define RENDER_RC_STRING(num) "-rc" DO_STRINGIZE(num)
 #define RENDER_DEV_STRING(num) "-" DO_STRINGIZE(num)
 
-#define RENDER_BUILD(build)                            \
-    BOOST_PP_IF(                                       \
-        BOOST_PP_LESS(build, 25),                      \
-        RENDER_BETA_STRING(BOOST_PP_ADD(build, 1)),    \
-        BOOST_PP_IF(                                   \
-            BOOST_PP_LESS(build, 50),                  \
-            RENDER_RC_STRING(BOOST_PP_SUB(build, 24)), \
-            BOOST_PP_IF(                               \
-                BOOST_PP_EQUAL(build, 50),             \
-                "",                                    \
-                RENDER_DEV_STRING(BOOST_PP_SUB(build, 50)))))
+#define RENDER_BUILD(build)                                                                      \
+    BOOST_PP_IF(BOOST_PP_LESS(build, 25), RENDER_BETA_STRING(BOOST_PP_ADD(build, 1)),            \
+                BOOST_PP_IF(BOOST_PP_LESS(build, 50), RENDER_RC_STRING(BOOST_PP_SUB(build, 24)), \
+                            BOOST_PP_IF(BOOST_PP_EQUAL(build, 50), "", RENDER_DEV_STRING(BOOST_PP_SUB(build, 50)))))
 
 #define BUILD_DESC_WITH_SUFFIX(maj, min, rev, build, suffix) \
     "v" DO_STRINGIZE(maj) "." DO_STRINGIZE(min) "." DO_STRINGIZE(rev) RENDER_BUILD(build) "-" DO_STRINGIZE(suffix)
@@ -85,11 +77,16 @@ const std::string CLIENT_NAME("zen");
 
 #ifndef BUILD_DESC
 #ifdef BUILD_SUFFIX
-#define BUILD_DESC BUILD_DESC_WITH_SUFFIX(CLIENT_VERSION_MAJOR, CLIENT_VERSION_MINOR, CLIENT_VERSION_REVISION, CLIENT_VERSION_BUILD, BUILD_SUFFIX)
+#define BUILD_DESC                                                                                                    \
+    BUILD_DESC_WITH_SUFFIX(CLIENT_VERSION_MAJOR, CLIENT_VERSION_MINOR, CLIENT_VERSION_REVISION, CLIENT_VERSION_BUILD, \
+                           BUILD_SUFFIX)
 #elif defined(GIT_COMMIT_ID)
-#define BUILD_DESC BUILD_DESC_FROM_COMMIT(CLIENT_VERSION_MAJOR, CLIENT_VERSION_MINOR, CLIENT_VERSION_REVISION, CLIENT_VERSION_BUILD, GIT_COMMIT_ID)
+#define BUILD_DESC                                                                                                    \
+    BUILD_DESC_FROM_COMMIT(CLIENT_VERSION_MAJOR, CLIENT_VERSION_MINOR, CLIENT_VERSION_REVISION, CLIENT_VERSION_BUILD, \
+                           GIT_COMMIT_ID)
 #else
-#define BUILD_DESC BUILD_DESC_FROM_UNKNOWN(CLIENT_VERSION_MAJOR, CLIENT_VERSION_MINOR, CLIENT_VERSION_REVISION, CLIENT_VERSION_BUILD)
+#define BUILD_DESC \
+    BUILD_DESC_FROM_UNKNOWN(CLIENT_VERSION_MAJOR, CLIENT_VERSION_MINOR, CLIENT_VERSION_REVISION, CLIENT_VERSION_BUILD)
 #endif
 #endif
 
@@ -104,36 +101,33 @@ const std::string CLIENT_NAME("zen");
 const std::string CLIENT_BUILD(BUILD_DESC CLIENT_VERSION_SUFFIX);
 const std::string CLIENT_DATE(BUILD_DATE);
 
-std::string FormatVersion(int nVersion)
-{
+std::string FormatVersion(int nVersion) {
     if (nVersion % 100 < 25)
-        return strprintf("%d.%d.%d-beta%d", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100, (nVersion % 100) + 1);
+        return strprintf("%d.%d.%d-beta%d", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100,
+                         (nVersion % 100) + 1);
     if (nVersion % 100 < 50)
-        return strprintf("%d.%d.%d-rc%d", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100, (nVersion % 100) - 24);
+        return strprintf("%d.%d.%d-rc%d", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100,
+                         (nVersion % 100) - 24);
     else if (nVersion % 100 == 50)
         return strprintf("%d.%d.%d", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100);
     else
-        return strprintf("%d.%d.%d-%d", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100, (nVersion % 100) - 50);
+        return strprintf("%d.%d.%d-%d", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100,
+                         (nVersion % 100) - 50);
 }
 
-std::string FormatFullVersion()
-{
-    return CLIENT_BUILD;
-}
+std::string FormatFullVersion() { return CLIENT_BUILD; }
 
-/** 
- * Format the subversion field according to BIP 14 spec (https://github.com/bitcoin/bips/blob/master/bip-0014.mediawiki) 
+/**
+ * Format the subversion field according to BIP 14 spec (https://github.com/bitcoin/bips/blob/master/bip-0014.mediawiki)
  */
-std::string FormatSubVersion(const std::string& name, int nClientVersion, const std::vector<std::string>& comments)
-{
+std::string FormatSubVersion(const std::string& name, int nClientVersion, const std::vector<std::string>& comments) {
     std::ostringstream ss;
     ss << "/";
     ss << name << ":" << FormatVersion(nClientVersion);
     if (!comments.empty()) {
         std::vector<std::string>::const_iterator it(comments.begin());
         ss << "(" << *it;
-        for (++it; it != comments.end(); ++it)
-            ss << "; " << *it;
+        for (++it; it != comments.end(); ++it) ss << "; " << *it;
         ss << ")";
     }
     ss << "/";

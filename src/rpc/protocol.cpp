@@ -5,15 +5,16 @@
 
 #include "rpc/protocol.h"
 
+#include <stdint.h>
+
+#include <fstream>
+
 #include "random.h"
 #include "tinyformat.h"
 #include "util.h"
 #include "utilstrencodings.h"
 #include "utiltime.h"
 #include "version.h"
-
-#include <stdint.h>
-#include <fstream>
 
 using namespace std;
 
@@ -26,8 +27,7 @@ using namespace std;
  * 1.2 spec: http://jsonrpc.org/historical/json-rpc-over-http.html
  */
 
-string JSONRPCRequest(const string& strMethod, const UniValue& params, const UniValue& id)
-{
+string JSONRPCRequest(const string& strMethod, const UniValue& params, const UniValue& id) {
     UniValue request(UniValue::VOBJ);
     request.pushKV("method", strMethod);
     request.pushKV("params", params);
@@ -35,8 +35,7 @@ string JSONRPCRequest(const string& strMethod, const UniValue& params, const Uni
     return request.write() + "\n";
 }
 
-UniValue JSONRPCReplyObj(const UniValue& result, const UniValue& error, const UniValue& id)
-{
+UniValue JSONRPCReplyObj(const UniValue& result, const UniValue& error, const UniValue& id) {
     UniValue reply(UniValue::VOBJ);
     if (!error.isNull())
         reply.pushKV("result", NullUniValue);
@@ -47,14 +46,12 @@ UniValue JSONRPCReplyObj(const UniValue& result, const UniValue& error, const Un
     return reply;
 }
 
-string JSONRPCReply(const UniValue& result, const UniValue& error, const UniValue& id)
-{
+string JSONRPCReply(const UniValue& result, const UniValue& error, const UniValue& id) {
     UniValue reply = JSONRPCReplyObj(result, error, id);
     return reply.write() + "\n";
 }
 
-UniValue JSONRPCError(int code, const string& message)
-{
+UniValue JSONRPCError(int code, const string& message) {
     UniValue error(UniValue::VOBJ);
     error.pushKV("code", code);
     error.pushKV("message", message);
@@ -68,18 +65,16 @@ static const std::string COOKIEAUTH_USER = "__cookie__";
 /** Default name for auth cookie file */
 static const std::string COOKIEAUTH_FILE = ".cookie";
 
-boost::filesystem::path GetAuthCookieFile()
-{
+boost::filesystem::path GetAuthCookieFile() {
     boost::filesystem::path path(GetArg("-rpccookiefile", COOKIEAUTH_FILE));
     if (!path.is_complete()) path = GetDataDir() / path;
     return path;
 }
 
-bool GenerateAuthCookie(std::string *cookie_out)
-{
+bool GenerateAuthCookie(std::string* cookie_out) {
     unsigned char rand_pwd[32];
     GetRandBytes(rand_pwd, 32);
-    std::string cookie = COOKIEAUTH_USER + ":" + EncodeBase64(&rand_pwd[0],32);
+    std::string cookie = COOKIEAUTH_USER + ":" + EncodeBase64(&rand_pwd[0], 32);
 
     /** the umask determines what permissions are used to create this file -
      * these are set to 077 in init.cpp unless overridden with -sysperms.
@@ -95,33 +90,27 @@ bool GenerateAuthCookie(std::string *cookie_out)
     file.close();
     LogPrintf("Generated RPC authentication cookie %s\n", filepath.string());
 
-    if (cookie_out)
-        *cookie_out = cookie;
+    if (cookie_out) *cookie_out = cookie;
     return true;
 }
 
-bool GetAuthCookie(std::string *cookie_out)
-{
+bool GetAuthCookie(std::string* cookie_out) {
     std::ifstream file;
     std::string cookie;
     boost::filesystem::path filepath = GetAuthCookieFile();
     file.open(filepath.string().c_str());
-    if (!file.is_open())
-        return false;
+    if (!file.is_open()) return false;
     std::getline(file, cookie);
     file.close();
 
-    if (cookie_out)
-        *cookie_out = cookie;
+    if (cookie_out) *cookie_out = cookie;
     return true;
 }
 
-void DeleteAuthCookie()
-{
+void DeleteAuthCookie() {
     try {
         boost::filesystem::remove(GetAuthCookieFile());
     } catch (const boost::filesystem::filesystem_error& e) {
         LogPrintf("%s: Unable to remove random auth cookie file: %s\n", __func__, e.what());
     }
 }
-

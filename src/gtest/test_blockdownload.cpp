@@ -1,5 +1,5 @@
-#include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 #include "main.h"
 
@@ -29,18 +29,23 @@ TEST(initialblockdwnld, checkIBDState) {
     // 1.
     // fImporting, fReindex and fReindexFast supposedly initialized as false
     // Check that setting any of these variables allows IsInitialBlockDownload to return true
-    fImporting   = true; EXPECT_TRUE(IsInitialBlockDownload()); fImporting   = false;
-    fReindex     = true; EXPECT_TRUE(IsInitialBlockDownload()); fReindex     = false;
-    fReindexFast = true; EXPECT_TRUE(IsInitialBlockDownload()); fReindexFast = false;
+    fImporting = true;
+    EXPECT_TRUE(IsInitialBlockDownload());
+    fImporting = false;
+    fReindex = true;
+    EXPECT_TRUE(IsInitialBlockDownload());
+    fReindex = false;
+    fReindexFast = true;
+    EXPECT_TRUE(IsInitialBlockDownload());
+    fReindexFast = false;
 
     // 2.
     // Check that if fCheckpointsEnabled is set and the tip of activeChain is lower than
-    // Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints()) allows 
+    // Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints()) allows
     // IsInitialBlockDownload to return true
     fCheckpointsEnabled = true;
     CBlockIndex block1;
-    for (size_t blockHeight = 0; blockHeight < Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints()); ++blockHeight)
-    {
+    for (size_t blockHeight = 0; blockHeight < Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints()); ++blockHeight) {
         block1.nHeight = blockHeight;
         chainActive.SetTip(&block1);
         EXPECT_TRUE(IsInitialBlockDownload());

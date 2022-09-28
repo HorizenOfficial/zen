@@ -5,20 +5,21 @@
 #ifndef BITCOIN_TIMEDATA_H
 #define BITCOIN_TIMEDATA_H
 
-#include "netbase.h"
-#include "sync.h"
-#include <set>
 #include <stdint.h>
 
-class CTimeWarning
-{
-private:
+#include <set>
+
+#include "netbase.h"
+#include "sync.h"
+
+class CTimeWarning {
+  private:
     CCriticalSection cs;
     std::set<CNetAddr> setKnown;
     size_t nPeersAhead;
     size_t nPeersBehind;
 
-public:
+  public:
     static const size_t TIMEDATA_WARNING_SAMPLES = 8;
     static const size_t TIMEDATA_WARNING_MAJORITY = 6;
     static const size_t TIMEDATA_MAX_SAMPLES = 20;
@@ -32,7 +33,6 @@ public:
     virtual void Warn(size_t peersAhead, size_t peersBehind);
 };
 
-
 extern CTimeWarning timeWarning;
 
-#endif // BITCOIN_TIMEDATA_H
+#endif  // BITCOIN_TIMEDATA_H

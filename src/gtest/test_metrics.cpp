@@ -3,7 +3,6 @@
 #include "metrics.h"
 #include "utiltime.h"
 
-
 TEST(Metrics, AtomicTimer) {
     AtomicTimer t;
     SetMockTime(100);
@@ -103,25 +102,25 @@ TEST(Metrics, EstimateNetHeightInner) {
     EXPECT_EQ(100, EstimateNetHeightInner(101, 14250, 50, 7500, 0, 150));
 
     // Ensure that correct estimates are returned if the tip is in the past
-    SetMockTime(15300); // Tip is 2 blocks behind
+    SetMockTime(15300);  // Tip is 2 blocks behind
     EXPECT_EQ(100, EstimateNetHeightInner(100, 14100, 50, 7500, 0, 150));
-    SetMockTime(15900); // Tip is 6 blocks behind
+    SetMockTime(15900);  // Tip is 6 blocks behind
     EXPECT_EQ(110, EstimateNetHeightInner(100, 14100, 50, 7500, 0, 150));
 
     // Check estimates during resync
     SetMockTime(15000);
-    EXPECT_EQ(100, EstimateNetHeightInner( 0,     0, 50, 7500, 0, 150));
-    EXPECT_EQ(100, EstimateNetHeightInner( 7,   600, 50, 7500, 0, 150));
-    EXPECT_EQ(100, EstimateNetHeightInner( 8,   600, 50, 7500, 0, 150));
-    EXPECT_EQ(100, EstimateNetHeightInner(10,   750, 50, 7500, 0, 150));
-    EXPECT_EQ(100, EstimateNetHeightInner(11,   900, 50, 7500, 0, 150));
-    EXPECT_EQ(100, EstimateNetHeightInner(20,  2100, 50, 7500, 0, 150));
-    EXPECT_EQ(100, EstimateNetHeightInner(49,  6450, 50, 7500, 0, 150));
-    EXPECT_EQ(100, EstimateNetHeightInner(50,  6600, 50, 7500, 0, 150));
-    EXPECT_EQ(100, EstimateNetHeightInner(51,  6750, 50, 7500, 0, 150));
-    EXPECT_EQ(100, EstimateNetHeightInner(55,  7350, 50, 7500, 0, 150));
-    EXPECT_EQ(100, EstimateNetHeightInner(56,  7500, 50, 7500, 0, 150));
-    EXPECT_EQ(100, EstimateNetHeightInner(57,  7650, 50, 7500, 0, 150));
+    EXPECT_EQ(100, EstimateNetHeightInner(0, 0, 50, 7500, 0, 150));
+    EXPECT_EQ(100, EstimateNetHeightInner(7, 600, 50, 7500, 0, 150));
+    EXPECT_EQ(100, EstimateNetHeightInner(8, 600, 50, 7500, 0, 150));
+    EXPECT_EQ(100, EstimateNetHeightInner(10, 750, 50, 7500, 0, 150));
+    EXPECT_EQ(100, EstimateNetHeightInner(11, 900, 50, 7500, 0, 150));
+    EXPECT_EQ(100, EstimateNetHeightInner(20, 2100, 50, 7500, 0, 150));
+    EXPECT_EQ(100, EstimateNetHeightInner(49, 6450, 50, 7500, 0, 150));
+    EXPECT_EQ(100, EstimateNetHeightInner(50, 6600, 50, 7500, 0, 150));
+    EXPECT_EQ(100, EstimateNetHeightInner(51, 6750, 50, 7500, 0, 150));
+    EXPECT_EQ(100, EstimateNetHeightInner(55, 7350, 50, 7500, 0, 150));
+    EXPECT_EQ(100, EstimateNetHeightInner(56, 7500, 50, 7500, 0, 150));
+    EXPECT_EQ(100, EstimateNetHeightInner(57, 7650, 50, 7500, 0, 150));
     EXPECT_EQ(100, EstimateNetHeightInner(75, 10350, 50, 7500, 0, 150));
 
     // More complex calculations:

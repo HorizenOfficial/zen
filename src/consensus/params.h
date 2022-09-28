@@ -6,9 +6,10 @@
 #ifndef BITCOIN_CONSENSUS_PARAMS_H
 #define BITCOIN_CONSENSUS_PARAMS_H
 
-#include "uint256.h"
 #include <map>
 #include <string>
+
+#include "uint256.h"
 
 namespace Consensus {
 
@@ -36,9 +37,7 @@ struct Params {
      */
     int SubsidySlowStartShift() const { return nSubsidySlowStartInterval / 2; }
     int nSubsidyHalvingInterval;
-    int _deprecatedGetLastCommunityRewardBlockHeight() const {
-        return nSubsidyHalvingInterval + SubsidySlowStartShift() - 1;
-    }
+    int _deprecatedGetLastCommunityRewardBlockHeight() const { return nSubsidyHalvingInterval + SubsidySlowStartShift() - 1; }
     /** Used to check majorities for block version upgrade */
     int nMajorityEnforceBlockUpgrade;
     int nMajorityRejectBlockOutdated;
@@ -50,9 +49,9 @@ struct Params {
     int64_t nPowMaxAdjustUp;
     int64_t nPowTargetSpacing;
     int64_t AveragingWindowTimespan() const { return nPowAveragingWindow * nPowTargetSpacing; }
-    int64_t MinActualTimespan() const { return (AveragingWindowTimespan() * (100 - nPowMaxAdjustUp  )) / 100; }
+    int64_t MinActualTimespan() const { return (AveragingWindowTimespan() * (100 - nPowMaxAdjustUp)) / 100; }
     int64_t MaxActualTimespan() const { return (AveragingWindowTimespan() * (100 + nPowMaxAdjustDown)) / 100; }
 };
-} // namespace Consensus
+}  // namespace Consensus
 
-#endif // BITCOIN_CONSENSUS_PARAMS_H
+#endif  // BITCOIN_CONSENSUS_PARAMS_H

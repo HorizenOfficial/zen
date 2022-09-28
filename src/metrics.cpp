@@ -4,6 +4,11 @@
 
 #include "metrics.h"
 
+#include <string>
+
+#include <boost/thread.hpp>
+#include <boost/thread/synchronized_value.hpp>
+
 #include "chainparams.h"
 #include "checkpoints.h"
 #include "main.h"
@@ -12,10 +17,6 @@
 #include "utilmoneystr.h"
 #include "utilstrencodings.h"
 #include "utiltime.h"
-
-#include <boost/thread.hpp>
-#include <boost/thread/synchronized_value.hpp>
-#include <string>
 #ifdef WIN32
 #include <io.h>
 #else
@@ -27,8 +28,7 @@
 
 using namespace zen;
 
-void AtomicTimer::start()
-{
+void AtomicTimer::start() {
     std::unique_lock<std::mutex> lock(mtx);
     if (threads < 1) {
         start_time = GetTime();
@@ -36,8 +36,7 @@ void AtomicTimer::start()
     ++threads;
 }
 
-void AtomicTimer::stop()
-{
+void AtomicTimer::stop() {
     std::unique_lock<std::mutex> lock(mtx);
     // Ignore excess calls to stop()
     if (threads > 0) {
@@ -49,20 +48,17 @@ void AtomicTimer::stop()
     }
 }
 
-bool AtomicTimer::running()
-{
+bool AtomicTimer::running() {
     std::unique_lock<std::mutex> lock(mtx);
     return threads > 0;
 }
 
-uint64_t AtomicTimer::threadCount()
-{
+uint64_t AtomicTimer::threadCount() {
     std::unique_lock<std::mutex> lock(mtx);
     return threads;
 }
 
-double AtomicTimer::rate(const AtomicCounter& count)
-{
+double AtomicTimer::rate(const AtomicCounter& count) {
     std::unique_lock<std::mutex> lock(mtx);
     int64_t duration = total_time;
     if (threads > 0) {
@@ -90,84 +86,65 @@ bool loaded = false;
 
 extern int64_t GetNetworkHashPS(int lookup, int height);
 
-void TrackMinedBlock(uint256 hash)
-{
+void TrackMinedBlock(uint256 hash) {
     LOCK(cs_metrics);
     minedBlocks.increment();
     trackedBlocks->push_back(hash);
 }
 
-void MarkStartTime()
-{
-    *nNodeStartTime = GetTime();
-}
+void MarkStartTime() { *nNodeStartTime = GetTime(); }
 
-int64_t GetUptime()
-{
-    return GetTime() - *nNodeStartTime;
-}
+int64_t GetUptime() { return GetTime() - *nNodeStartTime; }
 
-double GetLocalSolPS()
-{
-    return miningTimer.rate(solutionTargetChecks);
-}
+double GetLocalSolPS() { return miningTimer.rate(solutionTargetChecks); }
 
-int EstimateNetHeightInner(int height, int64_t tipmediantime, int heightLastCheckpoint, int64_t timeLastCheckpoint, int64_t genesisTime, int64_t targetSpacing)
-{
+int EstimateNetHeightInner(int height, int64_t tipmediantime, int heightLastCheckpoint, int64_t timeLastCheckpoint,
+                           int64_t genesisTime, int64_t targetSpacing) {
     // We average the target spacing with the observed spacing to the last
     // checkpoint (either from below or above depending on the current height),
     // and use that to estimate the current network height.
-    int medianHeight = height > CBlockIndex::nMedianTimeSpan ?
-                           height - (1 + ((CBlockIndex::nMedianTimeSpan - 1) / 2)) :
-                           height / 2;
-    double checkpointSpacing = medianHeight > heightLastCheckpoint ?
-                                   (double(tipmediantime - timeLastCheckpoint)) / (medianHeight - heightLastCheckpoint) :
-                                   (double(timeLastCheckpoint - genesisTime)) / heightLastCheckpoint;
+    int medianHeight =
+        height > CBlockIndex::nMedianTimeSpan ? height - (1 + ((CBlockIndex::nMedianTimeSpan - 1) / 2)) : height / 2;
+    double checkpointSpacing = medianHeight > heightLastCheckpoint
+                                   ? (double(tipmediantime - timeLastCheckpoint)) / (medianHeight - heightLastCheckpoint)
+                                   : (double(timeLastCheckpoint - genesisTime)) / heightLastCheckpoint;
     double averageSpacing = (targetSpacing + checkpointSpacing) / 2;
     int netheight = medianHeight + ((GetTime() - tipmediantime) / averageSpacing);
     // Round to nearest ten to reduce noise
     return ((netheight + 5) / 10) * 10;
 }
 
-int EstimateNetHeight(int height, int64_t tipmediantime, CChainParams chainParams)
-{
+int EstimateNetHeight(int height, int64_t tipmediantime, CChainParams chainParams) {
     auto checkpointData = chainParams.Checkpoints();
-    return EstimateNetHeightInner(
-        height, tipmediantime,
-        Checkpoints::GetTotalBlocksEstimate(checkpointData),
-        checkpointData.nTimeLastCheckpoint,
-        chainParams.GenesisBlock().nTime,
-        chainParams.GetConsensus().nPowTargetSpacing);
+    return EstimateNetHeightInner(height, tipmediantime, Checkpoints::GetTotalBlocksEstimate(checkpointData),
+                                  checkpointData.nTimeLastCheckpoint, chainParams.GenesisBlock().nTime,
+                                  chainParams.GetConsensus().nPowTargetSpacing);
 }
 
-void TriggerRefresh()
-{
+void TriggerRefresh() {
     *nNextRefresh = GetTime();
     // Ensure that the refresh has started before we return
     MilliSleep(200);
 }
 
-static bool metrics_ThreadSafeMessageBox(const std::string& message,
-                                         const std::string& caption,
-                                         unsigned int style)
-{
+static bool metrics_ThreadSafeMessageBox(const std::string& message, const std::string& caption, unsigned int style) {
     // The SECURE flag has no effect in the metrics UI.
     style &= ~CClientUIInterface::SECURE;
 
     std::string strCaption;
     // Check for usage of predefined caption
     switch (style) {
-    case CClientUIInterface::MSG_ERROR:
-        strCaption += _("Error");
-        break;
-    case CClientUIInterface::MSG_WARNING:
-        strCaption += _("Warning");
-        break;
-    case CClientUIInterface::MSG_INFORMATION:
-        strCaption += _("Information");
-        break;
-    default:
-        strCaption += caption; // Use supplied caption (can be empty)
+        case CClientUIInterface::MSG_ERROR:
+            strCaption += _("Error");
+            break;
+        case CClientUIInterface::MSG_WARNING:
+            strCaption += _("Warning");
+            break;
+        case CClientUIInterface::MSG_INFORMATION:
+            strCaption += _("Information");
+            break;
+        default:
+            strCaption += caption;  // Use supplied caption (can be empty)
     }
 
     boost::strict_lock_ptr<std::list<std::string>> u = messageBox.synchronize();
@@ -180,18 +157,14 @@ static bool metrics_ThreadSafeMessageBox(const std::string& message,
     return false;
 }
 
-static bool metrics_ThreadSafeQuestion(const std::string& /* ignored interactive message */, const std::string& message, const std::string& caption, unsigned int style)
-{
+static bool metrics_ThreadSafeQuestion(const std::string& /* ignored interactive message */, const std::string& message,
+                                       const std::string& caption, unsigned int style) {
     return metrics_ThreadSafeMessageBox(message, caption, style);
 }
 
-static void metrics_InitMessage(const std::string& message)
-{
-    *initMessage = message;
-}
+static void metrics_InitMessage(const std::string& message) { *initMessage = message; }
 
-void ConnectMetricsScreen()
-{
+void ConnectMetricsScreen() {
     uiInterface.ThreadSafeMessageBox.disconnect_all_slots();
     uiInterface.ThreadSafeMessageBox.connect(metrics_ThreadSafeMessageBox);
     uiInterface.ThreadSafeQuestion.disconnect_all_slots();
@@ -200,8 +173,7 @@ void ConnectMetricsScreen()
     uiInterface.InitMessage.connect(metrics_InitMessage);
 }
 
-int printStats(bool mining)
-{
+int printStats(bool mining) {
     // Number of lines that are always displayed
     int lines = 5;
 
@@ -267,8 +239,7 @@ int printStats(bool mining)
     return lines;
 }
 
-int printMiningStatus(bool mining)
-{
+int printMiningStatus(bool mining) {
 #ifdef ENABLE_MINING
     // Number of lines that are always displayed
     int lines = 1;
@@ -276,8 +247,8 @@ int printMiningStatus(bool mining)
     if (mining) {
         auto nThreads = miningTimer.threadCount();
         if (nThreads > 0) {
-            std::cout << strprintf(_("You are mining with the %s solver on %d threads."),
-                                   GetArg("-equihashsolver", "default"), nThreads)
+            std::cout << strprintf(_("You are mining with the %s solver on %d threads."), GetArg("-equihashsolver", "default"),
+                                   nThreads)
                       << std::endl;
         } else {
             bool fvNodesEmpty;
@@ -302,13 +273,12 @@ int printMiningStatus(bool mining)
     std::cout << std::endl;
 
     return lines;
-#else  // ENABLE_MINING
+#else   // ENABLE_MINING
     return 0;
-#endif // !ENABLE_MINING
+#endif  // !ENABLE_MINING
 }
 
-int printMetrics(size_t cols, bool mining)
-{
+int printMetrics(size_t cols, bool mining) {
     // Number of lines that are always displayed
     int lines = 3;
 
@@ -361,12 +331,12 @@ int printMetrics(size_t cols, bool mining)
             std::list<uint256>::iterator it = u->begin();
             while (it != u->end()) {
                 auto hash = *it;
-                if (mapBlockIndex.count(hash) > 0 &&
-                    chainActive.Contains(mapBlockIndex[hash])) {
+                if (mapBlockIndex.count(hash) > 0 && chainActive.Contains(mapBlockIndex[hash])) {
                     int height = mapBlockIndex[hash]->nHeight;
                     CAmount reward = GetBlockSubsidy(height, consensusParams);
                     CAmount subsidy = reward;
-                    for (Fork::CommunityFundType cfType = Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
+                    for (Fork::CommunityFundType cfType = Fork::CommunityFundType::FOUNDATION;
+                         cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
                         CAmount communityFundAmount = ForkManager::getInstance().getCommunityFundReward(height, reward, cfType);
                         subsidy -= communityFundAmount;
                     }
@@ -389,10 +359,8 @@ int printMetrics(size_t cols, bool mining)
             std::string units = Params().CurrencyUnits();
             std::cout << "- " << strprintf(_("You have mined %d blocks!"), mined) << std::endl;
             std::cout << "  "
-                      << strprintf(_("Orphaned: %d blocks, Immature: %u %s, Mature: %u %s"),
-                                   orphaned,
-                                   FormatMoney(immature), units,
-                                   FormatMoney(mature), units)
+                      << strprintf(_("Orphaned: %d blocks, Immature: %u %s, Mature: %u %s"), orphaned, FormatMoney(immature),
+                                   units, FormatMoney(mature), units)
                       << std::endl;
             lines += 2;
         }
@@ -402,8 +370,7 @@ int printMetrics(size_t cols, bool mining)
     return lines;
 }
 
-int printMessageBox(size_t cols)
-{
+int printMessageBox(size_t cols) {
     boost::strict_lock_ptr<std::list<std::string>> u = messageBox.synchronize();
 
     if (u->size() == 0) {
@@ -433,8 +400,7 @@ int printMessageBox(size_t cols)
     return lines;
 }
 
-int printInitMessage()
-{
+int printInitMessage() {
     if (loaded) {
         return 0;
     }
@@ -452,8 +418,7 @@ int printInitMessage()
 #ifdef WIN32
 #define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
 
-bool enableVTMode()
-{
+bool enableVTMode() {
     // Set output mode to handle virtual terminal sequences
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
     if (hOut == INVALID_HANDLE_VALUE) {
@@ -473,8 +438,7 @@ bool enableVTMode()
 }
 #endif
 
-void ThreadShowMetricsScreen()
-{
+void ThreadShowMetricsScreen() {
     // Make this thread recognisable as the metrics screen thread
     RenameThread("horizen-metrics-screen");
 
@@ -498,8 +462,7 @@ void ThreadShowMetricsScreen()
         std::cout << _("Zen is economic freedom. Thanks for running a node.") << std::endl;
         std::cout << _("仕方が無い") << std::endl;
         std::cout << _("Shikata ga nai.") << std::endl;
-        std::cout << _("它不能得到帮助") << std::endl
-                  << std::endl;
+        std::cout << _("它不能得到帮助") << std::endl << std::endl;
 
         // Privacy notice text
         std::cout << PrivacyInfo();
@@ -548,7 +511,7 @@ void ThreadShowMetricsScreen()
 
         if (isScreen) {
             // Explain how to exit
-            //std::cout << "[" << _("Press Ctrl+C to exit") << "] [" << _("Set 'showmetrics=0' to hide") << "]" << std::endl;
+            // std::cout << "[" << _("Press Ctrl+C to exit") << "] [" << _("Set 'showmetrics=0' to hide") << "]" << std::endl;
             std::cout << "[";
 #ifdef WIN32
             std::cout << _("'zen-cli.exe stop' to exit");

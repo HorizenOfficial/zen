@@ -5,32 +5,32 @@
 #ifndef ZCASH_AMQP_AMQPNOTIFICATIONINTERFACE_H
 #define ZCASH_AMQP_AMQPNOTIFICATIONINTERFACE_H
 
-#include "validationinterface.h"
-#include <string>
 #include <map>
+#include <string>
+
+#include "validationinterface.h"
 
 class CBlockIndex;
 class AMQPAbstractNotifier;
 
-class AMQPNotificationInterface : public CValidationInterface
-{
-public:
+class AMQPNotificationInterface : public CValidationInterface {
+  public:
     virtual ~AMQPNotificationInterface();
 
-    static AMQPNotificationInterface* CreateWithArguments(const std::map<std::string, std::string> &args);
+    static AMQPNotificationInterface* CreateWithArguments(const std::map<std::string, std::string>& args);
 
-protected:
+  protected:
     bool Initialize();
     void Shutdown();
 
     // CValidationInterface
-    void SyncTransaction(const CTransaction &tx, const CBlock *pblock);
-    void UpdatedBlockTip(const CBlockIndex *pindex);
+    void SyncTransaction(const CTransaction& tx, const CBlock* pblock);
+    void UpdatedBlockTip(const CBlockIndex* pindex);
 
-private:
+  private:
     AMQPNotificationInterface();
 
     std::list<AMQPAbstractNotifier*> notifiers;
 };
 
-#endif // ZCASH_AMQP_AMQPNOTIFICATIONINTERFACE_H
+#endif  // ZCASH_AMQP_AMQPNOTIFICATIONINTERFACE_H

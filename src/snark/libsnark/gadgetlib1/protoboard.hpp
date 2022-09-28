@@ -13,41 +13,44 @@
 #include <cstdio>
 #include <string>
 #include <vector>
+
+#include "common/utils.hpp"
 #include "gadgetlib1/pb_variable.hpp"
 #include "relations/constraint_satisfaction_problems/r1cs/r1cs.hpp"
-#include "common/utils.hpp"
 
 namespace libsnark {
 
-template<typename FieldT>
+template <typename FieldT>
 class r1cs_constraint;
 
-template<typename FieldT>
+template <typename FieldT>
 class r1cs_constraint_system;
 
-template<typename FieldT>
+template <typename FieldT>
 class protoboard {
-private:
+  private:
     FieldT constant_term; /* only here, because pb.val() needs to be able to return reference to the constant 1 term */
-    r1cs_variable_assignment<FieldT> values; /* values[0] will hold the value of the first allocated variable of the protoboard, *NOT* constant 1 */
+    r1cs_variable_assignment<FieldT>
+        values; /* values[0] will hold the value of the first allocated variable of the protoboard, *NOT* constant 1 */
     var_index_t next_free_var;
     lc_index_t next_free_lc;
     std::vector<FieldT> lc_values;
-public:
+
+  public:
     r1cs_constraint_system<FieldT> constraint_system;
-    
+
     protoboard();
 
     void clear_values();
 
-    FieldT& val(const pb_variable<FieldT> &var);
-    FieldT val(const pb_variable<FieldT> &var) const;
+    FieldT& val(const pb_variable<FieldT>& var);
+    FieldT val(const pb_variable<FieldT>& var) const;
 
-    FieldT& lc_val(const pb_linear_combination<FieldT> &lc);
-    FieldT lc_val(const pb_linear_combination<FieldT> &lc) const;
+    FieldT& lc_val(const pb_linear_combination<FieldT>& lc);
+    FieldT lc_val(const pb_linear_combination<FieldT>& lc) const;
 
-    void add_r1cs_constraint(const r1cs_constraint<FieldT> &constr, const std::string &annotation="");
-    void augment_variable_annotation(const pb_variable<FieldT> &v, const std::string &postfix);
+    void add_r1cs_constraint(const r1cs_constraint<FieldT>& constr, const std::string& annotation = "");
+    void augment_variable_annotation(const pb_variable<FieldT>& v, const std::string& postfix);
     bool is_satisfied() const;
     void dump_variables() const;
 
@@ -65,11 +68,11 @@ public:
     friend class pb_variable<FieldT>;
     friend class pb_linear_combination<FieldT>;
 
-private:
-    var_index_t allocate_var_index(const std::string &annotation="");
+  private:
+    var_index_t allocate_var_index(const std::string& annotation = "");
     lc_index_t allocate_lc_index();
 };
 
-} // libsnark
+}  // namespace libsnark
 #include "gadgetlib1/protoboard.tcc"
-#endif // PROTOBOARD_HPP_
+#endif  // PROTOBOARD_HPP_

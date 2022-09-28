@@ -25,9 +25,8 @@ class CScriptID;
  *  Other scripts up to 121 bytes require 1 byte + script length. Above
  *  that, scripts up to 16505 bytes require 2 bytes + script length.
  */
-class CScriptCompressor
-{
-private:
+class CScriptCompressor {
+  private:
     /**
      * make this static for now (there are only 6 special scripts defined)
      * this can potentially be extended together with a new nVersion for
@@ -38,7 +37,7 @@ private:
 
     CScript& script;
 
-protected:
+  protected:
     /**
      * These check for scripts for which a special case with a shorter encoding is defined.
      * They are implemented separately from the CScript test, as these test for exact byte
@@ -54,21 +53,18 @@ protected:
     unsigned int GetSpecialSize(unsigned int nSize) const;
     bool Decompress(unsigned int nSize, const std::vector<unsigned char>& out);
 
-public:
+  public:
     CScriptCompressor(CScript& scriptIn) : script(scriptIn) {}
 
-    unsigned int GetSerializeSize(int nType, int nVersion) const
-    {
+    unsigned int GetSerializeSize(int nType, int nVersion) const {
         std::vector<unsigned char> compr;
-        if (Compress(compr))
-            return compr.size();
+        if (Compress(compr)) return compr.size();
         unsigned int nSize = script.size() + nSpecialScripts;
         return script.size() + VARINT(nSize).GetSerializeSize(nType, nVersion);
     }
 
     template <typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const
-    {
+    void Serialize(Stream& s, int nType, int nVersion) const {
         std::vector<unsigned char> compr;
         if (Compress(compr)) {
             s << CFlatData(compr);
@@ -80,8 +76,7 @@ public:
     }
 
     template <typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion)
-    {
+    void Unserialize(Stream& s, int nType, int nVersion) {
         unsigned int nSize = 0;
         s >> VARINT(nSize);
         if (nSize < nSpecialScripts) {
@@ -103,12 +98,11 @@ public:
 };
 
 /** wrapper for CTxOut that provides a more compact serialization */
-class CTxOutCompressor
-{
-private:
+class CTxOutCompressor {
+  private:
     CTxOut& txout;
 
-public:
+  public:
     static uint64_t CompressAmount(uint64_t nAmount);
     static uint64_t DecompressAmount(uint64_t nAmount);
 
@@ -117,8 +111,7 @@ public:
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
-    {
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         if (!ser_action.ForRead()) {
             uint64_t nVal = CompressAmount(txout.nValue);
             READWRITE(VARINT(nVal));
@@ -132,4 +125,4 @@ public:
     }
 };
 
-#endif // BITCOIN_COMPRESSOR_H
+#endif  // BITCOIN_COMPRESSOR_H

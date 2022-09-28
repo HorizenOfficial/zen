@@ -6,23 +6,21 @@
 #ifndef BITCOIN_WALLET_DB_H
 #define BITCOIN_WALLET_DB_H
 
-#include "clientversion.h"
-#include "streams.h"
-#include "sync.h"
-
 #include <map>
 #include <string>
 #include <vector>
 
 #include <boost/filesystem/path.hpp>
-
 #include <db_cxx.h>
+
+#include "clientversion.h"
+#include "streams.h"
+#include "sync.h"
 
 extern unsigned int nWalletDBUpdated;
 
-class CDBEnv
-{
-private:
+class CDBEnv {
+  private:
     bool fDbEnvInit;
     bool fMockDb;
     // Don't change into boost::filesystem::path, as that can result in
@@ -31,9 +29,9 @@ private:
 
     void EnvShutdown();
 
-public:
+  public:
     mutable CCriticalSection cs_db;
-    DbEnv *dbenv;
+    DbEnv* dbenv;
     std::map<std::string, int> mapFileUseCount;
     std::map<std::string, Db*> mapDb;
 
@@ -50,9 +48,12 @@ public:
      * This must be called BEFORE strFile is opened.
      * Returns true if strFile is OK.
      */
-    enum VerifyResult { VERIFY_OK,
-                        RECOVER_OK,
-                        RECOVER_FAIL };
+    enum VerifyResult
+    {
+        VERIFY_OK,
+        RECOVER_OK,
+        RECOVER_FAIL
+    };
     VerifyResult Verify(const std::string& strFile, bool (*recoverFunc)(CDBEnv& dbenv, const std::string& strFile));
     /**
      * Salvage data from a file that Verify says is bad.
@@ -72,46 +73,40 @@ public:
     void CloseDb(const std::string& strFile);
     bool RemoveDb(const std::string& strFile);
 
-    DbTxn* TxnBegin(int flags = DB_TXN_WRITE_NOSYNC)
-    {
+    DbTxn* TxnBegin(int flags = DB_TXN_WRITE_NOSYNC) {
         DbTxn* ptxn = NULL;
         int ret = dbenv->txn_begin(NULL, &ptxn, flags);
-        if (!ptxn || ret != 0)
-            return NULL;
+        if (!ptxn || ret != 0) return NULL;
         return ptxn;
     }
 };
 
 extern CDBEnv bitdb;
 
-
 /** RAII class that provides access to a Berkeley database */
-class CDB
-{
-protected:
+class CDB {
+  protected:
     Db* pdb;
     std::string strFile;
     DbTxn* activeTxn;
     bool fReadOnly;
     bool fFlushOnClose;
 
-    explicit CDB(const std::string& strFilename, const char* pszMode = "r+", bool fFlushOnCloseIn=true);
+    explicit CDB(const std::string& strFilename, const char* pszMode = "r+", bool fFlushOnCloseIn = true);
     ~CDB() { Close(); }
 
-public:
+  public:
     void Flush();
     void Close();
 
-private:
+  private:
     CDB(const CDB&);
     void operator=(const CDB&);
 
-protected:
+  protected:
     template <typename K, typename T>
-    bool Read(const K& key, T& value)
-    {
-        if (!pdb)
-            return false;
+    bool Read(const K& key, T& value) {
+        if (!pdb) return false;
 
         // Key
         CDataStream ssKey(SER_DISK, CLIENT_VERSION);
@@ -124,12 +119,12 @@ protected:
         datValue.set_flags(DB_DBT_MALLOC);
         int ret = pdb->get(activeTxn, &datKey, &datValue, 0);
         memset(datKey.get_data(), 0, datKey.get_size());
-        if (datValue.get_data() == NULL)
-            return false;
+        if (datValue.get_data() == NULL) return false;
 
         // Unserialize value
         try {
-            CDataStream ssValue((char*)datValue.get_data(), (char*)datValue.get_data() + datValue.get_size(), SER_DISK, CLIENT_VERSION);
+            CDataStream ssValue((char*)datValue.get_data(), (char*)datValue.get_data() + datValue.get_size(), SER_DISK,
+                                CLIENT_VERSION);
             ssValue >> value;
         } catch (const std::exception&) {
             return false;
@@ -142,12 +137,9 @@ protected:
     }
 
     template <typename K, typename T>
-    bool Write(const K& key, const T& value, bool fOverwrite = true)
-    {
-        if (!pdb)
-            return false;
-        if (fReadOnly)
-            assert(!"Write called on database in read-only mode");
+    bool Write(const K& key, const T& value, bool fOverwrite = true) {
+        if (!pdb) return false;
+        if (fReadOnly) assert(!"Write called on database in read-only mode");
 
         // Key
         CDataStream ssKey(SER_DISK, CLIENT_VERSION);
@@ -171,12 +163,9 @@ protected:
     }
 
     template <typename K>
-    bool Erase(const K& key)
-    {
-        if (!pdb)
-            return false;
-        if (fReadOnly)
-            assert(!"Erase called on database in read-only mode");
+    bool Erase(const K& key) {
+        if (!pdb) return false;
+        if (fReadOnly) assert(!"Erase called on database in read-only mode");
 
         // Key
         CDataStream ssKey(SER_DISK, CLIENT_VERSION);
@@ -193,10 +182,8 @@ protected:
     }
 
     template <typename K>
-    bool Exists(const K& key)
-    {
-        if (!pdb)
-            return false;
+    bool Exists(const K& key) {
+        if (!pdb) return false;
 
         // Key
         CDataStream ssKey(SER_DISK, CLIENT_VERSION);
@@ -212,19 +199,15 @@ protected:
         return (ret == 0);
     }
 
-    Dbc* GetCursor()
-    {
-        if (!pdb)
-            return NULL;
+    Dbc* GetCursor() {
+        if (!pdb) return NULL;
         Dbc* pcursor = NULL;
         int ret = pdb->cursor(NULL, &pcursor, 0);
-        if (ret != 0)
-            return NULL;
+        if (ret != 0) return NULL;
         return pcursor;
     }
 
-    int ReadAtCursor(Dbc* pcursor, CDataStream& ssKey, CDataStream& ssValue, unsigned int fFlags = DB_NEXT)
-    {
+    int ReadAtCursor(Dbc* pcursor, CDataStream& ssKey, CDataStream& ssValue, unsigned int fFlags = DB_NEXT) {
         // Read at cursor
         Dbt datKey;
         if (fFlags == DB_SET || fFlags == DB_SET_RANGE || fFlags == DB_GET_BOTH || fFlags == DB_GET_BOTH_RANGE) {
@@ -260,48 +243,37 @@ protected:
         return 0;
     }
 
-public:
-    bool TxnBegin()
-    {
-        if (!pdb || activeTxn)
-            return false;
+  public:
+    bool TxnBegin() {
+        if (!pdb || activeTxn) return false;
         DbTxn* ptxn = bitdb.TxnBegin();
-        if (!ptxn)
-            return false;
+        if (!ptxn) return false;
         activeTxn = ptxn;
         return true;
     }
 
-    bool TxnCommit()
-    {
-        if (!pdb || !activeTxn)
-            return false;
+    bool TxnCommit() {
+        if (!pdb || !activeTxn) return false;
         int ret = activeTxn->commit(0);
         activeTxn = NULL;
         return (ret == 0);
     }
 
-    bool TxnAbort()
-    {
-        if (!pdb || !activeTxn)
-            return false;
+    bool TxnAbort() {
+        if (!pdb || !activeTxn) return false;
         int ret = activeTxn->abort();
         activeTxn = NULL;
         return (ret == 0);
     }
 
-    bool ReadVersion(int& nVersion)
-    {
+    bool ReadVersion(int& nVersion) {
         nVersion = 0;
         return Read(std::string("version"), nVersion);
     }
 
-    bool WriteVersion(int nVersion)
-    {
-        return Write(std::string("version"), nVersion);
-    }
+    bool WriteVersion(int nVersion) { return Write(std::string("version"), nVersion); }
 
     bool static Rewrite(const std::string& strFile, const char* pszSkip = NULL);
 };
 
-#endif // BITCOIN_WALLET_DB_H
+#endif  // BITCOIN_WALLET_DB_H

@@ -15,7 +15,7 @@
 #ifdef ENABLE_ADDRESS_INDEXING
 #include "addressindex.h"
 #include "spentindex.h"
-#endif // ENABLE_ADDRESS_INDEXING
+#endif  // ENABLE_ADDRESS_INDEXING
 
 #include "amount.h"
 #include "coins.h"
@@ -25,16 +25,15 @@
 
 class CAutoFile;
 
-inline double AllowFreeThreshold()
-{
-    // the threshold represents a one day old, 1 ZEN coin (144*4 is the expected number of blocks per day) and a transaction size of 250 bytes.
+inline double AllowFreeThreshold() {
+    // the threshold represents a one day old, 1 ZEN coin (144*4 is the expected number of blocks per day) and a transaction
+    // size of 250 bytes.
     // TODO, check this: should be:
     // return COIN * 144 * 4 / 250;
     return COIN * 144 / 250;
 }
 
-inline bool AllowFree(double dPriority)
-{
+inline bool AllowFree(double dPriority) {
     // Large (in bytes) low-priority (new, small-coin) transactions
     // need a fee.
     return dPriority > AllowFreeThreshold();
@@ -43,16 +42,15 @@ inline bool AllowFree(double dPriority)
 /** Fake height value used in CCoins to signify they are only in the memory pool (since 0.8) */
 static const unsigned int MEMPOOL_HEIGHT = 0x7FFFFFFF;
 
-class CMemPoolEntry
-{
-protected:
-    CAmount nFee;         //! Cached to avoid expensive parent-transaction lookups
-    size_t nModSize;      //! ... and modified size for priority
-    size_t nUsageSize;    //! ... and total memory usage
-    int64_t nTime;        //! Local time when entering the mempool
-    double dPriority;     //! Priority when entering the mempool
-    unsigned int nHeight; //! Chain height when entering the mempool
-public:
+class CMemPoolEntry {
+  protected:
+    CAmount nFee;          //! Cached to avoid expensive parent-transaction lookups
+    size_t nModSize;       //! ... and modified size for priority
+    size_t nUsageSize;     //! ... and total memory usage
+    int64_t nTime;         //! Local time when entering the mempool
+    double dPriority;      //! Priority when entering the mempool
+    unsigned int nHeight;  //! Chain height when entering the mempool
+  public:
     CMemPoolEntry();
     CMemPoolEntry(const CAmount& _nFee, int64_t _nTime, double _dPriority, unsigned int _nHeight);
     virtual ~CMemPoolEntry() = default;
@@ -66,15 +64,15 @@ public:
 /**
  * CTxMemPool stores these:
  */
-class CTxMemPoolEntry : public CMemPoolEntry
-{
-private:
+class CTxMemPoolEntry : public CMemPoolEntry {
+  private:
     CTransaction tx;
-    size_t nTxSize;         //! ... and avoid recomputing tx size
-    bool hadNoDependencies; //! Not dependent on any other txs when it entered the mempool
+    size_t nTxSize;          //! ... and avoid recomputing tx size
+    bool hadNoDependencies;  //! Not dependent on any other txs when it entered the mempool
 
-public:
-    CTxMemPoolEntry(const CTransaction& _tx, const CAmount& _nFee, int64_t _nTime, double _dPriority, unsigned int _nHeight, bool poolHasNoInputsOf = false);
+  public:
+    CTxMemPoolEntry(const CTransaction& _tx, const CAmount& _nFee, int64_t _nTime, double _dPriority, unsigned int _nHeight,
+                    bool poolHasNoInputsOf = false);
     CTxMemPoolEntry();
 
     const CTransaction& GetTx() const { return this->tx; }
@@ -83,19 +81,14 @@ public:
     bool WasClearAtEntry() const { return hadNoDependencies; }
 };
 
-class CCertificateMemPoolEntry : public CMemPoolEntry
-{
-private:
+class CCertificateMemPoolEntry : public CMemPoolEntry {
+  private:
     CScCertificate cert;
-    size_t nCertificateSize; //! ... and avoid recomputing tx size
+    size_t nCertificateSize;  //! ... and avoid recomputing tx size
 
-public:
-    CCertificateMemPoolEntry(
-        const CScCertificate& _cert,
-        const CAmount& _nFee,
-        int64_t _nTime,
-        double _dPriority,
-        unsigned int _nHeight);
+  public:
+    CCertificateMemPoolEntry(const CScCertificate& _cert, const CAmount& _nFee, int64_t _nTime, double _dPriority,
+                             unsigned int _nHeight);
     CCertificateMemPoolEntry();
 
     const CScCertificate& GetCertificate() const { return this->cert; }
@@ -106,16 +99,14 @@ public:
 class CBlockPolicyEstimator;
 
 /** An inpoint - a combination of a transaction and an index n into its vin */
-class CInPoint
-{
-public:
+class CInPoint {
+  public:
     const CTransactionBase* ptx;
     uint32_t n;
 
     CInPoint() { SetNull(); }
     CInPoint(const CTransactionBase* ptxIn, uint32_t nIn) : ptx(ptxIn), n(nIn) {}
-    void SetNull()
-    {
+    void SetNull() {
         ptx = nullptr;
         n = (uint32_t)-1;
     }
@@ -126,22 +117,17 @@ public:
 struct CSidechainMemPoolEntry {
     uint256 scCreationTxHash;
     std::set<uint256> fwdTxHashes;
-    std::map<int64_t, uint256> mBackwardCertificates; //quality -> certHash
+    std::map<int64_t, uint256> mBackwardCertificates;  // quality -> certHash
     std::set<uint256> mcBtrsTxHashes;
-    std::map<CFieldElement, uint256> cswNullifiers; // csw nullifier -> containing Tx hash
+    std::map<CFieldElement, uint256> cswNullifiers;  // csw nullifier -> containing Tx hash
     CAmount cswTotalAmount;
 
     // Note: in fwdTxHashes and mcBtrsTxHashes, a tx is registered only once,
     // even if sends multiple fwts/btrs founds to a sidechain.
     // Upon removal we will need to guard against potential double deletes.
-    bool IsNull() const
-    {
-        return scCreationTxHash.IsNull() &&
-               fwdTxHashes.empty() &&
-               mBackwardCertificates.empty() &&
-               mcBtrsTxHashes.empty() &&
-               cswNullifiers.empty() &&
-               cswTotalAmount == 0;
+    bool IsNull() const {
+        return scCreationTxHash.IsNull() && fwdTxHashes.empty() && mBackwardCertificates.empty() && mcBtrsTxHashes.empty() &&
+               cswNullifiers.empty() && cswTotalAmount == 0;
     }
 
     const std::map<int64_t, uint256>::const_reverse_iterator GetTopQualityCert() const;
@@ -161,17 +147,16 @@ struct CSidechainMemPoolEntry {
  * an input of a transaction in the pool, it is dropped,
  * as are non-standard transactions.
  */
-class CTxMemPool
-{
-private:
-    bool fSanityCheck; //! Normally false, true if -checkmempool or -regtest
+class CTxMemPool {
+  private:
+    bool fSanityCheck;  //! Normally false, true if -checkmempool or -regtest
     unsigned int nTransactionsUpdated;
     unsigned int nCertificatesUpdated;
     CBlockPolicyEstimator* minerPolicyEstimator;
 
-    uint64_t totalTxSize = 0;          //! sum of all mempool tx' byte sizes
-    uint64_t totalCertificateSize = 0; //! sum of all mempool tx' byte sizes
-    uint64_t cachedInnerUsage;         //! sum of dynamic memory usage of all the map elements (NOT the maps themselves)
+    uint64_t totalTxSize = 0;           //! sum of all mempool tx' byte sizes
+    uint64_t totalCertificateSize = 0;  //! sum of all mempool tx' byte sizes
+    uint64_t cachedInnerUsage;          //! sum of dynamic memory usage of all the map elements (NOT the maps themselves)
 
     bool checkTxImmatureExpenditures(const CTransaction& tx, const CCoinsViewCache* const pcoins);
     bool checkCertImmatureExpenditures(const CScCertificate& cert, const CCoinsViewCache* const pcoins);
@@ -192,9 +177,9 @@ private:
 
     typedef std::map<uint256, std::vector<CSpentIndexKey>> mapSpentIndexInserted;
     mapSpentIndexInserted mapSpentInserted;
-#endif // ENABLE_ADDRESS_INDEXING
+#endif  // ENABLE_ADDRESS_INDEXING
 
-public:
+  public:
     mutable CCriticalSection cs;
     std::map<uint256, CTxMemPoolEntry> mapTx;
     std::map<uint256, CCertificateMemPoolEntry> mapCertificate;
@@ -240,7 +225,7 @@ public:
     void addSpentIndex(const CTransactionBase& txBase, const CCoinsViewCache& view);
     bool getSpentIndex(CSpentIndexKey& key, CSpentIndexValue& value);
     bool removeSpentIndex(const uint256& txBaseHash);
-#endif // ENABLE_ADDRESS_INDEXING
+#endif  // ENABLE_ADDRESS_INDEXING
 
     std::vector<uint256> mempoolDirectDependenciesFrom(const CTransactionBase& root) const;
     std::vector<uint256> mempoolDirectDependenciesOf(const CTransactionBase& root) const;
@@ -248,30 +233,28 @@ public:
     std::vector<uint256> mempoolDependenciesFrom(const CTransactionBase& origTx) const;
     std::vector<uint256> mempoolDependenciesOf(const CTransactionBase& origTx) const;
 
-    void remove(const CTransactionBase& origTx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive = false);
+    void remove(const CTransactionBase& origTx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts,
+                bool fRecursive = false);
 
     void removeWithAnchor(const uint256& invalidRoot);
 
     // UNCONFIRMED TRANSACTIONS CLEANUP METHODS
-    void removeForBlock(const std::vector<CTransaction>& vtx, unsigned int nBlockHeight, std::list<CTransaction>& conflictingTxs, std::list<CScCertificate>& removedCerts, bool fCurrentEstimate = true);
-    void removeConflicts(const CTransaction& tx,
-                         std::list<CTransaction>& removedTxs,
-                         std::list<CScCertificate>& removedCerts);
-    void removeOutOfScBalanceCsw(const CCoinsViewCache* const pCoinsView,
-                                 std::list<CTransaction>& removedTxs,
+    void removeForBlock(const std::vector<CTransaction>& vtx, unsigned int nBlockHeight,
+                        std::list<CTransaction>& conflictingTxs, std::list<CScCertificate>& removedCerts,
+                        bool fCurrentEstimate = true);
+    void removeConflicts(const CTransaction& tx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
+    void removeOutOfScBalanceCsw(const CCoinsViewCache* const pCoinsView, std::list<CTransaction>& removedTxs,
                                  std::list<CScCertificate>& removedCerts);
-    void removeStaleTransactions(const CCoinsViewCache* const pCoinsView,
-                                 std::list<CTransaction>& outdatedTxs,
+    void removeStaleTransactions(const CCoinsViewCache* const pCoinsView, std::list<CTransaction>& outdatedTxs,
                                  std::list<CScCertificate>& outdatedCerts);
     // END OF UNCONFIRMED TRANSACTIONS CLEANUP METHODS
 
     // UNCONFIRMED CERTIFICATES CLEANUP METHODS
-    void removeForBlock(const std::vector<CScCertificate>& vcert, unsigned int nBlockHeight, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
-    void removeConflicts(const CScCertificate& cert,
-                         std::list<CTransaction>& removedTxs,
+    void removeForBlock(const std::vector<CScCertificate>& vcert, unsigned int nBlockHeight,
+                        std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
+    void removeConflicts(const CScCertificate& cert, std::list<CTransaction>& removedTxs,
                          std::list<CScCertificate>& removedCerts);
-    void removeStaleCertificates(const CCoinsViewCache* const pCoinsView,
-                                 std::list<CScCertificate>& outdatedCerts);
+    void removeStaleCertificates(const CCoinsViewCache* const pCoinsView, std::list<CScCertificate>& outdatedCerts);
     // END OF UNCONFIRMED CERTIFICATES CLEANUP METHODS
 
     void clear();
@@ -286,92 +269,79 @@ public:
     bool HasNoInputsOf(const CTransaction& tx) const;
 
     /** Affect CreateNewBlock prioritisation of transactions */
-    void PrioritiseTransaction(const uint256& hash, const std::string& strHash, double dPriorityDelta, const CAmount& nFeeDelta);
+    void PrioritiseTransaction(const uint256& hash, const std::string& strHash, double dPriorityDelta,
+                               const CAmount& nFeeDelta);
     void ApplyDeltas(const uint256& hash, double& dPriorityDelta, CAmount& nFeeDelta);
     void ClearPrioritisation(const uint256& hash);
 
     void NotifyRecentlyAdded();
     bool IsFullyNotified();
 
-    unsigned long sizeTx()
-    {
+    unsigned long sizeTx() {
         LOCK(cs);
         return mapTx.size();
     }
 
-    unsigned long sizeCert()
-    {
+    unsigned long sizeCert() {
         LOCK(cs);
         return mapCertificate.size();
     }
 
-    unsigned long size()
-    {
+    unsigned long size() {
         LOCK(cs);
         return sizeTx() + sizeCert();
     }
 
-    uint64_t GetTotalCertificateSize()
-    {
+    uint64_t GetTotalCertificateSize() {
         LOCK(cs);
         return totalCertificateSize;
     }
 
-    uint64_t GetTotalTxSize()
-    {
+    uint64_t GetTotalTxSize() {
         LOCK(cs);
         return totalTxSize;
     }
 
-    uint64_t GetTotalSize()
-    {
+    uint64_t GetTotalSize() {
         LOCK(cs);
         return (totalTxSize + totalCertificateSize);
     }
 
-    bool existsTx(const uint256& hash) const
-    {
+    bool existsTx(const uint256& hash) const {
         LOCK(cs);
         return (mapTx.count(hash) != 0);
     }
 
-    bool existsCert(const uint256& hash) const
-    {
+    bool existsCert(const uint256& hash) const {
         LOCK(cs);
         return (mapCertificate.count(hash) != 0);
     }
-    bool exists(const uint256& hash) const
-    {
+    bool exists(const uint256& hash) const {
         LOCK(cs);
         return (mapCertificate.count(hash) != 0 || mapTx.count(hash) != 0);
     }
 
-    bool hasSidechainCertificate(const uint256& scId) const
-    {
+    bool hasSidechainCertificate(const uint256& scId) const {
         LOCK(cs);
         return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).mBackwardCertificates.empty());
     }
 
-    bool hasSidechainCreationTx(const uint256& scId) const
-    {
+    bool hasSidechainCreationTx(const uint256& scId) const {
         LOCK(cs);
         return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).scCreationTxHash.IsNull());
     }
 
-    bool HaveCswNullifier(const uint256& scId, const CFieldElement& nullifier) const
-    {
+    bool HaveCswNullifier(const uint256& scId, const CFieldElement& nullifier) const {
         LOCK(cs);
         return mapSidechains.count(scId) != 0 && mapSidechains.at(scId).cswNullifiers.count(nullifier) != 0;
     }
 
-    bool hasSidechainBwtRequest(const uint256& scId) const
-    {
+    bool hasSidechainBwtRequest(const uint256& scId) const {
         LOCK(cs);
         return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).mcBtrsTxHashes.empty());
     }
 
-    bool hasSidechainFwt(const uint256& scId) const
-    {
+    bool hasSidechainFwt(const uint256& scId) const {
         LOCK(cs);
         return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).fwdTxHashes.empty());
     }
@@ -396,16 +366,15 @@ public:
     size_t DynamicMemoryUsage() const;
 };
 
-/** 
+/**
  * CCoinsView that brings transactions from a memorypool into view.
  * It does not check for spendings by memory pool transactions.
  */
-class CCoinsViewMemPool : public CCoinsViewBacked
-{
-protected:
+class CCoinsViewMemPool : public CCoinsViewBacked {
+  protected:
     CTxMemPool& mempool;
 
-public:
+  public:
     CCoinsViewMemPool(CCoinsView* baseIn, CTxMemPool& mempoolIn);
 
     bool GetNullifier(const uint256& txid) const override;
@@ -414,8 +383,7 @@ public:
     bool GetSidechain(const uint256& scId, CSidechain& info) const override;
     bool HaveSidechain(const uint256& scId) const override;
     void GetScIds(std::set<uint256>& scIdsList) const override;
-    bool HaveCswNullifier(const uint256& scId,
-                          const CFieldElement& nullifier) const override;
+    bool HaveCswNullifier(const uint256& scId, const CFieldElement& nullifier) const override;
 };
 
-#endif // BITCOIN_TXMEMPOOL_H
+#endif  // BITCOIN_TXMEMPOOL_H

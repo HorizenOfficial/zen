@@ -1,12 +1,12 @@
 #ifndef BITCOIN_TEST_TEST_BITCOIN_H
 #define BITCOIN_TEST_TEST_BITCOIN_H
 
+#include <boost/filesystem.hpp>
+#include <boost/thread.hpp>
+
 #include "chainparamsbase.h"
 #include "pubkey.h"
 #include "txdb.h"
-
-#include <boost/filesystem.hpp>
-#include <boost/thread.hpp>
 
 /** Basic testing setup.
  * This just configures logging and chain parameters.
@@ -19,7 +19,7 @@ struct BasicTestingSetup {
 };
 
 // Setup w.r.t. zk-SNARK API
-struct JoinSplitTestingSetup: public BasicTestingSetup {
+struct JoinSplitTestingSetup : public BasicTestingSetup {
     JoinSplitTestingSetup();
     ~JoinSplitTestingSetup();
 };
@@ -28,8 +28,8 @@ struct JoinSplitTestingSetup: public BasicTestingSetup {
  * Included are data directory, coins database, script check threads
  * and wallet (if enabled) setup.
  */
-struct TestingSetup: public JoinSplitTestingSetup {
-    CCoinsViewDB *pcoinsdbview;
+struct TestingSetup : public JoinSplitTestingSetup {
+    CCoinsViewDB* pcoinsdbview;
     boost::filesystem::path pathTemp;
     boost::thread_group threadGroup;
 

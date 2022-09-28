@@ -6,17 +6,16 @@
 namespace zen {
 
 /**
- * @brief The CommunityFundAndRPFixFork class represents the fork that modified the community fund from 8.5% to 12% and fixed the replay protection
+ * @brief The CommunityFundAndRPFixFork class represents the fork that modified the community fund from 8.5% to 12% and fixed
+ * the replay protection
  */
-class CommunityFundAndRPFixFork : public ReplayProtectionFork
-{
-public:
-    
+class CommunityFundAndRPFixFork : public ReplayProtectionFork {
+  public:
     /**
      * @brief CommunityFundAndRPFixFork constructor
      */
     CommunityFundAndRPFixFork();
-    
+
     /**
      * @brief getCommunityFundReward returns the community fund reward based on the height and passed-in reward
      */
@@ -25,7 +24,8 @@ public:
     /**
      * @brief getCommunityFundAddress returns the community fund address based on the passed in height and maxHeight
      */
-    virtual const std::string& getCommunityFundAddress(CBaseChainParams::Network network, int height, int maxHeight, CommunityFundType cfType) const;
+    virtual const std::string& getCommunityFundAddress(CBaseChainParams::Network network, int height, int maxHeight,
+                                                       CommunityFundType cfType) const;
 
     /**
      * @brief getReplayProtectionLevel returns the replay protection level provided by the current fork
@@ -42,13 +42,12 @@ public:
      */
     virtual bool isTransactionTypeAllowed(txnouttype transactionType) const;
 
-private:
-    
+  private:
     /**
      * @brief addressChangeIntervals hardcoded address change intervals introduced with this fork
      */
-    std::map<CBaseChainParams::Network,int> addressChangeIntervals;
+    std::map<CBaseChainParams::Network, int> addressChangeIntervals;
 };
-}
+}  // namespace zen
 
-#endif // REPLAYPROTECTIONFIXFORK_H
+#endif  // REPLAYPROTECTIONFIXFORK_H

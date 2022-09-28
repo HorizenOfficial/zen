@@ -7,16 +7,15 @@
 #ifndef BITCOIN_KEY_H
 #define BITCOIN_KEY_H
 
+#include <stdexcept>
+#include <vector>
+
 #include "pubkey.h"
 #include "serialize.h"
 #include "support/allocators/secure.h"
 #include "uint256.h"
 
-#include <stdexcept>
-#include <vector>
-
-
-/** 
+/**
  * secp256k1:
  */
 const unsigned int PRIVATE_KEY_SIZE = 279;
@@ -34,9 +33,8 @@ const unsigned int COMPRESSED_PRIVATE_KEY_SIZE = 214;
 typedef std::vector<unsigned char, secure_allocator<unsigned char>> CPrivKey;
 
 /** An encapsulated private key. */
-class CKey
-{
-private:
+class CKey {
+  private:
     //! Whether this private key is valid. We check for correctness when modifying the key
     //! data, so fValid should always correspond to the actual state.
     bool fValid;
@@ -50,36 +48,26 @@ private:
     //! Check whether the 32-byte array pointed to be vch is valid keydata.
     bool static Check(const unsigned char* vch);
 
-public:
+  public:
     //! Construct an invalid private key.
-    CKey() : fValid(false), fCompressed(false)
-    {
-        LockObject(vch);
-    }
+    CKey() : fValid(false), fCompressed(false) { LockObject(vch); }
 
     //! Copy constructor. This is necessary because of memlocking.
-    CKey(const CKey& secret) : fValid(secret.fValid), fCompressed(secret.fCompressed)
-    {
+    CKey(const CKey& secret) : fValid(secret.fValid), fCompressed(secret.fCompressed) {
         LockObject(vch);
         memcpy(vch, secret.vch, sizeof(vch));
     }
 
     //! Destructor (again necessary because of memlocking).
-    ~CKey()
-    {
-        UnlockObject(vch);
-    }
+    ~CKey() { UnlockObject(vch); }
 
-    friend bool operator==(const CKey& a, const CKey& b)
-    {
-        return a.fCompressed == b.fCompressed && a.size() == b.size() &&
-               memcmp(&a.vch[0], &b.vch[0], a.size()) == 0;
+    friend bool operator==(const CKey& a, const CKey& b) {
+        return a.fCompressed == b.fCompressed && a.size() == b.size() && memcmp(&a.vch[0], &b.vch[0], a.size()) == 0;
     }
 
     //! Initialize using begin and end iterators to byte data.
     template <typename T>
-    void Set(const T pbegin, const T pend, bool fCompressedIn)
-    {
+    void Set(const T pbegin, const T pend, bool fCompressedIn) {
         if (pend - pbegin != 32) {
             fValid = false;
             return;
@@ -112,7 +100,7 @@ public:
 
     /**
      * Convert the private key to a CPrivKey (serialized OpenSSL private key data).
-     * This is expensive. 
+     * This is expensive.
      */
     CPrivKey GetPrivKey() const;
 
@@ -160,8 +148,7 @@ struct CExtKey {
     ChainCode chaincode;
     CKey key;
 
-    friend bool operator==(const CExtKey& a, const CExtKey& b)
-    {
+    friend bool operator==(const CExtKey& a, const CExtKey& b) {
         return a.nDepth == b.nDepth && memcmp(&a.vchFingerprint[0], &b.vchFingerprint[0], 4) == 0 && a.nChild == b.nChild &&
                a.chaincode == b.chaincode && a.key == b.key;
     }
@@ -182,4 +169,4 @@ void ECC_Stop(void);
 /** Check that required EC support is available at runtime. */
 bool ECC_InitSanityCheck(void);
 
-#endif // BITCOIN_KEY_H
+#endif  // BITCOIN_KEY_H

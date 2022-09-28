@@ -4,34 +4,28 @@
 
 #include "leveldbwrapper.h"
 
-#include "util.h"
+#include <memenv.h>
 
 #include <boost/filesystem.hpp>
-
 #include <leveldb/cache.h>
 #include <leveldb/env.h>
 #include <leveldb/filter_policy.h>
-#include <memenv.h>
 
-void HandleError(const leveldb::Status& status)
-{
-    if (status.ok())
-        return;
+#include "util.h"
+
+void HandleError(const leveldb::Status& status) {
+    if (status.ok()) return;
     LogPrintf("%s\n", status.ToString());
-    if (status.IsCorruption())
-        throw leveldb_error("Database corrupted");
-    if (status.IsIOError())
-        throw leveldb_error("Database I/O error");
-    if (status.IsNotFound())
-        throw leveldb_error("Database entry missing");
+    if (status.IsCorruption()) throw leveldb_error("Database corrupted");
+    if (status.IsIOError()) throw leveldb_error("Database I/O error");
+    if (status.IsNotFound()) throw leveldb_error("Database entry missing");
     throw leveldb_error("Unknown database error");
 }
 
-static leveldb::Options GetOptions(size_t nCacheSize, bool compression, int maxOpenFiles)
-{
+static leveldb::Options GetOptions(size_t nCacheSize, bool compression, int maxOpenFiles) {
     leveldb::Options options;
     options.block_cache = leveldb::NewLRUCache(nCacheSize / 2);
-    options.write_buffer_size = nCacheSize / 4; // up to two write buffers may be held in memory simultaneously
+    options.write_buffer_size = nCacheSize / 4;  // up to two write buffers may be held in memory simultaneously
     options.filter_policy = leveldb::NewBloomFilterPolicy(10);
     options.compression = compression ? leveldb::kSnappyCompression : leveldb::kNoCompression;
     options.max_open_files = maxOpenFiles;
@@ -43,8 +37,8 @@ static leveldb::Options GetOptions(size_t nCacheSize, bool compression, int maxO
     return options;
 }
 
-CLevelDBWrapper::CLevelDBWrapper(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe, bool compression, int maxOpenFiles)
-{
+CLevelDBWrapper::CLevelDBWrapper(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe,
+                                 bool compression, int maxOpenFiles) {
     penv = NULL;
     readoptions.verify_checksums = true;
     iteroptions.verify_checksums = true;
@@ -69,8 +63,7 @@ CLevelDBWrapper::CLevelDBWrapper(const boost::filesystem::path& path, size_t nCa
     LogPrintf("Opened LevelDB successfully\n");
 }
 
-CLevelDBWrapper::~CLevelDBWrapper()
-{
+CLevelDBWrapper::~CLevelDBWrapper() {
     delete pdb;
     pdb = NULL;
     delete options.filter_policy;
@@ -81,8 +74,7 @@ CLevelDBWrapper::~CLevelDBWrapper()
     options.env = NULL;
 }
 
-bool CLevelDBWrapper::WriteBatch(CLevelDBBatch& batch, bool fSync)
-{
+bool CLevelDBWrapper::WriteBatch(CLevelDBBatch& batch, bool fSync) {
     leveldb::Status status = pdb->Write(fSync ? syncoptions : writeoptions, &batch.batch);
     HandleError(status);
     return true;

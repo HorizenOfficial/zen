@@ -68,37 +68,37 @@ namespace libsnark {
 #define OUTPUT_SEPARATOR " "
 #endif
 
-inline void consume_newline(std::istream &in);
-inline void consume_OUTPUT_NEWLINE(std::istream &in);
-inline void consume_OUTPUT_SEPARATOR(std::istream &in);
+inline void consume_newline(std::istream& in);
+inline void consume_OUTPUT_NEWLINE(std::istream& in);
+inline void consume_OUTPUT_SEPARATOR(std::istream& in);
 
-inline void output_bool(std::ostream &out, const bool b);
+inline void output_bool(std::ostream& out, const bool b);
 
-inline void output_bool_vector(std::ostream &out, const std::vector<bool> &v);
+inline void output_bool_vector(std::ostream& out, const std::vector<bool>& v);
 
-template<typename T>
-T reserialize(const T &obj);
+template <typename T>
+T reserialize(const T& obj);
 
-template<typename T>
-std::ostream& operator<<(std::ostream& out, const std::vector<T> &v);
+template <typename T>
+std::ostream& operator<<(std::ostream& out, const std::vector<T>& v);
 
-template<typename T>
-std::istream& operator>>(std::ostream& out, std::vector<T> &v);
+template <typename T>
+std::istream& operator>>(std::ostream& out, std::vector<T>& v);
 
-template<typename T1, typename T2>
-std::ostream& operator<<(std::ostream& out, const std::map<T1, T2> &m);
+template <typename T1, typename T2>
+std::ostream& operator<<(std::ostream& out, const std::map<T1, T2>& m);
 
-template<typename T1, typename T2>
-std::istream& operator>>(std::istream& in, std::map<T1, T2> &m);
+template <typename T1, typename T2>
+std::istream& operator>>(std::istream& in, std::map<T1, T2>& m);
 
-template<typename T>
-std::ostream& operator<<(std::ostream& out, const std::set<T> &s);
+template <typename T>
+std::ostream& operator<<(std::ostream& out, const std::set<T>& s);
 
-template<typename T>
-std::istream& operator>>(std::istream& in, std::set<T> &s);
+template <typename T>
+std::istream& operator>>(std::istream& in, std::set<T>& s);
 
-} // libsnark
+}  // namespace libsnark
 
 #include "common/serialization.tcc"
 
-#endif // SERIALIZATION_HPP_
+#endif  // SERIALIZATION_HPP_

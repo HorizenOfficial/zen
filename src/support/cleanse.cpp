@@ -7,7 +7,4 @@
 
 #include <openssl/crypto.h>
 
-void memory_cleanse(void *ptr, size_t len)
-{
-    OPENSSL_cleanse(ptr, len);
-}
+void memory_cleanse(void* ptr, size_t len) { OPENSSL_cleanse(ptr, len); }

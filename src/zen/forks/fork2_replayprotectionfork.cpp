@@ -9,9 +9,9 @@ namespace zen {
  * @brief ReplayProtectionFork constructor
  */
 ReplayProtectionFork::ReplayProtectionFork() {
-    setHeightMap({{CBaseChainParams::Network::MAIN,117576},
-                  {CBaseChainParams::Network::REGTEST,100},
-                  {CBaseChainParams::Network::TESTNET,72650}});
+    setHeightMap({{CBaseChainParams::Network::MAIN, 117576},
+                  {CBaseChainParams::Network::REGTEST, 100},
+                  {CBaseChainParams::Network::TESTNET, 72650}});
 }
 
 /**
@@ -21,14 +21,14 @@ ReplayProtectionFork::ReplayProtectionFork() {
  */
 bool ReplayProtectionFork::isTransactionTypeAllowed(txnouttype transactionType) const {
     switch (transactionType) {
-    case TX_NONSTANDARD:
-    case TX_PUBKEY_REPLAY:
-    case TX_PUBKEYHASH_REPLAY:
-    case TX_MULTISIG_REPLAY:
-        return true;
-    default:
-        return false;
+        case TX_NONSTANDARD:
+        case TX_PUBKEY_REPLAY:
+        case TX_PUBKEYHASH_REPLAY:
+        case TX_MULTISIG_REPLAY:
+            return true;
+        default:
+            return false;
     }
 }
 
-}
+}  // namespace zen

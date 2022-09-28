@@ -4,10 +4,9 @@
 #include "fork3_communityfundandrpfixfork.h"
 namespace zen {
 
-class NullTransactionFork : public CommunityFundAndRPFixFork
-{
-public:
-    NullTransactionFork();    
+class NullTransactionFork : public CommunityFundAndRPFixFork {
+  public:
+    NullTransactionFork();
     /**
      * @brief getCommunityFundReward returns the community fund reward based on the height and passed-in reward
      */
@@ -16,20 +15,20 @@ public:
     /**
      * @brief getCommunityFundAddress returns the community fund address based on the passed in height and maxHeight
      */
-    virtual const std::string& getCommunityFundAddress(CBaseChainParams::Network network, int height, int maxHeight, CommunityFundType cfType) const;
+    virtual const std::string& getCommunityFundAddress(CBaseChainParams::Network network, int height, int maxHeight,
+                                                       CommunityFundType cfType) const;
 
     /**
      * @brief isTransactionTypeAllowed returns true if this transaction type is allowed in this fork, false otherwise
      */
     virtual bool isTransactionTypeAllowed(txnouttype transactionType) const;
 
-private:
-
+  private:
     /**
      * @brief addressChangeIntervals hardcoded address change intervals introduced with this fork
      */
-    std::map<CBaseChainParams::Network,int> addressChangeIntervals;
+    std::map<CBaseChainParams::Network, int> addressChangeIntervals;
 };
 
-}
-#endif // NULLTRANSACTIONFORK_H
+}  // namespace zen
+#endif  // NULLTRANSACTIONFORK_H

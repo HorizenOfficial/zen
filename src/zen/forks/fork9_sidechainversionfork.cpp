@@ -2,56 +2,45 @@
 
 namespace zen {
 
-SidechainVersionFork::SidechainVersionFork()
-{
-    setHeightMap({{CBaseChainParams::Network::MAIN,1127000},
-                  {CBaseChainParams::Network::REGTEST,450},
-                  {CBaseChainParams::Network::TESTNET,1028900}});
+SidechainVersionFork::SidechainVersionFork() {
+    setHeightMap({{CBaseChainParams::Network::MAIN, 1127000},
+                  {CBaseChainParams::Network::REGTEST, 450},
+                  {CBaseChainParams::Network::TESTNET, 1028900}});
 
-    setCommunityFundAddressMap({{CBaseChainParams::Network::MAIN,{
-                                     "zshX5BAgUvNgM1VoBVKZyFVVozTDjjJvRxJ"
-                                     }},
-                                {CBaseChainParams::Network::REGTEST,{
-                                     "zrLaR63UYCHVvo5BJHoMUTuZFPmcUu866wB"
-                                 }},
-                                {CBaseChainParams::Network::TESTNET,{
-                                     "zrFwQjR613EuvLSufoNvUzZrfKvjSQx5a23"
-                                 }}}, CommunityFundType::FOUNDATION);
+    setCommunityFundAddressMap({{CBaseChainParams::Network::MAIN, {"zshX5BAgUvNgM1VoBVKZyFVVozTDjjJvRxJ"}},
+                                {CBaseChainParams::Network::REGTEST, {"zrLaR63UYCHVvo5BJHoMUTuZFPmcUu866wB"}},
+                                {CBaseChainParams::Network::TESTNET, {"zrFwQjR613EuvLSufoNvUzZrfKvjSQx5a23"}}},
+                               CommunityFundType::FOUNDATION);
 
-    setCommunityFundAddressMap({{CBaseChainParams::Network::MAIN,{
-                                     "zsx68qSKMNoc1ZPQpGwNFZXVzgf27KN6a9u"
-                                     }},
-                                {CBaseChainParams::Network::REGTEST,{
-                                     "zrPaU1KWpNrg5fcLsSk17z7cc71FvnVnXxi"
-                                 }},
-                                {CBaseChainParams::Network::TESTNET,{
-                                     "zrQM7AZ1qpm9TPzLc2YinGhWePt7vaHz4Rg"
-                                 }}}, CommunityFundType::SECURENODE);
+    setCommunityFundAddressMap({{CBaseChainParams::Network::MAIN, {"zsx68qSKMNoc1ZPQpGwNFZXVzgf27KN6a9u"}},
+                                {CBaseChainParams::Network::REGTEST, {"zrPaU1KWpNrg5fcLsSk17z7cc71FvnVnXxi"}},
+                                {CBaseChainParams::Network::TESTNET, {"zrQM7AZ1qpm9TPzLc2YinGhWePt7vaHz4Rg"}}},
+                               CommunityFundType::SECURENODE);
 
-    setCommunityFundAddressMap({{CBaseChainParams::Network::MAIN,{
-                                     "zszMgcogAqz49sLHGV22YCDFSvwzwkfog4k"
-                                     }},
-                                {CBaseChainParams::Network::REGTEST,{
-                                     "zrMna8FbuTyrvFikAsmQMyAfufF3WoGksFu"
-                                 }},
-                                {CBaseChainParams::Network::TESTNET,{
-                                     "zrSRNSqeBNEtXqn8NkAgJ9gwhLTJmXjKqoX"
-                                 }}}, CommunityFundType::SUPERNODE);
-
+    setCommunityFundAddressMap({{CBaseChainParams::Network::MAIN, {"zszMgcogAqz49sLHGV22YCDFSvwzwkfog4k"}},
+                                {CBaseChainParams::Network::REGTEST, {"zrMna8FbuTyrvFikAsmQMyAfufF3WoGksFu"}},
+                                {CBaseChainParams::Network::TESTNET, {"zrSRNSqeBNEtXqn8NkAgJ9gwhLTJmXjKqoX"}}},
+                               CommunityFundType::SUPERNODE);
 }
 
-}
+}  // namespace zen
 
 /*
  * All TESTNET and MAINNET P2SH addresses are 4-of-7
  *
  * Transaction IDs of TESTNET test spends:
- *   - FOUNDATION sig 1-4 https://explorer-testnet.horizen.io/tx/f2fa104ef0860d9acde910fc12dc2811605d1004bdc5782ea485ab3a631fa109
- *   - FOUNDATION sig 4-7 https://explorer-testnet.horizen.io/tx/0a5ea2b738205948fe8f405879849b395e7e1ba9ba9cf0e1853205d375d1ae99
- *   - SECURENODE sig 1-4 https://explorer-testnet.horizen.io/tx/dcb499d09124f7af2878b29b8561f5ddbe3ca87162ec90bb72b0602f6c0832e4
- *   - SECURENODE sig 4-7 https://explorer-testnet.horizen.io/tx/aa95f1de2d2f262fdc79f3c76110936fb2725a8f4247c21477efefb07d52cfc4
- *   - SUPERNODE  sig 1-4 https://explorer-testnet.horizen.io/tx/a62910954d0da695595f2aea64e11bc4401aa0278f180778d7640316ebe27b83
- *   - SUPERNODE  sig 4-7 https://explorer-testnet.horizen.io/tx/6f869ead9863fc48b35d88839b08c807dfa806492645ca5bb9cdd355d9b9bc7b
+ *   - FOUNDATION sig 1-4
+ * https://explorer-testnet.horizen.io/tx/f2fa104ef0860d9acde910fc12dc2811605d1004bdc5782ea485ab3a631fa109
+ *   - FOUNDATION sig 4-7
+ * https://explorer-testnet.horizen.io/tx/0a5ea2b738205948fe8f405879849b395e7e1ba9ba9cf0e1853205d375d1ae99
+ *   - SECURENODE sig 1-4
+ * https://explorer-testnet.horizen.io/tx/dcb499d09124f7af2878b29b8561f5ddbe3ca87162ec90bb72b0602f6c0832e4
+ *   - SECURENODE sig 4-7
+ * https://explorer-testnet.horizen.io/tx/aa95f1de2d2f262fdc79f3c76110936fb2725a8f4247c21477efefb07d52cfc4
+ *   - SUPERNODE  sig 1-4
+ * https://explorer-testnet.horizen.io/tx/a62910954d0da695595f2aea64e11bc4401aa0278f180778d7640316ebe27b83
+ *   - SUPERNODE  sig 4-7
+ * https://explorer-testnet.horizen.io/tx/6f869ead9863fc48b35d88839b08c807dfa806492645ca5bb9cdd355d9b9bc7b
  *
  * Transaction IDs of MAINNET test spends:
  *   - FOUNDATION sig 1-4 https://explorer.horizen.io/tx/14f816686bd5bf742e1d43223afbef5f8c3457260e17225d6e1522610038733e

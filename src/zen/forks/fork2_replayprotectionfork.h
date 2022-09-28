@@ -8,10 +8,8 @@ namespace zen {
 /**
  * @brief The ReplayProtectionFork class represents the original replay protection fork
  */
-class ReplayProtectionFork : public ChainsplitFork
-{
-public:
-    
+class ReplayProtectionFork : public ChainsplitFork {
+  public:
     /**
      * @brief ReplayProtectionFork constructor
      */
@@ -27,5 +25,5 @@ public:
      */
     virtual bool isTransactionTypeAllowed(txnouttype transactionType) const;
 };
-}
-#endif // REPLAYPROTECTIONFORK_H
+}  // namespace zen
+#endif  // REPLAYPROTECTIONFORK_H

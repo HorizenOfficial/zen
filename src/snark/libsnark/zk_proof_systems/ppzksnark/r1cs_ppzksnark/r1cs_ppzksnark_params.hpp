@@ -20,15 +20,15 @@ namespace libsnark {
  * Below are various template aliases (used for convenience).
  */
 
-template<typename ppT>
+template <typename ppT>
 using r1cs_ppzksnark_constraint_system = r1cs_constraint_system<Fr<ppT> >;
 
-template<typename ppT>
+template <typename ppT>
 using r1cs_ppzksnark_primary_input = r1cs_primary_input<Fr<ppT> >;
 
-template<typename ppT>
+template <typename ppT>
 using r1cs_ppzksnark_auxiliary_input = r1cs_auxiliary_input<Fr<ppT> >;
 
-} // libsnark
+}  // namespace libsnark
 
-#endif // R1CS_PPZKSNARK_PARAMS_HPP_
+#endif  // R1CS_PPZKSNARK_PARAMS_HPP_

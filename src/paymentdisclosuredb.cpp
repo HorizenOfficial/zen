@@ -4,10 +4,10 @@
 
 #include "paymentdisclosuredb.h"
 
+#include <boost/filesystem.hpp>
+
 #include "leveldbwrapper.h"
 #include "util.h"
-
-#include <boost/filesystem.hpp>
 
 using namespace std;
 
@@ -16,20 +16,16 @@ static boost::filesystem::path emptyPath;
 /**
  * Static method to return the shared/default payment disclosure database.
  */
-shared_ptr<PaymentDisclosureDB> PaymentDisclosureDB::sharedInstance()
-{
+shared_ptr<PaymentDisclosureDB> PaymentDisclosureDB::sharedInstance() {
     // Thread-safe in C++11 and gcc 4.3
     static shared_ptr<PaymentDisclosureDB> ptr = std::make_shared<PaymentDisclosureDB>();
     return ptr;
 }
 
 // C++11 delegated constructor
-PaymentDisclosureDB::PaymentDisclosureDB() : PaymentDisclosureDB(emptyPath)
-{
-}
+PaymentDisclosureDB::PaymentDisclosureDB() : PaymentDisclosureDB(emptyPath) {}
 
-PaymentDisclosureDB::PaymentDisclosureDB(const boost::filesystem::path& dbPath)
-{
+PaymentDisclosureDB::PaymentDisclosureDB(const boost::filesystem::path& dbPath) {
     boost::filesystem::path path(dbPath);
     if (path.empty()) {
         path = GetDataDir() / "paymentdisclosure";
@@ -41,19 +37,17 @@ PaymentDisclosureDB::PaymentDisclosureDB(const boost::filesystem::path& dbPath)
     TryCreateDirectory(path);
     options.create_if_missing = true;
     leveldb::Status status = leveldb::DB::Open(options, path.string(), &db);
-    HandleError(status); // throws exception
+    HandleError(status);  // throws exception
     LogPrintf("PaymentDisclosure: Opened LevelDB successfully\n");
 }
 
-PaymentDisclosureDB::~PaymentDisclosureDB()
-{
+PaymentDisclosureDB::~PaymentDisclosureDB() {
     if (db != nullptr) {
         delete db;
     }
 }
 
-bool PaymentDisclosureDB::Put(const PaymentDisclosureKey& key, const PaymentDisclosureInfo& info)
-{
+bool PaymentDisclosureDB::Put(const PaymentDisclosureKey& key, const PaymentDisclosureInfo& info) {
     if (db == nullptr) {
         return false;
     }
@@ -70,8 +64,7 @@ bool PaymentDisclosureDB::Put(const PaymentDisclosureKey& key, const PaymentDisc
     return true;
 }
 
-bool PaymentDisclosureDB::Get(const PaymentDisclosureKey& key, PaymentDisclosureInfo& info)
-{
+bool PaymentDisclosureDB::Get(const PaymentDisclosureKey& key, PaymentDisclosureInfo& info) {
     if (db == nullptr) {
         return false;
     }
@@ -81,8 +74,7 @@ bool PaymentDisclosureDB::Get(const PaymentDisclosureKey& key, PaymentDisclosure
     std::string strValue;
     leveldb::Status status = db->Get(readOptions, key.ToString(), &strValue);
     if (!status.ok()) {
-        if (status.IsNotFound())
-            return false;
+        if (status.IsNotFound()) return false;
         LogPrintf("PaymentDisclosure: LevelDB read failure: %s\n", status.ToString());
         HandleError(status);
     }

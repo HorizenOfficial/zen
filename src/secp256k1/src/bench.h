@@ -7,8 +7,9 @@
 #ifndef SECP256K1_BENCH_H
 #define SECP256K1_BENCH_H
 
-#include <stdio.h>
 #include <math.h>
+#include <stdio.h>
+
 #include "sys/time.h"
 
 static double gettimedouble(void) {
@@ -30,7 +31,8 @@ void print_number(double x) {
     printf("%.*f", c, x);
 }
 
-void run_benchmark(char *name, void (*benchmark)(void*), void (*setup)(void*), void (*teardown)(void*), void* data, int count, int iter) {
+void run_benchmark(char* name, void (*benchmark)(void*), void (*setup)(void*), void (*teardown)(void*), void* data, int count,
+                   int iter) {
     int i;
     double min = HUGE_VAL;
     double sum = 0.0;

@@ -12,16 +12,17 @@
 
 namespace libsnark {
 
-template<typename FieldT>
+template <typename FieldT>
 class gadget {
-protected:
-    protoboard<FieldT> &pb;
+  protected:
+    protoboard<FieldT>& pb;
     const std::string annotation_prefix;
-public:
-    gadget(protoboard<FieldT> &pb, const std::string &annotation_prefix="");
+
+  public:
+    gadget(protoboard<FieldT>& pb, const std::string& annotation_prefix = "");
 };
 
-} // libsnark
+}  // namespace libsnark
 #include "gadgetlib1/gadget.tcc"
 
-#endif // GADGET_HPP_
+#endif  // GADGET_HPP_

@@ -2,9 +2,12 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "core_io.h"
+#include <univalue.h>
+
+#include <boost/foreach.hpp>
 
 #include "base58.h"
+#include "core_io.h"
 #include "primitives/certificate.h"
 #include "primitives/transaction.h"
 #include "script/script.h"
@@ -14,14 +17,10 @@
 #include "util.h"
 #include "utilmoneystr.h"
 #include "utilstrencodings.h"
-#include <univalue.h>
-
-#include <boost/foreach.hpp>
 
 using namespace std;
 
-string FormatScript(const CScript& script)
-{
+string FormatScript(const CScript& script) {
     string ret;
     CScript::const_iterator it = script.begin();
     opcodetype op;
@@ -55,22 +54,19 @@ string FormatScript(const CScript& script)
     return ret.substr(0, ret.size() - 1);
 }
 
-string EncodeHexTx(const CTransaction& tx)
-{
+string EncodeHexTx(const CTransaction& tx) {
     CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
     ssTx << tx;
     return HexStr(ssTx.begin(), ssTx.end());
 }
 
-string EncodeHexCert(const CScCertificate& cert)
-{
+string EncodeHexCert(const CScCertificate& cert) {
     CDataStream ssCert(SER_NETWORK, PROTOCOL_VERSION);
     ssCert << cert;
     return HexStr(ssCert.begin(), ssCert.end());
 }
 
-string EncodeHex(const std::unique_ptr<CTransactionBase>& pTxBase)
-{
+string EncodeHex(const std::unique_ptr<CTransactionBase>& pTxBase) {
     if (!pTxBase) {
         throw std::invalid_argument(strprintf("%s():%d - null ptr", __func__, __LINE__));
     }
@@ -90,17 +86,13 @@ string EncodeHex(const std::unique_ptr<CTransactionBase>& pTxBase)
     return HexStr(ssData.begin(), ssData.end());
 }
 
-void ScriptPubKeyToUniv(const CScript& scriptPubKey,
-                        UniValue& out,
-                        bool fIncludeHex)
-{
+void ScriptPubKeyToUniv(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex) {
     txnouttype type;
     vector<CTxDestination> addresses;
     int nRequired;
 
     out.pushKV("asm", scriptPubKey.ToString());
-    if (fIncludeHex)
-        out.pushKV("hex", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
+    if (fIncludeHex) out.pushKV("hex", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
 
     if (!ExtractDestinations(scriptPubKey, type, addresses, nRequired)) {
         out.pushKV("type", GetTxnOutputType(type));
@@ -116,8 +108,7 @@ void ScriptPubKeyToUniv(const CScript& scriptPubKey,
     out.pushKV("addresses", a);
 }
 
-void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry)
-{
+void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry) {
     entry.pushKV("txid", tx.GetHash().GetHex());
     entry.pushKV("version", tx.nVersion);
     entry.pushKV("locktime", (int64_t)tx.GetLockTime());
@@ -157,8 +148,8 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry)
     }
     entry.pushKV("vout", vout);
 
-    if (!hashBlock.IsNull())
-        entry.pushKV("blockhash", hashBlock.GetHex());
+    if (!hashBlock.IsNull()) entry.pushKV("blockhash", hashBlock.GetHex());
 
-    entry.pushKV("hex", EncodeHexTx(tx)); // the hex-encoded transaction. used the name "hex" to be consistent with the verbose output of "getrawtransaction".
+    entry.pushKV("hex", EncodeHexTx(tx));  // the hex-encoded transaction. used the name "hex" to be consistent with the verbose
+                                           // output of "getrawtransaction".
 }

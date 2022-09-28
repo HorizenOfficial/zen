@@ -2,32 +2,29 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "pubkey.h"
-#include "key.h"
-#include "script/script.h"
-#include "script/standard.h"
-#include "uint256.h"
-#include "test/test_bitcoin.h"
-
 #include <vector>
 
 #include <boost/foreach.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "key.h"
+#include "pubkey.h"
+#include "script/script.h"
+#include "script/standard.h"
+#include "test/test_bitcoin.h"
+#include "uint256.h"
+
 using namespace std;
 
 // Helpers:
-static std::vector<unsigned char>
-Serialize(const CScript& s)
-{
+static std::vector<unsigned char> Serialize(const CScript& s) {
     std::vector<unsigned char> sSerialized(s);
     return sSerialized;
 }
 
 BOOST_FIXTURE_TEST_SUITE(sigopcount_tests, BasicTestingSetup)
 
-BOOST_AUTO_TEST_CASE(GetSigOpCount)
-{
+BOOST_AUTO_TEST_CASE(GetSigOpCount) {
     // Test CScript::GetSigOpCount()
     CScript s1;
     BOOST_CHECK_EQUAL(s1.GetSigOpCount(false), 0U);
@@ -46,8 +43,7 @@ BOOST_AUTO_TEST_CASE(GetSigOpCount)
     BOOST_CHECK_EQUAL(p2sh.GetSigOpCount(scriptSig), 3U);
 
     std::vector<CPubKey> keys;
-    for (int i = 0; i < 3; i++)
-    {
+    for (int i = 0; i < 3; i++) {
         CKey k;
         k.MakeNewKey(true);
         keys.push_back(k.GetPubKey());

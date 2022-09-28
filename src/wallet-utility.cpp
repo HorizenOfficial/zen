@@ -2,44 +2,35 @@
 #include <string>
 
 // Include local headers
+#include <boost/foreach.hpp>
+
 #include "base58.h"
 #include "util.h"
 #include "wallet/crypter.h"
 #include "wallet/walletdb.h"
-#include <boost/foreach.hpp>
 
-
-void show_help()
-{
+void show_help() {
     std::cout << "This program outputs Bitcoin addresses and private keys from a wallet.dat file" << std::endl
               << std::endl
-              << "Usage and options: "
-              << std::endl
-              << " -datadir=<directory> to tell the program where your wallet is"
-              << std::endl
-              << " -wallet=<name> (Optional) if your wallet is not named wallet.dat"
-              << std::endl
-              << " -regtest or -testnet (Optional) dumps addresses from regtest/testnet"
-              << std::endl
-              << " -dumppass (Optional)if you want to extract private keys associated with addresses"
-              << std::endl
-              << "    -pass=<walletpassphrase> if you have encrypted private keys stored in your wallet"
-              << std::endl;
+              << "Usage and options: " << std::endl
+              << " -datadir=<directory> to tell the program where your wallet is" << std::endl
+              << " -wallet=<name> (Optional) if your wallet is not named wallet.dat" << std::endl
+              << " -regtest or -testnet (Optional) dumps addresses from regtest/testnet" << std::endl
+              << " -dumppass (Optional)if you want to extract private keys associated with addresses" << std::endl
+              << "    -pass=<walletpassphrase> if you have encrypted private keys stored in your wallet" << std::endl;
 }
 
-
-class WalletUtilityDB : public CDB
-{
-private:
+class WalletUtilityDB : public CDB {
+  private:
     typedef std::map<unsigned int, CMasterKey> MasterKeyMap;
     MasterKeyMap mapMasterKeys;
     unsigned int nMasterKeyMaxID;
     SecureString mPass;
     std::vector<CKeyingMaterial> vMKeys;
 
-public:
-    WalletUtilityDB(const std::string& strFilename, const char* pszMode = "r+", bool fFlushOnClose = true) : CDB(strFilename, pszMode, fFlushOnClose)
-    {
+  public:
+    WalletUtilityDB(const std::string& strFilename, const char* pszMode = "r+", bool fFlushOnClose = true)
+        : CDB(strFilename, pszMode, fFlushOnClose) {
         nMasterKeyMaxID = 0;
         mPass.reserve(100);
     }
@@ -55,12 +46,10 @@ public:
     bool DecryptKey(const std::vector<unsigned char>& vchCryptedSecret, const CPubKey& vchPubKey, CKey& key);
 };
 
-
 /*
  * Address from a public key in base58
  */
-std::string WalletUtilityDB::getAddress(CDataStream ssKey)
-{
+std::string WalletUtilityDB::getAddress(CDataStream ssKey) {
     CPubKey vchPubKey;
     ssKey >> vchPubKey;
     CKeyID id = vchPubKey.GetID();
@@ -69,12 +58,10 @@ std::string WalletUtilityDB::getAddress(CDataStream ssKey)
     return strAddr;
 }
 
-
 /*
  * Non encrypted private key in WIF
  */
-std::string WalletUtilityDB::getKey(CDataStream ssKey, CDataStream ssValue)
-{
+std::string WalletUtilityDB::getKey(CDataStream ssKey, CDataStream ssValue) {
     std::string strKey;
     CPubKey vchPubKey;
     ssKey >> vchPubKey;
@@ -82,64 +69,52 @@ std::string WalletUtilityDB::getKey(CDataStream ssKey, CDataStream ssValue)
     CKey key;
 
     ssValue >> pkey;
-    if (key.Load(pkey, vchPubKey, true))
-        strKey = CBitcoinSecret(key).ToString();
+    if (key.Load(pkey, vchPubKey, true)) strKey = CBitcoinSecret(key).ToString();
 
     return strKey;
 }
 
-
-bool WalletUtilityDB::DecryptSecret(const std::vector<unsigned char>& vchCiphertext, const uint256& nIV, CKeyingMaterial& vchPlaintext)
-{
+bool WalletUtilityDB::DecryptSecret(const std::vector<unsigned char>& vchCiphertext, const uint256& nIV,
+                                    CKeyingMaterial& vchPlaintext) {
     CCrypter cKeyCrypter;
     std::vector<unsigned char> chIV(WALLET_CRYPTO_KEY_SIZE);
     memcpy(&chIV[0], &nIV, WALLET_CRYPTO_KEY_SIZE);
 
     BOOST_FOREACH (const CKeyingMaterial vMKey, vMKeys) {
-        if (!cKeyCrypter.SetKey(vMKey, chIV))
-            continue;
-        if (cKeyCrypter.Decrypt(vchCiphertext, *((CKeyingMaterial*)&vchPlaintext)))
-            return true;
+        if (!cKeyCrypter.SetKey(vMKey, chIV)) continue;
+        if (cKeyCrypter.Decrypt(vchCiphertext, *((CKeyingMaterial*)&vchPlaintext))) return true;
     }
     return false;
 }
 
-
-bool WalletUtilityDB::Unlock()
-{
+bool WalletUtilityDB::Unlock() {
     CCrypter crypter;
     CKeyingMaterial vMasterKey;
 
     BOOST_FOREACH (const MasterKeyMap::value_type& pMasterKey, mapMasterKeys) {
-        if (!crypter.SetKeyFromPassphrase(mPass, pMasterKey.second.vchSalt, pMasterKey.second.nDeriveIterations, pMasterKey.second.nDerivationMethod))
+        if (!crypter.SetKeyFromPassphrase(mPass, pMasterKey.second.vchSalt, pMasterKey.second.nDeriveIterations,
+                                          pMasterKey.second.nDerivationMethod))
             return false;
-        if (!crypter.Decrypt(pMasterKey.second.vchCryptedKey, vMasterKey))
-            continue; // try another master key
+        if (!crypter.Decrypt(pMasterKey.second.vchCryptedKey, vMasterKey)) continue;  // try another master key
         vMKeys.push_back(vMasterKey);
     }
     return true;
 }
 
-
-bool WalletUtilityDB::DecryptKey(const std::vector<unsigned char>& vchCryptedSecret, const CPubKey& vchPubKey, CKey& key)
-{
+bool WalletUtilityDB::DecryptKey(const std::vector<unsigned char>& vchCryptedSecret, const CPubKey& vchPubKey, CKey& key) {
     CKeyingMaterial vchSecret;
-    if (!DecryptSecret(vchCryptedSecret, vchPubKey.GetHash(), vchSecret))
-        return false;
+    if (!DecryptSecret(vchCryptedSecret, vchPubKey.GetHash(), vchSecret)) return false;
 
-    if (vchSecret.size() != 32)
-        return false;
+    if (vchSecret.size() != 32) return false;
 
     key.Set(vchSecret.begin(), vchSecret.end(), vchPubKey.IsCompressed());
     return true;
 }
 
-
 /*
  * Encrypted private key in WIF format
  */
-std::string WalletUtilityDB::getCryptedKey(CDataStream ssKey, CDataStream ssValue, std::string masterPass)
-{
+std::string WalletUtilityDB::getCryptedKey(CDataStream ssKey, CDataStream ssValue, std::string masterPass) {
     mPass = masterPass.c_str();
     CPubKey vchPubKey;
     ssKey >> vchPubKey;
@@ -148,22 +123,18 @@ std::string WalletUtilityDB::getCryptedKey(CDataStream ssKey, CDataStream ssValu
     std::vector<unsigned char> vKey;
     ssValue >> vKey;
 
-    if (!Unlock())
-        return "";
+    if (!Unlock()) return "";
 
-    if (!DecryptKey(vKey, vchPubKey, key))
-        return "";
+    if (!DecryptKey(vKey, vchPubKey, key)) return "";
 
     std::string strKey = CBitcoinSecret(key).ToString();
     return strKey;
 }
 
-
 /*
  * Master key derivation
  */
-bool WalletUtilityDB::updateMasterKeys(CDataStream ssKey, CDataStream ssValue)
-{
+bool WalletUtilityDB::updateMasterKeys(CDataStream ssKey, CDataStream ssValue) {
     unsigned int nID;
     ssKey >> nID;
     CMasterKey kMasterKey;
@@ -174,18 +145,15 @@ bool WalletUtilityDB::updateMasterKeys(CDataStream ssKey, CDataStream ssValue)
     }
     mapMasterKeys[nID] = kMasterKey;
 
-    if (nMasterKeyMaxID < nID)
-        nMasterKeyMaxID = nID;
+    if (nMasterKeyMaxID < nID) nMasterKeyMaxID = nID;
 
     return true;
 }
 
-
 /*
  * Look at all the records and parse keys for addresses and private keys
  */
-bool WalletUtilityDB::parseKeys(bool dumppriv, std::string masterPass)
-{
+bool WalletUtilityDB::parseKeys(bool dumppriv, std::string masterPass) {
     DBErrors result = DB_LOAD_OK;
     std::string strType;
     bool first = true;
@@ -241,9 +209,7 @@ bool WalletUtilityDB::parseKeys(bool dumppriv, std::string masterPass)
                 std::string strAddr = getAddress(ssKey);
                 std::string strKey = "";
 
-
-                if (dumppriv && strType == "key")
-                    strKey = getKey(ssKey, ssValue);
+                if (dumppriv && strType == "key") strKey = getKey(ssKey, ssValue);
                 if (dumppriv && strType == "ckey") {
                     if (masterPass == "") {
                         std::cout << "Encrypted wallet, please provide a password. See help below" << std::endl;
@@ -263,8 +229,7 @@ bool WalletUtilityDB::parseKeys(bool dumppriv, std::string masterPass)
 
                 if (dumppriv) {
                     std::cout << "{\"addr\" : \"" + strAddr + "\", "
-                              << "\"pkey\" : \"" + strKey + "\"}"
-                              << std::flush;
+                              << "\"pkey\" : \"" + strKey + "\"}" << std::flush;
                 } else {
                     std::cout << "\"" + strAddr + "\"";
                 }
@@ -286,9 +251,7 @@ bool WalletUtilityDB::parseKeys(bool dumppriv, std::string masterPass)
         return false;
 }
 
-
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
     ParseParameters(argc, argv);
     std::string walletFile = GetArg("-wallet", "wallet.dat");
     std::string masterPass = GetArg("-pass", "");

@@ -15,12 +15,11 @@
 namespace libsnark {
 
 /* A commonly used SFINAE helper type */
-template<typename T>
-struct void_type
-{
+template <typename T>
+struct void_type {
     typedef void type;
 };
 
-} // libsnark
+}  // namespace libsnark
 
-#endif // TEMPLATE_UTILS_HPP_
+#endif  // TEMPLATE_UTILS_HPP_

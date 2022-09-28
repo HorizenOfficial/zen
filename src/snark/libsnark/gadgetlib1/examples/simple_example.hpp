@@ -12,12 +12,11 @@
 
 namespace libsnark {
 
-template<typename FieldT>
-r1cs_example<FieldT> gen_r1cs_example_from_protoboard(const size_t num_constraints,
-                                                      const size_t num_inputs);
+template <typename FieldT>
+r1cs_example<FieldT> gen_r1cs_example_from_protoboard(const size_t num_constraints, const size_t num_inputs);
 
-} // libsnark
+}  // namespace libsnark
 
 #include "gadgetlib1/examples/simple_example.tcc"
 
-#endif // SIMPLE_EXAMPLE_HPP_
+#endif  // SIMPLE_EXAMPLE_HPP_

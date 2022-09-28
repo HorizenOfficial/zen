@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "forkmanager.h"
+
 #include "forks/fork.h"
 #include "forks/fork0_originalfork.h"
 #include "forks/fork1_chainsplitfork.h"
@@ -30,18 +31,13 @@ ForkManager& ForkManager::getInstance() {
     return instance;
 }
 
-const Fork* ForkManager::getHighestFork() const
-{
-    return forks.back();
-}
+const Fork* ForkManager::getHighestFork() const { return forks.back(); }
 
 /**
  * @brief selectNetwork is called by SelectParams in chainparams.cpp to select the current network
  * @param network the newly selected network
  */
-void ForkManager::selectNetwork(const CBaseChainParams::Network network) {
-    currentNetwork = network;
-}
+void ForkManager::selectNetwork(const CBaseChainParams::Network network) { currentNetwork = network; }
 
 /**
  * @brief getCommunityFundAddress returns the community fund address based on the passed in height and maxHeight
@@ -50,7 +46,7 @@ void ForkManager::selectNetwork(const CBaseChainParams::Network network) {
  * @return the community fund address for this height
  */
 const std::string& ForkManager::getCommunityFundAddress(int height, int maxHeight, Fork::CommunityFundType cfType) const {
-    return getForkAtHeight(height)->getCommunityFundAddress(currentNetwork,height,maxHeight, cfType);
+    return getForkAtHeight(height)->getCommunityFundAddress(currentNetwork, height, maxHeight, cfType);
 }
 
 /**
@@ -59,9 +55,7 @@ const std::string& ForkManager::getCommunityFundAddress(int height, int maxHeigh
  * @param height the height to check against
  * @return the minimum time at which this block can be processed
  */
-int ForkManager::getMinimumTime(int height) const {
-    return getForkAtHeight(height)->getMinimumTime(currentNetwork);
-}
+int ForkManager::getMinimumTime(int height) const { return getForkAtHeight(height)->getMinimumTime(currentNetwork); }
 
 /**
  * @brief getCommunityFundReward returns the community fund reward based on the height and passed-in reward
@@ -98,9 +92,7 @@ bool ForkManager::canSendCommunityFundsToTransparentAddress(int height) const {
  * @param height height to test against
  * @return true if this height is after the original chain split, false otherwise
  */
-bool ForkManager::isAfterChainsplit(int height) const {
-    return getForkAtHeight(height)->isAfterChainsplit();
-}
+bool ForkManager::isAfterChainsplit(int height) const { return getForkAtHeight(height)->isAfterChainsplit(); }
 
 /**
  * @brief isTransactionTypeAllowed returns true if this transaction type is allowed at this block height, false otherwise
@@ -117,41 +109,31 @@ bool ForkManager::isTransactionTypeAllowedAtHeight(int height, txnouttype transa
  * @param height height to test against
  * @return returns phpgr,groth,... tx version based on block height
  */
-int ForkManager::getShieldedTxVersion(int height) const {
-    return getForkAtHeight(height)->getShieldedTxVersion();
-}
+int ForkManager::getShieldedTxVersion(int height) const { return getForkAtHeight(height)->getShieldedTxVersion(); }
 
 /**
  * @param height height to test against
  * @return returns sidechain tx version based on block height
  */
-int ForkManager::getSidechainTxVersion(int height) const {
-    return getForkAtHeight(height)->getSidechainTxVersion();
-}
+int ForkManager::getSidechainTxVersion(int height) const { return getForkAtHeight(height)->getSidechainTxVersion(); }
 
 /**
  * @param height height to test against
  * @return returns sidechain cert version based on block height
  */
-int ForkManager::getCertificateVersion(int height) const {
-    return getForkAtHeight(height)->getCertificateVersion();
-}
+int ForkManager::getCertificateVersion(int height) const { return getForkAtHeight(height)->getCertificateVersion(); }
 
 /**
  * @brief returns true sidechains are supported based on block height, false otherwise
  * @return true if allowed, false otherwise
  */
-bool ForkManager::areSidechainsSupported(int height) const {
-    return getForkAtHeight(height)->areSidechainsSupported();
-}
+bool ForkManager::areSidechainsSupported(int height) const { return getForkAtHeight(height)->areSidechainsSupported(); }
 
 /**
  * @param height height to test against
  * @return returns new block version based on block height
  */
-int ForkManager::getNewBlockVersion(int height) const {
-    return getForkAtHeight(height)->getNewBlockVersion();
-}
+int ForkManager::getNewBlockVersion(int height) const { return getForkAtHeight(height)->getNewBlockVersion(); }
 
 /**
  * @param height height to test against
@@ -165,19 +147,17 @@ bool ForkManager::isValidBlockVersion(int height, int nVersion) const {
  * @brief
  */
 bool ForkManager::isFutureMiningTimeStampActive(int height) const {
-	return getForkAtHeight(height)->isFutureMiningTimeStampActive();
+    return getForkAtHeight(height)->isFutureMiningTimeStampActive();
 }
 
 /**
  * @brief
  */
 bool ForkManager::isFutureTimeStampActive(int height) const {
-	return getForkAtHeight(height)->isFutureTimeStampActive(height, currentNetwork);
+    return getForkAtHeight(height)->isFutureTimeStampActive(height, currentNetwork);
 }
 
-uint8_t ForkManager::getMaxSidechainVersion(int height) const {
-    return getForkAtHeight(height)->getMaxSidechainVersion();
-}
+uint8_t ForkManager::getMaxSidechainVersion(int height) const { return getForkAtHeight(height)->getMaxSidechainVersion(); }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// PRIVATE MEMBERS
@@ -187,7 +167,7 @@ uint8_t ForkManager::getMaxSidechainVersion(int height) const {
  * @brief ForkManager constructor
  */
 ForkManager::ForkManager() {
-    selectNetwork(CBaseChainParams::Network::MAIN);     // selects MAIN as the default network
+    selectNetwork(CBaseChainParams::Network::MAIN);  // selects MAIN as the default network
     // Registers each of the forks - the order should not matter as they get sorted during registration
     registerFork(new OriginalFork());
     registerFork(new ChainsplitFork());
@@ -206,7 +186,7 @@ ForkManager::ForkManager() {
  */
 ForkManager::~ForkManager() {
     // release all forks and empty the list
-    while(!forks.empty())    {
+    while (!forks.empty()) {
         Fork* fork = forks.front();
         forks.remove(fork);
         delete fork;
@@ -214,8 +194,8 @@ ForkManager::~ForkManager() {
 }
 
 /**
- * @brief getForkAtHeight returns the active fork at the specified height. 
- * Important Note: Forks were previously inconsistent in their handling of the boundary block. Some forks did not 
+ * @brief getForkAtHeight returns the active fork at the specified height.
+ * Important Note: Forks were previously inconsistent in their handling of the boundary block. Some forks did not
  * include their boundary block while others did. Fork heights have been adjusted so that all boundary blocks are included:
  * - the original chainsplit at 110000 was non-inclusive and is now 110001
  * - the original replay protection at 117575 was non-inclusive and is now 117576
@@ -224,7 +204,6 @@ ForkManager::~ForkManager() {
  * @return the fork at that height
  */
 const Fork* ForkManager::getForkAtHeight(int height) const {
-    
     if (forks.empty()) {
         printf("no registered forks! returning nullptr!\n");
         return nullptr;
@@ -232,7 +211,7 @@ const Fork* ForkManager::getForkAtHeight(int height) const {
 
     // Iterate through all the forks until fork height is higher than block height or there are no more forks
     std::list<Fork*>::const_iterator lastIterator = forks.begin();
-    for (std::list<Fork*>::const_iterator iterator = forks.begin();iterator != forks.end();iterator++) {
+    for (std::list<Fork*>::const_iterator iterator = forks.begin(); iterator != forks.end(); iterator++) {
         if ((*iterator)->getHeight(currentNetwork) > height) {
             break;
         }
@@ -249,8 +228,11 @@ const Fork* ForkManager::getForkAtHeight(int height) const {
 void ForkManager::registerFork(Fork* fork) {
     // add fork to list
     forks.push_back(fork);
-    // sort list by height in the MAIN network. We assume that forks will always keep the same relative height order regardless of the network used
-    forks.sort([](Fork* fork1, Fork* fork2) { return fork1->getHeight(CBaseChainParams::Network::MAIN) < fork2->getHeight(CBaseChainParams::Network::MAIN); });
+    // sort list by height in the MAIN network. We assume that forks will always keep the same relative height order regardless
+    // of the network used
+    forks.sort([](Fork* fork1, Fork* fork2) {
+        return fork1->getHeight(CBaseChainParams::Network::MAIN) < fork2->getHeight(CBaseChainParams::Network::MAIN);
+    });
 }
 
-}
+}  // namespace zen

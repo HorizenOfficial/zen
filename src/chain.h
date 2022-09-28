@@ -6,14 +6,14 @@
 #ifndef BITCOIN_CHAIN_H
 #define BITCOIN_CHAIN_H
 
+#include <vector>
+
+#include <boost/foreach.hpp>
+
 #include "arith_uint256.h"
 #include "primitives/block.h"
 #include "tinyformat.h"
 #include "uint256.h"
-
-#include <vector>
-
-#include <boost/foreach.hpp>
 
 static const int SPROUT_VALUE_VERSION = 2001400;
 
@@ -39,7 +39,6 @@ static const int64_t TIMESTAMP_WINDOW = MAX_FUTURE_BLOCK_TIME_LOCAL + 60;
 BOOST_STATIC_ASSERT(MAX_FUTURE_BLOCK_TIME_LOCAL > MAX_FUTURE_BLOCK_TIME_MTP);
 BOOST_STATIC_ASSERT(TIMESTAMP_WINDOW > MAX_FUTURE_BLOCK_TIME_LOCAL);
 
-
 struct CDiskBlockPos {
     int nFile;
     unsigned int nPos;
@@ -47,47 +46,33 @@ struct CDiskBlockPos {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
-    {
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(VARINT(nFile));
         READWRITE(VARINT(nPos));
     }
 
-    CDiskBlockPos()
-    {
-        SetNull();
-    }
+    CDiskBlockPos() { SetNull(); }
 
-    CDiskBlockPos(int nFileIn, unsigned int nPosIn)
-    {
+    CDiskBlockPos(int nFileIn, unsigned int nPosIn) {
         nFile = nFileIn;
         nPos = nPosIn;
     }
 
-    friend bool operator==(const CDiskBlockPos& a, const CDiskBlockPos& b)
-    {
-        return (a.nFile == b.nFile && a.nPos == b.nPos);
-    }
+    friend bool operator==(const CDiskBlockPos& a, const CDiskBlockPos& b) { return (a.nFile == b.nFile && a.nPos == b.nPos); }
 
-    friend bool operator!=(const CDiskBlockPos& a, const CDiskBlockPos& b)
-    {
-        return !(a == b);
-    }
+    friend bool operator!=(const CDiskBlockPos& a, const CDiskBlockPos& b) { return !(a == b); }
 
-    void SetNull()
-    {
+    void SetNull() {
         nFile = -1;
         nPos = 0;
     }
     bool IsNull() const { return (nFile == -1); }
 
-    std::string ToString() const
-    {
-        return strprintf("CBlockDiskPos(nFile=%i, nPos=%i)", nFile, nPos);
-    }
+    std::string ToString() const { return strprintf("CBlockDiskPos(nFile=%i, nPos=%i)", nFile, nPos); }
 };
 
-enum BlockStatus : uint32_t {
+enum BlockStatus : uint32_t
+{
     //! Unused.
     BLOCK_VALID_UNKNOWN = 0,
 
@@ -113,15 +98,15 @@ enum BlockStatus : uint32_t {
     BLOCK_VALID_SCRIPTS = 5,
 
     //! All validity bits.
-    BLOCK_VALID_MASK = BLOCK_VALID_HEADER | BLOCK_VALID_TREE | BLOCK_VALID_TRANSACTIONS |
-                       BLOCK_VALID_CHAIN | BLOCK_VALID_SCRIPTS,
+    BLOCK_VALID_MASK =
+        BLOCK_VALID_HEADER | BLOCK_VALID_TREE | BLOCK_VALID_TRANSACTIONS | BLOCK_VALID_CHAIN | BLOCK_VALID_SCRIPTS,
 
-    BLOCK_HAVE_DATA = 8,  //! full block available in blk*.dat
-    BLOCK_HAVE_UNDO = 16, //! undo data available in rev*.dat
+    BLOCK_HAVE_DATA = 8,   //! full block available in blk*.dat
+    BLOCK_HAVE_UNDO = 16,  //! undo data available in rev*.dat
     BLOCK_HAVE_MASK = BLOCK_HAVE_DATA | BLOCK_HAVE_UNDO,
 
-    BLOCK_FAILED_VALID = 32, //! stage after last reached validness failed
-    BLOCK_FAILED_CHILD = 64, //! descends from failed block
+    BLOCK_FAILED_VALID = 32,  //! stage after last reached validness failed
+    BLOCK_FAILED_CHILD = 64,  //! descends from failed block
     BLOCK_FAILED_MASK = BLOCK_FAILED_VALID | BLOCK_FAILED_CHILD,
 };
 
@@ -130,9 +115,8 @@ enum BlockStatus : uint32_t {
  * candidates to be the next block. A blockindex may have multiple pprev pointing
  * to it, but at most one of them can be part of the currently active branch.
  */
-class CBlockIndex
-{
-public:
+class CBlockIndex {
+  public:
     //! pointer to the hash of the block, if any. Memory is owned by this CBlockIndex
     const uint256* phashBlock;
 
@@ -204,8 +188,7 @@ public:
     //! hashable CFieldElement used for pre-sidechain forks hash calculations
     static const CFieldElement defaultScCumTreeHash;
 
-    void SetNull()
-    {
+    void SetNull() {
         phashBlock = NULL;
         pprev = NULL;
         pskip = NULL;
@@ -235,13 +218,9 @@ public:
         scCumTreeHash.SetNull();
     }
 
-    CBlockIndex()
-    {
-        SetNull();
-    }
+    CBlockIndex() { SetNull(); }
 
-    CBlockIndex(const CBlockHeader& block)
-    {
+    CBlockIndex(const CBlockHeader& block) {
         SetNull();
 
         nVersion = block.nVersion;
@@ -253,8 +232,7 @@ public:
         nSolution = block.nSolution;
     }
 
-    CDiskBlockPos GetBlockPos() const
-    {
+    CDiskBlockPos GetBlockPos() const {
         CDiskBlockPos ret;
         if (nStatus & BLOCK_HAVE_DATA) {
             ret.nFile = nFile;
@@ -263,8 +241,7 @@ public:
         return ret;
     }
 
-    CDiskBlockPos GetUndoPos() const
-    {
+    CDiskBlockPos GetUndoPos() const {
         CDiskBlockPos ret;
         if (nStatus & BLOCK_HAVE_UNDO) {
             ret.nFile = nFile;
@@ -273,12 +250,10 @@ public:
         return ret;
     }
 
-    CBlockHeader GetBlockHeader() const
-    {
+    CBlockHeader GetBlockHeader() const {
         CBlockHeader block;
         block.nVersion = nVersion;
-        if (pprev)
-            block.hashPrevBlock = pprev->GetBlockHash();
+        if (pprev) block.hashPrevBlock = pprev->GetBlockHash();
         block.hashMerkleRoot = hashMerkleRoot;
         block.hashScTxsCommitment = hashScTxsCommitment;
         block.nTime = nTime;
@@ -288,56 +263,42 @@ public:
         return block;
     }
 
-    uint256 GetBlockHash() const
-    {
-        return *phashBlock;
-    }
+    uint256 GetBlockHash() const { return *phashBlock; }
 
-    int64_t GetBlockTime() const
-    {
-        return (int64_t)nTime;
-    }
+    int64_t GetBlockTime() const { return (int64_t)nTime; }
 
-    enum { nMedianTimeSpan = 11 };
+    enum
+    { nMedianTimeSpan = 11 };
 
-    int64_t GetMedianTimePast() const
-    {
+    int64_t GetMedianTimePast() const {
         int64_t pmedian[nMedianTimeSpan];
         int64_t* pbegin = &pmedian[nMedianTimeSpan];
         int64_t* pend = &pmedian[nMedianTimeSpan];
 
         const CBlockIndex* pindex = this;
-        for (int i = 0; i < nMedianTimeSpan && pindex; i++, pindex = pindex->pprev)
-            *(--pbegin) = pindex->GetBlockTime();
+        for (int i = 0; i < nMedianTimeSpan && pindex; i++, pindex = pindex->pprev) *(--pbegin) = pindex->GetBlockTime();
 
         std::sort(pbegin, pend);
         return pbegin[(pend - pbegin) / 2];
     }
 
-    std::string ToString() const
-    {
-        return strprintf("CBlockIndex(pprev=%p, nHeight=%d, merkle=%s, hashBlock=%s)",
-                         pprev, nHeight,
-                         hashMerkleRoot.ToString(),
-                         GetBlockHash().ToString());
+    std::string ToString() const {
+        return strprintf("CBlockIndex(pprev=%p, nHeight=%d, merkle=%s, hashBlock=%s)", pprev, nHeight,
+                         hashMerkleRoot.ToString(), GetBlockHash().ToString());
     }
 
     //! Check whether this block index entry is valid up to the passed validity level.
-    bool IsValid(enum BlockStatus nUpTo = BLOCK_VALID_TRANSACTIONS) const
-    {
-        assert(!(nUpTo & ~BLOCK_VALID_MASK)); // Only validity flags allowed.
-        if (nStatus & BLOCK_FAILED_MASK)
-            return false;
+    bool IsValid(enum BlockStatus nUpTo = BLOCK_VALID_TRANSACTIONS) const {
+        assert(!(nUpTo & ~BLOCK_VALID_MASK));  // Only validity flags allowed.
+        if (nStatus & BLOCK_FAILED_MASK) return false;
         return ((nStatus & BLOCK_VALID_MASK) >= nUpTo);
     }
 
     //! Raise the validity level of this block index entry.
     //! Returns true if the validity was changed.
-    bool RaiseValidity(enum BlockStatus nUpTo)
-    {
-        assert(!(nUpTo & ~BLOCK_VALID_MASK)); // Only validity flags allowed.
-        if (nStatus & BLOCK_FAILED_MASK)
-            return false;
+    bool RaiseValidity(enum BlockStatus nUpTo) {
+        assert(!(nUpTo & ~BLOCK_VALID_MASK));  // Only validity flags allowed.
+        if (nStatus & BLOCK_FAILED_MASK) return false;
         if ((nStatus & BLOCK_VALID_MASK) < nUpTo) {
             nStatus = (nStatus & ~BLOCK_VALID_MASK) | nUpTo;
             return true;
@@ -354,38 +315,28 @@ public:
 };
 
 /** Used to marshal pointers into hashes for db storage. */
-class CDiskBlockIndex : public CBlockIndex
-{
-public:
+class CDiskBlockIndex : public CBlockIndex {
+  public:
     uint256 hashPrev;
 
-    CDiskBlockIndex()
-    {
-        hashPrev = uint256();
-    }
+    CDiskBlockIndex() { hashPrev = uint256(); }
 
-    explicit CDiskBlockIndex(const CBlockIndex* pindex) : CBlockIndex(*pindex)
-    {
+    explicit CDiskBlockIndex(const CBlockIndex* pindex) : CBlockIndex(*pindex) {
         hashPrev = (pprev ? pprev->GetBlockHash() : uint256());
     }
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
-    {
-        if (!(nType & SER_GETHASH))
-            READWRITE(VARINT(nVersion));
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        if (!(nType & SER_GETHASH)) READWRITE(VARINT(nVersion));
 
         READWRITE(VARINT(nHeight));
         READWRITE(VARINT(nStatus));
         READWRITE(VARINT(nTx));
-        if (nStatus & (BLOCK_HAVE_DATA | BLOCK_HAVE_UNDO))
-            READWRITE(VARINT(nFile));
-        if (nStatus & BLOCK_HAVE_DATA)
-            READWRITE(VARINT(nDataPos));
-        if (nStatus & BLOCK_HAVE_UNDO)
-            READWRITE(VARINT(nUndoPos));
+        if (nStatus & (BLOCK_HAVE_DATA | BLOCK_HAVE_UNDO)) READWRITE(VARINT(nFile));
+        if (nStatus & BLOCK_HAVE_DATA) READWRITE(VARINT(nDataPos));
+        if (nStatus & BLOCK_HAVE_UNDO) READWRITE(VARINT(nUndoPos));
         READWRITE(hashAnchor);
 
         // block header
@@ -409,8 +360,7 @@ public:
         }
     }
 
-    uint256 GetBlockHash() const
-    {
+    uint256 GetBlockHash() const {
         CBlockHeader block;
         block.nVersion = nVersion;
         block.hashPrevBlock = hashPrev;
@@ -423,41 +373,31 @@ public:
         return block.GetHash();
     }
 
-
-    std::string ToString() const
-    {
+    std::string ToString() const {
         std::string str = "CDiskBlockIndex(";
         str += CBlockIndex::ToString();
-        str += strprintf("\n                hashBlock=%s, hashPrev=%s)",
-                         GetBlockHash().ToString(),
-                         hashPrev.ToString());
+        str += strprintf("\n                hashBlock=%s, hashPrev=%s)", GetBlockHash().ToString(), hashPrev.ToString());
         return str;
     }
 };
 
 /** An in-memory indexed chain of blocks. */
-class CChain
-{
-private:
+class CChain {
+  private:
     std::vector<CBlockIndex*> vChain;
 
-public:
+  public:
     /** Returns the index entry for the genesis block of this chain, or NULL if none. */
-    CBlockIndex* Genesis() const
-    {
-        return (*this)[0];
-    }
+    CBlockIndex* Genesis() const { return (*this)[0]; }
 
     /** Returns the index entry for the tip of this chain, or NULL if none. */
-    CBlockIndex* Tip() const
-    {
+    CBlockIndex* Tip() const {
         const int nHeight = Height();
         return nHeight >= 0 ? (*this)[nHeight] : NULL;
     }
 
     /** Returns the index entry at a particular height in this chain, or NULL if no such height exists. */
-    virtual CBlockIndex* operator[](int nHeight) const
-    {
+    virtual CBlockIndex* operator[](int nHeight) const {
         if (nHeight < 0 || nHeight > Height()) {
             return NULL;
         }
@@ -465,20 +405,13 @@ public:
     }
 
     /** Compare two chains efficiently. */
-    friend bool operator==(const CChain& a, const CChain& b)
-    {
-        return a.Tip() == b.Tip();
-    }
+    friend bool operator==(const CChain& a, const CChain& b) { return a.Tip() == b.Tip(); }
 
     /** Efficiently check whether a block is present in this chain. */
-    bool Contains(const CBlockIndex* pindex) const
-    {
-        return (*this)[pindex->nHeight] == pindex;
-    }
+    bool Contains(const CBlockIndex* pindex) const { return (*this)[pindex->nHeight] == pindex; }
 
     /** Find the successor of a block in this chain, or NULL if the given index is not found or is the tip. */
-    CBlockIndex* Next(const CBlockIndex* pindex) const
-    {
+    CBlockIndex* Next(const CBlockIndex* pindex) const {
         if (Contains(pindex))
             return (*this)[pindex->nHeight + 1];
         else
@@ -486,14 +419,10 @@ public:
     }
 
     /** Return the maximal height in the chain. Is equal to chain.Tip() ? chain.Tip()->nHeight : -1. */
-    virtual int Height() const
-    {
-        return vChain.size() - 1;
-    }
+    virtual int Height() const { return vChain.size() - 1; }
 
     /** Set/initialize a chain with a given tip. */
-    virtual void SetTip(CBlockIndex* pindex)
-    {
+    virtual void SetTip(CBlockIndex* pindex) {
         if (pindex == NULL) {
             vChain.clear();
             return;
@@ -512,32 +441,27 @@ public:
     const CBlockIndex* FindFork(const CBlockIndex* pindex) const;
 };
 
-class CHistoricalChain : public CChain
-{
-private:
+class CHistoricalChain : public CChain {
+  private:
     const CChain& chain;
     int my_height;
 
-public:
+  public:
     CHistoricalChain() = delete;
     CHistoricalChain(const CChain& chainIn, const int heightIn) : chain(chainIn), my_height(heightIn) {}
 
     void SetHeight(int nHeight);
 
-    CBlockIndex* operator[](int nHeight) const
-    {
+    CBlockIndex* operator[](int nHeight) const {
         if (nHeight > Height()) {
             return NULL;
         }
         return chain[nHeight];
     }
 
-    int Height() const
-    {
-        return my_height;
-    }
+    int Height() const { return my_height; }
 
     void SetTip(CBlockIndex* pindex);
 };
 
-#endif // BITCOIN_CHAIN_H
+#endif  // BITCOIN_CHAIN_H

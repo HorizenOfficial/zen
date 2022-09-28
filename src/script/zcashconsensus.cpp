@@ -13,26 +13,17 @@
 namespace {
 
 /** A class that deserializes a single CTransaction one time. */
-class TxInputStream
-{
-public:
-    TxInputStream(int nTypeIn, int nVersionIn, const unsigned char *txTo, size_t txToLen) :
-    m_type(nTypeIn),
-    m_version(nVersionIn),
-    m_data(txTo),
-    m_remaining(txToLen)
-    {}
+class TxInputStream {
+  public:
+    TxInputStream(int nTypeIn, int nVersionIn, const unsigned char* txTo, size_t txToLen)
+        : m_type(nTypeIn), m_version(nVersionIn), m_data(txTo), m_remaining(txToLen) {}
 
-    TxInputStream& read(char* pch, size_t nSize)
-    {
-        if (nSize > m_remaining)
-            throw std::ios_base::failure(std::string(__func__) + ": end of data");
+    TxInputStream& read(char* pch, size_t nSize) {
+        if (nSize > m_remaining) throw std::ios_base::failure(std::string(__func__) + ": end of data");
 
-        if (pch == NULL)
-            throw std::ios_base::failure(std::string(__func__) + ": bad destination buffer");
+        if (pch == NULL) throw std::ios_base::failure(std::string(__func__) + ": bad destination buffer");
 
-        if (m_data == NULL)
-            throw std::ios_base::failure(std::string(__func__) + ": bad source buffer");
+        if (m_data == NULL) throw std::ios_base::failure(std::string(__func__) + ": bad source buffer");
 
         memcpy(pch, m_data, nSize);
         m_remaining -= nSize;
@@ -40,61 +31,55 @@ public:
         return *this;
     }
 
-    template<typename T>
-    TxInputStream& operator>>(T& obj)
-    {
+    template <typename T>
+    TxInputStream& operator>>(T& obj) {
         ::Unserialize(*this, obj, m_type, m_version);
         return *this;
     }
 
     int GetVersion() const { return m_version; }
     int GetType() const { return m_type; }
-private:
+
+  private:
     const int m_type;
     const int m_version;
     const unsigned char* m_data;
     size_t m_remaining;
 };
 
-inline int set_error(zcashconsensus_error* ret, zcashconsensus_error serror)
-{
-    if (ret)
-        *ret = serror;
+inline int set_error(zcashconsensus_error* ret, zcashconsensus_error serror) {
+    if (ret) *ret = serror;
     return 0;
 }
 
-struct ECCryptoClosure
-{
+struct ECCryptoClosure {
     ECCVerifyHandle handle;
 };
 
 ECCryptoClosure instance_of_eccryptoclosure;
-}
+}  // namespace
 
-int zcashconsensus_verify_script(const unsigned char *scriptPubKey, unsigned int scriptPubKeyLen,
-                                    const unsigned char *txTo        , unsigned int txToLen,
-                                    unsigned int nIn, unsigned int flags, zcashconsensus_error* err)
-{
+int zcashconsensus_verify_script(const unsigned char* scriptPubKey, unsigned int scriptPubKeyLen, const unsigned char* txTo,
+                                 unsigned int txToLen, unsigned int nIn, unsigned int flags, zcashconsensus_error* err) {
     try {
         TxInputStream stream(SER_NETWORK, PROTOCOL_VERSION, txTo, txToLen);
         CTransaction tx;
         stream >> tx;
-        if (nIn >= tx.vin.size())
-            return set_error(err, zcashconsensus_ERR_TX_INDEX);
+        if (nIn >= tx.vin.size()) return set_error(err, zcashconsensus_ERR_TX_INDEX);
         if (tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION) != txToLen)
             return set_error(err, zcashconsensus_ERR_TX_SIZE_MISMATCH);
 
-         // Regardless of the verification result, the tx did not error.
-         set_error(err, zcashconsensus_ERR_OK);
+        // Regardless of the verification result, the tx did not error.
+        set_error(err, zcashconsensus_ERR_OK);
 
-         return VerifyScript(tx.vin[nIn].scriptSig, CScript(scriptPubKey, scriptPubKey + scriptPubKeyLen), flags, TransactionSignatureChecker(&tx, nIn, nullptr), NULL);
+        return VerifyScript(tx.vin[nIn].scriptSig, CScript(scriptPubKey, scriptPubKey + scriptPubKeyLen), flags,
+                            TransactionSignatureChecker(&tx, nIn, nullptr), NULL);
     } catch (const std::exception&) {
-        return set_error(err, zcashconsensus_ERR_TX_DESERIALIZE); // Error deserializing
+        return set_error(err, zcashconsensus_ERR_TX_DESERIALIZE);  // Error deserializing
     }
 }
 
-unsigned int zcashconsensus_version()
-{
+unsigned int zcashconsensus_version() {
     // Just use the API version for now
     return ZCASHCONSENSUS_API_VER;
 }

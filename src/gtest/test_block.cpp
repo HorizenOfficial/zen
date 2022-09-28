@@ -2,7 +2,6 @@
 
 #include "primitives/block.h"
 
-
 TEST(block_tests, header_size_is_expected) {
     // Dummy header with an empty Equihash solution.
     CBlockHeader header;

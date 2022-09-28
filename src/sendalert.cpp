@@ -39,27 +39,22 @@ the bad alert.
 */
 
 #include "alert.h"
-#include "init.h"
-#include "main.h"
-#include "net.h"
-
+#include "alertkeys.h"
 #include "chainparams.h"
 #include "clientversion.h"
+#include "init.h"
 #include "key.h"
+#include "main.h"
+#include "net.h"
 #include "util.h"
 #include "utiltime.h"
 
-#include "alertkeys.h"
-
-
 static const int64_t DAYS = 24 * 60 * 60;
 
-void ThreadSendAlert()
-{
-    if (!mapArgs.count("-sendalert") && !mapArgs.count("-printalert"))
-        return;
+void ThreadSendAlert() {
+    if (!mapArgs.count("-sendalert") && !mapArgs.count("-printalert")) return;
 
-    MilliSleep(60 * 1000); // Wait a minute so we get connected
+    MilliSleep(60 * 1000);  // Wait a minute so we get connected
 
     //
     // Alerts are relayed around the network until nRelayUntil, flood
@@ -72,8 +67,8 @@ void ThreadSendAlert()
     CAlert alert;
     alert.nRelayUntil = GetTime() + 15 * 60;
     alert.nExpiration = GetTime() + 12 * 30 * 24 * 60 * 60;
-    alert.nID = 1004;     // use https://github.com/zcash/zcash/wiki/specification#assigned-numbers to keep track of alert IDs
-    alert.nCancel = 1001; // cancels previous messages up to this ID number
+    alert.nID = 1004;      // use https://github.com/zcash/zcash/wiki/specification#assigned-numbers to keep track of alert IDs
+    alert.nCancel = 1001;  // cancels previous messages up to this ID number
 
     // These versions are protocol versions
     // 170002 : 1.0.0
@@ -88,7 +83,9 @@ void ThreadSendAlert()
     //  4000 or higher will put the RPC into safe mode
     alert.nPriority = 4000;
     alert.strComment = "";
-    alert.strStatusBar = "Your client version 1.0.10 has degraded networking behavior. Please update to the most recent version of Zcash (1.0.10-1 or later).";
+    alert.strStatusBar =
+        "Your client version 1.0.10 has degraded networking behavior. Please update to the most recent version of Zcash "
+        "(1.0.10-1 or later).";
     alert.strRPCError = alert.strStatusBar;
 
     // Set specific client version/versions here. If setSubVer is empty, no filtering on subver is done:
@@ -100,7 +97,7 @@ void ThreadSendAlert()
     }
 
     // Sanity check
-    assert(alert.strComment.length() <= 65536); // max length in alert.h
+    assert(alert.strComment.length() <= 65536);  // max length in alert.h
     assert(alert.strStatusBar.length() <= 256);
     assert(alert.strRPCError.length() <= 256);
 
@@ -143,12 +140,9 @@ void ThreadSendAlert()
     printf("vchSig=%s\n", HexStr(alert2.vchSig).c_str());
 
     // Confirm
-    if (!mapArgs.count("-sendalert"))
-        return;
-    while (vNodes.size() < 1 && !ShutdownRequested())
-        MilliSleep(500);
-    if (ShutdownRequested())
-        return;
+    if (!mapArgs.count("-sendalert")) return;
+    while (vNodes.size() < 1 && !ShutdownRequested()) MilliSleep(500);
+    if (ShutdownRequested()) return;
 
     // Send
     printf("ThreadSendAlert() : Sending alert\n");

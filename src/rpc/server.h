@@ -6,37 +6,35 @@
 #ifndef BITCOIN_RPCSERVER_H
 #define BITCOIN_RPCSERVER_H
 
-#include "amount.h"
-#include "rpc/protocol.h"
+#include <stdint.h>
+#include <univalue.h>
 
 #include <list>
 #include <map>
-#include <stdint.h>
-#include <string>
 #include <memory>
+#include <string>
 
 #include <boost/function.hpp>
 
-#include <univalue.h>
+#include "amount.h"
+#include "rpc/protocol.h"
 
 class AsyncRPCQueue;
 class CRPCCommand;
 class uint256;
 
-namespace RPCServer
-{
-    void OnStarted(boost::function<void ()> slot);
-    void OnStopped(boost::function<void ()> slot);
-    void OnPreCommand(boost::function<void (const CRPCCommand&)> slot);
-    void OnPostCommand(boost::function<void (const CRPCCommand&)> slot);
-}
+namespace RPCServer {
+void OnStarted(boost::function<void()> slot);
+void OnStopped(boost::function<void()> slot);
+void OnPreCommand(boost::function<void(const CRPCCommand&)> slot);
+void OnPostCommand(boost::function<void(const CRPCCommand&)> slot);
+}  // namespace RPCServer
 
 class CBlockIndex;
 class CNetAddr;
 
-class JSONRequest
-{
-public:
+class JSONRequest {
+  public:
     UniValue id;
     std::string strMethod;
     UniValue params;
@@ -51,7 +49,6 @@ bool IsRPCRunning();
 /** Get the async queue*/
 std::shared_ptr<AsyncRPCQueue> getAsyncRPCQueue();
 
-
 /**
  * Set the RPC warmup status.  When this is done, all RPC calls will error out
  * immediately with RPC_IN_WARMUP.
@@ -61,42 +58,38 @@ void SetRPCWarmupStatus(const std::string& newStatus);
 void SetRPCWarmupFinished();
 
 /* returns the current warmup state.  */
-bool RPCIsInWarmup(std::string *statusOut);
+bool RPCIsInWarmup(std::string* statusOut);
 
 /**
  * Type-check arguments; throws JSONRPCError if wrong type given. Does not check that
  * the right number of arguments are passed, just that any passed are the correct type.
  * Use like:  RPCTypeCheck(params, boost::assign::list_of(str_type)(int_type)(obj_type));
  */
-void RPCTypeCheck(const UniValue& params,
-                  const std::list<UniValue::VType>& typesExpected, bool fAllowNull=false);
+void RPCTypeCheck(const UniValue& params, const std::list<UniValue::VType>& typesExpected, bool fAllowNull = false);
 
 /*
   Check for expected keys/value types in an Object.
   Use like: RPCTypeCheckObj(object, boost::assign::map_list_of("name", str_type)("value", int_type));
 */
-void RPCTypeCheckObj(const UniValue& o,
-                  const std::map<std::string, UniValue::VType>& typesExpected, bool fAllowNull=false);
+void RPCTypeCheckObj(const UniValue& o, const std::map<std::string, UniValue::VType>& typesExpected, bool fAllowNull = false);
 
 /** Opaque base class for timers returned by NewTimerFunc.
  * This provides no methods at the moment, but makes sure that delete
  * cleans up the whole state.
  */
-class RPCTimerBase
-{
-public:
+class RPCTimerBase {
+  public:
     virtual ~RPCTimerBase() {}
 };
 
 /**
  * RPC timer "driver".
  */
-class RPCTimerInterface
-{
-public:
+class RPCTimerInterface {
+  public:
     virtual ~RPCTimerInterface() {}
     /** Implementation name */
-    virtual const char *Name() = 0;
+    virtual const char* Name() = 0;
     /** Factory function for timers.
      * RPC will call the function to create a timer that will call func in *millis* milliseconds.
      * @note As the RPC mechanism is backend-neutral, it can use different implementations of timers.
@@ -107,9 +100,9 @@ public:
 };
 
 /** Register factory function for timers */
-void RPCRegisterTimerInterface(RPCTimerInterface *iface);
+void RPCRegisterTimerInterface(RPCTimerInterface* iface);
 /** Unregister factory function for timers */
-void RPCUnregisterTimerInterface(RPCTimerInterface *iface);
+void RPCUnregisterTimerInterface(RPCTimerInterface* iface);
 
 /**
  * Run func nSeconds from now.
@@ -117,11 +110,10 @@ void RPCUnregisterTimerInterface(RPCTimerInterface *iface);
  */
 void RPCRunLater(const std::string& name, boost::function<void(void)> func, int64_t nSeconds);
 
-typedef UniValue(*rpcfn_type)(const UniValue& params, bool fHelp);
+typedef UniValue (*rpcfn_type)(const UniValue& params, bool fHelp);
 
-class CRPCCommand
-{
-public:
+class CRPCCommand {
+  public:
     std::string category;
     std::string name;
     rpcfn_type actor;
@@ -131,11 +123,11 @@ public:
 /**
  * Bitcoin RPC command dispatcher.
  */
-class CRPCTable
-{
-private:
+class CRPCTable {
+  private:
     std::map<std::string, const CRPCCommand*> mapCommands;
-public:
+
+  public:
     CRPCTable();
     const CRPCCommand* operator[](const std::string& name) const;
     std::string help(const std::string& name) const;
@@ -147,7 +139,7 @@ public:
      * @returns Result of the call.
      * @throws an exception (UniValue) when an error happens.
      */
-    UniValue execute(const std::string &method, const UniValue &params) const;
+    UniValue execute(const std::string& method, const UniValue& params) const;
 };
 
 extern const CRPCTable tableRPC;
@@ -174,7 +166,7 @@ extern std::string HelpExampleRpc(const std::string& methodname, const std::stri
 
 extern void EnsureWalletIsUnlocked();
 
-extern UniValue getconnectioncount(const UniValue& params, bool fHelp); // in rpcnet.cpp
+extern UniValue getconnectioncount(const UniValue& params, bool fHelp);  // in rpcnet.cpp
 extern UniValue getaddressmempool(const UniValue& params, bool fHelp);
 extern UniValue getaddressutxos(const UniValue& params, bool fHelp);
 extern UniValue getaddressdeltas(const UniValue& params, bool fHelp);
@@ -191,13 +183,13 @@ extern UniValue setban(const UniValue& params, bool fHelp);
 extern UniValue listbanned(const UniValue& params, bool fHelp);
 extern UniValue clearbanned(const UniValue& params, bool fHelp);
 
-extern UniValue dumpprivkey(const UniValue& params, bool fHelp); // in rpcdump.cpp
+extern UniValue dumpprivkey(const UniValue& params, bool fHelp);  // in rpcdump.cpp
 extern UniValue importprivkey(const UniValue& params, bool fHelp);
 extern UniValue importaddress(const UniValue& params, bool fHelp);
 extern UniValue dumpwallet(const UniValue& params, bool fHelp);
 extern UniValue importwallet(const UniValue& params, bool fHelp);
 
-extern UniValue getgenerate(const UniValue& params, bool fHelp); // in rpcmining.cpp
+extern UniValue getgenerate(const UniValue& params, bool fHelp);  // in rpcmining.cpp
 extern UniValue setgenerate(const UniValue& params, bool fHelp);
 extern UniValue generate(const UniValue& params, bool fHelp);
 extern UniValue getlocalsolps(const UniValue& params, bool fHelp);
@@ -210,7 +202,7 @@ extern UniValue submitblock(const UniValue& params, bool fHelp);
 extern UniValue estimatefee(const UniValue& params, bool fHelp);
 extern UniValue estimatepriority(const UniValue& params, bool fHelp);
 
-extern UniValue getnewaddress(const UniValue& params, bool fHelp); // in rpcwallet.cpp
+extern UniValue getnewaddress(const UniValue& params, bool fHelp);  // in rpcwallet.cpp
 extern UniValue getaccountaddress(const UniValue& params, bool fHelp);
 extern UniValue getrawchangeaddress(const UniValue& params, bool fHelp);
 extern UniValue setaccount(const UniValue& params, bool fHelp);
@@ -255,7 +247,7 @@ extern UniValue zc_raw_keygen(const UniValue& params, bool fHelp);
 extern UniValue zc_raw_joinsplit(const UniValue& params, bool fHelp);
 extern UniValue zc_raw_receive(const UniValue& params, bool fHelp);
 extern UniValue zc_sample_joinsplit(const UniValue& params, bool fHelp);
-extern UniValue getrawtransaction(const UniValue& params, bool fHelp); // in rcprawtransaction.cpp
+extern UniValue getrawtransaction(const UniValue& params, bool fHelp);  // in rcprawtransaction.cpp
 extern UniValue listunspent(const UniValue& params, bool fHelp);
 extern UniValue lockunspent(const UniValue& params, bool fHelp);
 extern UniValue listlockunspent(const UniValue& params, bool fHelp);
@@ -269,7 +261,7 @@ extern UniValue sendrawtransaction(const UniValue& params, bool fHelp);
 extern UniValue gettxoutproof(const UniValue& params, bool fHelp);
 extern UniValue verifytxoutproof(const UniValue& params, bool fHelp);
 
-extern UniValue getblockcount(const UniValue& params, bool fHelp); // in rpcblockchain.cpp
+extern UniValue getblockcount(const UniValue& params, bool fHelp);  // in rpcblockchain.cpp
 extern UniValue getbestblockhash(const UniValue& params, bool fHelp);
 extern UniValue getdifficulty(const UniValue& params, bool fHelp);
 extern UniValue settxfee(const UniValue& params, bool fHelp);
@@ -279,7 +271,7 @@ extern UniValue getrawmempool(const UniValue& params, bool fHelp);
 #ifdef ENABLE_ADDRESS_INDEXING
 extern UniValue getblockdeltas(const UniValue& params, bool fHelp);
 extern UniValue getblockhashes(const UniValue& params, bool fHelp);
-#endif // ENABLE_ADDRESS_INDEXING
+#endif  // ENABLE_ADDRESS_INDEXING
 
 extern UniValue getblockhash(const UniValue& params, bool fHelp);
 extern UniValue getblockheader(const UniValue& params, bool fHelp);
@@ -300,46 +292,46 @@ extern UniValue getblockexpanded(const UniValue& params, bool fHelp);
 extern UniValue getblocksubsidy(const UniValue& params, bool fHelp);
 extern UniValue getblockmerkleroots(const UniValue& params, bool fHelp);
 
-extern UniValue z_exportkey(const UniValue& params, bool fHelp); // in rpcdump.cpp
-extern UniValue z_importkey(const UniValue& params, bool fHelp); // in rpcdump.cpp
-extern UniValue z_exportviewingkey(const UniValue& params, bool fHelp); // in rpcdump.cpp
-extern UniValue z_importviewingkey(const UniValue& params, bool fHelp); // in rpcdump.cpp
-extern UniValue z_getnewaddress(const UniValue& params, bool fHelp); // in rpcwallet.cpp
-extern UniValue z_listaddresses(const UniValue& params, bool fHelp); // in rpcwallet.cpp
-extern UniValue z_exportwallet(const UniValue& params, bool fHelp); // in rpcdump.cpp
-extern UniValue z_importwallet(const UniValue& params, bool fHelp); // in rpcdump.cpp
-extern UniValue z_listreceivedbyaddress(const UniValue& params, bool fHelp); // in rpcwallet.cpp
-extern UniValue z_getbalance(const UniValue& params, bool fHelp); // in rpcwallet.cpp
-extern UniValue z_gettotalbalance(const UniValue& params, bool fHelp); // in rpcwallet.cpp
-extern UniValue z_sendmany(const UniValue& params, bool fHelp); // in rpcwallet.cpp
-extern UniValue sc_create(const UniValue& params, bool fHelp); // in rpcwallet.cpp
-extern UniValue sc_send(const UniValue& params, bool fHelp); // in rpcwallet.cpp
+extern UniValue z_exportkey(const UniValue& params, bool fHelp);              // in rpcdump.cpp
+extern UniValue z_importkey(const UniValue& params, bool fHelp);              // in rpcdump.cpp
+extern UniValue z_exportviewingkey(const UniValue& params, bool fHelp);       // in rpcdump.cpp
+extern UniValue z_importviewingkey(const UniValue& params, bool fHelp);       // in rpcdump.cpp
+extern UniValue z_getnewaddress(const UniValue& params, bool fHelp);          // in rpcwallet.cpp
+extern UniValue z_listaddresses(const UniValue& params, bool fHelp);          // in rpcwallet.cpp
+extern UniValue z_exportwallet(const UniValue& params, bool fHelp);           // in rpcdump.cpp
+extern UniValue z_importwallet(const UniValue& params, bool fHelp);           // in rpcdump.cpp
+extern UniValue z_listreceivedbyaddress(const UniValue& params, bool fHelp);  // in rpcwallet.cpp
+extern UniValue z_getbalance(const UniValue& params, bool fHelp);             // in rpcwallet.cpp
+extern UniValue z_gettotalbalance(const UniValue& params, bool fHelp);        // in rpcwallet.cpp
+extern UniValue z_sendmany(const UniValue& params, bool fHelp);               // in rpcwallet.cpp
+extern UniValue sc_create(const UniValue& params, bool fHelp);                // in rpcwallet.cpp
+extern UniValue sc_send(const UniValue& params, bool fHelp);                  // in rpcwallet.cpp
 extern UniValue sc_send_certificate(const UniValue& params, bool fHelp);
-extern UniValue sc_request_transfer(const UniValue& params, bool fHelp); // in rpcwallet.cpp
-extern UniValue getscinfo(const UniValue& params, bool fHelp); 
+extern UniValue sc_request_transfer(const UniValue& params, bool fHelp);  // in rpcwallet.cpp
+extern UniValue getscinfo(const UniValue& params, bool fHelp);
 extern UniValue getactivecertdatahash(const UniValue& params, bool fHelp);
 extern UniValue getceasingcumsccommtreehash(const UniValue& params, bool fHelp);
-extern UniValue getscgenesisinfo(const UniValue& params, bool fHelp); 
+extern UniValue getscgenesisinfo(const UniValue& params, bool fHelp);
 extern UniValue checkcswnullifier(const UniValue& params, bool fHelp);
-extern UniValue z_shieldcoinbase(const UniValue& params, bool fHelp); // in rpcwallet.cpp
-extern UniValue z_getoperationstatus(const UniValue& params, bool fHelp); // in rpcwallet.cpp
-extern UniValue z_getoperationresult(const UniValue& params, bool fHelp); // in rpcwallet.cpp
-extern UniValue z_listoperationids(const UniValue& params, bool fHelp); // in rpcwallet.cpp
-extern UniValue z_validateaddress(const UniValue& params, bool fHelp); // in rpcmisc.cpp
-extern UniValue z_getpaymentdisclosure(const UniValue& params, bool fHelp); // in rpcdisclosure.cpp
-extern UniValue z_validatepaymentdisclosure(const UniValue &params, bool fHelp); // in rpcdisclosure.cpp
+extern UniValue z_shieldcoinbase(const UniValue& params, bool fHelp);             // in rpcwallet.cpp
+extern UniValue z_getoperationstatus(const UniValue& params, bool fHelp);         // in rpcwallet.cpp
+extern UniValue z_getoperationresult(const UniValue& params, bool fHelp);         // in rpcwallet.cpp
+extern UniValue z_listoperationids(const UniValue& params, bool fHelp);           // in rpcwallet.cpp
+extern UniValue z_validateaddress(const UniValue& params, bool fHelp);            // in rpcmisc.cpp
+extern UniValue z_getpaymentdisclosure(const UniValue& params, bool fHelp);       // in rpcdisclosure.cpp
+extern UniValue z_validatepaymentdisclosure(const UniValue& params, bool fHelp);  // in rpcdisclosure.cpp
 
-extern UniValue listaddresses(const UniValue& params, bool fHelp); // in rpcwallet.cpp
+extern UniValue listaddresses(const UniValue& params, bool fHelp);  // in rpcwallet.cpp
 
-extern UniValue dbg_log(const UniValue &params, bool fHelp); // print a line in debug.log
-extern UniValue dbg_do(const UniValue &params, bool fHelp); // does a dbg hard coded task
+extern UniValue dbg_log(const UniValue& params, bool fHelp);  // print a line in debug.log
+extern UniValue dbg_do(const UniValue& params, bool fHelp);   // does a dbg hard coded task
 
-extern UniValue getproofverifierstats(const UniValue& params, bool fHelp); // in blockchain.cpp
-extern UniValue setproofverifierlowpriorityguard(const UniValue& params, bool fHelp); // in blockchain.cpp
+extern UniValue getproofverifierstats(const UniValue& params, bool fHelp);             // in blockchain.cpp
+extern UniValue setproofverifierlowpriorityguard(const UniValue& params, bool fHelp);  // in blockchain.cpp
 
 bool StartRPC();
 void InterruptRPC();
 void StopRPC();
 std::string JSONRPCExecBatch(const UniValue& vReq);
 
-#endif // BITCOIN_RPCSERVER_H
+#endif  // BITCOIN_RPCSERVER_H

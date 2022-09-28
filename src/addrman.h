@@ -5,6 +5,12 @@
 #ifndef BITCOIN_ADDRMAN_H
 #define BITCOIN_ADDRMAN_H
 
+#include <stdint.h>
+
+#include <map>
+#include <set>
+#include <vector>
+
 #include "netbase.h"
 #include "protocol.h"
 #include "random.h"
@@ -12,21 +18,15 @@
 #include "timedata.h"
 #include "util.h"
 
-#include <map>
-#include <set>
-#include <stdint.h>
-#include <vector>
-
 /**
  * Extended statistics about a CAddress
  */
-class CAddrInfo : public CAddress
-{
-public:
+class CAddrInfo : public CAddress {
+  public:
     //! last try whatsoever by us (memory only)
     int64_t nLastTry;
 
-private:
+  private:
     //! where knowledge about this address first came from
     CNetAddr source;
 
@@ -47,20 +47,18 @@ private:
 
     friend class CAddrMan;
 
-public:
+  public:
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
-    {
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(*(CAddress*)this);
         READWRITE(source);
         READWRITE(nLastSuccess);
         READWRITE(nAttempts);
     }
 
-    void Init()
-    {
+    void Init() {
         nLastSuccess = 0;
         nLastTry = 0;
         nAttempts = 0;
@@ -69,15 +67,9 @@ public:
         nRandomPos = -1;
     }
 
-    CAddrInfo(const CAddress& addrIn, const CNetAddr& addrSource) : CAddress(addrIn), source(addrSource)
-    {
-        Init();
-    }
+    CAddrInfo(const CAddress& addrIn, const CNetAddr& addrSource) : CAddress(addrIn), source(addrSource) { Init(); }
 
-    CAddrInfo() : CAddress(), source()
-    {
-        Init();
-    }
+    CAddrInfo() : CAddress(), source() { Init(); }
 
     //! Calculate in which "tried" bucket this entry belongs
     int GetTriedBucket(const uint256& nKey) const;
@@ -86,10 +78,7 @@ public:
     int GetNewBucket(const uint256& nKey, const CNetAddr& src) const;
 
     //! Calculate in which "new" bucket this entry belongs, using its default source
-    int GetNewBucket(const uint256& nKey) const
-    {
-        return GetNewBucket(nKey, source);
-    }
+    int GetNewBucket(const uint256& nKey) const { return GetNewBucket(nKey, source); }
 
     //! Calculate in which position of a bucket to store this entry.
     int GetBucketPosition(const uint256& nKey, bool fNew, int nBucket) const;
@@ -163,12 +152,11 @@ public:
 //! the maximum number of nodes to return in a getaddr call
 #define ADDRMAN_GETADDR_MAX 2500
 
-/** 
- * Stochastical (IP) address manager 
+/**
+ * Stochastical (IP) address manager
  */
-class CAddrMan
-{
-private:
+class CAddrMan {
+  private:
     //! critical section to protect the inner data structures
     mutable CCriticalSection cs;
 
@@ -196,7 +184,7 @@ private:
     //! list of "new" buckets
     int vvNew[ADDRMAN_NEW_BUCKET_COUNT][ADDRMAN_BUCKET_SIZE];
 
-protected:
+  protected:
     //! secret key to randomize bucket select with
     uint256 nKey;
 
@@ -245,7 +233,7 @@ protected:
     //! Mark an entry as currently-connected-to.
     void Connected_(const CService& addr, int64_t nTime);
 
-public:
+  public:
     /**
      * serialized format:
      * * version byte (currently 1)
@@ -276,8 +264,7 @@ public:
      * very little in common.
      */
     template <typename Stream>
-    void Serialize(Stream& s, int nType, int nVersionDummy) const
-    {
+    void Serialize(Stream& s, int nType, int nVersionDummy) const {
         LOCK(cs);
 
         unsigned char nVersion = 1;
@@ -295,7 +282,7 @@ public:
             mapUnkIds[(*it).first] = nIds;
             const CAddrInfo& info = (*it).second;
             if (info.nRefCount) {
-                assert(nIds != nNew); // this means nNew was wrong, oh ow
+                assert(nIds != nNew);  // this means nNew was wrong, oh ow
                 s << info;
                 nIds++;
             }
@@ -304,7 +291,7 @@ public:
         for (std::map<int, CAddrInfo>::const_iterator it = mapInfo.begin(); it != mapInfo.end(); it++) {
             const CAddrInfo& info = (*it).second;
             if (info.fInTried) {
-                assert(nIds != nTried); // this means nTried was wrong, oh ow
+                assert(nIds != nTried);  // this means nTried was wrong, oh ow
                 s << info;
                 nIds++;
             }
@@ -312,8 +299,7 @@ public:
         for (int bucket = 0; bucket < ADDRMAN_NEW_BUCKET_COUNT; bucket++) {
             int nSize = 0;
             for (int i = 0; i < ADDRMAN_BUCKET_SIZE; i++) {
-                if (vvNew[bucket][i] != -1)
-                    nSize++;
+                if (vvNew[bucket][i] != -1) nSize++;
             }
             s << nSize;
             for (int i = 0; i < ADDRMAN_BUCKET_SIZE; i++) {
@@ -326,8 +312,7 @@ public:
     }
 
     template <typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersionDummy)
-    {
+    void Unserialize(Stream& s, int nType, int nVersionDummy) {
         LOCK(cs);
 
         Clear();
@@ -336,8 +321,7 @@ public:
         s >> nVersion;
         unsigned char nKeySize;
         s >> nKeySize;
-        if (nKeySize != 32)
-            throw std::ios_base::failure("Incorrect keysize in addrman deserialization");
+        if (nKeySize != 32) throw std::ios_base::failure("Incorrect keysize in addrman deserialization");
         s >> nKey;
         s >> nNew;
         s >> nTried;
@@ -406,7 +390,8 @@ public:
                 if (nIndex >= 0 && nIndex < nNew) {
                     CAddrInfo& info = mapInfo[nIndex];
                     int nUBucketPos = info.GetBucketPosition(nKey, true, bucket);
-                    if (nVersion == 1 && nUBuckets == ADDRMAN_NEW_BUCKET_COUNT && vvNew[bucket][nUBucketPos] == -1 && info.nRefCount < ADDRMAN_NEW_BUCKETS_PER_ADDRESS) {
+                    if (nVersion == 1 && nUBuckets == ADDRMAN_NEW_BUCKET_COUNT && vvNew[bucket][nUBucketPos] == -1 &&
+                        info.nRefCount < ADDRMAN_NEW_BUCKETS_PER_ADDRESS) {
                         info.nRefCount++;
                         vvNew[bucket][nUBucketPos] = nIndex;
                     }
@@ -432,13 +417,9 @@ public:
         Check();
     }
 
-    unsigned int GetSerializeSize(int nType, int nVersion) const
-    {
-        return (CSizeComputer(nType, nVersion) << *this).size();
-    }
+    unsigned int GetSerializeSize(int nType, int nVersion) const { return (CSizeComputer(nType, nVersion) << *this).size(); }
 
-    void Clear()
-    {
+    void Clear() {
         std::vector<int>().swap(vRandom);
         nKey = GetRandHash();
         for (size_t bucket = 0; bucket < ADDRMAN_NEW_BUCKET_COUNT; bucket++) {
@@ -457,38 +438,26 @@ public:
         nNew = 0;
     }
 
-    CAddrMan()
-    {
-        Clear();
-    }
+    CAddrMan() { Clear(); }
 
-    ~CAddrMan()
-    {
-        nKey.SetNull();
-    }
+    ~CAddrMan() { nKey.SetNull(); }
 
     //! Return the number of (unique) addresses in all tables.
-    size_t size() const
-    {
-        return vRandom.size();
-    }
+    size_t size() const { return vRandom.size(); }
 
     //! Consistency check
-    void Check()
-    {
+    void Check() {
 #ifdef DEBUG_ADDRMAN
         {
             LOCK(cs);
             int err;
-            if ((err = Check_()))
-                LogPrintf("ADDRMAN CONSISTENCY CHECK FAILED!!! err=%i\n", err);
+            if ((err = Check_())) LogPrintf("ADDRMAN CONSISTENCY CHECK FAILED!!! err=%i\n", err);
         }
 #endif
     }
 
     //! Add a single address.
-    bool Add(const CAddress& addr, const CNetAddr& source, int64_t nTimePenalty = 0)
-    {
+    bool Add(const CAddress& addr, const CNetAddr& source, int64_t nTimePenalty = 0) {
         bool fRet = false;
         {
             LOCK(cs);
@@ -502,8 +471,7 @@ public:
     }
 
     //! Add multiple addresses.
-    bool Add(const std::vector<CAddress>& vAddr, const CNetAddr& source, int64_t nTimePenalty = 0)
-    {
+    bool Add(const std::vector<CAddress>& vAddr, const CNetAddr& source, int64_t nTimePenalty = 0) {
         int nAdd = 0;
         {
             LOCK(cs);
@@ -512,14 +480,12 @@ public:
                 nAdd += Add_(*it, source, nTimePenalty) ? 1 : 0;
             Check();
         }
-        if (nAdd)
-            LogPrint("addrman", "Added %i addresses from %s: %i tried, %i new\n", nAdd, source.ToString(), nTried, nNew);
+        if (nAdd) LogPrint("addrman", "Added %i addresses from %s: %i tried, %i new\n", nAdd, source.ToString(), nTried, nNew);
         return nAdd > 0;
     }
 
     //! Mark an entry as accessible.
-    void Good(const CService& addr, int64_t nTime = GetTime())
-    {
+    void Good(const CService& addr, int64_t nTime = GetTime()) {
         {
             LOCK(cs);
             Check();
@@ -529,8 +495,7 @@ public:
     }
 
     //! Mark an entry as connection attempted to.
-    void Attempt(const CService& addr, int64_t nTime = GetTime())
-    {
+    void Attempt(const CService& addr, int64_t nTime = GetTime()) {
         {
             LOCK(cs);
             Check();
@@ -542,8 +507,7 @@ public:
     /**
      * Choose an address to connect to.
      */
-    CAddrInfo Select(bool newOnly = false)
-    {
+    CAddrInfo Select(bool newOnly = false) {
         CAddrInfo addrRet;
         {
             LOCK(cs);
@@ -555,8 +519,7 @@ public:
     }
 
     //! Return a bunch of addresses, selected at random.
-    std::vector<CAddress> GetAddr()
-    {
+    std::vector<CAddress> GetAddr() {
         Check();
         std::vector<CAddress> vAddr;
         {
@@ -568,8 +531,7 @@ public:
     }
 
     //! Mark an entry as currently-connected-to.
-    void Connected(const CService& addr, int64_t nTime = GetTime())
-    {
+    void Connected(const CService& addr, int64_t nTime = GetTime()) {
         {
             LOCK(cs);
             Check();
@@ -579,4 +541,4 @@ public:
     }
 };
 
-#endif // BITCOIN_ADDRMAN_H
+#endif  // BITCOIN_ADDRMAN_H

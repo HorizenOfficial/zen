@@ -6,11 +6,12 @@
 #ifndef BITCOIN_MINER_H
 #define BITCOIN_MINER_H
 
-#include "primitives/block.h"
+#include <stdint.h>
 
 #include <boost/optional.hpp>
 #include <boost/tuple/tuple.hpp>
-#include <stdint.h>
+
+#include "primitives/block.h"
 
 class CBlockIndex;
 class CScript;
@@ -18,8 +19,7 @@ class CScript;
 class CReserveKey;
 class CWallet;
 #endif
-namespace Consensus
-{
+namespace Consensus {
 struct Params;
 };
 class CCoinsViewCache;
@@ -40,9 +40,8 @@ struct CBlockTemplate {
 // The COrphan class keeps track of these 'temporary orphans' while
 // CreateBlock is figuring out which transactions to include.
 //
-class COrphan
-{
-public:
+class COrphan {
+  public:
     const CTransactionBase* ptx;
     std::set<uint256> setDependsOn;
     CFeeRate feeRate;
@@ -52,21 +51,25 @@ public:
 };
 
 typedef boost::tuple<double, CFeeRate, const CTransactionBase*> TxPriority;
-class TxPriorityCompare
-{
+class TxPriorityCompare {
     bool byFee;
 
-public:
+  public:
     TxPriorityCompare(bool _byFee) : byFee(_byFee) {}
     bool operator()(const TxPriority& a, const TxPriority& b);
 };
 
 /** Retrieve mempool transactions priority info */
-void GetBlockTxPriorityData(const CCoinsViewCache& view, int nHeight, int64_t nLockTimeCutoff, std::vector<TxPriority>& vecPriority, std::list<COrphan>& vOrphan, std::map<uint256, std::vector<COrphan*>>& mapDependers);
+void GetBlockTxPriorityData(const CCoinsViewCache& view, int nHeight, int64_t nLockTimeCutoff,
+                            std::vector<TxPriority>& vecPriority, std::list<COrphan>& vOrphan,
+                            std::map<uint256, std::vector<COrphan*>>& mapDependers);
 /** DEPRECATED. Retrieve mempool transactions priority info */
-void GetBlockTxPriorityDataOld(const CCoinsViewCache& view, int nHeight, int64_t nLockTimeCutoff, std::vector<TxPriority>& vecPriority, std::list<COrphan>& vOrphan, std::map<uint256, std::vector<COrphan*>>& mapDependers);
+void GetBlockTxPriorityDataOld(const CCoinsViewCache& view, int nHeight, int64_t nLockTimeCutoff,
+                               std::vector<TxPriority>& vecPriority, std::list<COrphan>& vOrphan,
+                               std::map<uint256, std::vector<COrphan*>>& mapDependers);
 
-void GetBlockCertPriorityData(const CCoinsViewCache& view, int nHeight, std::vector<TxPriority>& vecPriority, std::list<COrphan>& vOrphan, std::map<uint256, std::vector<COrphan*>>& mapDependers);
+void GetBlockCertPriorityData(const CCoinsViewCache& view, int nHeight, std::vector<TxPriority>& vecPriority,
+                              std::list<COrphan>& vOrphan, std::map<uint256, std::vector<COrphan*>>& mapDependers);
 
 /** Generate a new block, without valid proof-of-work */
 CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn);
@@ -94,4 +97,4 @@ void GenerateBitcoins(bool fGenerate, int nThreads);
 
 void UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev);
 
-#endif // BITCOIN_MINER_H
+#endif  // BITCOIN_MINER_H

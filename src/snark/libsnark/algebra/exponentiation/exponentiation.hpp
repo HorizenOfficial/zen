@@ -18,14 +18,14 @@
 
 namespace libsnark {
 
-template<typename FieldT, mp_size_t m>
-FieldT power(const FieldT &base, const bigint<m> &exponent);
+template <typename FieldT, mp_size_t m>
+FieldT power(const FieldT& base, const bigint<m>& exponent);
 
-template<typename FieldT>
-FieldT power(const FieldT &base, const uint64_t exponent);
+template <typename FieldT>
+FieldT power(const FieldT& base, const uint64_t exponent);
 
-} // libsnark
+}  // namespace libsnark
 
 #include "algebra/exponentiation/exponentiation.tcc"
 
-#endif // EXPONENTIATION_HPP_
+#endif  // EXPONENTIATION_HPP_

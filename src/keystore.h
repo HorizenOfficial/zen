@@ -6,6 +6,9 @@
 #ifndef BITCOIN_KEYSTORE_H
 #define BITCOIN_KEYSTORE_H
 
+#include <boost/signals2/signal.hpp>
+#include <boost/variant.hpp>
+
 #include "key.h"
 #include "pubkey.h"
 #include "script/script.h"
@@ -14,17 +17,13 @@
 #include "zcash/Address.hpp"
 #include "zcash/NoteEncryption.hpp"
 
-#include <boost/signals2/signal.hpp>
-#include <boost/variant.hpp>
-
 /** A virtual base class for key stores */
-class CKeyStore
-{
-protected:
+class CKeyStore {
+  protected:
     mutable CCriticalSection cs_KeyStore;
     mutable CCriticalSection cs_SpendingKeyStore;
 
-public:
+  public:
     virtual ~CKeyStore() {}
 
     //! Add a key to the store.
@@ -71,9 +70,8 @@ typedef std::map<libzcash::PaymentAddress, libzcash::ViewingKey> ViewingKeyMap;
 typedef std::map<libzcash::PaymentAddress, ZCNoteDecryption> NoteDecryptorMap;
 
 /** Basic key store, that keeps keys in an address->secret map */
-class CBasicKeyStore : public CKeyStore
-{
-protected:
+class CBasicKeyStore : public CKeyStore {
+  protected:
     KeyMap mapKeys;
     ScriptMap mapScripts;
     WatchOnlySet setWatchOnly;
@@ -81,10 +79,9 @@ protected:
     ViewingKeyMap mapViewingKeys;
     NoteDecryptorMap mapNoteDecryptors;
 
-public:
+  public:
     bool AddKeyPubKey(const CKey& key, const CPubKey& pubkey);
-    bool HaveKey(const CKeyID& address) const
-    {
+    bool HaveKey(const CKeyID& address) const {
         bool result;
         {
             LOCK(cs_KeyStore);
@@ -92,8 +89,7 @@ public:
         }
         return result;
     }
-    void GetKeys(std::set<CKeyID>& setAddress) const
-    {
+    void GetKeys(std::set<CKeyID>& setAddress) const {
         setAddress.clear();
         {
             LOCK(cs_KeyStore);
@@ -104,8 +100,7 @@ public:
             }
         }
     }
-    bool GetKey(const CKeyID& address, CKey& keyOut) const
-    {
+    bool GetKey(const CKeyID& address, CKey& keyOut) const {
         {
             LOCK(cs_KeyStore);
             KeyMap::const_iterator mi = mapKeys.find(address);
@@ -126,8 +121,7 @@ public:
     virtual bool HaveWatchOnly() const;
 
     bool AddSpendingKey(const libzcash::SpendingKey& sk);
-    bool HaveSpendingKey(const libzcash::PaymentAddress& address) const
-    {
+    bool HaveSpendingKey(const libzcash::PaymentAddress& address) const {
         bool result;
         {
             LOCK(cs_SpendingKeyStore);
@@ -135,8 +129,7 @@ public:
         }
         return result;
     }
-    bool GetSpendingKey(const libzcash::PaymentAddress& address, libzcash::SpendingKey& skOut) const
-    {
+    bool GetSpendingKey(const libzcash::PaymentAddress& address, libzcash::SpendingKey& skOut) const {
         {
             LOCK(cs_SpendingKeyStore);
             SpendingKeyMap::const_iterator mi = mapSpendingKeys.find(address);
@@ -147,8 +140,7 @@ public:
         }
         return false;
     }
-    bool GetNoteDecryptor(const libzcash::PaymentAddress& address, ZCNoteDecryption& decOut) const
-    {
+    bool GetNoteDecryptor(const libzcash::PaymentAddress& address, ZCNoteDecryption& decOut) const {
         {
             LOCK(cs_SpendingKeyStore);
             NoteDecryptorMap::const_iterator mi = mapNoteDecryptors.find(address);
@@ -159,8 +151,7 @@ public:
         }
         return false;
     }
-    void GetPaymentAddresses(std::set<libzcash::PaymentAddress>& setAddress) const
-    {
+    void GetPaymentAddresses(std::set<libzcash::PaymentAddress>& setAddress) const {
         setAddress.clear();
         {
             LOCK(cs_SpendingKeyStore);
@@ -187,4 +178,4 @@ typedef std::vector<unsigned char, secure_allocator<unsigned char>> CKeyingMater
 typedef std::map<CKeyID, std::pair<CPubKey, std::vector<unsigned char>>> CryptedKeyMap;
 typedef std::map<libzcash::PaymentAddress, std::vector<unsigned char>> CryptedSpendingKeyMap;
 
-#endif // BITCOIN_KEYSTORE_H
+#endif  // BITCOIN_KEYSTORE_H

@@ -26,15 +26,15 @@ size_t log2(size_t n);
 inline size_t exp2(size_t k) { return UINT64_C(1) << k; }
 
 size_t bitreverse(size_t n, const size_t l);
-bit_vector int_list_to_bits(const std::initializer_list<uint64_t> &l, const size_t wordsize);
+bit_vector int_list_to_bits(const std::initializer_list<uint64_t>& l, const size_t wordsize);
 int64_t div_ceil(int64_t x, int64_t y);
 
 bool is_little_endian();
 
-std::string FORMAT(const std::string &prefix, const char* format, ...);
+std::string FORMAT(const std::string& prefix, const char* format, ...);
 
 /* A variadic template to suppress unused argument warnings */
-template<typename ... Types>
+template <typename... Types>
 void UNUSED(Types&&...) {}
 
 #ifdef DEBUG
@@ -43,15 +43,15 @@ void UNUSED(Types&&...) {}
 #define FMT(...) (UNUSED(__VA_ARGS__), "")
 #endif
 
-void serialize_bit_vector(std::ostream &out, const bit_vector &v);
-void deserialize_bit_vector(std::istream &in, bit_vector &v);
+void serialize_bit_vector(std::ostream& out, const bit_vector& v);
+void deserialize_bit_vector(std::istream& in, bit_vector& v);
 
-template<typename T>
-size_t size_in_bits(const std::vector<T> &v);
+template <typename T>
+size_t size_in_bits(const std::vector<T>& v);
 
-#define ARRAY_SIZE(arr) (sizeof(arr)/sizeof(arr[0]))
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
 
-} // libsnark
+}  // namespace libsnark
 
 #include "common/utils.tcc" /* note that utils has a templatized part (utils.tcc) and non-templatized part (utils.cpp) */
-#endif // UTILS_HPP_
+#endif                      // UTILS_HPP_

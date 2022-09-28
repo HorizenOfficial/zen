@@ -1,14 +1,13 @@
 #include <gtest/gtest.h>
 #include <gtest/libzendoo_test_files.h>
 
+#include "coins.h"
+#include "main.h"
 #include "primitives/certificate.h"
 #include "primitives/transaction.h"
 #include "sc/asyncproofverifier.h"
-#include "coins.h"
-#include "main.h"
-#include "uint256.h"
-
 #include "tx_creation_utils.h"
+#include "uint256.h"
 
 using namespace blockchain_test_utils;
 
@@ -16,15 +15,11 @@ static const ProvingSystem testProvingSystem = ProvingSystem::Darlin;
 
 /**
  * @brief A test suite class to unit test the CScAsyncProofVerifier.
- * 
+ *
  */
-class AsyncProofVerifierTestSuite : public ::testing::Test
-{
-public:
-    AsyncProofVerifierTestSuite() :
-        dummyNode(INVALID_SOCKET, CAddress(), "", true),
-        sidechainId(uint256S("aaaa"))
-    {
+class AsyncProofVerifierTestSuite : public ::testing::Test {
+  public:
+    AsyncProofVerifierTestSuite() : dummyNode(INVALID_SOCKET, CAddress(), "", true), sidechainId(uint256S("aaaa")) {
         dummyNode.id = 7;
 
         sidechain.creationBlockHeight = 100;
@@ -37,8 +32,7 @@ public:
         sidechain.balance = CAmount(100);
     }
 
-    void SetUp() override
-    {
+    void SetUp() override {
         SelectParams(CBaseChainParams::REGTEST);
 
         // clear globals
@@ -49,19 +43,19 @@ public:
         BlockchainTestManager::GetInstance().GenerateSidechainTestParameters(testProvingSystem, TestCircuitType::Certificate);
         BlockchainTestManager::GetInstance().GenerateSidechainTestParameters(testProvingSystem, TestCircuitType::CSW);
 
-        sidechain.fixedParams.wCertVk = BlockchainTestManager::GetInstance().GetTestVerificationKey(testProvingSystem, TestCircuitType::Certificate);
-        sidechain.fixedParams.wCeasedVk = BlockchainTestManager::GetInstance().GetTestVerificationKey(testProvingSystem, TestCircuitType::CSW);
+        sidechain.fixedParams.wCertVk =
+            BlockchainTestManager::GetInstance().GetTestVerificationKey(testProvingSystem, TestCircuitType::Certificate);
+        sidechain.fixedParams.wCeasedVk =
+            BlockchainTestManager::GetInstance().GetTestVerificationKey(testProvingSystem, TestCircuitType::CSW);
     };
 
-    void TearDown() override
-    {
+    void TearDown() override {
         // clear globals
         UnloadBlockIndex();
         mGlobalForkTips.clear();
     };
 
-protected:
-
+  protected:
     static const CAmount kDummyAmount = 1;
 
     CNode dummyNode;
@@ -69,14 +63,14 @@ protected:
     uint256 sidechainId;
 };
 
-TEST_F(AsyncProofVerifierTestSuite, Hash_Test)
-{
+TEST_F(AsyncProofVerifierTestSuite, Hash_Test) {
     BlockchainTestManager& blockchain = BlockchainTestManager::GetInstance();
 
     blockchain.Reset();
 
-    // Store the test sidechain and extend the blockchain to complete at least one epoch. 
-    blockchain.StoreSidechainWithCurrentHeight(sidechainId, sidechain, sidechain.creationBlockHeight + sidechain.fixedParams.withdrawalEpochLength);
+    // Store the test sidechain and extend the blockchain to complete at least one epoch.
+    blockchain.StoreSidechainWithCurrentHeight(sidechainId, sidechain,
+                                               sidechain.creationBlockHeight + sidechain.fixedParams.withdrawalEpochLength);
 
     CTxCeasedSidechainWithdrawalInput input1 = blockchain.CreateCswInput(sidechainId, 1, testProvingSystem);
     CTxCeasedSidechainWithdrawalInput input2 = blockchain.CreateCswInput(sidechainId, 2, testProvingSystem);
@@ -114,17 +108,17 @@ TEST_F(AsyncProofVerifierTestSuite, Hash_Test)
 /**
  * @brief Test the verification of a valid certificate proof.
  */
-TEST_F(AsyncProofVerifierTestSuite, Check_Valid_Certificate_Proof_Processing)
-{
+TEST_F(AsyncProofVerifierTestSuite, Check_Valid_Certificate_Proof_Processing) {
     BlockchainTestManager& blockchain = BlockchainTestManager::GetInstance();
     blockchain.Reset();
 
-    // Store the test sidechain and extend the blockchain to complete at least one epoch. 
-    blockchain.StoreSidechainWithCurrentHeight(sidechainId, sidechain, sidechain.creationBlockHeight + sidechain.fixedParams.withdrawalEpochLength);
+    // Store the test sidechain and extend the blockchain to complete at least one epoch.
+    blockchain.StoreSidechainWithCurrentHeight(sidechainId, sidechain,
+                                               sidechain.creationBlockHeight + sidechain.fixedParams.withdrawalEpochLength);
 
     int epochNumber = 0;
     int64_t quality = 1;
-    
+
     // Generate a valid certificate.
     CMutableScCertificate cert = blockchain.GenerateCertificate(sidechainId, epochNumber, quality, testProvingSystem);
 
@@ -146,8 +140,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Valid_Certificate_Proof_Processing)
     const uint32_t delay = 100;
 
     // Wait until the certificate proof is processed for a specific maximum time (to avoid to get stuck).
-    while (blockchain.PendingAsyncCertProofs() > 0 || counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2)
-    {
+    while (blockchain.PendingAsyncCertProofs() > 0 || counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2) {
         MilliSleep(delay);
         counter += delay;
     }
@@ -167,13 +160,13 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Valid_Certificate_Proof_Processing)
 /**
  * @brief Test async proof verifier batch verification pause on CZendooLowPrioThreadGuard.
  */
-TEST_F(AsyncProofVerifierTestSuite, Check_CZendooLowPrioThreadGuard)
-{
+TEST_F(AsyncProofVerifierTestSuite, Check_CZendooLowPrioThreadGuard) {
     BlockchainTestManager& blockchain = BlockchainTestManager::GetInstance();
     blockchain.Reset();
 
     // Store the test sidechain and extend the blockchain to complete at least one epoch.
-    blockchain.StoreSidechainWithCurrentHeight(sidechainId, sidechain, sidechain.creationBlockHeight + sidechain.fixedParams.withdrawalEpochLength);
+    blockchain.StoreSidechainWithCurrentHeight(sidechainId, sidechain,
+                                               sidechain.creationBlockHeight + sidechain.fixedParams.withdrawalEpochLength);
 
     int epochNumber = 0;
     int64_t quality = 1;
@@ -203,8 +196,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_CZendooLowPrioThreadGuard)
         CZendooLowPrioThreadGuard lowPrioThreadGuard(true);
 
         // Wait until the certificate proof verification is started for a specific maximum time (to avoid to get stuck).
-        while (blockchain.PendingAsyncCertProofs() > 0 || counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2)
-        {
+        while (blockchain.PendingAsyncCertProofs() > 0 || counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2) {
             MilliSleep(delay);
             counter += delay;
         }
@@ -220,14 +212,11 @@ TEST_F(AsyncProofVerifierTestSuite, Check_CZendooLowPrioThreadGuard)
         // Unlock the low priority threads
     }
 
-
     counter = 0;
     // Wait until the certificate proof is processed for a specific maximum time (to avoid to get stuck).
-    while (counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2)
-    {
+    while (counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2) {
         stats = blockchain.GetAsyncProofVerifierStatistics();
-        if(stats.okCertCounter == 1)
-            break;
+        if (stats.okCertCounter == 1) break;
 
         MilliSleep(delay);
         counter += delay;
@@ -248,20 +237,20 @@ TEST_F(AsyncProofVerifierTestSuite, Check_CZendooLowPrioThreadGuard)
 /**
  * @brief Test the verification of an invalid certificate proof.
  */
-TEST_F(AsyncProofVerifierTestSuite, Check_Invalid_Certificate_Proof_Processing)
-{
+TEST_F(AsyncProofVerifierTestSuite, Check_Invalid_Certificate_Proof_Processing) {
     BlockchainTestManager& blockchain = BlockchainTestManager::GetInstance();
     blockchain.Reset();
 
-    // Store the test sidechain and extend the blockchain to complete at least one epoch. 
-    blockchain.StoreSidechainWithCurrentHeight(sidechainId, sidechain, sidechain.creationBlockHeight + sidechain.fixedParams.withdrawalEpochLength);
+    // Store the test sidechain and extend the blockchain to complete at least one epoch.
+    blockchain.StoreSidechainWithCurrentHeight(sidechainId, sidechain,
+                                               sidechain.creationBlockHeight + sidechain.fixedParams.withdrawalEpochLength);
 
     int epochNumber = 0;
     int64_t quality = 1;
-    
+
     // Generate a valid certificate.
     CMutableScCertificate cert = blockchain.GenerateCertificate(sidechainId, epochNumber, quality, testProvingSystem);
-    
+
     // Change the FT fee (or any other certificate field) to make the proof invalid.
     cert.forwardTransferScFee++;
 
@@ -283,8 +272,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Invalid_Certificate_Proof_Processing)
     const uint32_t delay = 100;
 
     // Wait until the certificate proof is processed for a specific maximum time (to avoid to get stuck).
-    while (blockchain.PendingAsyncCertProofs() > 0 || counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2)
-    {
+    while (blockchain.PendingAsyncCertProofs() > 0 || counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2) {
         MilliSleep(delay);
         counter += delay;
     }
@@ -304,8 +292,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Invalid_Certificate_Proof_Processing)
 /**
  * @brief Test the verification of a valid CSW proof.
  */
-TEST_F(AsyncProofVerifierTestSuite, Check_Valid_CSW_Proof_Processing)
-{
+TEST_F(AsyncProofVerifierTestSuite, Check_Valid_CSW_Proof_Processing) {
     BlockchainTestManager& blockchain = BlockchainTestManager::GetInstance();
     blockchain.Reset();
 
@@ -338,8 +325,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Valid_CSW_Proof_Processing)
     const uint32_t delay = 100;
 
     // Wait until the CSW proof is processed for a specific maximum time (to avoid to get stuck).
-    while (blockchain.PendingAsyncCswProofs() > 0 || counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2)
-    {
+    while (blockchain.PendingAsyncCswProofs() > 0 || counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2) {
         MilliSleep(delay);
         counter += delay;
     }
@@ -359,8 +345,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Valid_CSW_Proof_Processing)
 /**
  * @brief Test the verification of an invalid CSW proof.
  */
-TEST_F(AsyncProofVerifierTestSuite, Check_Invalid_CSW_Proof_Processing)
-{
+TEST_F(AsyncProofVerifierTestSuite, Check_Invalid_CSW_Proof_Processing) {
     BlockchainTestManager& blockchain = BlockchainTestManager::GetInstance();
     blockchain.Reset();
 
@@ -396,8 +381,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Invalid_CSW_Proof_Processing)
     const uint32_t delay = 100;
 
     // Wait until the CSW proof is processed for a specific maximum time (to avoid to get stuck).
-    while (blockchain.PendingAsyncCswProofs() > 0 || counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2)
-    {
+    while (blockchain.PendingAsyncCswProofs() > 0 || counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2) {
         MilliSleep(delay);
         counter += delay;
     }
@@ -418,8 +402,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Invalid_CSW_Proof_Processing)
  * @brief Test that a transaction containing several CSW inputs is rejected as invalid
  * if at least one CSW input proof is not verified.
  */
-TEST_F(AsyncProofVerifierTestSuite, Check_Tx_With_Several_Csw_Inputs)
-{
+TEST_F(AsyncProofVerifierTestSuite, Check_Tx_With_Several_Csw_Inputs) {
     BlockchainTestManager& blockchain = BlockchainTestManager::GetInstance();
     blockchain.Reset();
 
@@ -457,8 +440,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Tx_With_Several_Csw_Inputs)
     const uint32_t delay = 100;
 
     // Wait until the CSW proof is processed for a specific maximum time (to avoid to get stuck).
-    while (blockchain.PendingAsyncCswProofs() > 0 || counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2)
-    {
+    while (blockchain.PendingAsyncCswProofs() > 0 || counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2) {
         MilliSleep(delay);
         counter += delay;
     }
@@ -479,8 +461,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Tx_With_Several_Csw_Inputs)
  * @brief Test that in case of failure during the batch verification
  * the verifier processes the proofs one by one.
  */
-TEST_F(AsyncProofVerifierTestSuite, Check_One_By_One_Verification)
-{
+TEST_F(AsyncProofVerifierTestSuite, Check_One_By_One_Verification) {
     const uint8_t numberOfValidTransactions = 3;
 
     BlockchainTestManager& blockchain = BlockchainTestManager::GetInstance();
@@ -491,7 +472,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_One_By_One_Verification)
     ASSERT_EQ(blockchain.CoinsViewCache()->getSidechainMap().count(sidechainId), 1);
 
     std::vector<CTransaction> transactions;
-    
+
     // Create a new CSW input with invalid proof.
     CTxCeasedSidechainWithdrawalInput cswInputInvalid = blockchain.CreateCswInput(sidechainId, kDummyAmount, testProvingSystem);
     cswInputInvalid.scProof = CScProof();
@@ -505,10 +486,10 @@ TEST_F(AsyncProofVerifierTestSuite, Check_One_By_One_Verification)
     transactions.push_back(CTransaction(blockchain.CreateTransaction(invalidArgs)));
 
     CAmount amount = 1;
-    for (uint8_t i = 0; i < numberOfValidTransactions; i++)
-    {
+    for (uint8_t i = 0; i < numberOfValidTransactions; i++) {
         // Create a new CSW input with valid proof.
-        CTxCeasedSidechainWithdrawalInput cswInputValid = blockchain.CreateCswInput(sidechainId, kDummyAmount + i, testProvingSystem);
+        CTxCeasedSidechainWithdrawalInput cswInputValid =
+            blockchain.CreateCswInput(sidechainId, kDummyAmount + i, testProvingSystem);
 
         // Add the CSW input to the transaction creation arguments.
         CTransactionCreationArguments validArgs;
@@ -527,8 +508,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_One_By_One_Verification)
     ASSERT_EQ(stats.okCswCounter, 0);
 
     // Add the CSW proofs to the async queue.
-    for (CTransaction tx : transactions)
-    {
+    for (CTransaction tx : transactions) {
         std::string hash = tx.GetHash().ToString();
         CScAsyncProofVerifier::GetInstance().LoadDataForCswVerification(*blockchain.CoinsViewCache(), tx, &dummyNode);
     }
@@ -541,8 +521,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_One_By_One_Verification)
     const uint32_t delay = 100;
 
     // Wait until the CSW proof is processed for a specific maximum time (to avoid to get stuck).
-    while (blockchain.PendingAsyncCswProofs() > 0 || counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2)
-    {
+    while (blockchain.PendingAsyncCswProofs() > 0 || counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2) {
         MilliSleep(delay);
         counter += delay;
     }
@@ -561,15 +540,14 @@ TEST_F(AsyncProofVerifierTestSuite, Check_One_By_One_Verification)
 
 /**
  * @brief Test the move of elements from one queue map to another.
- * 
+ *
  * This test is mainly intended for checking the std::move() function
  * (used by the async proof verifier).
  */
-TEST_F(AsyncProofVerifierTestSuite, Csw_Queue_Move)
-{
-    std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, CCswProofVerifierInput>> cswEnqueuedData;
+TEST_F(AsyncProofVerifierTestSuite, Csw_Queue_Move) {
+    std::map</*scTxHash*/ uint256, std::map</*outputPos*/ unsigned int, CCswProofVerifierInput>> cswEnqueuedData;
 
-    std::map</*outputPos*/unsigned int, CCswProofVerifierInput> element;
+    std::map</*outputPos*/ unsigned int, CCswProofVerifierInput> element;
 
     CTxCeasedSidechainWithdrawalInput cswInput1, cswInput2;
 
@@ -581,26 +559,19 @@ TEST_F(AsyncProofVerifierTestSuite, Csw_Queue_Move)
 
     std::vector<CCswProofVerifierInput> inputs;
 
-    for (int i = 0; i < cswMutTransaction.vcsw_ccin.size(); i++)
-    {
+    for (int i = 0; i < cswMutTransaction.vcsw_ccin.size(); i++) {
         CCswProofVerifierInput input;
-        input.verificationKey = CScVKey{SAMPLE_CSW_DARLIN_VK},
-        input.ceasingCumScTxCommTree = cswInput1.ceasingCumScTxCommTree,
-        input.certDataHash = cswInput1.actCertDataHash,
-        input.proof = cswInput1.scProof,
-        input.nValue = cswInput1.nValue,
-        input.nullifier = cswInput1.nullifier,
-        input.pubKeyHash = cswInput1.pubKeyHash,
-        input.scId = cswInput1.scId,
+        input.verificationKey = CScVKey{SAMPLE_CSW_DARLIN_VK}, input.ceasingCumScTxCommTree = cswInput1.ceasingCumScTxCommTree,
+        input.certDataHash = cswInput1.actCertDataHash, input.proof = cswInput1.scProof, input.nValue = cswInput1.nValue,
+        input.nullifier = cswInput1.nullifier, input.pubKeyHash = cswInput1.pubKeyHash, input.scId = cswInput1.scId,
 
         inputs.push_back(input);
         element.insert(std::make_pair(i, input));
     }
 
-    
     cswEnqueuedData.insert(std::make_pair(uint256S("aaaa"), element));
 
-    std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, CCswProofVerifierInput>> tempQueue;
+    std::map</*scTxHash*/ uint256, std::map</*outputPos*/ unsigned int, CCswProofVerifierInput>> tempQueue;
 
     ASSERT_EQ(tempQueue.size(), 0);
     ASSERT_EQ(cswEnqueuedData.size(), 1);
@@ -613,11 +584,10 @@ TEST_F(AsyncProofVerifierTestSuite, Csw_Queue_Move)
     ASSERT_EQ(tempQueue.size(), 1);
     ASSERT_EQ(tempQueue.begin()->first, uint256S("aaaa"));
 
-    std::map</*outputPos*/unsigned int, CCswProofVerifierInput> tempElement = tempQueue.begin()->second;
+    std::map</*outputPos*/ unsigned int, CCswProofVerifierInput> tempElement = tempQueue.begin()->second;
     ASSERT_EQ(tempElement.size(), 2);
-    
-    for (int i = 0; i < tempElement.size(); i++)
-    {
+
+    for (int i = 0; i < tempElement.size(); i++) {
         ASSERT_EQ(tempElement.at(i).verificationKey, inputs.at(i).verificationKey);
         ASSERT_EQ(tempElement.at(i).ceasingCumScTxCommTree, inputs.at(i).ceasingCumScTxCommTree);
         ASSERT_EQ(tempElement.at(i).certDataHash, inputs.at(i).certDataHash);

@@ -2,23 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "data/tx_invalid.json.h"
-#include "data/tx_valid.json.h"
-#include "test/test_bitcoin.h"
-
-#include "init.h"
-#include "clientversion.h"
-#include "consensus/validation.h"
-#include "core_io.h"
-#include "key.h"
-#include "keystore.h"
-#include "main.h"
-#include "script/script.h"
-#include "script/script_error.h"
-#include "primitives/transaction.h"
-
-#include "pow.h"
-#include "sodium.h"
+#include <univalue.h>
 
 #include <map>
 #include <string>
@@ -27,12 +11,24 @@
 #include <boost/algorithm/string/split.hpp>
 #include <boost/assign/list_of.hpp>
 #include <boost/test/unit_test.hpp>
-#include <boost/assign/list_of.hpp>
 
-#include <univalue.h>
-
-#include "zcash/Note.hpp"
+#include "clientversion.h"
+#include "consensus/validation.h"
+#include "core_io.h"
+#include "data/tx_invalid.json.h"
+#include "data/tx_valid.json.h"
+#include "init.h"
+#include "key.h"
+#include "keystore.h"
+#include "main.h"
+#include "pow.h"
+#include "primitives/transaction.h"
+#include "script/script.h"
+#include "script/script_error.h"
+#include "sodium.h"
+#include "test/test_bitcoin.h"
 #include "zcash/Address.hpp"
+#include "zcash/Note.hpp"
 #include "zcash/Proof.hpp"
 
 using namespace std;
@@ -40,21 +36,26 @@ using namespace std;
 // In script_tests.cpp
 extern UniValue read_json(const std::string& jsondata);
 
-static std::map<string, unsigned int> mapFlagNames = boost::assign::map_list_of
-    (string("NONE"), (unsigned int)SCRIPT_VERIFY_NONE)
-    (string("P2SH"), (unsigned int)SCRIPT_VERIFY_P2SH)
-    (string("STRICTENC"), (unsigned int)SCRIPT_VERIFY_STRICTENC)
-    (string("LOW_S"), (unsigned int)SCRIPT_VERIFY_LOW_S)
-    (string("SIGPUSHONLY"), (unsigned int)SCRIPT_VERIFY_SIGPUSHONLY)
-    (string("MINIMALDATA"), (unsigned int)SCRIPT_VERIFY_MINIMALDATA)
-    (string("NULLDUMMY"), (unsigned int)SCRIPT_VERIFY_NULLDUMMY)
-    (string("DISCOURAGE_UPGRADABLE_NOPS"), (unsigned int)SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS)
-    (string("CLEANSTACK"), (unsigned int)SCRIPT_VERIFY_CLEANSTACK)
-    (string("CHECKLOCKTIMEVERIFY"), (unsigned int)SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY)
-    (string("CHECKBLOCKATHEIGHT"), (unsigned int)SCRIPT_VERIFY_CHECKBLOCKATHEIGHT);
+static std::map<string, unsigned int>
+    mapFlagNames =
+        boost::assign::
+            map_list_of(string("NONE"), (unsigned int)SCRIPT_VERIFY_NONE)(
+                string("P2SH"),
+                (unsigned int)
+                    SCRIPT_VERIFY_P2SH)(string("STRICTENC"),
+                                        (unsigned int)
+                                            SCRIPT_VERIFY_STRICTENC)(string("LOW_S"),
+                                                                     (unsigned int)
+                                                                         SCRIPT_VERIFY_LOW_S)(string("SIGPUSHONLY"), (unsigned int)SCRIPT_VERIFY_SIGPUSHONLY)(string("MINIMALDATA"), (unsigned int)SCRIPT_VERIFY_MINIMALDATA)(string("NULLDUMMY"), (unsigned int)SCRIPT_VERIFY_NULLDUMMY)(string("DISCOURAGE_UPGRADABLE_NOPS"), (
+                                                                                                                                                                                                                                                                                                                                    unsigned int)SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS)(string("CLEANSTACK"),
+                                                                                                                                                                                                                                                                                                                                                                                           (unsigned int)SCRIPT_VERIFY_CLEANSTACK)(string(
+                                                                                                                                                                                                                                                                                                                                                                                                                                       "CHECKLOCKTIMEVERIFY"),
+                                                                                                                                                                                                                                                                                                                                                                                                                                   (
+                                                                                                                                                                                                                                                                                                                                                                                                                                       unsigned int)SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY)(string("CHECKBLOCKATHEIGHT"),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       (unsigned int)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           SCRIPT_VERIFY_CHECKBLOCKATHEIGHT);
 
-unsigned int ParseScriptFlags(string strFlags)
-{
+unsigned int ParseScriptFlags(string strFlags) {
     if (strFlags.empty()) {
         return 0;
     }
@@ -62,18 +63,15 @@ unsigned int ParseScriptFlags(string strFlags)
     vector<string> words;
     boost::algorithm::split(words, strFlags, boost::algorithm::is_any_of(","));
 
-    BOOST_FOREACH(string word, words)
-    {
-        if (!mapFlagNames.count(word))
-            BOOST_ERROR("Bad test: unknown verification flag '" << word << "'");
+    BOOST_FOREACH (string word, words) {
+        if (!mapFlagNames.count(word)) BOOST_ERROR("Bad test: unknown verification flag '" << word << "'");
         flags |= mapFlagNames[word];
     }
 
     return flags;
 }
 
-string FormatScriptFlags(unsigned int flags)
-{
+string FormatScriptFlags(unsigned int flags) {
     if (flags == 0) {
         return "";
     }
@@ -94,21 +92,22 @@ void GenerateChainActive(int targetHeight) {
 
     static std::vector<uint256> blockHashes;
     blockHashes.clear();
-    blockHashes.resize(targetHeight+1);
-    std::vector<CBlockIndex> blocks(targetHeight+1);
+    blockHashes.resize(targetHeight + 1);
+    std::vector<CBlockIndex> blocks(targetHeight + 1);
 
     ZCIncrementalMerkleTree dummyTree;
     dummyTree.append(GetRandHash());
 
-    for (unsigned int height=0; height<blocks.size(); ++height) {
+    for (unsigned int height = 0; height < blocks.size(); ++height) {
         blockHashes[height] = ArithToUint256(height);
 
         blocks[height].nHeight = height;
-        blocks[height].pprev = height == 0? nullptr : mapBlockIndex[blockHashes[height-1]];
+        blocks[height].pprev = height == 0 ? nullptr : mapBlockIndex[blockHashes[height - 1]];
         blocks[height].phashBlock = &blockHashes[height];
         blocks[height].nTime = 1269211443 + height * Params().GetConsensus().nPowTargetSpacing;
         blocks[height].nBits = 0x1e7fffff;
-        blocks[height].nChainWork = height == 0 ? arith_uint256(0) : blocks[height - 1].nChainWork + GetBlockProof(blocks[height - 1]);
+        blocks[height].nChainWork =
+            height == 0 ? arith_uint256(0) : blocks[height - 1].nChainWork + GetBlockProof(blocks[height - 1]);
 
         blocks[height].hashAnchor = dummyTree.root();
 
@@ -120,8 +119,7 @@ void GenerateChainActive(int targetHeight) {
 
 BOOST_FIXTURE_TEST_SUITE(transaction_tests, JoinSplitTestingSetup)
 
-BOOST_AUTO_TEST_CASE(tx_valid)
-{
+BOOST_AUTO_TEST_CASE(tx_valid) {
     // Read tests from test/data/tx_valid.json
     // Format is an array of arrays
     // Inner arrays are either [ "comment" ]
@@ -137,10 +135,8 @@ BOOST_AUTO_TEST_CASE(tx_valid)
     for (size_t idx = 0; idx < tests.size(); idx++) {
         UniValue test = tests[idx];
         string strTest = test.write();
-        if (test[0].isArray())
-        {
-            if (test.size() != 3 || !test[1].isStr() || !test[2].isStr())
-            {
+        if (test[0].isArray()) {
+            if (test.size() != 3 || !test[1].isStr() || !test[2].isStr()) {
                 BOOST_ERROR("Bad test: " << strTest << comment);
                 continue;
             }
@@ -150,22 +146,20 @@ BOOST_AUTO_TEST_CASE(tx_valid)
             bool fValid = true;
             for (size_t inpIdx = 0; inpIdx < inputs.size(); inpIdx++) {
                 const UniValue& input = inputs[inpIdx];
-                if (!input.isArray())
-                {
+                if (!input.isArray()) {
                     fValid = false;
                     break;
                 }
                 UniValue vinput = input.get_array();
-                if (vinput.size() != 3)
-                {
+                if (vinput.size() != 3) {
                     fValid = false;
                     break;
                 }
 
-                mapprevOutScriptPubKeys[COutPoint(uint256S(vinput[0].get_str()), vinput[1].get_int())] = ParseScript(vinput[2].get_str());
+                mapprevOutScriptPubKeys[COutPoint(uint256S(vinput[0].get_str()), vinput[1].get_int())] =
+                    ParseScript(vinput[2].get_str());
             }
-            if (!fValid)
-            {
+            if (!fValid) {
                 BOOST_ERROR("Bad test: " << strTest << comment);
                 continue;
             }
@@ -179,10 +173,8 @@ BOOST_AUTO_TEST_CASE(tx_valid)
             BOOST_CHECK_MESSAGE(CheckTransaction(tx, state, verifier), strTest + comment);
             BOOST_CHECK_MESSAGE(state.IsValid(), comment);
 
-            for (unsigned int i = 0; i < tx.GetVin().size(); i++)
-            {
-                if (!mapprevOutScriptPubKeys.count(tx.GetVin()[i].prevout))
-                {
+            for (unsigned int i = 0; i < tx.GetVin().size(); i++) {
+                if (!mapprevOutScriptPubKeys.count(tx.GetVin()[i].prevout)) {
                     BOOST_ERROR("Bad test: " << strTest << comment);
                     break;
                 }
@@ -195,17 +187,14 @@ BOOST_AUTO_TEST_CASE(tx_valid)
             }
 
             comment = "";
-        }
-        else if (test.size() == 1)
-        {
+        } else if (test.size() == 1) {
             comment += "\n# ";
             comment += test[0].write();
         }
     }
 }
 
-BOOST_AUTO_TEST_CASE(tx_invalid)
-{
+BOOST_AUTO_TEST_CASE(tx_invalid) {
     // Read tests from test/data/tx_invalid.json
     // Format is an array of arrays
     // Inner arrays are either [ "comment" ]
@@ -221,10 +210,8 @@ BOOST_AUTO_TEST_CASE(tx_invalid)
     for (size_t idx = 0; idx < tests.size(); idx++) {
         UniValue test = tests[idx];
         string strTest = test.write();
-        if (test[0].isArray())
-        {
-            if (test.size() != 3 || !test[1].isStr() || !test[2].isStr())
-            {
+        if (test[0].isArray()) {
+            if (test.size() != 3 || !test[1].isStr() || !test[2].isStr()) {
                 BOOST_ERROR("Bad test: " << strTest << comment);
                 continue;
             }
@@ -234,22 +221,20 @@ BOOST_AUTO_TEST_CASE(tx_invalid)
             bool fValid = true;
             for (size_t inpIdx = 0; inpIdx < inputs.size(); inpIdx++) {
                 const UniValue& input = inputs[inpIdx];
-                if (!input.isArray())
-                {
+                if (!input.isArray()) {
                     fValid = false;
                     break;
                 }
                 UniValue vinput = input.get_array();
-                if (vinput.size() != 3)
-                {
+                if (vinput.size() != 3) {
                     fValid = false;
                     break;
                 }
 
-                mapprevOutScriptPubKeys[COutPoint(uint256S(vinput[0].get_str()), vinput[1].get_int())] = ParseScript(vinput[2].get_str());
+                mapprevOutScriptPubKeys[COutPoint(uint256S(vinput[0].get_str()), vinput[1].get_int())] =
+                    ParseScript(vinput[2].get_str());
             }
-            if (!fValid)
-            {
+            if (!fValid) {
                 BOOST_ERROR("Bad test: " << strTest << comment);
                 continue;
             }
@@ -262,46 +247,56 @@ BOOST_AUTO_TEST_CASE(tx_invalid)
             CValidationState state;
             fValid = CheckTransaction(tx, state, verifier) && state.IsValid();
 
-            for (unsigned int i = 0; i < tx.GetVin().size() && fValid; i++)
-            {
-                if (!mapprevOutScriptPubKeys.count(tx.GetVin()[i].prevout))
-                {
+            for (unsigned int i = 0; i < tx.GetVin().size() && fValid; i++) {
+                if (!mapprevOutScriptPubKeys.count(tx.GetVin()[i].prevout)) {
                     BOOST_ERROR("Bad test: " << strTest << comment);
                     break;
                 }
 
                 unsigned int verify_flags = ParseScriptFlags(test[2].get_str());
-                fValid = VerifyScript(tx.GetVin()[i].scriptSig, mapprevOutScriptPubKeys[tx.GetVin()[i].prevout],
-                        verify_flags, TransactionSignatureChecker(&tx, i, nullptr), &err);
+                fValid = VerifyScript(tx.GetVin()[i].scriptSig, mapprevOutScriptPubKeys[tx.GetVin()[i].prevout], verify_flags,
+                                      TransactionSignatureChecker(&tx, i, nullptr), &err);
             }
             BOOST_CHECK_MESSAGE(!fValid, strTest + comment);
             BOOST_CHECK_MESSAGE(err != SCRIPT_ERR_OK, ScriptErrorString(err) + comment);
 
             comment = "";
-        }
-        else if (test.size() == 1)
-        {
+        } else if (test.size() == 1) {
             comment += "\n# ";
             comment += test[0].write();
         }
     }
 }
 
-BOOST_AUTO_TEST_CASE(basic_transaction_tests)
-{
+BOOST_AUTO_TEST_CASE(basic_transaction_tests) {
     // Random real transaction (e2769b09e784f32f62ef849763d4f45b98e07ba658647343b915ff832b110436)
-    unsigned char ch[] = {0x01, 0x00, 0x00, 0x00, 0x01, 0x6b, 0xff, 0x7f, 0xcd, 0x4f, 0x85, 0x65, 0xef, 0x40, 0x6d, 0xd5, 0xd6, 0x3d, 0x4f, 0xf9, 0x4f, 0x31, 0x8f, 0xe8, 0x20, 0x27, 0xfd, 0x4d, 0xc4, 0x51, 0xb0, 0x44, 0x74, 0x01, 0x9f, 0x74, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x8c, 0x49, 0x30, 0x46, 0x02, 0x21, 0x00, 0xda, 0x0d, 0xc6, 0xae, 0xce, 0xfe, 0x1e, 0x06, 0xef, 0xdf, 0x05, 0x77, 0x37, 0x57, 0xde, 0xb1, 0x68, 0x82, 0x09, 0x30, 0xe3, 0xb0, 0xd0, 0x3f, 0x46, 0xf5, 0xfc, 0xf1, 0x50, 0xbf, 0x99, 0x0c, 0x02, 0x21, 0x00, 0xd2, 0x5b, 0x5c, 0x87, 0x04, 0x00, 0x76, 0xe4, 0xf2, 0x53, 0xf8, 0x26, 0x2e, 0x76, 0x3e, 0x2d, 0xd5, 0x1e, 0x7f, 0xf0, 0xbe, 0x15, 0x77, 0x27, 0xc4, 0xbc, 0x42, 0x80, 0x7f, 0x17, 0xbd, 0x39, 0x01, 0x41, 0x04, 0xe6, 0xc2, 0x6e, 0xf6, 0x7d, 0xc6, 0x10, 0xd2, 0xcd, 0x19, 0x24, 0x84, 0x78, 0x9a, 0x6c, 0xf9, 0xae, 0xa9, 0x93, 0x0b, 0x94, 0x4b, 0x7e, 0x2d, 0xb5, 0x34, 0x2b, 0x9d, 0x9e, 0x5b, 0x9f, 0xf7, 0x9a, 0xff, 0x9a, 0x2e, 0xe1, 0x97, 0x8d, 0xd7, 0xfd, 0x01, 0xdf, 0xc5, 0x22, 0xee, 0x02, 0x28, 0x3d, 0x3b, 0x06, 0xa9, 0xd0, 0x3a, 0xcf, 0x80, 0x96, 0x96, 0x8d, 0x7d, 0xbb, 0x0f, 0x91, 0x78, 0xff, 0xff, 0xff, 0xff, 0x02, 0x8b, 0xa7, 0x94, 0x0e, 0x00, 0x00, 0x00, 0x00, 0x19, 0x76, 0xa9, 0x14, 0xba, 0xde, 0xec, 0xfd, 0xef, 0x05, 0x07, 0x24, 0x7f, 0xc8, 0xf7, 0x42, 0x41, 0xd7, 0x3b, 0xc0, 0x39, 0x97, 0x2d, 0x7b, 0x88, 0xac, 0x40, 0x94, 0xa8, 0x02, 0x00, 0x00, 0x00, 0x00, 0x19, 0x76, 0xa9, 0x14, 0xc1, 0x09, 0x32, 0x48, 0x3f, 0xec, 0x93, 0xed, 0x51, 0xf5, 0xfe, 0x95, 0xe7, 0x25, 0x59, 0xf2, 0xcc, 0x70, 0x43, 0xf9, 0x88, 0xac, 0x00, 0x00, 0x00, 0x00, 0x00};
-    vector<unsigned char> vch(ch, ch + sizeof(ch) -1);
+    unsigned char ch[] = {
+        0x01, 0x00, 0x00, 0x00, 0x01, 0x6b, 0xff, 0x7f, 0xcd, 0x4f, 0x85, 0x65, 0xef, 0x40, 0x6d, 0xd5, 0xd6, 0x3d, 0x4f, 0xf9,
+        0x4f, 0x31, 0x8f, 0xe8, 0x20, 0x27, 0xfd, 0x4d, 0xc4, 0x51, 0xb0, 0x44, 0x74, 0x01, 0x9f, 0x74, 0xb4, 0x00, 0x00, 0x00,
+        0x00, 0x8c, 0x49, 0x30, 0x46, 0x02, 0x21, 0x00, 0xda, 0x0d, 0xc6, 0xae, 0xce, 0xfe, 0x1e, 0x06, 0xef, 0xdf, 0x05, 0x77,
+        0x37, 0x57, 0xde, 0xb1, 0x68, 0x82, 0x09, 0x30, 0xe3, 0xb0, 0xd0, 0x3f, 0x46, 0xf5, 0xfc, 0xf1, 0x50, 0xbf, 0x99, 0x0c,
+        0x02, 0x21, 0x00, 0xd2, 0x5b, 0x5c, 0x87, 0x04, 0x00, 0x76, 0xe4, 0xf2, 0x53, 0xf8, 0x26, 0x2e, 0x76, 0x3e, 0x2d, 0xd5,
+        0x1e, 0x7f, 0xf0, 0xbe, 0x15, 0x77, 0x27, 0xc4, 0xbc, 0x42, 0x80, 0x7f, 0x17, 0xbd, 0x39, 0x01, 0x41, 0x04, 0xe6, 0xc2,
+        0x6e, 0xf6, 0x7d, 0xc6, 0x10, 0xd2, 0xcd, 0x19, 0x24, 0x84, 0x78, 0x9a, 0x6c, 0xf9, 0xae, 0xa9, 0x93, 0x0b, 0x94, 0x4b,
+        0x7e, 0x2d, 0xb5, 0x34, 0x2b, 0x9d, 0x9e, 0x5b, 0x9f, 0xf7, 0x9a, 0xff, 0x9a, 0x2e, 0xe1, 0x97, 0x8d, 0xd7, 0xfd, 0x01,
+        0xdf, 0xc5, 0x22, 0xee, 0x02, 0x28, 0x3d, 0x3b, 0x06, 0xa9, 0xd0, 0x3a, 0xcf, 0x80, 0x96, 0x96, 0x8d, 0x7d, 0xbb, 0x0f,
+        0x91, 0x78, 0xff, 0xff, 0xff, 0xff, 0x02, 0x8b, 0xa7, 0x94, 0x0e, 0x00, 0x00, 0x00, 0x00, 0x19, 0x76, 0xa9, 0x14, 0xba,
+        0xde, 0xec, 0xfd, 0xef, 0x05, 0x07, 0x24, 0x7f, 0xc8, 0xf7, 0x42, 0x41, 0xd7, 0x3b, 0xc0, 0x39, 0x97, 0x2d, 0x7b, 0x88,
+        0xac, 0x40, 0x94, 0xa8, 0x02, 0x00, 0x00, 0x00, 0x00, 0x19, 0x76, 0xa9, 0x14, 0xc1, 0x09, 0x32, 0x48, 0x3f, 0xec, 0x93,
+        0xed, 0x51, 0xf5, 0xfe, 0x95, 0xe7, 0x25, 0x59, 0xf2, 0xcc, 0x70, 0x43, 0xf9, 0x88, 0xac, 0x00, 0x00, 0x00, 0x00, 0x00};
+    vector<unsigned char> vch(ch, ch + sizeof(ch) - 1);
     CDataStream stream(vch, SER_DISK, CLIENT_VERSION);
     CMutableTransaction tx;
     stream >> tx;
     CValidationState state;
     auto verifier = libzcash::ProofVerifier::Strict();
-    BOOST_CHECK_MESSAGE(CheckTransaction(tx, state, verifier) && state.IsValid(), "Simple deserialized transaction should be valid.");
+    BOOST_CHECK_MESSAGE(CheckTransaction(tx, state, verifier) && state.IsValid(),
+                        "Simple deserialized transaction should be valid.");
 
     // Check that duplicate txins fail
     tx.vin.push_back(tx.vin[0]);
-    BOOST_CHECK_MESSAGE(!CheckTransaction(tx, state, verifier) || !state.IsValid(), "Transaction with duplicate txins should be invalid.");
+    BOOST_CHECK_MESSAGE(!CheckTransaction(tx, state, verifier) || !state.IsValid(),
+                        "Transaction with duplicate txins should be invalid.");
 }
 
 //
@@ -310,38 +305,34 @@ BOOST_AUTO_TEST_CASE(basic_transaction_tests)
 // paid to a TX_PUBKEY, the second 21 and 22 CENT outputs
 // paid to a TX_PUBKEYHASH.
 //
-static std::vector<CMutableTransaction>
-SetupDummyInputs(CBasicKeyStore& keystoreRet, CCoinsViewCache& coinsRet)
-{
+static std::vector<CMutableTransaction> SetupDummyInputs(CBasicKeyStore& keystoreRet, CCoinsViewCache& coinsRet) {
     std::vector<CMutableTransaction> dummyTransactions;
     dummyTransactions.resize(2);
 
     // Add some keys to the keystore:
     CKey key[4];
-    for (int i = 0; i < 4; i++)
-    {
+    for (int i = 0; i < 4; i++) {
         key[i].MakeNewKey(i % 2);
         keystoreRet.AddKey(key[i]);
     }
 
     // Create some dummy input transactions
     dummyTransactions[0].resizeOut(2);
-    dummyTransactions[0].getOut(0).nValue = 11*CENT;
+    dummyTransactions[0].getOut(0).nValue = 11 * CENT;
     dummyTransactions[0].getOut(0).scriptPubKey << ToByteVector(key[0].GetPubKey()) << OP_CHECKSIG;
-    dummyTransactions[0].getOut(1).nValue = 50*CENT;
+    dummyTransactions[0].getOut(1).nValue = 50 * CENT;
     dummyTransactions[0].getOut(1).scriptPubKey << ToByteVector(key[1].GetPubKey()) << OP_CHECKSIG;
     coinsRet.ModifyCoins(dummyTransactions[0].GetHash())->From(dummyTransactions[0], 0);
 
     dummyTransactions[1].resizeOut(2);
-    dummyTransactions[1].getOut(0).nValue = 21*CENT;
+    dummyTransactions[1].getOut(0).nValue = 21 * CENT;
     dummyTransactions[1].getOut(0).scriptPubKey = GetScriptForDestination(key[2].GetPubKey().GetID());
-    dummyTransactions[1].getOut(1).nValue = 22*CENT;
+    dummyTransactions[1].getOut(1).nValue = 22 * CENT;
     dummyTransactions[1].getOut(1).scriptPubKey = GetScriptForDestination(key[3].GetPubKey().GetID());
     coinsRet.ModifyCoins(dummyTransactions[1].GetHash())->From(dummyTransactions[1], 0);
 
     return dummyTransactions;
 }
-
 
 void basic_joinsplit_verification(int txVersion, bool isGroth) {
     // We only check that joinsplits are constructed properly
@@ -382,12 +373,9 @@ void basic_joinsplit_verification(int txVersion, bool isGroth) {
     uint256 pubKeyHash;
     std::array<libzcash::JSInput, ZC_NUM_JS_INPUTS> inputs = {
         libzcash::JSInput(witness, note, k),
-        libzcash::JSInput() // dummy input of zero value
+        libzcash::JSInput()  // dummy input of zero value
     };
-    std::array<libzcash::JSOutput, ZC_NUM_JS_OUTPUTS> outputs = {
-        libzcash::JSOutput(addr, 50),
-        libzcash::JSOutput(addr, 50)
-    };
+    std::array<libzcash::JSOutput, ZC_NUM_JS_OUTPUTS> outputs = {libzcash::JSOutput(addr, 50), libzcash::JSOutput(addr, 50)};
 
     auto verifier = libzcash::ProofVerifier::Strict();
 
@@ -396,7 +384,7 @@ void basic_joinsplit_verification(int txVersion, bool isGroth) {
         BOOST_CHECK(jsdesc.Verify(*pzcashParams, verifier, pubKeyHash));
 
         CDataStream ss(SER_DISK, CLIENT_VERSION);
-        
+
         auto over_ss = WithTxVersion(&ss, txVersion);
         over_ss << jsdesc;
 
@@ -421,15 +409,12 @@ void basic_joinsplit_verification(int txVersion, bool isGroth) {
     }
 }
 
-BOOST_AUTO_TEST_CASE(test_basic_joinsplit_verification)
-{
+BOOST_AUTO_TEST_CASE(test_basic_joinsplit_verification) {
     basic_joinsplit_verification(PHGR_TX_VERSION, false);
     basic_joinsplit_verification(GROTH_TX_VERSION, true);
-
 }
 
-BOOST_AUTO_TEST_CASE(test_simple_joinsplit_invalidity)
-{
+BOOST_AUTO_TEST_CASE(test_simple_joinsplit_invalidity) {
     auto verifier = libzcash::ProofVerifier::Strict();
     CMutableTransaction tx;
     tx.nVersion = 2;
@@ -452,7 +437,7 @@ BOOST_AUTO_TEST_CASE(test_simple_joinsplit_invalidity)
         BOOST_CHECK(state.GetRejectReason() == "bad-txns-vout-empty");
 
         newTx.vjoinsplit.push_back(JSDescription());
-        JSDescription *jsdesc = &newTx.vjoinsplit[0];
+        JSDescription* jsdesc = &newTx.vjoinsplit[0];
 
         jsdesc->nullifiers[0] = GetRandHash();
         jsdesc->nullifiers[1] = GetRandHash();
@@ -465,10 +450,7 @@ BOOST_AUTO_TEST_CASE(test_simple_joinsplit_invalidity)
         CTransaction signTx(newTx);
         uint256 dataToBeSigned = SignatureHash(scriptCode, signTx, NOT_AN_INPUT, SIGHASH_ALL);
 
-        assert(crypto_sign_detached(&newTx.joinSplitSig[0], NULL,
-                                    dataToBeSigned.begin(), 32,
-                                    joinSplitPrivKey
-                                    ) == 0);
+        assert(crypto_sign_detached(&newTx.joinSplitSig[0], NULL, dataToBeSigned.begin(), 32, joinSplitPrivKey) == 0);
 
         BOOST_CHECK(CheckTransactionWithoutProofVerification(newTx, state));
     }
@@ -478,8 +460,8 @@ BOOST_AUTO_TEST_CASE(test_simple_joinsplit_invalidity)
         CValidationState state;
 
         newTx.vjoinsplit.push_back(JSDescription());
-        
-        JSDescription *jsdesc = &newTx.vjoinsplit[0];
+
+        JSDescription* jsdesc = &newTx.vjoinsplit[0];
         jsdesc->vpub_old = -1;
 
         BOOST_CHECK(!CheckTransaction(newTx, state, verifier));
@@ -505,7 +487,7 @@ BOOST_AUTO_TEST_CASE(test_simple_joinsplit_invalidity)
 
         newTx.vjoinsplit.push_back(JSDescription());
 
-        JSDescription *jsdesc2 = &newTx.vjoinsplit[1];
+        JSDescription* jsdesc2 = &newTx.vjoinsplit[1];
         jsdesc2->vpub_new = (MAX_MONEY / 2) + 10;
 
         BOOST_CHECK(!CheckTransaction(newTx, state, verifier));
@@ -517,7 +499,7 @@ BOOST_AUTO_TEST_CASE(test_simple_joinsplit_invalidity)
         CValidationState state;
 
         newTx.vjoinsplit.push_back(JSDescription());
-        JSDescription *jsdesc = &newTx.vjoinsplit[0];
+        JSDescription* jsdesc = &newTx.vjoinsplit[0];
 
         jsdesc->nullifiers[0] = GetRandHash();
         jsdesc->nullifiers[1] = jsdesc->nullifiers[0];
@@ -528,8 +510,8 @@ BOOST_AUTO_TEST_CASE(test_simple_joinsplit_invalidity)
         jsdesc->nullifiers[1] = GetRandHash();
 
         newTx.vjoinsplit.push_back(JSDescription());
-        jsdesc = &newTx.vjoinsplit[0]; // Fixes #2026. Related PR #2078.
-        JSDescription *jsdesc2 = &newTx.vjoinsplit[1];
+        jsdesc = &newTx.vjoinsplit[0];  // Fixes #2026. Related PR #2078.
+        JSDescription* jsdesc2 = &newTx.vjoinsplit[1];
 
         jsdesc2->nullifiers[0] = GetRandHash();
         jsdesc2->nullifiers[1] = jsdesc->nullifiers[0];
@@ -543,7 +525,7 @@ BOOST_AUTO_TEST_CASE(test_simple_joinsplit_invalidity)
         CValidationState state;
 
         newTx.vjoinsplit.push_back(JSDescription());
-        JSDescription *jsdesc = &newTx.vjoinsplit[0];
+        JSDescription* jsdesc = &newTx.vjoinsplit[0];
         jsdesc->nullifiers[0] = GetRandHash();
         jsdesc->nullifiers[1] = GetRandHash();
 
@@ -558,8 +540,7 @@ BOOST_AUTO_TEST_CASE(test_simple_joinsplit_invalidity)
     }
 }
 
-BOOST_AUTO_TEST_CASE(test_Get)
-{
+BOOST_AUTO_TEST_CASE(test_Get) {
     CBasicKeyStore keystore;
     CCoinsView coinsDummy;
     CCoinsViewCache coins(&coinsDummy);
@@ -577,11 +558,11 @@ BOOST_AUTO_TEST_CASE(test_Get)
     t1.vin[2].prevout.n = 1;
     t1.vin[2].scriptSig << std::vector<unsigned char>(65, 0) << std::vector<unsigned char>(33, 4);
     t1.resizeOut(2);
-    t1.getOut(0).nValue = 90*CENT;
+    t1.getOut(0).nValue = 90 * CENT;
     t1.getOut(0).scriptPubKey << OP_1;
 
     BOOST_CHECK(AreInputsStandard(t1, coins));
-    BOOST_CHECK_EQUAL(coins.GetValueIn(t1), (50+21+22)*CENT);
+    BOOST_CHECK_EQUAL(coins.GetValueIn(t1), (50 + 21 + 22) * CENT);
 
     // Adding extra junk to the scriptSig should make it non-standard:
     t1.vin[0].scriptSig << OP_11;
@@ -592,21 +573,20 @@ BOOST_AUTO_TEST_CASE(test_Get)
     BOOST_CHECK(!AreInputsStandard(t1, coins));
 }
 
-BOOST_AUTO_TEST_CASE(test_IsStandard)
-{
+BOOST_AUTO_TEST_CASE(test_IsStandard) {
     LOCK(cs_main);
     CBasicKeyStore keystore;
     CCoinsView coinsDummy;
     CCoinsViewCache coins(&coinsDummy);
     std::vector<CMutableTransaction> dummyTransactions = SetupDummyInputs(keystore, coins);
-    
+
     CMutableTransaction t;
     t.vin.resize(1);
     t.vin[0].prevout.hash = dummyTransactions[0].GetHash();
     t.vin[0].prevout.n = 1;
     t.vin[0].scriptSig << std::vector<unsigned char>(65, 0);
     t.resizeOut(1);
-    t.getOut(0).nValue = 90*CENT;
+    t.getOut(0).nValue = 90 * CENT;
     CKey key;
     key.MakeNewKey(true);
     t.getOut(0).scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
@@ -614,21 +594,29 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     string reason;
     BOOST_CHECK(IsStandardTx(t, reason, 0));
 
-    t.getOut(0).nValue = 53; // dust
+    t.getOut(0).nValue = 53;  // dust
     BOOST_CHECK(!IsStandardTx(t, reason, 0));
 
-    t.getOut(0).nValue = 2730; // not dust
+    t.getOut(0).nValue = 2730;  // not dust
     BOOST_CHECK(IsStandardTx(t, reason, 0));
 
     t.getOut(0).scriptPubKey = CScript() << OP_1;
     BOOST_CHECK(!IsStandardTx(t, reason, 0));
 
     // 80-byte TX_NULL_DATA (standard)
-    t.getOut(0).scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef3804678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
+    t.getOut(0).scriptPubKey =
+        CScript() << OP_RETURN
+                  << ParseHex(
+                         "04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef3804678afdb0fe554827196"
+                         "7f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
     BOOST_CHECK(IsStandardTx(t, reason, 0));
 
     // 81-byte TX_NULL_DATA (non-standard)
-    t.getOut(0).scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef3804678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef3800");
+    t.getOut(0).scriptPubKey =
+        CScript() << OP_RETURN
+                  << ParseHex(
+                         "04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef3804678afdb0fe554827196"
+                         "7f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef3800");
     BOOST_CHECK(!IsStandardTx(t, reason, 0));
 
     // TX_NULL_DATA w/o PUSHDATA
@@ -638,11 +626,14 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
 
     // Only one TX_NULL_DATA permitted in all cases
     t.resizeOut(2);
-    t.getOut(0).scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
-    t.getOut(1).scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
+    t.getOut(0).scriptPubKey =
+        CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
+    t.getOut(1).scriptPubKey =
+        CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
     BOOST_CHECK(!IsStandardTx(t, reason, 0));
 
-    t.getOut(0).scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
+    t.getOut(0).scriptPubKey =
+        CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
     t.getOut(1).scriptPubKey = CScript() << OP_RETURN;
     BOOST_CHECK(!IsStandardTx(t, reason, 0));
 
@@ -651,16 +642,18 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     BOOST_CHECK(!IsStandardTx(t, reason, 0));
 }
 
-
-void verifyTx(const CTransaction &tx, int height, bool expectResultStd, bool expectResultCtx) {
+void verifyTx(const CTransaction& tx, int height, bool expectResultStd, bool expectResultCtx) {
     string reason;
     CValidationState state;
-    BOOST_CHECK_MESSAGE(IsStandardTx(tx, reason, height) == expectResultStd, "IsStandardTx unexpected (" << !expectResultStd << ") result for tx version " << tx.nVersion << ", height " << height);
-    BOOST_CHECK_MESSAGE(tx.ContextualCheck(state, height, 100) == expectResultCtx, "ContextualCheck() unexpected (" << !expectResultCtx << ") result for tx version " << tx.nVersion << ", height " << height );
+    BOOST_CHECK_MESSAGE(
+        IsStandardTx(tx, reason, height) == expectResultStd,
+        "IsStandardTx unexpected (" << !expectResultStd << ") result for tx version " << tx.nVersion << ", height " << height);
+    BOOST_CHECK_MESSAGE(tx.ContextualCheck(state, height, 100) == expectResultCtx,
+                        "ContextualCheck() unexpected (" << !expectResultCtx << ") result for tx version " << tx.nVersion
+                                                         << ", height " << height);
 }
 
-void verifyTxVersions(CBaseChainParams::Network network, int grothIntroductionHeight)
-{
+void verifyTxVersions(CBaseChainParams::Network network, int grothIntroductionHeight) {
     LOCK(cs_main);
 
     SelectParams(network);
@@ -676,16 +669,15 @@ void verifyTxVersions(CBaseChainParams::Network network, int grothIntroductionHe
     t.vin[0].prevout.n = 1;
     t.vin[0].scriptSig << std::vector<unsigned char>(65, 0);
     t.resizeOut(1);
-    t.getOut(0).nValue = 90*CENT;
+    t.getOut(0).nValue = 90 * CENT;
     CKey key;
     key.MakeNewKey(true);
 
-    // we need to generate a chain active with at least genesis 
-    // following the moving of check block at height into the contextual check 
+    // we need to generate a chain active with at least genesis
+    // following the moving of check block at height into the contextual check
     GenerateChainActive(0);
 
     t.getOut(0).scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
-
 
     // A v2 transaction with no JoinSplits is still standard.
     t.nVersion = 2;
@@ -696,33 +688,32 @@ void verifyTxVersions(CBaseChainParams::Network network, int grothIntroductionHe
     verifyTx(t, grothIntroductionHeight - 1, true, true);
 
     // ... and when that JoinSplit takes from a transparent input.
-    JSDescription *jsdesc = &t.vjoinsplit[0];
-    jsdesc->vpub_old = 10*CENT;
-    t.getOut(0).nValue -= 10*CENT;
+    JSDescription* jsdesc = &t.vjoinsplit[0];
+    jsdesc->vpub_old = 10 * CENT;
+    t.getOut(0).nValue -= 10 * CENT;
     verifyTx(t, grothIntroductionHeight - 1, true, true);
 
     // A v2 transaction with JoinSplits but no transparent inputs is standard.
     jsdesc->vpub_old = 0;
-    jsdesc->vpub_new = 100*CENT;
-    t.getOut(0).nValue = 90*CENT;
+    jsdesc->vpub_new = 100 * CENT;
+    t.getOut(0).nValue = 90 * CENT;
     t.vin.resize(0);
     verifyTx(t, grothIntroductionHeight - 1, true, true);
     // but is not standard if Groth is active
     verifyTx(t, grothIntroductionHeight, false, false);
 
     // v2 transactions can still be non-standard for the same reasons as v1.
-    t.getOut(0).nValue = 53; // dust
+    t.getOut(0).nValue = 53;  // dust
     verifyTx(t, grothIntroductionHeight, false, false);
-
 
     // v3 with Groth is not standard before Groth is active
     t.nVersion = GROTH_TX_VERSION;
     t.vjoinsplit.clear();
-    t.vjoinsplit.push_back(JSDescription::getNewInstance(true)); // use Groth
+    t.vjoinsplit.push_back(JSDescription::getNewInstance(true));  // use Groth
     jsdesc = &t.vjoinsplit[0];
     jsdesc->vpub_old = 0;
-    jsdesc->vpub_new = 100*CENT;
-    t.getOut(0).nValue = 90*CENT;
+    jsdesc->vpub_new = 100 * CENT;
+    t.getOut(0).nValue = 90 * CENT;
     t.vin.resize(0);
     verifyTx(t, grothIntroductionHeight - 1, false, false);
     // v3 with Groth is standard when Groth is active
@@ -731,24 +722,22 @@ void verifyTxVersions(CBaseChainParams::Network network, int grothIntroductionHe
     // v2 is not standard after Groth is active
     t.nVersion = PHGR_TX_VERSION;
     t.vjoinsplit.clear();
-    t.vjoinsplit.push_back(JSDescription::getNewInstance(false)); // use PHGR
+    t.vjoinsplit.push_back(JSDescription::getNewInstance(false));  // use PHGR
     jsdesc = &t.vjoinsplit[0];
     jsdesc->vpub_old = 0;
-    jsdesc->vpub_new = 100*CENT;
-    t.getOut(0).nValue = 90*CENT;
+    jsdesc->vpub_new = 100 * CENT;
+    t.getOut(0).nValue = 90 * CENT;
     verifyTx(t, grothIntroductionHeight, false, false);
 
     // v1 is still standard after Groth is active but should be refused by contextual checks if joinsplit is not empty
     t.nVersion = TRANSPARENT_TX_VERSION;
     verifyTx(t, grothIntroductionHeight, true, false);
-    // but v1 was accepted by consensus if joinsplit is not empty before Groth introduction (in any case it should have never happened
-    // because deserializer would not have deserialized joinsplits for v1)
+    // but v1 was accepted by consensus if joinsplit is not empty before Groth introduction (in any case it should have never
+    // happened because deserializer would not have deserialized joinsplits for v1)
     verifyTx(t, grothIntroductionHeight - 1, true, true);
 }
 
-
-BOOST_AUTO_TEST_CASE(test_IsStandardV2)
-{
+BOOST_AUTO_TEST_CASE(test_IsStandardV2) {
     verifyTxVersions(CBaseChainParams::REGTEST, 200);
     verifyTxVersions(CBaseChainParams::TESTNET, 369900);
     verifyTxVersions(CBaseChainParams::MAIN, 455555);

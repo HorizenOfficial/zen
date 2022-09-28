@@ -5,19 +5,11 @@
 
 #include "rpc/server.h"
 
-#include "base58.h"
-#include "init.h"
-#include "random.h"
-#include "sync.h"
-#include "ui_interface.h"
-#include "util.h"
-#include "utilstrencodings.h"
-#include "asyncrpcqueue.h"
+#include <univalue.h>
 
 #include <memory>
 
-#include <univalue.h>
-
+#include <boost/algorithm/string/case_conv.hpp>  // for to_upper()
 #include <boost/bind.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/foreach.hpp>
@@ -26,7 +18,15 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/signals2/signal.hpp>
 #include <boost/thread.hpp>
-#include <boost/algorithm/string/case_conv.hpp> // for to_upper()
+
+#include "asyncrpcqueue.h"
+#include "base58.h"
+#include "init.h"
+#include "random.h"
+#include "sync.h"
+#include "ui_interface.h"
+#include "util.h"
+#include "utilstrencodings.h"
 
 using namespace RPCServer;
 using namespace std;
@@ -41,143 +41,99 @@ static std::vector<RPCTimerInterface*> timerInterfaces;
  * @note Can be changed to std::unique_ptr when C++11 */
 static std::map<std::string, boost::shared_ptr<RPCTimerBase> > deadlineTimers;
 
-static struct CRPCSignals
-{
-    boost::signals2::signal<void ()> Started;
-    boost::signals2::signal<void ()> Stopped;
-    boost::signals2::signal<void (const CRPCCommand&)> PreCommand;
-    boost::signals2::signal<void (const CRPCCommand&)> PostCommand;
+static struct CRPCSignals {
+    boost::signals2::signal<void()> Started;
+    boost::signals2::signal<void()> Stopped;
+    boost::signals2::signal<void(const CRPCCommand&)> PreCommand;
+    boost::signals2::signal<void(const CRPCCommand&)> PostCommand;
 } g_rpcSignals;
 
-void RPCServer::OnStarted(boost::function<void ()> slot)
-{
-    g_rpcSignals.Started.connect(slot);
-}
+void RPCServer::OnStarted(boost::function<void()> slot) { g_rpcSignals.Started.connect(slot); }
 
-void RPCServer::OnStopped(boost::function<void ()> slot)
-{
-    g_rpcSignals.Stopped.connect(slot);
-}
+void RPCServer::OnStopped(boost::function<void()> slot) { g_rpcSignals.Stopped.connect(slot); }
 
-void RPCServer::OnPreCommand(boost::function<void (const CRPCCommand&)> slot)
-{
+void RPCServer::OnPreCommand(boost::function<void(const CRPCCommand&)> slot) {
     g_rpcSignals.PreCommand.connect(boost::bind(slot, _1));
 }
 
-void RPCServer::OnPostCommand(boost::function<void (const CRPCCommand&)> slot)
-{
+void RPCServer::OnPostCommand(boost::function<void(const CRPCCommand&)> slot) {
     g_rpcSignals.PostCommand.connect(boost::bind(slot, _1));
 }
 
-void RPCTypeCheck(const UniValue& params,
-                  const list<UniValue::VType>& typesExpected,
-                  bool fAllowNull)
-{
+void RPCTypeCheck(const UniValue& params, const list<UniValue::VType>& typesExpected, bool fAllowNull) {
     size_t i = 0;
-    BOOST_FOREACH(UniValue::VType t, typesExpected)
-    {
-        if (params.size() <= i)
-            break;
+    BOOST_FOREACH (UniValue::VType t, typesExpected) {
+        if (params.size() <= i) break;
 
         const UniValue& v = params[i];
-        if (!((v.type() == t) || (fAllowNull && (v.isNull()))))
-        {
-            string err = strprintf("Expected type %s, got %s",
-                                   uvTypeName(t), uvTypeName(v.type()));
+        if (!((v.type() == t) || (fAllowNull && (v.isNull())))) {
+            string err = strprintf("Expected type %s, got %s", uvTypeName(t), uvTypeName(v.type()));
             throw JSONRPCError(RPC_TYPE_ERROR, err);
         }
         i++;
     }
 }
 
-void RPCTypeCheckObj(const UniValue& o,
-                  const map<string, UniValue::VType>& typesExpected,
-                  bool fAllowNull)
-{
-    BOOST_FOREACH(const PAIRTYPE(string, UniValue::VType)& t, typesExpected)
-    {
+void RPCTypeCheckObj(const UniValue& o, const map<string, UniValue::VType>& typesExpected, bool fAllowNull) {
+    BOOST_FOREACH (const PAIRTYPE(string, UniValue::VType) & t, typesExpected) {
         const UniValue& v = find_value(o, t.first);
-        if (!fAllowNull && v.isNull())
-            throw JSONRPCError(RPC_TYPE_ERROR, strprintf("Missing %s", t.first));
+        if (!fAllowNull && v.isNull()) throw JSONRPCError(RPC_TYPE_ERROR, strprintf("Missing %s", t.first));
 
-        if (!((v.type() == t.second) || (fAllowNull && (v.isNull()))))
-        {
-            string err = strprintf("Expected type %s for %s, got %s",
-                                   uvTypeName(t.second), t.first, uvTypeName(v.type()));
+        if (!((v.type() == t.second) || (fAllowNull && (v.isNull())))) {
+            string err = strprintf("Expected type %s for %s, got %s", uvTypeName(t.second), t.first, uvTypeName(v.type()));
             throw JSONRPCError(RPC_TYPE_ERROR, err);
         }
     }
 }
 
-CAmount SignedAmountFromValue(const UniValue& value)
-{
-    if (!value.isNum() && !value.isStr())
-        throw JSONRPCError(RPC_TYPE_ERROR, "Amount is not a number or string");
+CAmount SignedAmountFromValue(const UniValue& value) {
+    if (!value.isNum() && !value.isStr()) throw JSONRPCError(RPC_TYPE_ERROR, "Amount is not a number or string");
     CAmount amount;
-    if (!ParseFixedPoint(value.getValStr(), 8, &amount))
-        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
-    if (amount > MAX_MONEY)
-        throw JSONRPCError(RPC_TYPE_ERROR, "Amount out of range");
+    if (!ParseFixedPoint(value.getValStr(), 8, &amount)) throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
+    if (amount > MAX_MONEY) throw JSONRPCError(RPC_TYPE_ERROR, "Amount out of range");
     return amount;
 }
 
-CAmount AmountFromValue(const UniValue& value)
-{
-    if (!value.isNum() && !value.isStr())
-        throw JSONRPCError(RPC_TYPE_ERROR, "Amount is not a number or string");
+CAmount AmountFromValue(const UniValue& value) {
+    if (!value.isNum() && !value.isStr()) throw JSONRPCError(RPC_TYPE_ERROR, "Amount is not a number or string");
     CAmount amount;
-    if (!ParseFixedPoint(value.getValStr(), 8, &amount))
-        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
-    if (!MoneyRange(amount))
-        throw JSONRPCError(RPC_TYPE_ERROR, "Amount out of range");
+    if (!ParseFixedPoint(value.getValStr(), 8, &amount)) throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
+    if (!MoneyRange(amount)) throw JSONRPCError(RPC_TYPE_ERROR, "Amount out of range");
     return amount;
 }
 
-UniValue ValueFromAmount(const CAmount& amount)
-{
+UniValue ValueFromAmount(const CAmount& amount) {
     bool sign = amount < 0;
     int64_t n_abs = (sign ? -amount : amount);
     int64_t quotient = n_abs / COIN;
     int64_t remainder = n_abs % COIN;
-    return UniValue(UniValue::VNUM,
-            strprintf("%s%d.%08d", sign ? "-" : "", quotient, remainder));
+    return UniValue(UniValue::VNUM, strprintf("%s%d.%08d", sign ? "-" : "", quotient, remainder));
 }
 
-uint256 ParseHashV(const UniValue& v, string strName)
-{
+uint256 ParseHashV(const UniValue& v, string strName) {
     string strHex;
-    if (v.isStr())
-        strHex = v.get_str();
-    if (!IsHex(strHex)) // Note: IsHex("") is false
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strName+" must be hexadecimal string (not '"+strHex+"')");
+    if (v.isStr()) strHex = v.get_str();
+    if (!IsHex(strHex))  // Note: IsHex("") is false
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strName + " must be hexadecimal string (not '" + strHex + "')");
     uint256 result;
     result.SetHex(strHex);
     return result;
 }
-uint256 ParseHashO(const UniValue& o, string strKey)
-{
-    return ParseHashV(find_value(o, strKey), strKey);
-}
-vector<unsigned char> ParseHexV(const UniValue& v, string strName)
-{
+uint256 ParseHashO(const UniValue& o, string strKey) { return ParseHashV(find_value(o, strKey), strKey); }
+vector<unsigned char> ParseHexV(const UniValue& v, string strName) {
     string strHex;
-    if (v.isStr())
-        strHex = v.get_str();
+    if (v.isStr()) strHex = v.get_str();
     if (!IsHex(strHex))
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strName+" must be hexadecimal string (not '"+strHex+"')");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strName + " must be hexadecimal string (not '" + strHex + "')");
     return ParseHex(strHex);
 }
-vector<unsigned char> ParseHexO(const UniValue& o, string strKey)
-{
-    return ParseHexV(find_value(o, strKey), strKey);
-}
+vector<unsigned char> ParseHexO(const UniValue& o, string strKey) { return ParseHexV(find_value(o, strKey), strKey); }
 
 /**
  * Note: This interface may still be subject to change.
  */
 
-std::string CRPCTable::help(const std::string& strCommand) const
-{
+std::string CRPCTable::help(const std::string& strCommand) const {
     string strRet;
     string category;
     set<rpcfn_type> setDone;
@@ -187,37 +143,26 @@ std::string CRPCTable::help(const std::string& strCommand) const
         vCommands.push_back(make_pair(mi->second->category + mi->first, mi->second));
     sort(vCommands.begin(), vCommands.end());
 
-    BOOST_FOREACH(const PAIRTYPE(string, const CRPCCommand*)& command, vCommands)
-    {
-        const CRPCCommand *pcmd = command.second;
+    BOOST_FOREACH (const PAIRTYPE(string, const CRPCCommand*) & command, vCommands) {
+        const CRPCCommand* pcmd = command.second;
         string strMethod = pcmd->name;
         // We already filter duplicates, but these deprecated screw up the sort order
-        if (strMethod.find("label") != string::npos)
-            continue;
-        if ((strCommand != "" || pcmd->category == "hidden") && strMethod != strCommand)
-            continue;
-        try
-        {
+        if (strMethod.find("label") != string::npos) continue;
+        if ((strCommand != "" || pcmd->category == "hidden") && strMethod != strCommand) continue;
+        try {
             UniValue params;
             rpcfn_type pfn = pcmd->actor;
-            if (setDone.insert(pfn).second)
-                (*pfn)(params, true);
-        }
-        catch (const std::exception& e)
-        {
+            if (setDone.insert(pfn).second) (*pfn)(params, true);
+        } catch (const std::exception& e) {
             // Help text is returned in an exception
             string strHelp = string(e.what());
-            if (strCommand == "")
-            {
-                if (strHelp.find('\n') != string::npos)
-                    strHelp = strHelp.substr(0, strHelp.find('\n'));
+            if (strCommand == "") {
+                if (strHelp.find('\n') != string::npos) strHelp = strHelp.substr(0, strHelp.find('\n'));
 
-                if (category != pcmd->category)
-                {
-                    if (!category.empty())
-                        strRet += "\n";
+                if (category != pcmd->category) {
+                    if (!category.empty()) strRet += "\n";
                     category = pcmd->category;
-                    string firstLetter = category.substr(0,1);
+                    string firstLetter = category.substr(0, 1);
                     boost::to_upper(firstLetter);
                     strRet += "== " + firstLetter + category.substr(1) + " ==\n";
                 }
@@ -225,53 +170,44 @@ std::string CRPCTable::help(const std::string& strCommand) const
             strRet += strHelp + "\n";
         }
     }
-    if (strRet == "")
-        strRet = strprintf("help: unknown command: %s\n", strCommand);
-    strRet = strRet.substr(0,strRet.size()-1);
+    if (strRet == "") strRet = strprintf("help: unknown command: %s\n", strCommand);
+    strRet = strRet.substr(0, strRet.size() - 1);
     return strRet;
 }
 
-UniValue help(const UniValue& params, bool fHelp)
-{
+UniValue help(const UniValue& params, bool fHelp) {
     if (fHelp || params.size() > 1)
         throw runtime_error(
             "help ( \"command\" )\n"
             "\nList all commands, or get help for a specified command.\n"
-            
+
             "\nArguments:\n"
             "1. \"command\"   (string, optional) the command to get help on\n"
             "\nResult:\n"
             "\"text\"         (string) the help text\n"
-            
-            "\nExamples:\n"
-            + HelpExampleCli("help", "")
-            + HelpExampleRpc("help", "")
-        );
+
+            "\nExamples:\n" +
+            HelpExampleCli("help", "") + HelpExampleRpc("help", ""));
 
     string strCommand;
-    if (params.size() > 0)
-        strCommand = params[0].get_str();
+    if (params.size() > 0) strCommand = params[0].get_str();
 
     return tableRPC.help(strCommand);
 }
 
-
-UniValue stop(const UniValue& params, bool fHelp)
-{
+UniValue stop(const UniValue& params, bool fHelp) {
     // Accept the deprecated and ignored 'detach' boolean argument
     if (fHelp || params.size() > 1)
         throw runtime_error(
             "stop\n"
             "\nStop Zen server."
-            
+
             "\nResult\n"
             "Nothing if is success\n"
             "\"Failure\": \"xxxx\"   (string) rejected reason"
-            
-            "\nExamples:\n"
-            + HelpExampleCli("stop", "")
-            + HelpExampleRpc("stop", "")
-        );
+
+            "\nExamples:\n" +
+            HelpExampleCli("stop", "") + HelpExampleRpc("stop", ""));
     // Shutdown will take long enough that the response should get back
     StartShutdown();
     return "Zen server stopping";
@@ -281,249 +217,241 @@ UniValue stop(const UniValue& params, bool fHelp)
  * Call Table
  */
 static const CRPCCommand vRPCCommands[] =
-{ //  category              name                      actor (function)         okSafeMode
-  //  --------------------- ------------------------  -----------------------  ----------
-    /* Overall control/query calls */
-    { "control",            "getinfo",                &getinfo,                true  }, /* uses wallet if enabled */
-    { "control",            "help",                   &help,                   true  },
-    { "control",            "stop",                   &stop,                   true  },
-    { "control",            "dbg_log",                &dbg_log,                true  },
-    { "control",            "dbg_do",                 &dbg_do,                 true  },
-    { "control",            "getscinfo",              &getscinfo,              true  },
-    { "control",            "getactivecertdatahash",  &getactivecertdatahash,  true  },
-    { "control",            "getceasingcumsccommtreehash", &getceasingcumsccommtreehash, true  },
-    { "control",            "getscgenesisinfo",       &getscgenesisinfo,       true  },
-    { "control",            "getproofverifierstats",  &getproofverifierstats,  true  },
-    { "control",            "setproofverifierlowpriorityguard",  &setproofverifierlowpriorityguard,  true  },
+    {  //  category              name                      actor (function)         okSafeMode
+       //  --------------------- ------------------------  -----------------------  ----------
+        /* Overall control/query calls */
+        {"control", "getinfo", &getinfo, true}, /* uses wallet if enabled */
+        {"control", "help", &help, true},
+        {"control", "stop", &stop, true},
+        {"control", "dbg_log", &dbg_log, true},
+        {"control", "dbg_do", &dbg_do, true},
+        {"control", "getscinfo", &getscinfo, true},
+        {"control", "getactivecertdatahash", &getactivecertdatahash, true},
+        {"control", "getceasingcumsccommtreehash", &getceasingcumsccommtreehash, true},
+        {"control", "getscgenesisinfo", &getscgenesisinfo, true},
+        {"control", "getproofverifierstats", &getproofverifierstats, true},
+        {"control", "setproofverifierlowpriorityguard", &setproofverifierlowpriorityguard, true},
 
-    /* P2P networking */
-    { "network",            "getnetworkinfo",         &getnetworkinfo,         true  },
-    { "network",            "addnode",                &addnode,                true  },
-    { "network",            "disconnectnode",         &disconnectnode,         true  },
-    { "network",            "getaddednodeinfo",       &getaddednodeinfo,       true  },
-    { "network",            "getconnectioncount",     &getconnectioncount,     true  },
-    { "network",            "getnettotals",           &getnettotals,           true  },
-    { "network",            "getpeerinfo",            &getpeerinfo,            true  },
-    { "network",            "ping",                   &ping,                   true  },
-    { "network",            "setban",                 &setban,                 true  },
-    { "network",            "listbanned",             &listbanned,             true  },
-    { "network",            "clearbanned",            &clearbanned,            true  },
+        /* P2P networking */
+        {"network", "getnetworkinfo", &getnetworkinfo, true},
+        {"network", "addnode", &addnode, true},
+        {"network", "disconnectnode", &disconnectnode, true},
+        {"network", "getaddednodeinfo", &getaddednodeinfo, true},
+        {"network", "getconnectioncount", &getconnectioncount, true},
+        {"network", "getnettotals", &getnettotals, true},
+        {"network", "getpeerinfo", &getpeerinfo, true},
+        {"network", "ping", &ping, true},
+        {"network", "setban", &setban, true},
+        {"network", "listbanned", &listbanned, true},
+        {"network", "clearbanned", &clearbanned, true},
 
-    /* Block chain and UTXO */
-    { "blockchain",         "getblockchaininfo",      &getblockchaininfo,      true  },
-    { "blockchain",         "getbestblockhash",       &getbestblockhash,       true  },
-    { "blockchain",         "getblockcount",          &getblockcount,          true  },
-    { "blockchain",         "getblock",               &getblock,               true  },
-    { "blockchain",         "getblockexpanded",       &getblockexpanded,       true  },
+        /* Block chain and UTXO */
+        {"blockchain", "getblockchaininfo", &getblockchaininfo, true},
+        {"blockchain", "getbestblockhash", &getbestblockhash, true},
+        {"blockchain", "getblockcount", &getblockcount, true},
+        {"blockchain", "getblock", &getblock, true},
+        {"blockchain", "getblockexpanded", &getblockexpanded, true},
 
 #ifdef ENABLE_ADDRESS_INDEXING
-    { "blockchain",         "getblockdeltas",         &getblockdeltas,         false },
-    { "blockchain",         "getblockhashes",         &getblockhashes,         true  },
-    { "blockchain",         "getspentinfo",           &getspentinfo,           false },
-#endif // ENABLE_ADDRESS_INDEXING
+        {"blockchain", "getblockdeltas", &getblockdeltas, false},
+        {"blockchain", "getblockhashes", &getblockhashes, true},
+        {"blockchain", "getspentinfo", &getspentinfo, false},
+#endif  // ENABLE_ADDRESS_INDEXING
 
-    { "blockchain",         "getblockhash",           &getblockhash,           true  },
-    { "blockchain",         "getblockfinalityindex",  &getblockfinalityindex,  true  },
-    { "blockchain",         "getglobaltips",          &getglobaltips,          true  },
-    { "blockchain",         "getblockheader",         &getblockheader,         true  },
-    { "blockchain",         "getchaintips",           &getchaintips,           true  },
-    { "blockchain",         "getdifficulty",          &getdifficulty,          true  },
-    { "blockchain",         "getmempoolinfo",         &getmempoolinfo,         true  },
-    { "blockchain",         "getrawmempool",          &getrawmempool,          true  },
-    { "blockchain",         "gettxout",               &gettxout,               true  },
-    { "blockchain",         "gettxoutproof",          &gettxoutproof,          true  },
-    { "blockchain",         "verifytxoutproof",       &verifytxoutproof,       true  },
-    { "blockchain",         "gettxoutsetinfo",        &gettxoutsetinfo,        true  },
-    { "blockchain",         "verifychain",            &verifychain,            true  },
-    { "blockchain",         "checkcswnullifier",      &checkcswnullifier,      true  },
-    { "blockchain",         "getcertmaturityinfo",    &getcertmaturityinfo,    true  },
-    { "blockchain",         "clearmempool",           &clearmempool,           true  },
+        {"blockchain", "getblockhash", &getblockhash, true},
+        {"blockchain", "getblockfinalityindex", &getblockfinalityindex, true},
+        {"blockchain", "getglobaltips", &getglobaltips, true},
+        {"blockchain", "getblockheader", &getblockheader, true},
+        {"blockchain", "getchaintips", &getchaintips, true},
+        {"blockchain", "getdifficulty", &getdifficulty, true},
+        {"blockchain", "getmempoolinfo", &getmempoolinfo, true},
+        {"blockchain", "getrawmempool", &getrawmempool, true},
+        {"blockchain", "gettxout", &gettxout, true},
+        {"blockchain", "gettxoutproof", &gettxoutproof, true},
+        {"blockchain", "verifytxoutproof", &verifytxoutproof, true},
+        {"blockchain", "gettxoutsetinfo", &gettxoutsetinfo, true},
+        {"blockchain", "verifychain", &verifychain, true},
+        {"blockchain", "checkcswnullifier", &checkcswnullifier, true},
+        {"blockchain", "getcertmaturityinfo", &getcertmaturityinfo, true},
+        {"blockchain", "clearmempool", &clearmempool, true},
 
-    /* Mining */
-    { "mining",             "getblocktemplate",       &getblocktemplate,       true  },
-    { "mining",             "getmininginfo",          &getmininginfo,          true  },
-    { "mining",             "getlocalsolps",          &getlocalsolps,          true  },
-    { "mining",             "getnetworksolps",        &getnetworksolps,        true  },
-    { "mining",             "getnetworkhashps",       &getnetworkhashps,       true  },
-    { "mining",             "prioritisetransaction",  &prioritisetransaction,  true  },
-    { "mining",             "submitblock",            &submitblock,            true  },
-    { "mining",             "getblocksubsidy",        &getblocksubsidy,        true  },
-    { "mining",             "getblockmerkleroots",    &getblockmerkleroots,    true  },
-
+        /* Mining */
+        {"mining", "getblocktemplate", &getblocktemplate, true},
+        {"mining", "getmininginfo", &getmininginfo, true},
+        {"mining", "getlocalsolps", &getlocalsolps, true},
+        {"mining", "getnetworksolps", &getnetworksolps, true},
+        {"mining", "getnetworkhashps", &getnetworkhashps, true},
+        {"mining", "prioritisetransaction", &prioritisetransaction, true},
+        {"mining", "submitblock", &submitblock, true},
+        {"mining", "getblocksubsidy", &getblocksubsidy, true},
+        {"mining", "getblockmerkleroots", &getblockmerkleroots, true},
 
 #ifdef ENABLE_MINING
-    /* Coin generation */
-    { "generating",         "getgenerate",            &getgenerate,            true  },
-    { "generating",         "setgenerate",            &setgenerate,            true  },
-    { "generating",         "generate",               &generate,               true  },
+        /* Coin generation */
+        {"generating", "getgenerate", &getgenerate, true},
+        {"generating", "setgenerate", &setgenerate, true},
+        {"generating", "generate", &generate, true},
 #endif
 
-    /* Raw transactions */
-    { "rawtransactions",    "createrawtransaction",   &createrawtransaction,   true  },
-    { "rawtransactions",    "decoderawtransaction",   &decoderawtransaction,   true  },
-    { "rawtransactions",    "createrawcertificate",   &createrawcertificate,   true  },
-    { "rawtransactions",    "decodescript",           &decodescript,           true  },
-    { "rawtransactions",    "getrawtransaction",      &getrawtransaction,      true  },
-    { "rawtransactions",    "sendrawtransaction",     &sendrawtransaction,     false },
-    { "rawtransactions",    "signrawtransaction",     &signrawtransaction,     false }, /* uses wallet if enabled */
+        /* Raw transactions */
+        {"rawtransactions", "createrawtransaction", &createrawtransaction, true},
+        {"rawtransactions", "decoderawtransaction", &decoderawtransaction, true},
+        {"rawtransactions", "createrawcertificate", &createrawcertificate, true},
+        {"rawtransactions", "decodescript", &decodescript, true},
+        {"rawtransactions", "getrawtransaction", &getrawtransaction, true},
+        {"rawtransactions", "sendrawtransaction", &sendrawtransaction, false},
+        {"rawtransactions", "signrawtransaction", &signrawtransaction, false}, /* uses wallet if enabled */
 #ifdef ENABLE_WALLET
-    { "rawtransactions",    "fundrawtransaction",     &fundrawtransaction,     false },
+        {"rawtransactions", "fundrawtransaction", &fundrawtransaction, false},
 #endif
 
 #ifdef ENABLE_ADDRESS_INDEXING
-    /* Address index */
-    { "addressindex",       "getaddressmempool",      &getaddressmempool,      true  },
-    { "addressindex",       "getaddressutxos",        &getaddressutxos,        false },
-    { "addressindex",       "getaddressdeltas",       &getaddressdeltas,       false },
-    { "addressindex",       "getaddresstxids",        &getaddresstxids,        false },
-    { "addressindex",       "getaddressbalance",      &getaddressbalance,      false },
-#endif // ENABLE_ADDRESS_INDEXING
+        /* Address index */
+        {"addressindex", "getaddressmempool", &getaddressmempool, true},
+        {"addressindex", "getaddressutxos", &getaddressutxos, false},
+        {"addressindex", "getaddressdeltas", &getaddressdeltas, false},
+        {"addressindex", "getaddresstxids", &getaddresstxids, false},
+        {"addressindex", "getaddressbalance", &getaddressbalance, false},
+#endif  // ENABLE_ADDRESS_INDEXING
 
-    /* Utility functions */
-    { "util",               "createmultisig",         &createmultisig,         true  },
-    { "util",               "validateaddress",        &validateaddress,        true  }, /* uses wallet if enabled */
-    { "util",               "verifymessage",          &verifymessage,          true  },
-    { "util",               "estimatefee",            &estimatefee,            true  },
-    { "util",               "estimatepriority",       &estimatepriority,       true  },
-    { "util",               "z_validateaddress",      &z_validateaddress,      true  }, /* uses wallet if enabled */
+        /* Utility functions */
+        {"util", "createmultisig", &createmultisig, true},
+        {"util", "validateaddress", &validateaddress, true}, /* uses wallet if enabled */
+        {"util", "verifymessage", &verifymessage, true},
+        {"util", "estimatefee", &estimatefee, true},
+        {"util", "estimatepriority", &estimatepriority, true},
+        {"util", "z_validateaddress", &z_validateaddress, true}, /* uses wallet if enabled */
 
-    /* Not shown in help */
-    { "hidden",             "invalidateblock",        &invalidateblock,        true  },
-    { "hidden",             "reconsiderblock",        &reconsiderblock,        true  },
-    { "hidden",             "setmocktime",            &setmocktime,            true  },
+        /* Not shown in help */
+        {"hidden", "invalidateblock", &invalidateblock, true},
+        {"hidden", "reconsiderblock", &reconsiderblock, true},
+        {"hidden", "setmocktime", &setmocktime, true},
 #ifdef ENABLE_WALLET
-    { "hidden",             "resendwallettransactions", &resendwallettransactions, true},
+        {"hidden", "resendwallettransactions", &resendwallettransactions, true},
 #endif
 
 #ifdef ENABLE_WALLET
-    /* Wallet */
-    { "wallet",             "addmultisigaddress",     &addmultisigaddress,     true  },
-    { "wallet",             "backupwallet",           &backupwallet,           true  },
-    { "wallet",             "dumpprivkey",            &dumpprivkey,            true  },
-    { "wallet",             "dumpwallet",             &dumpwallet,             true  },
-    { "wallet",             "encryptwallet",          &encryptwallet,          true  },
-    { "wallet",             "getaccountaddress",      &getaccountaddress,      true  },
-    { "wallet",             "getaccount",             &getaccount,             true  },
-    { "wallet",             "getaddressesbyaccount",  &getaddressesbyaccount,  true  },
-    { "wallet",             "getbalance",             &getbalance,             false },
-    { "wallet",             "getnewaddress",          &getnewaddress,          true  },
-    { "wallet",             "getrawchangeaddress",    &getrawchangeaddress,    true  },
-    { "wallet",             "getreceivedbyaccount",   &getreceivedbyaccount,   false },
-    { "wallet",             "getreceivedbyaddress",   &getreceivedbyaddress,   false },
-    { "wallet",             "gettransaction",         &gettransaction,         false },
-    { "wallet",             "getunconfirmedbalance",  &getunconfirmedbalance,  false },
-    { "wallet",             "getwalletinfo",          &getwalletinfo,          false },
-    { "wallet",             "importprivkey",          &importprivkey,          true  },
-    { "wallet",             "importwallet",           &importwallet,           true  },
-    { "wallet",             "importaddress",          &importaddress,          true  },
-    { "wallet",             "keypoolrefill",          &keypoolrefill,          true  },
-    { "wallet",             "listaccounts",           &listaccounts,           false },
-    { "wallet",             "listaddressgroupings",   &listaddressgroupings,   false },
-    { "wallet",             "listlockunspent",        &listlockunspent,        false },
-    { "wallet",             "listreceivedbyaccount",  &listreceivedbyaccount,  false },
-    { "wallet",             "listreceivedbyaddress",  &listreceivedbyaddress,  false },
-    { "wallet",             "listsinceblock",         &listsinceblock,         false },
-    { "wallet",             "listtransactions",       &listtransactions,       false },
-    { "wallet",             "listtxesbyaddress",      &listtxesbyaddress,      false },
-    { "wallet",             "getunconfirmedtxdata",   &getunconfirmedtxdata,   false },
-    { "wallet",             "listunspent",            &listunspent,            false },
-    { "wallet",             "lockunspent",            &lockunspent,            true  },
-    { "wallet",             "move",                   &movecmd,                false },
-    { "wallet",             "sendfrom",               &sendfrom,               false },
-    { "wallet",             "sendmany",               &sendmany,               false },
-    { "wallet",             "sendtoaddress",          &sendtoaddress,          false },
-    { "wallet",             "setaccount",             &setaccount,             true  },
-    { "wallet",             "settxfee",               &settxfee,               true  },
-    { "wallet",             "signmessage",            &signmessage,            true  },
-    { "wallet",             "walletlock",             &walletlock,             true  },
-    { "wallet",             "walletpassphrasechange", &walletpassphrasechange, true  },
-    { "wallet",             "walletpassphrase",       &walletpassphrase,       true  },
-    { "wallet",             "zcbenchmark",            &zc_benchmark,           true  },
-    { "wallet",             "zcrawkeygen",            &zc_raw_keygen,          true  },
-    { "wallet",             "zcrawjoinsplit",         &zc_raw_joinsplit,       true  },
-    { "wallet",             "zcrawreceive",           &zc_raw_receive,         true  },
-    { "wallet",             "zcsamplejoinsplit",      &zc_sample_joinsplit,    true  },
-    { "wallet",             "z_listreceivedbyaddress",&z_listreceivedbyaddress,false },
-    { "wallet",             "z_getbalance",           &z_getbalance,           false },
-    { "wallet",             "z_gettotalbalance",      &z_gettotalbalance,      false },
-    { "wallet",             "z_sendmany",             &z_sendmany,             false },
-    { "wallet",             "z_shieldcoinbase",       &z_shieldcoinbase,       false },
-    { "wallet",             "z_getoperationstatus",   &z_getoperationstatus,   true  },
-    { "wallet",             "z_getoperationresult",   &z_getoperationresult,   true  },
-    { "wallet",             "z_listoperationids",     &z_listoperationids,     true  },
-    { "wallet",             "z_getnewaddress",        &z_getnewaddress,        true  },
-    { "wallet",             "z_listaddresses",        &z_listaddresses,        true  },
-    { "wallet",             "z_exportkey",            &z_exportkey,            true  },
-    { "wallet",             "z_importkey",            &z_importkey,            true  },
-    { "wallet",             "z_exportviewingkey",     &z_exportviewingkey,     true  },
-    { "wallet",             "z_importviewingkey",     &z_importviewingkey,     true  },
-    { "wallet",             "z_exportwallet",         &z_exportwallet,         true  },
-    { "wallet",             "z_importwallet",         &z_importwallet,         true  },
-    { "wallet",             "sc_send_certificate",    &sc_send_certificate,    false },
-    // useful for sbh wallet
-    { "wallet",             "sc_create",              &sc_create,              false },
-    { "wallet",             "sc_send",                &sc_send,                false },
-    { "wallet",             "sc_request_transfer",    &sc_request_transfer,    false },
+        /* Wallet */
+        {"wallet", "addmultisigaddress", &addmultisigaddress, true},
+        {"wallet", "backupwallet", &backupwallet, true},
+        {"wallet", "dumpprivkey", &dumpprivkey, true},
+        {"wallet", "dumpwallet", &dumpwallet, true},
+        {"wallet", "encryptwallet", &encryptwallet, true},
+        {"wallet", "getaccountaddress", &getaccountaddress, true},
+        {"wallet", "getaccount", &getaccount, true},
+        {"wallet", "getaddressesbyaccount", &getaddressesbyaccount, true},
+        {"wallet", "getbalance", &getbalance, false},
+        {"wallet", "getnewaddress", &getnewaddress, true},
+        {"wallet", "getrawchangeaddress", &getrawchangeaddress, true},
+        {"wallet", "getreceivedbyaccount", &getreceivedbyaccount, false},
+        {"wallet", "getreceivedbyaddress", &getreceivedbyaddress, false},
+        {"wallet", "gettransaction", &gettransaction, false},
+        {"wallet", "getunconfirmedbalance", &getunconfirmedbalance, false},
+        {"wallet", "getwalletinfo", &getwalletinfo, false},
+        {"wallet", "importprivkey", &importprivkey, true},
+        {"wallet", "importwallet", &importwallet, true},
+        {"wallet", "importaddress", &importaddress, true},
+        {"wallet", "keypoolrefill", &keypoolrefill, true},
+        {"wallet", "listaccounts", &listaccounts, false},
+        {"wallet", "listaddressgroupings", &listaddressgroupings, false},
+        {"wallet", "listlockunspent", &listlockunspent, false},
+        {"wallet", "listreceivedbyaccount", &listreceivedbyaccount, false},
+        {"wallet", "listreceivedbyaddress", &listreceivedbyaddress, false},
+        {"wallet", "listsinceblock", &listsinceblock, false},
+        {"wallet", "listtransactions", &listtransactions, false},
+        {"wallet", "listtxesbyaddress", &listtxesbyaddress, false},
+        {"wallet", "getunconfirmedtxdata", &getunconfirmedtxdata, false},
+        {"wallet", "listunspent", &listunspent, false},
+        {"wallet", "lockunspent", &lockunspent, true},
+        {"wallet", "move", &movecmd, false},
+        {"wallet", "sendfrom", &sendfrom, false},
+        {"wallet", "sendmany", &sendmany, false},
+        {"wallet", "sendtoaddress", &sendtoaddress, false},
+        {"wallet", "setaccount", &setaccount, true},
+        {"wallet", "settxfee", &settxfee, true},
+        {"wallet", "signmessage", &signmessage, true},
+        {"wallet", "walletlock", &walletlock, true},
+        {"wallet", "walletpassphrasechange", &walletpassphrasechange, true},
+        {"wallet", "walletpassphrase", &walletpassphrase, true},
+        {"wallet", "zcbenchmark", &zc_benchmark, true},
+        {"wallet", "zcrawkeygen", &zc_raw_keygen, true},
+        {"wallet", "zcrawjoinsplit", &zc_raw_joinsplit, true},
+        {"wallet", "zcrawreceive", &zc_raw_receive, true},
+        {"wallet", "zcsamplejoinsplit", &zc_sample_joinsplit, true},
+        {"wallet", "z_listreceivedbyaddress", &z_listreceivedbyaddress, false},
+        {"wallet", "z_getbalance", &z_getbalance, false},
+        {"wallet", "z_gettotalbalance", &z_gettotalbalance, false},
+        {"wallet", "z_sendmany", &z_sendmany, false},
+        {"wallet", "z_shieldcoinbase", &z_shieldcoinbase, false},
+        {"wallet", "z_getoperationstatus", &z_getoperationstatus, true},
+        {"wallet", "z_getoperationresult", &z_getoperationresult, true},
+        {"wallet", "z_listoperationids", &z_listoperationids, true},
+        {"wallet", "z_getnewaddress", &z_getnewaddress, true},
+        {"wallet", "z_listaddresses", &z_listaddresses, true},
+        {"wallet", "z_exportkey", &z_exportkey, true},
+        {"wallet", "z_importkey", &z_importkey, true},
+        {"wallet", "z_exportviewingkey", &z_exportviewingkey, true},
+        {"wallet", "z_importviewingkey", &z_importviewingkey, true},
+        {"wallet", "z_exportwallet", &z_exportwallet, true},
+        {"wallet", "z_importwallet", &z_importwallet, true},
+        {"wallet", "sc_send_certificate", &sc_send_certificate, false},
+        // useful for sbh wallet
+        {"wallet", "sc_create", &sc_create, false},
+        {"wallet", "sc_send", &sc_send, false},
+        {"wallet", "sc_request_transfer", &sc_request_transfer, false},
 
-    // TODO: rearrange into another category 
-    { "disclosure",         "z_getpaymentdisclosure", &z_getpaymentdisclosure, true  }, 
-    { "disclosure",         "z_validatepaymentdisclosure", &z_validatepaymentdisclosure, true },
-    { "wallet",             "listaddresses",          &listaddresses,          true  }
-#endif // ENABLE_WALLET
+        // TODO: rearrange into another category
+        {"disclosure", "z_getpaymentdisclosure", &z_getpaymentdisclosure, true},
+        {"disclosure", "z_validatepaymentdisclosure", &z_validatepaymentdisclosure, true},
+        {"wallet", "listaddresses", &listaddresses, true}
+#endif  // ENABLE_WALLET
 };
 
-CRPCTable::CRPCTable()
-{
+CRPCTable::CRPCTable() {
     unsigned int vcidx;
-    for (vcidx = 0; vcidx < (sizeof(vRPCCommands) / sizeof(vRPCCommands[0])); vcidx++)
-    {
-        const CRPCCommand *pcmd;
+    for (vcidx = 0; vcidx < (sizeof(vRPCCommands) / sizeof(vRPCCommands[0])); vcidx++) {
+        const CRPCCommand* pcmd;
 
         pcmd = &vRPCCommands[vcidx];
         mapCommands[pcmd->name] = pcmd;
     }
 }
 
-const CRPCCommand *CRPCTable::operator[](const std::string &name) const
-{
+const CRPCCommand* CRPCTable::operator[](const std::string& name) const {
     map<string, const CRPCCommand*>::const_iterator it = mapCommands.find(name);
-    if (it == mapCommands.end())
-        return NULL;
+    if (it == mapCommands.end()) return NULL;
     return (*it).second;
 }
 
-bool StartRPC()
-{
+bool StartRPC() {
     LogPrint("rpc", "Starting RPC\n");
     fRPCRunning = true;
     g_rpcSignals.Started();
 
-    // Launch one async rpc worker.  The ability to launch multiple workers is not recommended at present and thus the option is disabled.
+    // Launch one async rpc worker.  The ability to launch multiple workers is not recommended at present and thus the option is
+    // disabled.
     getAsyncRPCQueue()->addWorker();
-/*
-    int n = GetArg("-rpcasyncthreads", 1);
-    if (n<1) {
-        LogPrintf("ERROR: Invalid value %d for -rpcasyncthreads.  Must be at least 1.\n", n);
-        strerr = strprintf(_("An error occurred while setting up the Async RPC threads, invalid parameter value of %d (must be at least 1)."), n);
-        uiInterface.ThreadSafeMessageBox(strerr, "", CClientUIInterface::MSG_ERROR);
-        StartShutdown();
-        return;
-    }
-    for (int i = 0; i < n; i++)
-        getAsyncRPCQueue()->addWorker();
-*/
+    /*
+        int n = GetArg("-rpcasyncthreads", 1);
+        if (n<1) {
+            LogPrintf("ERROR: Invalid value %d for -rpcasyncthreads.  Must be at least 1.\n", n);
+            strerr = strprintf(_("An error occurred while setting up the Async RPC threads, invalid parameter value of %d (must
+       be at least 1)."), n); uiInterface.ThreadSafeMessageBox(strerr, "", CClientUIInterface::MSG_ERROR); StartShutdown();
+            return;
+        }
+        for (int i = 0; i < n; i++)
+            getAsyncRPCQueue()->addWorker();
+    */
     return true;
 }
 
-void InterruptRPC()
-{
+void InterruptRPC() {
     LogPrint("rpc", "Interrupting RPC\n");
     // Interrupt e.g. running longpolls
     fRPCRunning = false;
 }
 
-void StopRPC()
-{
+void StopRPC() {
     LogPrint("rpc", "Stopping RPC\n");
     deadlineTimers.clear();
     g_rpcSignals.Stopped();
@@ -533,37 +461,28 @@ void StopRPC()
     getAsyncRPCQueue()->closeAndWait();
 }
 
-bool IsRPCRunning()
-{
-    return fRPCRunning;
-}
+bool IsRPCRunning() { return fRPCRunning; }
 
-void SetRPCWarmupStatus(const std::string& newStatus)
-{
+void SetRPCWarmupStatus(const std::string& newStatus) {
     LOCK(cs_rpcWarmup);
     rpcWarmupStatus = newStatus;
 }
 
-void SetRPCWarmupFinished()
-{
+void SetRPCWarmupFinished() {
     LOCK(cs_rpcWarmup);
     assert(fRPCInWarmup);
     fRPCInWarmup = false;
 }
 
-bool RPCIsInWarmup(std::string *outStatus)
-{
+bool RPCIsInWarmup(std::string* outStatus) {
     LOCK(cs_rpcWarmup);
-    if (outStatus)
-        *outStatus = rpcWarmupStatus;
+    if (outStatus) *outStatus = rpcWarmupStatus;
     return fRPCInWarmup;
 }
 
-void JSONRequest::parse(const UniValue& valRequest)
-{
+void JSONRequest::parse(const UniValue& valRequest) {
     // Parse request
-    if (!valRequest.isObject())
-        throw JSONRPCError(RPC_INVALID_REQUEST, "Invalid Request object");
+    if (!valRequest.isObject()) throw JSONRPCError(RPC_INVALID_REQUEST, "Invalid Request object");
     const UniValue& request = valRequest.get_obj();
 
     // Parse id now so errors from here on will have the id
@@ -571,10 +490,8 @@ void JSONRequest::parse(const UniValue& valRequest)
 
     // Parse method
     UniValue valMethod = find_value(request, "method");
-    if (valMethod.isNull())
-        throw JSONRPCError(RPC_INVALID_REQUEST, "Missing method");
-    if (!valMethod.isStr())
-        throw JSONRPCError(RPC_INVALID_REQUEST, "Method must be a string");
+    if (valMethod.isNull()) throw JSONRPCError(RPC_INVALID_REQUEST, "Missing method");
+    if (!valMethod.isStr()) throw JSONRPCError(RPC_INVALID_REQUEST, "Method must be a string");
     strMethod = valMethod.get_str();
 
     LogPrint("rpc", "ThreadRPCServer method=%s\n", SanitizeString(strMethod));
@@ -589,8 +506,7 @@ void JSONRequest::parse(const UniValue& valRequest)
         throw JSONRPCError(RPC_INVALID_REQUEST, "Params must be an array");
 }
 
-static UniValue JSONRPCExecOne(const UniValue& req)
-{
+static UniValue JSONRPCExecOne(const UniValue& req) {
     UniValue rpc_result(UniValue::VOBJ);
 
     JSONRequest jreq;
@@ -599,95 +515,73 @@ static UniValue JSONRPCExecOne(const UniValue& req)
 
         UniValue result = tableRPC.execute(jreq.strMethod, jreq.params);
         rpc_result = JSONRPCReplyObj(result, NullUniValue, jreq.id);
-    }
-    catch (const UniValue& objError)
-    {
+    } catch (const UniValue& objError) {
         rpc_result = JSONRPCReplyObj(NullUniValue, objError, jreq.id);
-    }
-    catch (const std::exception& e)
-    {
-        rpc_result = JSONRPCReplyObj(NullUniValue,
-                                     JSONRPCError(RPC_PARSE_ERROR, e.what()), jreq.id);
+    } catch (const std::exception& e) {
+        rpc_result = JSONRPCReplyObj(NullUniValue, JSONRPCError(RPC_PARSE_ERROR, e.what()), jreq.id);
     }
 
     return rpc_result;
 }
 
-std::string JSONRPCExecBatch(const UniValue& vReq)
-{
+std::string JSONRPCExecBatch(const UniValue& vReq) {
     UniValue ret(UniValue::VARR);
-    for (size_t reqIdx = 0; reqIdx < vReq.size(); reqIdx++)
-        ret.push_back(JSONRPCExecOne(vReq[reqIdx]));
+    for (size_t reqIdx = 0; reqIdx < vReq.size(); reqIdx++) ret.push_back(JSONRPCExecOne(vReq[reqIdx]));
 
     return ret.write() + "\n";
 }
 
-UniValue CRPCTable::execute(const std::string &strMethod, const UniValue &params) const
-{
+UniValue CRPCTable::execute(const std::string& strMethod, const UniValue& params) const {
     // Return immediately if in warmup
     {
         LOCK(cs_rpcWarmup);
-        if (fRPCInWarmup)
-            throw JSONRPCError(RPC_IN_WARMUP, rpcWarmupStatus);
+        if (fRPCInWarmup) throw JSONRPCError(RPC_IN_WARMUP, rpcWarmupStatus);
     }
 
     // Find method
-    const CRPCCommand *pcmd = tableRPC[strMethod];
-    if (!pcmd)
-        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Method not found");
+    const CRPCCommand* pcmd = tableRPC[strMethod];
+    if (!pcmd) throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Method not found");
 
     g_rpcSignals.PreCommand(*pcmd);
 
-    try
-    {
+    try {
         // Execute
         return pcmd->actor(params, false);
-    }
-    catch (const std::exception& e)
-    {
+    } catch (const std::exception& e) {
         throw JSONRPCError(RPC_MISC_ERROR, e.what());
     }
 
     g_rpcSignals.PostCommand(*pcmd);
 }
 
-std::string HelpExampleCli(const std::string& methodname, const std::string& args)
-{
+std::string HelpExampleCli(const std::string& methodname, const std::string& args) {
     return "> zen-cli " + methodname + " " + args + "\n";
 }
 
-std::string HelpExampleRpc(const std::string& methodname, const std::string& args)
-{
+std::string HelpExampleRpc(const std::string& methodname, const std::string& args) {
     return "> curl --user myusername --data-binary '{\"jsonrpc\": \"1.0\", \"id\":\"curltest\", "
-        "\"method\": \"" + methodname + "\", \"params\": [" + args + "] }' -H 'content-type: text/plain;' http://127.0.0.1:8231/\n";
+           "\"method\": \"" +
+           methodname + "\", \"params\": [" + args + "] }' -H 'content-type: text/plain;' http://127.0.0.1:8231/\n";
 }
 
-void RPCRegisterTimerInterface(RPCTimerInterface *iface)
-{
-    timerInterfaces.push_back(iface);
-}
+void RPCRegisterTimerInterface(RPCTimerInterface* iface) { timerInterfaces.push_back(iface); }
 
-void RPCUnregisterTimerInterface(RPCTimerInterface *iface)
-{
+void RPCUnregisterTimerInterface(RPCTimerInterface* iface) {
     std::vector<RPCTimerInterface*>::iterator i = std::find(timerInterfaces.begin(), timerInterfaces.end(), iface);
     assert(i != timerInterfaces.end());
     timerInterfaces.erase(i);
 }
 
-void RPCRunLater(const std::string& name, boost::function<void(void)> func, int64_t nSeconds)
-{
-    if (timerInterfaces.empty())
-        throw JSONRPCError(RPC_INTERNAL_ERROR, "No timer handler registered for RPC");
+void RPCRunLater(const std::string& name, boost::function<void(void)> func, int64_t nSeconds) {
+    if (timerInterfaces.empty()) throw JSONRPCError(RPC_INTERNAL_ERROR, "No timer handler registered for RPC");
     deadlineTimers.erase(name);
     RPCTimerInterface* timerInterface = timerInterfaces[0];
     LogPrint("rpc", "queue run of timer %s in %i seconds (using %s)\n", name, nSeconds, timerInterface->Name());
-    deadlineTimers.insert(std::make_pair(name, boost::shared_ptr<RPCTimerBase>(timerInterface->NewTimer(func, nSeconds*1000))));
+    deadlineTimers.insert(
+        std::make_pair(name, boost::shared_ptr<RPCTimerBase>(timerInterface->NewTimer(func, nSeconds * 1000))));
 }
 
 const CRPCTable tableRPC;
 
 // Return async rpc queue
-std::shared_ptr<AsyncRPCQueue> getAsyncRPCQueue()
-{
-    return AsyncRPCQueue::sharedInstance();
-}
+std::shared_ptr<AsyncRPCQueue> getAsyncRPCQueue() { return AsyncRPCQueue::sharedInstance(); }

@@ -6,26 +6,25 @@
 #ifndef BITCOIN_SCRIPT_STANDARD_H
 #define BITCOIN_SCRIPT_STANDARD_H
 
-#include "script/interpreter.h"
-#include "uint256.h"
+#include <stdint.h>
 
 #include <boost/variant.hpp>
 
-#include <stdint.h>
+#include "script/interpreter.h"
+#include "uint256.h"
 
 class CKeyID;
 class CScript;
 
 /** A reference to a CScript: the Hash160 of its serialization (see script.h) */
-class CScriptID : public uint160
-{
-public:
+class CScriptID : public uint160 {
+  public:
     CScriptID() : uint160() {}
     CScriptID(const CScript& in);
     CScriptID(const uint160& in) : uint160(in) {}
 };
 
-static const unsigned int MAX_OP_RETURN_RELAY = 80;      //! bytes
+static const unsigned int MAX_OP_RETURN_RELAY = 80;  //! bytes
 extern unsigned nMaxDatacarrierBytes;
 
 /**
@@ -49,22 +48,18 @@ static const unsigned int MANDATORY_SCRIPT_VERIFY_FLAGS = SCRIPT_VERIFY_P2SH;
  * blocks and we must accept those blocks.
  */
 
-static const unsigned int STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS = MANDATORY_SCRIPT_VERIFY_FLAGS |
-                                                         SCRIPT_VERIFY_DERSIG |
-                                                         SCRIPT_VERIFY_STRICTENC |
-                                                         SCRIPT_VERIFY_MINIMALDATA |
-                                                         SCRIPT_VERIFY_NULLDUMMY |
-                                                         SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS |
-                                                         SCRIPT_VERIFY_CLEANSTACK |
-                                                         SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY |
-                                                         SCRIPT_VERIFY_LOW_S |
-                                                         SCRIPT_VERIFY_CHECKBLOCKATHEIGHT;
+static const unsigned int STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS =
+    MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_DERSIG | SCRIPT_VERIFY_STRICTENC | SCRIPT_VERIFY_MINIMALDATA |
+    SCRIPT_VERIFY_NULLDUMMY | SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS | SCRIPT_VERIFY_CLEANSTACK |
+    SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY | SCRIPT_VERIFY_LOW_S | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT;
 
 /** For convenience, standard but not contextual verify flags. */
-static const unsigned int STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS = STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS & ~CONTEXTUAL_SCRIPT_VERIFY_FLAGS;
+static const unsigned int STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS =
+    STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS & ~CONTEXTUAL_SCRIPT_VERIFY_FLAGS;
 
 /** For convenience, standard but not mandatory verify flags. */
-static const unsigned int STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS = STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS & ~MANDATORY_SCRIPT_VERIFY_FLAGS;
+static const unsigned int STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS =
+    STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS & ~MANDATORY_SCRIPT_VERIFY_FLAGS;
 
 enum txnouttype
 {
@@ -83,12 +78,12 @@ enum txnouttype
 };
 
 class CNoDestination {
-public:
-    friend bool operator==(const CNoDestination &a, const CNoDestination &b) { return true; }
-    friend bool operator<(const CNoDestination &a, const CNoDestination &b) { return true; }
+  public:
+    friend bool operator==(const CNoDestination& a, const CNoDestination& b) { return true; }
+    friend bool operator<(const CNoDestination& a, const CNoDestination& b) { return true; }
 };
 
-/** 
+/**
  * A txout script template with a specific destination. It is either:
  *  * CNoDestination: no destination set
  *  * CKeyID: TX_PUBKEYHASH destination
@@ -102,8 +97,7 @@ const char* GetTxnOutputType(txnouttype t);
 /**
  * Attributes are set by the Solver() parser when a replay protection script is found
  */
-class ReplayProtectionAttributes
-{
+class ReplayProtectionAttributes {
   public:
     int referencedHeight;
     std::vector<unsigned char> referencedHash;
@@ -121,15 +115,17 @@ class ReplayProtectionAttributes
 bool CheckReplayProtectionAttributes(const CScript& scriptPubKey, std::string reason);
 void GetReplayProtectionAttributes(const CScript& scriptPubKey, ReplayProtectionAttributes& rpAttributes);
 
-bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet, ReplayProtectionAttributes& rpAttributes);
+bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet,
+            ReplayProtectionAttributes& rpAttributes);
 bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet);
 int ScriptSigArgsExpected(txnouttype t, const std::vector<std::vector<unsigned char> >& vSolutions);
 bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType, ReplayProtectionAttributes& rpAttributes);
 bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType);
 bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet);
-bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<CTxDestination>& addressRet, int& nRequiredRet);
+bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<CTxDestination>& addressRet,
+                         int& nRequiredRet);
 
 CScript GetScriptForDestination(const CTxDestination& dest, bool withCheckBlockAtHeight = true);
 CScript GetScriptForMultisig(int nRequired, const std::vector<CPubKey>& keys);
 
-#endif // BITCOIN_SCRIPT_STANDARD_H
+#endif  // BITCOIN_SCRIPT_STANDARD_H

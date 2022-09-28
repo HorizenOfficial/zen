@@ -22,28 +22,28 @@
 #define NOMINMAX
 #endif
 #ifdef FD_SETSIZE
-#undef FD_SETSIZE // prevent redefinition compiler warning
+#undef FD_SETSIZE  // prevent redefinition compiler warning
 #endif
-#define FD_SETSIZE 1024 // max number of fds in fd_set
-
-#include <winsock2.h> // Must be included before mswsock.h and windows.h
+#define FD_SETSIZE 1024  // max number of fds in fd_set
 
 #include <mswsock.h>
 #include <windows.h>
+#include <winsock2.h>  // Must be included before mswsock.h and windows.h
 #include <ws2tcpip.h>
 #else
-#include <arpa/inet.h>
 #include <fcntl.h>
 #include <ifaddrs.h>
 #include <limits.h>
-#include <net/if.h>
 #include <netdb.h>
+#include <unistd.h>
+
+#include <arpa/inet.h>
+#include <net/if.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <unistd.h>
 #endif
 
 #ifdef WIN32
@@ -91,10 +91,9 @@ typedef u_int SOCKET;
 
 #if HAVE_DECL_STRNLEN == 0
 size_t strnlen(const char* start, size_t max_len);
-#endif // HAVE_DECL_STRNLEN
+#endif  // HAVE_DECL_STRNLEN
 
-bool static inline IsSelectableSocket(SOCKET s)
-{
+bool static inline IsSelectableSocket(SOCKET s) {
 #ifdef WIN32
     return true;
 #else
@@ -102,4 +101,4 @@ bool static inline IsSelectableSocket(SOCKET s)
 #endif
 }
 
-#endif // BITCOIN_COMPAT_H
+#endif  // BITCOIN_COMPAT_H

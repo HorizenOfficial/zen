@@ -15,22 +15,17 @@ static const std::string CLIENT_VERSION_STR = FormatVersion(CLIENT_VERSION);
 extern std::atomic<bool> fRequestShutdown;
 
 class MockUIInterface {
-public:
-    MOCK_METHOD3(ThreadSafeMessageBox, bool(const std::string& message,
-                                      const std::string& caption,
-                                      unsigned int style));
+  public:
+    MOCK_METHOD3(ThreadSafeMessageBox, bool(const std::string& message, const std::string& caption, unsigned int style));
 };
 
-static bool ThreadSafeMessageBox(MockUIInterface *mock,
-                                 const std::string& message,
-                                 const std::string& caption,
-                                 unsigned int style)
-{
-   return mock->ThreadSafeMessageBox(message, caption, style);
+static bool ThreadSafeMessageBox(MockUIInterface* mock, const std::string& message, const std::string& caption,
+                                 unsigned int style) {
+    return mock->ThreadSafeMessageBox(message, caption, style);
 }
 
 class DeprecationTest : public ::testing::Test {
-protected:
+  protected:
     virtual void SetUp() {
         uiInterface.ThreadSafeMessageBox.disconnect_all_slots();
         uiInterface.ThreadSafeMessageBox.connect(boost::bind(ThreadSafeMessageBox, &mock_, _1, _2, _3));

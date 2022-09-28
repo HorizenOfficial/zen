@@ -13,10 +13,10 @@
 
 namespace libsnark {
 
-template<typename GroupT, mp_size_t m>
-GroupT scalar_mul(const GroupT &base, const bigint<m> &scalar);
+template <typename GroupT, mp_size_t m>
+GroupT scalar_mul(const GroupT& base, const bigint<m>& scalar);
 
-} // libsnark
+}  // namespace libsnark
 #include "algebra/curves/curve_utils.tcc"
 
-#endif // CURVE_UTILS_HPP_
+#endif  // CURVE_UTILS_HPP_

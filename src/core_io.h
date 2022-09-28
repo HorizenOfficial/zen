@@ -5,11 +5,12 @@
 #ifndef BITCOIN_CORE_IO_H
 #define BITCOIN_CORE_IO_H
 
-#include "primitives/certificate.h"
-#include "primitives/transaction.h"
 #include <memory>
 #include <string>
 #include <vector>
+
+#include "primitives/certificate.h"
+#include "primitives/transaction.h"
 
 class CBlock;
 class CScript;
@@ -31,14 +32,11 @@ extern std::string FormatScript(const CScript& script);
 extern std::string EncodeHexTx(const CTransaction& tx);
 extern std::string EncodeHexCert(const CScCertificate& cert);
 extern std::string EncodeHex(const std::unique_ptr<CTransactionBase>& pTxBase);
-extern void ScriptPubKeyToUniv(const CScript& scriptPubKey,
-                               UniValue& out,
-                               bool fIncludeHex);
+extern void ScriptPubKeyToUniv(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
 extern void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry);
 
 template <typename Stream>
-void makeSerializedTxObj(Stream& is, int objVer, std::unique_ptr<CTransactionBase>& pTxBase, int nType, int nVersion)
-{
+void makeSerializedTxObj(Stream& is, int objVer, std::unique_ptr<CTransactionBase>& pTxBase, int nType, int nVersion) {
     if (CTransactionBase::IsTransaction(objVer)) {
         CTransaction tx(objVer);
         tx.SerializationOpInternal(is, CSerActionUnserialize(), nType, nVersion);
@@ -56,4 +54,4 @@ void makeSerializedTxObj(Stream& is, int objVer, std::unique_ptr<CTransactionBas
     }
 }
 
-#endif // BITCOIN_CORE_IO_H
+#endif  // BITCOIN_CORE_IO_H

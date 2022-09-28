@@ -2,16 +2,15 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <libsnark/common/profiling.hpp>
+
 #include "../util.h"
 #include "primitives/transaction.h"
 #include "zcash/JoinSplit.hpp"
 
-#include <libsnark/common/profiling.hpp>
-
 using namespace libzcash;
 
-int main(int argc, char **argv)
-{
+int main(int argc, char** argv) {
     libsnark::start_profiling();
 
     auto p = ZCJoinSplit::Prepared((ZC_GetParamsDir() / "sprout-verifying.key").string(),
@@ -23,16 +22,9 @@ int main(int argc, char **argv)
         uint256 anchor = ZCIncrementalMerkleTree().root();
         uint256 pubKeyHash;
 
-        JSDescription jsdesc(
-                             false, // TODO parametrize it
-                             *p,
-                             pubKeyHash,
-                             anchor,
-                             {JSInput(), JSInput()},
-                             {JSOutput(), JSOutput()},
-                             0,
-                             0);
+        JSDescription jsdesc(false,  // TODO parametrize it
+                             *p, pubKeyHash, anchor, {JSInput(), JSInput()}, {JSOutput(), JSOutput()}, 0, 0);
     }
 
-    delete p; // not that it matters
+    delete p;  // not that it matters
 }

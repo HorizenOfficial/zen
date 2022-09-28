@@ -9,17 +9,17 @@
 #define ALT_BN128_INIT_HPP_
 #include "algebra/curves/public_params.hpp"
 #include "algebra/fields/fp.hpp"
+#include "algebra/fields/fp12_2over3over2.hpp"
 #include "algebra/fields/fp2.hpp"
 #include "algebra/fields/fp6_3over2.hpp"
-#include "algebra/fields/fp12_2over3over2.hpp"
 
 namespace libsnark {
 
 const mp_size_t alt_bn128_r_bitcount = 254;
 const mp_size_t alt_bn128_q_bitcount = 254;
 
-const mp_size_t alt_bn128_r_limbs = (alt_bn128_r_bitcount+GMP_NUMB_BITS-1)/GMP_NUMB_BITS;
-const mp_size_t alt_bn128_q_limbs = (alt_bn128_q_bitcount+GMP_NUMB_BITS-1)/GMP_NUMB_BITS;
+const mp_size_t alt_bn128_r_limbs = (alt_bn128_r_bitcount + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS;
+const mp_size_t alt_bn128_q_limbs = (alt_bn128_q_bitcount + GMP_NUMB_BITS - 1) / GMP_NUMB_BITS;
 
 extern bigint<alt_bn128_r_limbs> alt_bn128_modulus_r;
 extern bigint<alt_bn128_q_limbs> alt_bn128_modulus_q;
@@ -44,7 +44,7 @@ extern alt_bn128_Fq2 alt_bn128_twist_mul_by_q_Y;
 // parameters for pairing
 extern bigint<alt_bn128_q_limbs> alt_bn128_ate_loop_count;
 extern bool alt_bn128_ate_is_loop_count_neg;
-extern bigint<12*alt_bn128_q_limbs> alt_bn128_final_exponent;
+extern bigint<12 * alt_bn128_q_limbs> alt_bn128_final_exponent;
 extern bigint<alt_bn128_q_limbs> alt_bn128_final_exponent_z;
 extern bool alt_bn128_final_exponent_is_z_neg;
 
@@ -53,5 +53,5 @@ void init_alt_bn128_params();
 class alt_bn128_G1;
 class alt_bn128_G2;
 
-} // libsnark
-#endif // ALT_BN128_INIT_HPP_
+}  // namespace libsnark
+#endif  // ALT_BN128_INIT_HPP_

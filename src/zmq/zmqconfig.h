@@ -10,6 +10,7 @@
 #endif
 
 #include <stdarg.h>
+
 #include <string>
 
 #if ENABLE_ZMQ
@@ -19,6 +20,6 @@
 #include "primitives/block.h"
 #include "primitives/transaction.h"
 
-void zmqError(const char *str);
+void zmqError(const char* str);
 
-#endif // BITCOIN_ZMQ_ZMQCONFIG_H
+#endif  // BITCOIN_ZMQ_ZMQCONFIG_H

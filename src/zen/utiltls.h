@@ -8,39 +8,43 @@
 #include <boost/filesystem/path.hpp>
 namespace zen {
 
-#define TLS_KEY_FILE_NAME   "key.pem"    // default name of a private key
-#define TLS_CERT_FILE_NAME  "cert.pem"   // default name of a certificate
+#define TLS_KEY_FILE_NAME "key.pem"    // default name of a private key
+#define TLS_CERT_FILE_NAME "cert.pem"  // default name of a certificate
 
-#define CERT_VALIDITY_DAYS  (365 * 10)   // period of validity, in days, for a self-signed certificate
+#define CERT_VALIDITY_DAYS (365 * 10)  // period of validity, in days, for a self-signed certificate
 
-#define TLS_RSA_KEY_SIZE    2048         // size of a private RSA key, in bits, that will be generated, if no other key is specified
+#define TLS_RSA_KEY_SIZE 2048  // size of a private RSA key, in bits, that will be generated, if no other key is specified
 
-typedef enum {credOk, credNonConsistent, credAbsent, credPartiallyAbsent} CredentialsStatus;
+typedef enum
+{
+    credOk,
+    credNonConsistent,
+    credAbsent,
+    credPartiallyAbsent
+} CredentialsStatus;
 
-// Verifies credentials (a private key, a certificate for public key and a correspondence between the private and the public key)
+// Verifies credentials (a private key, a certificate for public key and a correspondence between the private and the public
+// key)
 //
-CredentialsStatus VerifyCredentials(
-        const boost::filesystem::path &keyPath,
-        const boost::filesystem::path &certPath,
-        const std::string             &passphrase);
+CredentialsStatus VerifyCredentials(const boost::filesystem::path& keyPath, const boost::filesystem::path& certPath,
+                                    const std::string& passphrase);
 
-// Generates public key pair and the self-signed certificate for it, and then stores them by the specified paths 'keyPath' and 'certPath' respectively.
+// Generates public key pair and the self-signed certificate for it, and then stores them by the specified paths 'keyPath' and
+// 'certPath' respectively.
 //
-bool GenerateCredentials(
-        const boost::filesystem::path &keyPath,
-        const boost::filesystem::path &certPath,
-        const std::string             &passphrase);
+bool GenerateCredentials(const boost::filesystem::path& keyPath, const boost::filesystem::path& certPath,
+                         const std::string& passphrase);
 
 // Checks if certificate of a peer is valid (by internal means of the TLS protocol)
 //
 // Validates peer certificate using a chain of CA certificates.
 // If some of intermediate CA certificates are absent in the trusted certificates store, then validation status will be 'false')
 //
-bool ValidatePeerCertificate(SSL *ssl);
+bool ValidatePeerCertificate(SSL* ssl);
 
 // Check if a given context is set up with a cert that can be validated by this context
 //
-bool ValidateCertificate(SSL_CTX *ssl_ctx);
+bool ValidateCertificate(SSL_CTX* ssl_ctx);
 
 // Creates the list of available OpenSSL default directories for trusted certificates storage
 //
@@ -49,8 +53,8 @@ std::vector<boost::filesystem::path> GetDefaultTrustedDirectories();
 // Loads default root certificates (placed in the 'defaultRootCerts') into the specified context.
 // Returns the number of loaded certificates.
 //
-int LoadDefaultRootCertificates(SSL_CTX *ctx);
+int LoadDefaultRootCertificates(SSL_CTX* ctx);
 
-}
+}  // namespace zen
 
-#endif // UTILTLS_H
+#endif  // UTILTLS_H
