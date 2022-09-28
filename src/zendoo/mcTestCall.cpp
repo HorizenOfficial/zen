@@ -89,6 +89,10 @@ void create_verify_test_cert_proof(std::string ps_type_raw, std::string cert_typ
     // Parse segment_size
     uint32_t segment_size = strtoull(argv[arg++], NULL, 0);
 
+    // Init DLOG keys
+    assert(zendoo_init_dlog_keys(Sidechain::SEGMENT_SIZE, &ret_code));
+    assert(ret_code == CctpErrorCode::OK);
+
     // Parse sc_id
     assert(IsHex(argv[arg]));
     auto sc_id = ParseHex(argv[arg++]);
@@ -203,6 +207,7 @@ void create_verify_test_cert_proof(std::string ps_type_raw, std::string cert_typ
         proof_path_len,
         num_constraints,
         &ret_code,
+        true,
         &segment_size));
     assert(ret_code == CctpErrorCode::OK);
 
@@ -337,6 +342,10 @@ void create_verify_test_csw_proof(std::string ps_type_raw, std::string csw_type_
     // Parse segment_size
     uint32_t segment_size = strtoull(argv[arg++], NULL, 0);
 
+    // Init DLOG keys
+    assert(zendoo_init_dlog_keys(Sidechain::SEGMENT_SIZE, &ret_code));
+    assert(ret_code == CctpErrorCode::OK);
+
     // Parse amount
     uint64_t amount = strtoull(argv[arg++], NULL, 0);
 
@@ -425,6 +434,7 @@ void create_verify_test_csw_proof(std::string ps_type_raw, std::string csw_type_
         proof_path_len,
         num_constraints,
         &ret_code,
+        true,
         &segment_size));
     assert(ret_code == CctpErrorCode::OK);
 
@@ -549,9 +559,13 @@ void generate(char** argv)
     // Parse segment size
     uint32_t segment_size = strtoull(argv[5], NULL, 0);
 
+    // Init DLOG keys
+    CctpErrorCode ret_code = CctpErrorCode::OK;
+    assert(zendoo_init_dlog_keys(Sidechain::SEGMENT_SIZE, &ret_code));
+    assert(ret_code == CctpErrorCode::OK);
+
     // Generate proving and verifying key
     uint32_t num_constraints = strtoull(argv[6], NULL, 0);
-    CctpErrorCode ret_code = CctpErrorCode::OK;
     assert(zendoo_generate_mc_test_params(
         circ_type,
         ps_type,
@@ -561,7 +575,7 @@ void generate(char** argv)
         &ret_code,
         true,
         true,
-        (size_t*)&segment_size));
+        &segment_size));
     assert(ret_code == CctpErrorCode::OK);
 }
 
