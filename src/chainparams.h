@@ -6,17 +6,14 @@
 #ifndef BITCOIN_CHAINPARAMS_H
 #define BITCOIN_CHAINPARAMS_H
 
+#include <vector>
+
 #include "chainparamsbase.h"
 #include "checkpoints.h"
 #include "consensus/params.h"
 #include "primitives/block.h"
 #include "protocol.h"
-
 #include "zen/forkmanager.h"
-
-#include <vector>
-
-using namespace zen;
 
 struct CDNSSeedData {
     std::string name, host;
@@ -28,7 +25,6 @@ struct SeedSpec6 {
     uint16_t port;
 };
 
-
 /**
  * CChainParams defines various tweakable parameters of a given instance of the
  * Bitcoin system. There are three: the main network on which people trade goods
@@ -36,10 +32,10 @@ struct SeedSpec6 {
  * a regression test mode which is intended for private networks only. It has
  * minimal difficulty to ensure that blocks can be found instantly.
  */
-class CChainParams
-{
-public:
-    enum Base58Type {
+class CChainParams {
+  public:
+    enum Base58Type
+    {
         PUBKEY_ADDRESS,
         PUBKEY_ADDRESS_OLD,
         SCRIPT_ADDRESS,
@@ -97,7 +93,7 @@ public:
 
     void SetSubsidyHalvingInterval(int val) { consensus.nSubsidyHalvingInterval = val; }
 
-protected:
+  protected:
     CChainParams() {}
 
     Consensus::Params consensus;
@@ -148,4 +144,4 @@ void SelectParams(CBaseChainParams::Network network);
  */
 bool SelectParamsFromCommandLine();
 
-#endif // BITCOIN_CHAINPARAMS_H
+#endif  // BITCOIN_CHAINPARAMS_H
