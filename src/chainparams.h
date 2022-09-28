@@ -86,8 +86,8 @@ class CChainParams {
     const std::vector<SeedSpec6>& FixedSeeds() const { return vFixedSeeds; }
     const Checkpoints::CCheckpointData& Checkpoints() const { return checkpointData; }
     /** Return the community fund address and script for a given block height */
-    std::string GetCommunityFundAddressAtHeight(int height, Fork::CommunityFundType cfType) const;
-    CScript GetCommunityFundScriptAtHeight(int height, Fork::CommunityFundType cfType) const;
+    std::string GetCommunityFundAddressAtHeight(int height, zen::Fork::CommunityFundType cfType) const;
+    CScript GetCommunityFundScriptAtHeight(int height, zen::Fork::CommunityFundType cfType) const;
     /** Enforce coinbase consensus rule in regtest mode */
     void SetRegTestCoinbaseMustBeProtected() { consensus.fCoinbaseMustBeProtected = true; }
 
