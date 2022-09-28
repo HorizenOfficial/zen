@@ -9,6 +9,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+// clang-format off
+// Do not remove this ... protocol.h needs to be included before <event2/http.h>
+// TODO : Handle enum and #define of same label differently
+#include "rpc/protocol.h"  // For HTTP status codes
+// clang-format on
+
 #include <event2/buffer.h>
 #include <event2/event.h>
 #include <event2/http.h>
@@ -21,7 +27,6 @@
 #include "chainparamsbase.h"
 #include "compat.h"
 #include "netbase.h"
-#include "rpc/protocol.h"  // For HTTP status codes
 #include "sync.h"
 #include "ui_interface.h"
 #include "util.h"
