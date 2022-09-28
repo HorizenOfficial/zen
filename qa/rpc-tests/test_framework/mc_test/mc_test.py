@@ -14,10 +14,10 @@ MAX_SC_PROOF_SIZE_IN_BYTES = 9*1024
 MAX_SC_VK_SIZE_IN_BYTES    = 9*1024
 
 def generate_random_field_element_hex():
-    return (binascii.b2a_hex(os.urandom(SC_FIELD_SAFE_SIZE)) + "00" * (SC_FIELD_SIZE - SC_FIELD_SAFE_SIZE))
+    return os.urandom(SC_FIELD_SAFE_SIZE).hex() + "00" * (SC_FIELD_SIZE - SC_FIELD_SAFE_SIZE)
 
 def generate_random_field_element_hex_list(len):
-    return [generate_random_field_element_hex() for i in xrange(len)]
+    return [generate_random_field_element_hex() for i in range(len)]
 
 class MCTestUtils(object):
 
@@ -60,12 +60,12 @@ class MCTestUtils(object):
     def _get_proof(self, proof_path):
         assert os.path.isfile(proof_path)
         proof = open(proof_path, "rb").read()
-        return binascii.b2a_hex(proof)
+        return proof.hex()
 
     def _get_vk(self, vk_path):
         assert os.path.isfile(vk_path)
         vk = open(vk_path, "rb").read()
-        return binascii.b2a_hex(vk)
+        return vk.hex()
 
 class CertTestUtils(MCTestUtils):
     def __init__(self, datadir, srcdir, ps_type = "cob_marlin"):

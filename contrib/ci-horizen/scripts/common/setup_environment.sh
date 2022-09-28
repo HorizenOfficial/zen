@@ -19,8 +19,6 @@ fi
 if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
   export DOCKER_UPDATE_PACKAGES="binfmt-support containerd.io docker-ce docker-ce-cli qemu-user-static"
   export UPDATE_PACKAGES="ca-certificates curl jq openssl"
-  export PIP_UPDATE_PACKAGES="python-pip python-setuptools python-wheel python-wheel-common"
-  export PIP_INSTALL=""
   export PIP3_INSTALL=""
   export IMAGE_NAME=zencash/zen-builder
   export IMAGE_BASE_TAG="${DOCKER_ARCH}-${DOCKER_TARGET_OS}-${DOCKER_FROM}"
@@ -72,10 +70,8 @@ fi
 
 if [ "${TRAVIS_OS_NAME}" = "osx" ]; then
   export UPDATE_PACKAGES=""
-  export PIP_INSTALL=""
   export PIP3_INSTALL=""
   if [ "${TRAVIS_BUILD_STAGE_NAME}" = "Prepare" ]; then
-    export PIP_INSTALL="${PIP_INSTALL}"
     export PIP3_INSTALL="${PIP3_INSTALL} b2"
     export CLONE_REPO="https://github.com/HorizenOfficial/zencash-apple.git"
     export CLONE_TARGET="${HOME}/zencash-apple"
@@ -84,7 +80,6 @@ if [ "${TRAVIS_OS_NAME}" = "osx" ]; then
     NEED_B2_CREDS="true"
   fi
   if [ "${TRAVIS_BUILD_STAGE_NAME}" = "Build" ]; then
-    export PIP_INSTALL="${PIP_INSTALL}"
     export PIP3_INSTALL="${PIP3_INSTALL} b2"
     export B2_DL_DECOMPRESS_FOLDER="${HOME}/zencash-apple"
     export B2_DL_FILENAME="${TRAVIS_CPU_ARCH}-${TRAVIS_OS_NAME}-${TRAVIS_OSX_IMAGE}-${TRAVIS_BUILD_ID}-${TRAVIS_COMMIT}-zencash-apple.tar.gz"
@@ -94,7 +89,7 @@ if [ "${TRAVIS_OS_NAME}" = "osx" ]; then
     NEED_B2_CREDS="true"
   fi
   if [ "${TRAVIS_BUILD_STAGE_NAME}" = "Test" ]; then
-    export PIP_INSTALL="${PIP_INSTALL} pyblake2 pyzmq websocket-client2"
+    export PIP3_INSTALL="${PIP3_INSTALL} pycryptodome pyblake2 pyzmq websocket-client"
     export B2_DL_DECOMPRESS_FOLDER="${TRAVIS_BUILD_DIR}"
     # shellcheck disable=SC2001,SC2155
     export B2_DL_FILENAME="${TRAVIS_CPU_ARCH}-${TRAVIS_OS_NAME}-${TRAVIS_OSX_IMAGE}-${TRAVIS_BUILD_ID}-${TRAVIS_COMMIT}$(sed 's/ //g' <<< "${MAKEFLAGS:-}").tar.gz"

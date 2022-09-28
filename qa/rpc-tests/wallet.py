@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -28,7 +28,7 @@ class WalletTest (BitcoinTestFramework):
         self.sync_all()
 
     def run_test (self):
-        print "Mining blocks..."
+        print("Mining blocks...")
 
         self.nodes[0].generate(4)
 
@@ -280,7 +280,7 @@ class WalletTest (BitcoinTestFramework):
         num_t_recipients = 3000
         amount_per_recipient = Decimal('0.00000001')
         errorString = ''
-        for i in xrange(0,num_t_recipients):
+        for i in range(0,num_t_recipients):
             newtaddr = self.nodes[2].getnewaddress()
             recipients.append({"address":newtaddr, "amount":amount_per_recipient})
 
@@ -295,7 +295,7 @@ class WalletTest (BitcoinTestFramework):
 
         try:
             self.nodes[0].z_sendmany(myzaddr, recipients)
-        except JSONRPCException,e:
+        except JSONRPCException as e:
             errorString = e.error['message']
         assert("Too many outputs, size of raw transaction" in errorString)
 
@@ -304,10 +304,10 @@ class WalletTest (BitcoinTestFramework):
         num_z_recipients = 50
         amount_per_recipient = Decimal('0.00000001')
         errorString = ''
-        for i in xrange(0,num_t_recipients):
+        for i in range(0,num_t_recipients):
             newtaddr = self.nodes[2].getnewaddress()
             recipients.append({"address":newtaddr, "amount":amount_per_recipient})
-        for i in xrange(0,num_z_recipients):
+        for i in range(0,num_z_recipients):
             newzaddr = self.nodes[2].z_getnewaddress()
             recipients.append({"address":newzaddr, "amount":amount_per_recipient})
 
@@ -317,7 +317,7 @@ class WalletTest (BitcoinTestFramework):
 
         try:
             self.nodes[0].z_sendmany(myzaddr, recipients)
-        except JSONRPCException,e:
+        except JSONRPCException as e:
             errorString = e.error['message']
         assert("size of raw transaction would be larger than limit" in errorString)
 
@@ -325,12 +325,12 @@ class WalletTest (BitcoinTestFramework):
         num_z_recipients = 100
         amount_per_recipient = Decimal('0.00000001')
         errorString = ''
-        for i in xrange(0,num_z_recipients):
+        for i in range(0,num_z_recipients):
             newzaddr = self.nodes[2].z_getnewaddress()
             recipients.append({"address":newzaddr, "amount":amount_per_recipient})
         try:
             self.nodes[0].z_sendmany(myzaddr, recipients)
-        except JSONRPCException,e:
+        except JSONRPCException as e:
             errorString = e.error['message']
         assert("Invalid parameter, too many zaddr outputs" in errorString)
 
@@ -347,7 +347,7 @@ class WalletTest (BitcoinTestFramework):
 
         timeout = 300
         status = None
-        for x in xrange(1, timeout):
+        for x in range(1, timeout):
             results = self.nodes[2].z_getoperationresult(opids)
             if len(results)==0:
                 time.sleep(1)
@@ -404,7 +404,7 @@ class WalletTest (BitcoinTestFramework):
         status = None
         opids = []
         opids.append(myopid)
-        for x in xrange(1, timeout):
+        for x in range(1, timeout):
             results = self.nodes[2].z_getoperationresult(opids)
             if len(results)==0:
                 time.sleep(1)
@@ -442,7 +442,7 @@ class WalletTest (BitcoinTestFramework):
         errorString = ""
         try:
             txId  = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), "1f-4")
-        except JSONRPCException,e:
+        except JSONRPCException as e:
             errorString = e.error['message']
 
         assert_equal("Invalid amount" in errorString, True);
@@ -450,7 +450,7 @@ class WalletTest (BitcoinTestFramework):
         errorString = ""
         try:
             self.nodes[0].generate("2") #use a string to as block amount parameter must fail because it's not interpreted as amount
-        except JSONRPCException,e:
+        except JSONRPCException as e:
             errorString = e.error['message']
 
         assert_equal("not an integer" in errorString, True);

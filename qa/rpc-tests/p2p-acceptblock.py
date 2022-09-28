@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 #
 # Distributed under the MIT/X11 software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -151,13 +151,13 @@ class AcceptBlockTest(BitcoinTestFramework):
 
         # 1. Have both nodes mine a block (leave IBD)
         [ n.generate(1) for n in self.nodes ]
-        tips = [ int ("0x" + n.getbestblockhash() + "L", 0) for n in self.nodes ]
+        tips = [ int ("0x" + n.getbestblockhash(), 0) for n in self.nodes ]
 
         # 2. Send one block that builds on each tip.
         # This should be accepted.
         blocks_h2 = []  # the height 2 blocks on each node's chain
-        block_time = time.time() + 1
-        for i in xrange(2):
+        block_time = int(time.time()) + 1
+        for i in range(2):
             blocks_h2.append(create_block(tips[i], create_coinbase_h(2), block_time))
             blocks_h2[i].solve()
             block_time += 1
@@ -167,11 +167,11 @@ class AcceptBlockTest(BitcoinTestFramework):
         [ x.sync_with_ping() for x in [test_node, white_node] ]
         assert_equal(self.nodes[0].getblockcount(), 2)
         assert_equal(self.nodes[1].getblockcount(), 2)
-        print "First height 2 block accepted by both nodes"
+        print("First height 2 block accepted by both nodes")
 
         # 3. Send another block that builds on the original tip.
         blocks_h2f = []  # Blocks at height 2 that fork off the main chain
-        for i in xrange(2):
+        for i in range(2):
             blocks_h2f.append(create_block(tips[i], create_coinbase_h(2), blocks_h2[i].nTime+1))
             blocks_h2f[i].solve()
         test_node.send_message(msg_block(blocks_h2f[0]))
@@ -186,11 +186,11 @@ class AcceptBlockTest(BitcoinTestFramework):
             if x['hash'] == blocks_h2f[1].hash:
                 assert_equal(x['status'], "valid-headers")
 
-        print "Second height 2 block accepted only from whitelisted peer"
+        print("Second height 2 block accepted only from whitelisted peer")
 
         # 4. Now send another block that builds on the forking chain.
         blocks_h3 = []
-        for i in xrange(2):
+        for i in range(2):
             blocks_h3.append(create_block(blocks_h2f[i].sha256, create_coinbase_h(3), blocks_h2f[i].nTime+1))
             blocks_h3[i].solve()
         test_node.send_message(msg_block(blocks_h3[0]))
@@ -206,13 +206,13 @@ class AcceptBlockTest(BitcoinTestFramework):
         # But this block should be accepted by node0 since it has more work.
         try:
             self.nodes[0].getblock(blocks_h3[0].hash)
-            print "Unrequested more-work block accepted from non-whitelisted peer"
+            print("Unrequested more-work block accepted from non-whitelisted peer")
         except:
             raise AssertionError("Unrequested more work block was not processed")
 
         # Node1 should have accepted and reorged.
         assert_equal(self.nodes[1].getblockcount(), 3)
-        print "Successfully reorged to length 3 chain from whitelisted peer"
+        print("Successfully reorged to length 3 chain from whitelisted peer")
 
         # 4b. Now mine 288 more blocks and deliver; all should be processed but
         # the last (height-too-high) on node0.  Node1 should process the tip if
@@ -221,9 +221,9 @@ class AcceptBlockTest(BitcoinTestFramework):
         headers_message_1 = msg_headers()
         headers_message_2 = msg_headers()
         all_blocks = []   # node0's blocks
-        for j in xrange(2):
+        for j in range(2):
             chainHeight = 3
-            for i in xrange(288):
+            for i in range(288):
                 next_block = create_block(tips[j].sha256, create_coinbase_h(chainHeight+1), tips[j].nTime+1, get_nBits(chainHeight))
                 next_block.solve()
                 chainHeight += 1
@@ -238,7 +238,7 @@ class AcceptBlockTest(BitcoinTestFramework):
                         headers_message_2.headers.append(CBlockHeader(next_block))
                 tips[j] = next_block
                 if ((i+1) % 10) == 0:
-                    print "... {} blocks created".format(i+1)
+                    print("... {} blocks created".format(i+1))
 
         time.sleep(2)
         for x in all_blocks:
@@ -248,7 +248,7 @@ class AcceptBlockTest(BitcoinTestFramework):
                     raise AssertionError("Unrequested block too far-ahead should have been ignored")
             except:
                 if x == all_blocks[287]:
-                    print "Unrequested block too far-ahead not processed"
+                    print("Unrequested block too far-ahead not processed")
                 else:
                     raise AssertionError("Unrequested block with more work should have been accepted")
 
@@ -259,7 +259,7 @@ class AcceptBlockTest(BitcoinTestFramework):
         try:
             white_node.sync_with_ping()
             self.nodes[1].getblock(tips[1].hash)
-            print "Unrequested block far ahead of tip accepted from whitelisted peer"
+            print("Unrequested block far ahead of tip accepted from whitelisted peer")
         except:
             raise AssertionError("Unrequested block from whitelisted peer not accepted")
 
@@ -275,7 +275,7 @@ class AcceptBlockTest(BitcoinTestFramework):
         # a getdata request for this block.
         test_node.sync_with_ping()
         assert_equal(self.nodes[0].getblockcount(), 2)
-        print "Unrequested block that would complete more-work chain was ignored"
+        print("Unrequested block that would complete more-work chain was ignored")
 
         # 6. Try to get node to request the missing block.
         # Poke the node with an inv for block at height 3 and see if that
@@ -291,14 +291,14 @@ class AcceptBlockTest(BitcoinTestFramework):
 
         # Check that the getdata includes the right block
         assert_equal(getdata.inv[0].hash, blocks_h2f[0].sha256)
-        print "Inv at tip triggered getdata for unprocessed block"
+        print("Inv at tip triggered getdata for unprocessed block")
 
         # 7. Send the missing block for the third time (now it is requested)
         test_node.send_message(msg_block(blocks_h2f[0]))
 
         test_node.sync_with_ping()
         assert_equal(self.nodes[0].getblockcount(), 290)
-        print "Successfully reorged to longer chain from non-whitelisted peer"
+        print("Successfully reorged to longer chain from non-whitelisted peer")
 
         [ c.disconnect_node() for c in connections ]
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -144,7 +144,7 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
         # one custom bv element with:
         # - as many bits in the uncompressed form (must be divisible by 254 and 8)
         # - a compressed size that allows the usage of BIT_VECTOR_BUF
-        cmtCfg.append([[254*4, len(BIT_VECTOR_BUF)/2]])
+        cmtCfg.append([[254*4, len(BIT_VECTOR_BUF)//2]])
 
         # ascii chars, just for storing a text string
         customData = "746869732069732061207465737420737472696e67"
@@ -178,7 +178,7 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
             assert_true(False)
 
         self.sync_all()
-        print ("tx = {}".format(tx))
+        print("tx = {}".format(tx))
 
         dump_json_tx('sidechain-creation-output.json', tx)
 
@@ -220,7 +220,7 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
         scid2 = ret['scid']
         scid2_swapped = str(swap_bytes(scid2))
 
-        print ("tx = {}".format(creating_tx))
+        print("tx = {}".format(creating_tx))
 
         decoded_tx = self.nodes[1].getrawtransaction(creating_tx, 1)
         dec_sc_id = decoded_tx['vsc_ccout'][0]['scid']
@@ -257,7 +257,7 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
  
         decoded_tx = self.nodes[0].getrawtransaction(creating_tx, 1)
         scid3 = decoded_tx['vsc_ccout'][0]['scid']
-        print ("tx = {}".format(creating_tx))
+        ("tx = {}".format(creating_tx))
 
         #-------------------------------------------------------
         mark_logs("\nNode 0 generates 1 block confirming SC creations", self.nodes, DEBUG_MODE)
@@ -281,7 +281,7 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
         tx = self.nodes[0].sc_send(amounts)
         self.sync_all()
 
-        print ("tx = {}".format(tx))
+        print("tx = {}".format(tx))
         dump_json_tx('forward-transfer-output.json', tx)
 
         # request some mainchain backward transfer
@@ -303,7 +303,7 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
-        print ("tx = {}".format(tx))
+        print("tx = {}".format(tx))
         dump_json_tx('mainchain-backward-transfer-request.json', tx)
 
         #-------------------------------------------------------
@@ -375,7 +375,7 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
             assert (False)
 
         self.sync_all()
-        print ("cert = {}".format(cert))
+        print("cert = {}".format(cert))
 
         #-------------------------------------------------------
         # get another UTXO
@@ -422,7 +422,7 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
             assert (False)
         self.sync_all()
 
-        print ("cert = {}".format(cert))
+        print("cert = {}".format(cert))
         dump_json_tx('certificate-with-backward-transfer.json', cert)
 
         # add a pair of standard txes
@@ -519,7 +519,7 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
         mark_logs("sent csw retrieving coins on Node0 and Node1 behalf", self.nodes, DEBUG_MODE)
         self.sync_all()
 
-        print ("tx = {}".format(tx))
+        print("tx = {}".format(tx))
         dump_json_tx('ceased-sidechain-withdrawal.json', tx)
 
 

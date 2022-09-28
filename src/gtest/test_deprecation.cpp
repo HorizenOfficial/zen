@@ -7,6 +7,8 @@
 #include "ui_interface.h"
 #include "util.h"
 
+using namespace boost::placeholders;
+
 using ::testing::StrictMock;
 
 static const std::string CLIENT_VERSION_STR = FormatVersion(CLIENT_VERSION);

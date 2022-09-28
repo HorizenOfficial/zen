@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2017 The Zcash developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -26,7 +26,7 @@ class MempoolTxInputLimitTest(BitcoinTestFramework):
         self.sync_all
 
     def setup_chain(self):
-        print "Initializing test directory "+self.options.tmpdir
+        print("Initializing test directory " + self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, 2)
 
     def call_z_sendmany(self, from_addr, to_addr, amount):
@@ -60,7 +60,7 @@ class MempoolTxInputLimitTest(BitcoinTestFramework):
         # Spend should fail due to -mempooltxinputlimit
         timeout = 120
         status = None
-        for x in xrange(1, timeout):
+        for x in range(1, timeout):
             results = self.nodes[0].z_getoperationresult(opids)
             if len(results)==0:
                 time.sleep(1)
@@ -108,7 +108,7 @@ class MempoolTxInputLimitTest(BitcoinTestFramework):
         try:
             self.nodes[1].sendfrom("", node0_taddr, spend_taddr_amount - Decimal('1'))
             assert(False)
-        except JSONRPCException,e:
+        except JSONRPCException as e:
             msg = e.error['message']
             assert_equal("Too many transparent inputs 3 > limit 2", msg)
 

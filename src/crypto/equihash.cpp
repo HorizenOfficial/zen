@@ -24,6 +24,7 @@
 #include <iostream>
 #include <stdexcept>
 
+#include <boost/thread.hpp>
 #include <boost/optional.hpp>
 
 EhSolverCancelledException solver_cancelled;
@@ -533,6 +534,7 @@ bool Equihash<N,K>::OptimisedSolve(const eh_HashState& base_state,
             // 2a) Sort the list
             LogPrint("pow", "- Sorting list\n");
             std::sort(Xt.begin(), Xt.end(), CompareSR(CollisionByteLength));
+            boost::this_thread::interruption_point();
             if (cancelled(ListSorting)) throw solver_cancelled;
 
             LogPrint("pow", "- Finding collisions\n");
@@ -590,6 +592,7 @@ bool Equihash<N,K>::OptimisedSolve(const eh_HashState& base_state,
 
             hashLen -= CollisionByteLength;
             lenIndices *= 2;
+            boost::this_thread::interruption_point();
             if (cancelled(RoundEnd)) throw solver_cancelled;
         }
 
@@ -598,6 +601,7 @@ bool Equihash<N,K>::OptimisedSolve(const eh_HashState& base_state,
         if (Xt.size() > 1) {
             LogPrint("pow", "- Sorting list\n");
             std::sort(Xt.begin(), Xt.end(), CompareSR(hashLen));
+            boost::this_thread::interruption_point();
             if (cancelled(FinalSorting)) throw solver_cancelled;
             LogPrint("pow", "- Finding collisions\n");
             int i = 0;
@@ -622,6 +626,7 @@ bool Equihash<N,K>::OptimisedSolve(const eh_HashState& base_state,
                 i += j;
                 if (cancelled(FinalColliding)) throw solver_cancelled;
             }
+            boost::this_thread::interruption_point();
         } else
             LogPrint("pow", "- List is empty\n");
 
@@ -693,6 +698,7 @@ bool Equihash<N,K>::OptimisedSolve(const eh_HashState& base_state,
                 }
                 if (cancelled(PartialSubtreeEnd)) throw solver_cancelled;
             }
+            boost::this_thread::interruption_point();
             if (cancelled(PartialIndexEnd)) throw solver_cancelled;
         }
 

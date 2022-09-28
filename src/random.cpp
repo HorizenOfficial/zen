@@ -13,8 +13,6 @@
 #include "util.h"             // for LogPrint()
 #include "utilstrencodings.h" // for GetTime()
 
-#include <limits>
-
 #ifndef WIN32
 #include <sys/time.h>
 #endif

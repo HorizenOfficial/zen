@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -86,7 +86,7 @@ class sc_big_block(BitcoinTestFramework):
                 res = node.sc_create(cmdInput)
                 tx =   res['txid']
                 scid = res['scid']
-            except JSONRPCException, e:
+            except JSONRPCException as e:
                 errorString = e.error['message']
                 mark_logs(errorString,self.nodes,DEBUG_MODE)
                 assert_true(False);
@@ -103,7 +103,7 @@ class sc_big_block(BitcoinTestFramework):
                     # these parameters are valid for all scs since they share the same epoch length 
                     epoch_number, epoch_cum_tree_hash = get_epoch_data(scids[i], self.nodes[0], EPOCH_LENGTH)
 
-                print "Generating cert proof..."
+                print("Generating cert proof...")
                 t0 = time.time()
                 scid_swapped = str(swap_bytes(scids[i]))
 
@@ -112,14 +112,14 @@ class sc_big_block(BitcoinTestFramework):
                     CERT_NUM_CONSTRAINTS, SEGMENT_SIZE)
                 assert_true(proof != None)
                 t1 = time.time()
-                print "...proof generated: {} secs".format(t1-t0)
+                print("...proof generated: {} secs".format(t1-t0))
  
                 try:
                     cert = self.nodes[0].sc_send_certificate(scids[i], epoch_number, q,
                         epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE, "", vCfe, vCmt)
-                except JSONRPCException, e:
+                except JSONRPCException as e:
                     errorString = e.error['message']
-                    print "Send certificate failed with reason {}".format(errorString)
+                    print("Send certificate failed with reason {}".format(errorString))
                     assert(False)
                 self.sync_all()
  
@@ -202,16 +202,16 @@ class sc_big_block(BitcoinTestFramework):
 
         for j in range(0, 2):
             mark_logs("Let half of the SCs cease...", self.nodes, DEBUG_MODE)
-            advance_sidechains_epoch(TOT_NUM_OF_SIDECHAINS/2)
+            advance_sidechains_epoch(TOT_NUM_OF_SIDECHAINS//2)
   
 
         # check SCs status
         for k in range(0, TOT_NUM_OF_SIDECHAINS):
             sc_info = self.nodes[1].getscinfo(scids[k])['items'][0]
-            print "SC{} - {}".format(k, sc_info["state"])
+            print("SC{} - {}".format(k, sc_info["state"]))
 
      
-        for scid in scids[TOT_NUM_OF_SIDECHAINS/2:]:
+        for scid in scids[TOT_NUM_OF_SIDECHAINS//2:]:
             sc_csw_amount = Decimal("0.1")
  
             # CSW sender MC address, in taddress and pub key hash formats
@@ -222,14 +222,14 @@ class sc_big_block(BitcoinTestFramework):
             nullifier = generate_random_field_element_hex()
             scid_swapped = swap_bytes(scid)
  
-            print "Generating csw proof..."
+            print("Generating csw proof...")
             t0 = time.time()
             sc_proof = cswMcTest.create_test_proof(
                 "scs", sc_csw_amount, str(scid_swapped), nullifier, csw_mc_address, ceasingCumScTxCommTree,
                 actCertData, constant, CSW_NUM_CONSTRAINTS, SEGMENT_SIZE)
             assert_true(sc_proof != None)
             t1 = time.time()
-            print "...proof generated: {} secs".format(t1-t0)
+            print("...proof generated: {} secs".format(t1-t0))
  
             sc_csws = [
             {

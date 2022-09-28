@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -13,9 +13,9 @@ import shutil
 import tempfile
 import traceback
 
-from authproxy import JSONRPCException
-from wsproxy import JSONWSException
-from util import assert_equal, check_json_precision, \
+from test_framework.authproxy import JSONRPCException
+from test_framework.wsproxy import JSONWSException
+from test_framework.util import assert_equal, check_json_precision, \
     initialize_chain, initialize_chain_clean, \
     start_nodes, connect_nodes_bi, stop_nodes, \
     sync_blocks, sync_mempools, wait_bitcoinds
@@ -26,6 +26,10 @@ MINER_REWARD_POST_H200 = 7.50
 
 
 class BitcoinTestFramework(object):
+
+    def __init__(self):
+        self.nodes = []
+        self.is_network_split = False
 
     # These may be over-ridden by subclasses:
     def run_test(self):
@@ -134,7 +138,7 @@ class BitcoinTestFramework(object):
             print("JSONWS error: {}".format(e.error))
             traceback.print_tb(sys.exc_info()[2])
         except AssertionError as e:
-            print("Assertion failed: "+e.message)
+            print("Assertion failed: " + str(e))
             traceback.print_tb(sys.exc_info()[2])
         except Exception as e:
             print("Unexpected exception caught during testing: "+str(e))
@@ -180,7 +184,7 @@ class ComparisonTestFramework(BitcoinTestFramework):
                           help="zend binary to use for reference nodes (if any)")
 
     def setup_chain(self):
-        print "Initializing test directory "+self.options.tmpdir
+        print("Initializing test directory "+self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, self.num_nodes)
 
     def setup_network(self):

@@ -2074,23 +2074,29 @@ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
 
 bool IsInitialBlockDownload()
 {
+    static std::atomic<bool> lockIBDState{false};
+    // Once this function has returned false, it must remain false.
+    // Optimization: pre-test latch before taking the lock.
+    if (lockIBDState.load(std::memory_order_relaxed))
+        return false;
+
     const CChainParams& chainParams = Params();
     LOCK(cs_main);
-    // from commit: https://github.com/HorizenOfficial/zen/commit/0c479520d29cae571dc531e54aa01813daacd1e1
-    if (!ForkManager::getInstance().isAfterChainsplit(chainActive.Height()))
+    if (lockIBDState.load(std::memory_order_relaxed))
         return false;
     if (fImporting || fReindex || fReindexFast)
         return true;
     if (fCheckpointsEnabled && chainActive.Height() < Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints()))
         return true;
-    static bool lockIBDState = false;
-    if (lockIBDState)
-        return false;
-    bool state = (chainActive.Height() < pindexBestHeader->nHeight - 24 * 6 ||
-            pindexBestHeader->GetBlockTime() < GetTime() - chainParams.MaxTipAge());
-    if (!state)
-        lockIBDState = true;
-    return state;
+    if (pindexBestHeader == nullptr)
+        return true;
+    if (chainActive.Tip() == nullptr)
+        return true;
+    if ((chainActive.Height() < pindexBestHeader->nHeight - 24 * 6 || pindexBestHeader->GetBlockTime() < GetTime() - chainParams.MaxTipAge())) 
+        return true;
+    LogPrintf("Leaving InitialBlockDownload (latching to false)\n");
+    lockIBDState.store(true, std::memory_order_relaxed);
+    return false;
 }
 
 bool fLargeWorkForkFound = false;

@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -40,7 +40,7 @@ class tlsproto(BitcoinTestFramework):
         self.sync_all()
 
     def mark_logs(self, msg):
-        print msg
+        print(msg)
         self.nodes[0].dbg_log(msg)
         self.nodes[1].dbg_log(msg)
 
@@ -54,19 +54,19 @@ class tlsproto(BitcoinTestFramework):
  
             ctx = ssl.SSLContext(tls_protocol)
             if ciphers:
-                print "Trying ciphers: ", ciphers
+                print("Trying ciphers: ", ciphers)
                 try:
                     ctx.set_ciphers(ciphers)
-                except Exception, e:
-                    print "===> Error: could not set ciphers {}, {}".format(ciphers, e)
-                    print "     Check openssl version used by python"
+                except Exception as e:
+                    print("===> Error: could not set ciphers {}, {}".format(ciphers, e))
+                    print("     Check openssl version used by python")
                     return
 
             if expected_result == False:
                 res_string = "should fail"
             else:
                 res_string = "should succeed"
-            print "--->", res_string
+            print("--->", res_string)
 
             result = True
 
@@ -74,18 +74,18 @@ class tlsproto(BitcoinTestFramework):
                 wrappedSocket = ctx.wrap_socket(sock)
                 wrappedSocket.connect(peer)
                 if expected_result == result:
-                    print "...OK, TLS connection established"
-                print "negotiated protocol: {}, using cipher: {}".format(wrappedSocket.version(), wrappedSocket.cipher()[0])
+                    print("...OK, TLS connection established")
+                print("negotiated protocol: {}, using cipher: {}".format(wrappedSocket.version(), wrappedSocket.cipher()[0]))
                 wrappedSocket.shutdown(socket.SHUT_RDWR)
                 wrappedSocket.close()
                 sock.close()
-            except Exception, e:
+            except Exception as e:
                 result = False
                 if expected_result != result:
-                    print "Error: ", e
+                    print("Error: ", e)
                     assert_true(False)
 
-                print "...OK, TLS connection failed: ", e
+                print("...OK, TLS connection failed: ", e)
 
                 wrappedSocket.close()
                 sock.close()
@@ -95,7 +95,7 @@ class tlsproto(BitcoinTestFramework):
                     # therefore we must connect/disconnect in order to be able to try a new TLS connection 
                     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     sock.settimeout(1)
-                    print "...connecting non-TLS and exiting..."
+                    print("...connecting non-TLS and exiting...")
                     sock.connect(peer)
                     sock.close()
 
@@ -109,10 +109,10 @@ class tlsproto(BitcoinTestFramework):
         #b = ssl.HAS_TLSv1_3
 
         # TLS1.3 support has been added from 1.1.1 on
-        openssl_111_v = hex(long('1010100f', base=16))
+        openssl_111_v = hex(int('1010100f', base=16))
 
         hex_openssl_v = hex(ssl.OPENSSL_VERSION_NUMBER)
-        print "Using system lib: {} - ({})".format(ssl.OPENSSL_VERSION, hex_openssl_v)
+        print("Using system lib: {} - ({})".format(ssl.OPENSSL_VERSION, hex_openssl_v))
 
         # generate some block and sync, just in case
         self.nodes[1].generate(10)
@@ -162,7 +162,7 @@ class tlsproto(BitcoinTestFramework):
             self.mark_logs("\nTrying TLSv1_3 connection with tls-only node letting it choose cipher")
             do_tls_conn(ssl.PROTOCOL_TLS, (HOST, PORT), expected_result=True, ciphers=None, tlsOnly=True)
         else:
-            print "No test with TLS1.3 can be done since client does not support it, at least OpenSSL 1.1.1 ({}) is necessary\n".format(str(openssl_111_v))
+            print("No test with TLS1.3 can be done since client does not support it, at least OpenSSL 1.1.1 ({}) is necessary\n".format(str(openssl_111_v)))
  
 
 

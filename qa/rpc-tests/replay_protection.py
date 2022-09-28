@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
@@ -58,8 +58,8 @@ class ReplayProtectionTest (BitcoinTestFramework):
             assert (int(ParamHeight) <= 111)
             blockhash_at_height = self.nodes[0].getblockhash(int(ParamHeight))
             ParamBlockHash = asm.split()[op_i-2]
-            print ParamBlockHash
-            print blockhash_at_height
+            print(ParamBlockHash)
+            print(blockhash_at_height)
             # Test if ParamBlockHash refers to the blockhash at height ParamHeight
             assert checkParamBlockHash(
                 ParamBlockHash, blockhash_at_height[::-1])

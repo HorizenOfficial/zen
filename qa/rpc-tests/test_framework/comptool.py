@@ -1,13 +1,13 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 #
 # Distributed under the MIT/X11 software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #
 
-from mininode import CBlock, CTransaction, CInv, NodeConn, NodeConnCB, \
+from test_framework.mininode import CBlock, CTransaction, CInv, NodeConn, NodeConnCB, \
     msg_inv, msg_getheaders, msg_ping, msg_mempool, mininode_lock, MAX_INV_SZ
-from blockstore import BlockStore, TxStore
-from util import p2p_port
+from test_framework.blockstore import BlockStore, TxStore
+from test_framework.util import p2p_port
 
 import time
 
@@ -193,7 +193,7 @@ class TestManager(object):
 
         # --> error if not requested
         if not wait_until(blocks_requested, attempts=20*num_blocks):
-            # print [ c.cb.block_request_map for c in self.connections ]
+            # print([ c.cb.block_request_map for c in self.connections])
             raise AssertionError("Not all nodes requested block")
         # --> Answer request (we did this inline!)
 
@@ -335,7 +335,7 @@ class TestManager(object):
                 if (not self.check_mempool(tx.sha256, tx_outcome)):
                     raise AssertionError("Mempool test failed at test %d" % test_number)
 
-            print "Test %d: PASS" % test_number, [ c.rpc.getblockcount() for c in self.connections ]
+            print("Test %d: PASS" % test_number, [ c.rpc.getblockcount() for c in self.connections ])
             test_number += 1
 
         [ c.disconnect_node() for c in self.connections ]
