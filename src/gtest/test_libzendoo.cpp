@@ -918,7 +918,7 @@ TEST(CctpLibrary, BitVectorCertificateFieldNull) {
     BitVectorCertificateField bvField;
 
     for (uint8_t sidechainVersion = 0;
-         sidechainVersion <= ForkManager::getInstance().getHighestFork()->getMaxSidechainVersion(); sidechainVersion++) {
+         sidechainVersion <= zen::ForkManager::getInstance().getHighestFork()->getMaxSidechainVersion(); sidechainVersion++) {
         const CFieldElement& fe = bvField.GetFieldElement(cfg, sidechainVersion);
         EXPECT_FALSE(fe.IsValid());
     }
@@ -932,7 +932,7 @@ TEST(CctpLibrary, BitVectorCertificateFieldUnsuppComprAlgo) {
     BitVectorCertificateField bvField(bvVec);
 
     for (uint8_t sidechainVersion = 0;
-         sidechainVersion <= ForkManager::getInstance().getHighestFork()->getMaxSidechainVersion(); sidechainVersion++) {
+         sidechainVersion <= zen::ForkManager::getInstance().getHighestFork()->getMaxSidechainVersion(); sidechainVersion++) {
         const CFieldElement& fe = bvField.GetFieldElement(cfg, sidechainVersion);
         EXPECT_FALSE(fe.IsValid());
     }
@@ -958,7 +958,7 @@ TEST(CctpLibrary, BitVectorCertificateFieldBadSize) {
     BitVectorCertificateField bvField(bvVec);
 
     for (uint8_t sidechainVersion = 0;
-         sidechainVersion <= ForkManager::getInstance().getHighestFork()->getMaxSidechainVersion(); sidechainVersion++) {
+         sidechainVersion <= zen::ForkManager::getInstance().getHighestFork()->getMaxSidechainVersion(); sidechainVersion++) {
         const CFieldElement& fe = bvField.GetFieldElement(cfg, sidechainVersion);
         EXPECT_FALSE(fe.IsValid());
     }
@@ -1002,7 +1002,7 @@ TEST(CctpLibrary, BitVectorCertificateFieldFullGzip) {
     BitVectorCertificateField bvField(bvVec);
 
     for (uint8_t sidechainVersion = 0;
-         sidechainVersion <= ForkManager::getInstance().getHighestFork()->getMaxSidechainVersion(); sidechainVersion++) {
+         sidechainVersion <= zen::ForkManager::getInstance().getHighestFork()->getMaxSidechainVersion(); sidechainVersion++) {
         const CFieldElement& fe = bvField.GetFieldElement(cfg, sidechainVersion);
         EXPECT_TRUE(fe.IsValid());
     }
@@ -1047,7 +1047,7 @@ TEST(CctpLibrary, BitVectorCertificateFieldFullBzip2) {
     BitVectorCertificateField bvField(bvVec);
 
     for (uint8_t sidechainVersion = 0;
-         sidechainVersion <= ForkManager::getInstance().getHighestFork()->getMaxSidechainVersion(); sidechainVersion++) {
+         sidechainVersion <= zen::ForkManager::getInstance().getHighestFork()->getMaxSidechainVersion(); sidechainVersion++) {
         const CFieldElement& fe = bvField.GetFieldElement(cfg, sidechainVersion);
         EXPECT_TRUE(fe.IsValid());
     }
@@ -1058,7 +1058,7 @@ TEST(CctpLibrary, BitVectorCertificateFieldFullBzip2) {
 
 TEST(CctpLibrary, CommitmentTreeBuilding) {
     for (uint8_t sidechainVersion = 0;
-         sidechainVersion <= ForkManager::getInstance().getHighestFork()->getMaxSidechainVersion(); sidechainVersion++) {
+         sidechainVersion <= zen::ForkManager::getInstance().getHighestFork()->getMaxSidechainVersion(); sidechainVersion++) {
         printf("Creating a commitment tree ...\n");
         CctpErrorCode ret_code = CctpErrorCode::OK;
         const CFieldElement& dummyFe = CFieldElement{SAMPLE_FIELD};
@@ -1366,7 +1366,7 @@ TEST(CctpLibrary, CommitmentTreeBuilding) {
 
 TEST(CctpLibrary, CommitmentTreeBuilding_Negative) {
     for (uint8_t sidechainVersion = 0;
-         sidechainVersion <= ForkManager::getInstance().getHighestFork()->getMaxSidechainVersion(); sidechainVersion++) {
+         sidechainVersion <= zen::ForkManager::getInstance().getHighestFork()->getMaxSidechainVersion(); sidechainVersion++) {
         printf("Creating a commitment tree ...\n");
         CctpErrorCode ret_code = CctpErrorCode::OK;
 
@@ -1474,7 +1474,7 @@ TEST(CctpLibrary, CommitmentTreeBuilding_Negative) {
 
 TEST(CctpLibrary, CommitmentTreeBuilding_Object) {
     for (uint8_t sidechainVersion = 0;
-         sidechainVersion <= ForkManager::getInstance().getHighestFork()->getMaxSidechainVersion(); sidechainVersion++) {
+         sidechainVersion <= zen::ForkManager::getInstance().getHighestFork()->getMaxSidechainVersion(); sidechainVersion++) {
         SidechainTxsCommitmentBuilder cmtObj;
 
         uint256 cmt = cmtObj.getCommitment();

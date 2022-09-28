@@ -280,7 +280,7 @@ void chainSettingUtils::ExtendChainActiveToHeight(int targetHeight) {
             height == 0 ? arith_uint256(0)
                         : mapBlockIndex.at(prevBlockHash)->nChainWork + GetBlockProof(*(mapBlockIndex.at(prevBlockHash)));
         pNewBlockIdx->hashAnchor = dummyTree.root();
-        pNewBlockIdx->nVersion = ForkManager::getInstance().getNewBlockVersion(height);
+        pNewBlockIdx->nVersion = zen::ForkManager::getInstance().getNewBlockVersion(height);
 
         BlockMap::iterator mi = mapBlockIndex.insert(std::make_pair(currBlockHash, pNewBlockIdx)).first;
         pNewBlockIdx->phashBlock = &(mi->first);
@@ -347,9 +347,9 @@ CBlock BlockchainTestManager::GenerateValidBlock(int height) {
 
     CAmount reward = GetBlockSubsidy(height, Params().GetConsensus());
 
-    for (Fork::CommunityFundType cfType = Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE;
-         cfType = Fork::CommunityFundType(cfType + 1)) {
-        CAmount vCommunityFund = ForkManager::getInstance().getCommunityFundReward(height, reward, cfType);
+    for (zen::Fork::CommunityFundType cfType = zen::Fork::CommunityFundType::FOUNDATION;
+         cfType < zen::Fork::CommunityFundType::ENDTYPE; cfType = zen::Fork::CommunityFundType(cfType + 1)) {
+        CAmount vCommunityFund = zen::ForkManager::getInstance().getCommunityFundReward(height, reward, cfType);
         if (vCommunityFund > 0) {
             // Take some reward away from miners
             mtx.getOut(0).nValue -= vCommunityFund;
@@ -434,7 +434,7 @@ void BlockchainTestManager::ExtendChainActiveToHeight(int targetHeight) const {
             height == 0 ? arith_uint256(0)
                         : mapBlockIndex.at(prevBlockHash)->nChainWork + GetBlockProof(*(mapBlockIndex.at(prevBlockHash)));
         pNewBlockIdx->hashAnchor = dummyTree.root();
-        pNewBlockIdx->nVersion = ForkManager::getInstance().getNewBlockVersion(height);
+        pNewBlockIdx->nVersion = zen::ForkManager::getInstance().getNewBlockVersion(height);
 
         BlockMap::iterator mi = mapBlockIndex.insert(std::make_pair(currBlockHash, pNewBlockIdx)).first;
         pNewBlockIdx->phashBlock = &(mi->first);
@@ -1051,7 +1051,7 @@ std::pair<uint256, CCoinsCacheEntry> BlockchainTestManager::GenerateCoinsAmount(
 
     entry.coins.fCoinBase = false;
     entry.coins.nVersion = TRANSPARENT_TX_VERSION;
-    entry.coins.nHeight = SidechainFork().getHeight(CBaseChainParams::REGTEST);
+    entry.coins.nHeight = zen::SidechainFork().getHeight(CBaseChainParams::REGTEST);
 
     entry.coins.vout.resize(1);
     entry.coins.vout[0].nValue = amountToGenerate;

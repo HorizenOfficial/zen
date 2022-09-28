@@ -847,7 +847,7 @@ bool CTransactionBase::CheckBlockAtHeight(CValidationState& state, int nHeight, 
         ::IsStandard(txout.scriptPubKey, whichType);
 
         // provide temporary replay protection for two minerconf windows during chainsplit
-        if (!IsCoinBase() && !ForkManager::getInstance().isTransactionTypeAllowedAtHeight(nHeight, whichType)) {
+        if (!IsCoinBase() && !zen::ForkManager::getInstance().isTransactionTypeAllowedAtHeight(nHeight, whichType)) {
             return state.DoS(dosLevel,
                              error("%s: %s: %s is not activated at this block height %d. Transaction rejected. Tx id: %s",
                                    __FILE__, __func__, ::GetTxnOutputType(whichType), nHeight, GetHash().ToString()),
@@ -861,13 +861,13 @@ bool CTransactionBase::CheckBlockAtHeight(CValidationState& state, int nHeight, 
 bool CTransaction::IsVersionStandard(int nHeight) const {
     // sidechain fork (happens after groth fork)
     int sidechainVersion = 0;
-    bool areSidechainsSupported = ForkManager::getInstance().areSidechainsSupported(nHeight);
+    bool areSidechainsSupported = zen::ForkManager::getInstance().areSidechainsSupported(nHeight);
     if (areSidechainsSupported) {
-        sidechainVersion = ForkManager::getInstance().getSidechainTxVersion(nHeight);
+        sidechainVersion = zen::ForkManager::getInstance().getSidechainTxVersion(nHeight);
     }
 
     // groth fork
-    const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight);
+    const int shieldedTxVersion = zen::ForkManager::getInstance().getShieldedTxVersion(nHeight);
     bool isGROTHActive = (shieldedTxVersion == GROTH_TX_VERSION);
 
     if (!isGROTHActive) {
@@ -900,15 +900,15 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
 
     // sidechain fork (happens after groth fork)
     int sidechainTxVersion = 0;
-    bool areSidechainsSupported = ForkManager::getInstance().areSidechainsSupported(nHeight);
+    bool areSidechainsSupported = zen::ForkManager::getInstance().areSidechainsSupported(nHeight);
     if (areSidechainsSupported) {
-        sidechainTxVersion = ForkManager::getInstance().getSidechainTxVersion(nHeight);
+        sidechainTxVersion = zen::ForkManager::getInstance().getSidechainTxVersion(nHeight);
     }
 
-    uint8_t maxSidechainVersionAllowed = ForkManager::getInstance().getMaxSidechainVersion(nHeight);
+    uint8_t maxSidechainVersionAllowed = zen::ForkManager::getInstance().getMaxSidechainVersion(nHeight);
 
     // groth fork
-    const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight);
+    const int shieldedTxVersion = zen::ForkManager::getInstance().getShieldedTxVersion(nHeight);
     bool isGROTHActive = (shieldedTxVersion == GROTH_TX_VERSION);
 
     if (isGROTHActive) {
