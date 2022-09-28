@@ -1,9 +1,9 @@
-package=crate_flate2_z
-$(package)_crate_name=flate2
-$(package)_version=1.0.21
+package=crate_num_traits
+$(package)_crate_name=num-traits
+$(package)_version=0.2.15
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)
 $(package)_file_name=$($(package)_crate_name)-$($(package)_version).crate
-$(package)_sha256_hash=80edafed416a46fb378521624fab1cfa2eb514784fd8921adbe8a8d8321da811
+$(package)_sha256_hash=578ede34cf02f8924ab9447f50c28075b4d3e5b269972345e7e0372b38c6cdcd
 $(package)_crate_versioned_name=$($(package)_crate_name)
 
 define $(package)_preprocess_cmds
