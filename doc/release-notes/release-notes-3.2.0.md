@@ -28,7 +28,7 @@ Additional information relating to running on low-memory systems can be found he
 Changelog
 =========
 
-Alessandro Petrini (18):
+Alessandro Petrini (15):
       update IsInitialBlockDownload in main.cpp
       Introduced gtest for IsInitialBlockDownload
       IsInitialBlockDownload: lockIBDState no longer global; added nullptr tests
@@ -38,9 +38,6 @@ Alessandro Petrini (18):
       improvements to initialblockdownload test
       removed additional newline from main.cpp
       improved initial block download test
-      added forkmanager tests with placeholders
-      Prepared management fork 10 (non ceasing sidechains)
-      fix newline at the end of file (2 instances)
       miner threads joined when shutdown is requested
       added interruption points to default miner for premature interruption when shutdown is requested
       change parameters order in assert_equal()
@@ -51,16 +48,13 @@ Alessandro Petrini (18):
 Brad Miller (1):
       Implement note locking for z_mergetoaddress
 
-Daniele Rogora (9):
+Daniele Rogora (6):
       Update check for libgmp in configure.ac
       Allow easy cross-compilation with the CT_PREFIX env var
       Use linker garbage collection by default
       Remove DecodeBase58 duplication
       If compiling with clang, use it also to compile rust dependencies
       Update zeromq to version 4.3.4.
-      Refactor height-related Python test global variables into a single dictionary
-      Add basic test for the creation of v2 SC
-      Updated sc_version pytest, removed few unneeded comments
 
 Jack Grigg (6):
       Extend CWallet::GetFilteredNotes to enable filtering on a set of addresses
