@@ -341,11 +341,8 @@ CBitcoinAddress GetAccountAddress(string strAccount, bool bForceNew = false) {
         CScript scriptPubKey = GetScriptForDestination(account.vchPubKey.GetID(), false);
         for (auto it = pwalletMain->getMapWallet().begin();
              it != pwalletMain->getMapWallet().end() && account.vchPubKey.IsValid(); ++it) {
-#if 0
-            const CWalletTx& wtx = (*it).second;
-#else
             const CWalletTransactionBase& wtx = *((*it).second);
-#endif
+
             BOOST_FOREACH (const CTxOut& txout, wtx.getTxBase()->GetVout()) {
                 /* Check that txout.scriptPubKey starts with scriptPubKey instead of full match,
                  * cause we cant compare OP_CHECKBLOCKATHEIGHT arguments, they are different all the time */

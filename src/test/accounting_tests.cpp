@@ -2,42 +2,31 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "wallet/wallet.h"
-#include "wallet/walletdb.h"
-
-#include "test/test_bitcoin.h"
-
 #include <stdint.h>
 
 #include <boost/foreach.hpp>
 #include <boost/test/unit_test.hpp>
 
+#include "test/test_bitcoin.h"
+#include "wallet/wallet.h"
+#include "wallet/walletdb.h"
+
 extern CWallet* pwalletMain;
 
 BOOST_FIXTURE_TEST_SUITE(accounting_tests, TestingSetup)
 
-static void
-GetResults(CWalletDB& walletdb, std::map<CAmount, CAccountingEntry>& results)
-{
+static void GetResults(CWalletDB& walletdb, std::map<CAmount, CAccountingEntry>& results) {
     std::list<CAccountingEntry> aes;
 
     results.clear();
     BOOST_CHECK(walletdb.ReorderTransactions(pwalletMain) == DB_LOAD_OK);
     walletdb.ListAccountCreditDebit("", aes);
-    BOOST_FOREACH(CAccountingEntry& ae, aes)
-    {
-        results[ae.nOrderPos] = ae;
-    }
+    BOOST_FOREACH (CAccountingEntry& ae, aes) { results[ae.nOrderPos] = ae; }
 }
 
-BOOST_AUTO_TEST_CASE(acc_orderupgrade)
-{
+BOOST_AUTO_TEST_CASE(acc_orderupgrade) {
     CWalletDB walletdb(pwalletMain->strWalletFile);
-#if 0
-    std::vector<CWalletTx*> vpwtx;
-#else
     std::vector<CWalletTransactionBase*> vpwtx;
-#endif
     CWalletTx wtx;
     CAccountingEntry ae;
     std::map<CAmount, CAccountingEntry> results;
@@ -71,7 +60,6 @@ BOOST_AUTO_TEST_CASE(acc_orderupgrade)
     BOOST_CHECK(results[2].nTime == 1333333336);
     BOOST_CHECK(results[2].strOtherAccount == "c");
 
-
     ae.nTime = 1333333330;
     ae.strOtherAccount = "d";
     ae.nOrderPos = pwalletMain->IncOrderPosNext();
@@ -86,7 +74,6 @@ BOOST_AUTO_TEST_CASE(acc_orderupgrade)
     BOOST_CHECK(results[2].nTime == 1333333336);
     BOOST_CHECK(results[3].nTime == 1333333330);
     BOOST_CHECK(results[3].strComment.empty());
-
 
     wtx.mapValue["comment"] = "y";
     {
@@ -120,7 +107,6 @@ BOOST_AUTO_TEST_CASE(acc_orderupgrade)
     BOOST_CHECK(results[4].nTime == 1333333330);
     BOOST_CHECK(results[4].strComment.empty());
     BOOST_CHECK(5 == vpwtx[1]->nOrderPos);
-
 
     ae.nTime = 1333333334;
     ae.strOtherAccount = "e";
