@@ -607,7 +607,7 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp) {
     UniValue transactions(UniValue::VARR);
     map<uint256, int64_t> setTxIndex;
     int i = 0;
-    BOOST_FOREACH (const CTransaction& tx, pblock->vtx) {
+    for (const CTransaction& tx : pblock->vtx) {
         uint256 txHash = tx.GetHash();
         setTxIndex[txHash] = i++;
 
@@ -620,8 +620,10 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp) {
         entry.pushKV("hash", txHash.GetHex());
 
         UniValue deps(UniValue::VARR);
-        BOOST_FOREACH (const CTxIn& in, tx.GetVin()) {
-            if (setTxIndex.count(in.prevout.hash)) deps.push_back(setTxIndex[in.prevout.hash]);
+        for (const CTxIn& in : tx.GetVin()) {
+            if (setTxIndex.count(in.prevout.hash)) {
+                deps.push_back(setTxIndex[in.prevout.hash]);
+            }
         }
         entry.pushKV("depends", deps);
 
@@ -683,7 +685,7 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp) {
     if (certSupported) {
         UniValue certificates(UniValue::VARR);
         int cert_idx_in_template = 0;
-        BOOST_FOREACH (const CScCertificate& cert, pblock->vcert) {
+        for (const CScCertificate& cert : pblock->vcert) {
             uint256 certHash = cert.GetHash();
             UniValue entry(UniValue::VOBJ);
 

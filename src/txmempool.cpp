@@ -784,7 +784,7 @@ void CTxMemPool::removeWithAnchor(const uint256& invalidRoot) {
 
     for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
         const CTransaction& tx = it->second.GetTx();
-        BOOST_FOREACH (const JSDescription& joinsplit, tx.GetVjoinsplit()) {
+        for (const JSDescription& joinsplit : tx.GetVjoinsplit()) {
             if (joinsplit.anchor == invalidRoot) {
                 transactionsToRemove.push_back(tx);
                 break;
@@ -792,7 +792,7 @@ void CTxMemPool::removeWithAnchor(const uint256& invalidRoot) {
         }
     }
 
-    BOOST_FOREACH (const CTransaction& tx, transactionsToRemove) {
+    for (const CTransaction& tx : transactionsToRemove) {
         std::list<CTransaction> dummyTxs;
         std::list<CScCertificate> dummyCerts;
         remove(tx, dummyTxs, dummyCerts, true);
@@ -1058,7 +1058,7 @@ void CTxMemPool::check(const CCoinsViewCache* pcoins) const {
         const CTransaction& tx = it->second.GetTx();
 
         bool fDependsWait = false;
-        BOOST_FOREACH (const CTxIn& txin, tx.GetVin()) {
+        for (const CTxIn& txin : tx.GetVin()) {
             // Check that every mempool transaction's inputs refer to available coins, or other mempool tx's.
             std::map<uint256, CTxMemPoolEntry>::const_iterator it2 = mapTx.find(txin.prevout.hash);
             if (it2 != mapTx.end()) {
@@ -1169,8 +1169,10 @@ void CTxMemPool::check(const CCoinsViewCache* pcoins) const {
 
         boost::unordered_map<uint256, ZCIncrementalMerkleTree, CCoinsKeyHasher> intermediates;
 
-        BOOST_FOREACH (const JSDescription& joinsplit, tx.GetVjoinsplit()) {
-            BOOST_FOREACH (const uint256& nf, joinsplit.nullifiers) { assert(!pcoins->GetNullifier(nf)); }
+        for (const JSDescription& joinsplit : tx.GetVjoinsplit()) {
+            for (const uint256& nf : joinsplit.nullifiers) {
+                assert(!pcoins->GetNullifier(nf));
+            }
 
             ZCIncrementalMerkleTree tree;
             auto it = intermediates.find(joinsplit.anchor);
@@ -1180,7 +1182,9 @@ void CTxMemPool::check(const CCoinsViewCache* pcoins) const {
                 assert(pcoins->GetAnchorAt(joinsplit.anchor, tree));
             }
 
-            BOOST_FOREACH (const uint256& commitment, joinsplit.commitments) { tree.append(commitment); }
+            for (const uint256& commitment : joinsplit.commitments) {
+                tree.append(commitment);
+            }
 
             intermediates.insert(std::make_pair(tree.root(), tree));
         }
@@ -1230,7 +1234,7 @@ void CTxMemPool::check(const CCoinsViewCache* pcoins) const {
         assert(mapSidechains.at(cert.GetScId()).HasCert(cert.GetHash()));
 
         bool fDependsWait = false;
-        BOOST_FOREACH (const CTxIn& txin, cert.GetVin()) {
+        for (const CTxIn& txin : cert.GetVin()) {
             // Check that every mempool certificate's inputs refer to available coins (tx have been processed above), or other
             // mempool certs's.
             std::map<uint256, CCertificateMemPoolEntry>::const_iterator itCert = mapCertificate.find(txin.prevout.hash);

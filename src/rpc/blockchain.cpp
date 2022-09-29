@@ -237,7 +237,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.pushKV("scTxsCommitment", block.hashScTxsCommitment.GetHex());
 
     UniValue txs(UniValue::VARR);
-    BOOST_FOREACH (const CTransaction& tx, block.vtx) {
+    for (const CTransaction& tx : block.vtx) {
         if (txDetails) {
             UniValue objTx(UniValue::VOBJ);
             TxToJSON(tx, uint256(), objTx);
@@ -249,7 +249,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.pushKV("tx", txs);
     if (block.nVersion == BLOCK_VERSION_SC_SUPPORT) {
         UniValue certs(UniValue::VARR);
-        BOOST_FOREACH (const CScCertificate& cert, block.vcert) {
+        for (const CScCertificate& cert : block.vcert) {
             if (txDetails) {
                 UniValue objCert(UniValue::VOBJ);
                 CertToJSON(cert, uint256(), objCert);
@@ -342,9 +342,7 @@ UniValue mempoolToJSON(bool fVerbose = false) {
     if (fVerbose) {
         LOCK(mempool.cs);
         UniValue o(UniValue::VOBJ);
-        BOOST_FOREACH (const PAIRTYPE(uint256, CTxMemPoolEntry) & entry, mempool.mapTx) {
-            const uint256& hash = entry.first;
-            const CTxMemPoolEntry& e = entry.second;
+        for (const auto& [hash, e] : mempool.mapTx) {
             UniValue info(UniValue::VOBJ);
             info.pushKV("size", (int)e.GetTxSize());
             info.pushKV("fee", ValueFromAmount(e.GetFee()));
@@ -358,9 +356,8 @@ UniValue mempoolToJSON(bool fVerbose = false) {
             AddDependancy(tx, info);
             o.pushKV(hash.ToString(), info);
         }
-        BOOST_FOREACH (const PAIRTYPE(uint256, CCertificateMemPoolEntry) & entry, mempool.mapCertificate) {
-            const uint256& hash = entry.first;
-            const auto& e = entry.second;
+
+        for (const auto& [hash, e] : mempool.mapCertificate) {
             UniValue info(UniValue::VOBJ);
             info.pushKV("size", (int)e.GetCertificateSize());
             info.pushKV("fee", ValueFromAmount(e.GetFee()));
@@ -374,13 +371,11 @@ UniValue mempoolToJSON(bool fVerbose = false) {
             AddDependancy(cert, info);
             o.pushKV(hash.ToString(), info);
         }
-        BOOST_FOREACH (const auto& entry, mempool.mapDeltas) {
-            const uint256& hash = entry.first;
-            const auto& p = entry.second.first;
-            const auto& f = entry.second.second;
+        for (const auto& [hash, value] : mempool.mapDeltas) {
+            const auto& [priority, fee]{value};
             UniValue info(UniValue::VOBJ);
-            info.pushKV("fee", ValueFromAmount(f));
-            info.pushKV("priority", p);
+            info.pushKV("fee", ValueFromAmount(fee));
+            info.pushKV("priority", priority);
             o.pushKV(hash.ToString(), info);
         }
         return o;
@@ -389,8 +384,9 @@ UniValue mempoolToJSON(bool fVerbose = false) {
         mempool.queryHashes(vtxid);
 
         UniValue a(UniValue::VARR);
-        BOOST_FOREACH (const uint256& hash, vtxid)
+        for (const uint256& hash : vtxid) {
             a.push_back(hash.ToString());
+        }
 
         return a;
     }

@@ -174,7 +174,7 @@ TEST(relayforks_test, relayforks) {
     std::cout << "Blocks: " << vBlocks.size() << std::endl;
     std::cout << "------------" << std::endl;
 
-    BOOST_FOREACH (CBlockIndex* block, vBlocks) {
+    for (CBlockIndex* block : vBlocks) {
         std::cout << "h(" << block->nHeight << ") " << block->GetBlockHash().ToString() << " <-- ";
         if (block->pprev) {
             std::cout << block->pprev->GetBlockHash().ToString() << std::endl;
@@ -266,7 +266,7 @@ TEST(relayforks_test, checkisonmain) {
     std::cout << "Blocks: " << vBlocks.size() << std::endl;
     std::cout << "------------" << std::endl;
 
-    BOOST_FOREACH (CBlockIndex* block, vBlocks) {
+    for (CBlockIndex* block : vBlocks) {
         std::cout << "h(" << block->nHeight << ") " << block->GetBlockHash().ToString() << " <-- ";
         if (block->pprev) {
             std::cout << block->pprev->GetBlockHash().ToString() << std::endl;
@@ -347,7 +347,7 @@ TEST(relayforks_test, getfinality) {
     std::cout << "Blocks: " << vBlocks.size() << std::endl;
     std::cout << "------------" << std::endl;
 
-    BOOST_FOREACH (CBlockIndex* block, vBlocks) {
+    for (CBlockIndex* block : vBlocks) {
         std::cout << "h(" << block->nHeight << ") " << block->GetBlockHash().ToString() << " <-- ";
         if (block->pprev) {
             std::cout << block->pprev->GetBlockHash().ToString() << std::endl;

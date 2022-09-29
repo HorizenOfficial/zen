@@ -48,16 +48,20 @@ BOOST_AUTO_TEST_CASE(mruset_test) {
                 mruset<int> mru2 = mru;  // Also try making a copy
 
                 // Check that all elements that should be in there, are in there.
-                BOOST_FOREACH (int x, rep) {
+                for (int x : rep) {
                     BOOST_CHECK(mru.count(x));
                     BOOST_CHECK(mru2.count(x));
                 }
 
                 // Check that all elements that are in there, should be in there.
-                BOOST_FOREACH (int x, mru) { BOOST_CHECK(all.count(x)); }
+                for (int x : mru) {
+                    BOOST_CHECK(all.count(x));
+                }
 
                 // Check that all elements that are in there, should be in there.
-                BOOST_FOREACH (int x, mru2) { BOOST_CHECK(all.count(x)); }
+                for (int x : mru2) {
+                    BOOST_CHECK(all.count(x));
+                }
 
                 for (int t = 0; t < 10; t++) {
                     int r = GetRandInt(15000);

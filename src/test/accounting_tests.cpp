@@ -21,7 +21,9 @@ static void GetResults(CWalletDB& walletdb, std::map<CAmount, CAccountingEntry>&
     results.clear();
     BOOST_CHECK(walletdb.ReorderTransactions(pwalletMain) == DB_LOAD_OK);
     walletdb.ListAccountCreditDebit("", aes);
-    BOOST_FOREACH (CAccountingEntry& ae, aes) { results[ae.nOrderPos] = ae; }
+    for (const CAccountingEntry& ae : aes) {
+        results[ae.nOrderPos] = ae;
+    }
 }
 
 BOOST_AUTO_TEST_CASE(acc_orderupgrade) {

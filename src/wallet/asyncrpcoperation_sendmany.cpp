@@ -137,15 +137,15 @@ void AsyncRPCOperation_sendmany::main() {
         std::string message = find_value(objError, "message").get_str();
         set_error_code(code);
         set_error_message(message);
-    } catch (const runtime_error& e) {
+    } catch (const std::runtime_error& e) {
         set_error_code(-1);
-        set_error_message("runtime error: " + string(e.what()));
-    } catch (const logic_error& e) {
+        set_error_message("runtime error: " + std::string(e.what()));
+    } catch (const std::logic_error& e) {
         set_error_code(-1);
-        set_error_message("logic error: " + string(e.what()));
-    } catch (const exception& e) {
+        set_error_message("logic error: " + std::string(e.what()));
+    } catch (const std::exception& e) {
         set_error_code(-1);
-        set_error_message("general exception: " + string(e.what()));
+        set_error_message("general exception: " + std::string(e.what()));
     } catch (...) {
         set_error_code(-2);
         set_error_message("unknown error");
@@ -793,14 +793,14 @@ void AsyncRPCOperation_sendmany::sign_send_raw_transaction(UniValue obj) {
 }
 
 bool AsyncRPCOperation_sendmany::find_utxos(bool fAcceptCoinbase = false) {
-    set<CBitcoinAddress> setAddress = {fromtaddr_};
-    vector<COutput> vecOutputs;
+    std::set<CBitcoinAddress> setAddress = {fromtaddr_};
+    std::vector<COutput> vecOutputs;
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     pwalletMain->AvailableCoins(vecOutputs, false, NULL, true, fAcceptCoinbase, fAcceptCoinbase);
 
-    BOOST_FOREACH (const COutput& out, vecOutputs) {
+    for (const COutput& out : vecOutputs) {
         if (!out.fSpendable) {
             continue;
         }
@@ -895,12 +895,12 @@ UniValue AsyncRPCOperation_sendmany::perform_joinsplit(AsyncJoinSplitInfo& info,
     }
 
     if (!(witnesses.size() == info.notes.size())) {
-        throw runtime_error("number of notes and witnesses do not match");
+        throw std::runtime_error("number of notes and witnesses do not match");
     }
 
     for (size_t i = 0; i < witnesses.size(); i++) {
         if (!witnesses[i]) {
-            throw runtime_error("joinsplit input could not be found in tree");
+            throw std::runtime_error("joinsplit input could not be found in tree");
         }
         info.vjsin.push_back(JSInput(*witnesses[i], info.notes[i], spendingkey_));
     }
@@ -915,7 +915,7 @@ UniValue AsyncRPCOperation_sendmany::perform_joinsplit(AsyncJoinSplitInfo& info,
     }
 
     if (info.vjsout.size() != ZC_NUM_JS_INPUTS || info.vjsin.size() != ZC_NUM_JS_OUTPUTS) {
-        throw runtime_error("unsupported joinsplit input/output counts");
+        throw std::runtime_error("unsupported joinsplit input/output counts");
     }
 
     CMutableTransaction mtx(tx_);

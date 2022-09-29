@@ -708,7 +708,7 @@ bool AddSidechainBwtRequestOutputs(UniValue& bwtreq, CMutableTransaction& rawTx,
 
 void fundCcRecipients(const CTransaction& tx, std::vector<CRecipientScCreation>& vecScSend,
                       std::vector<CRecipientForwardTransfer>& vecFtSend, std::vector<CRecipientBwtRequest>& vecBwtRequest) {
-    BOOST_FOREACH (const auto& entry, tx.GetVscCcOut()) {
+    for (const auto& entry : tx.GetVscCcOut()) {
         CRecipientScCreation sc;
         sc.nValue = entry.nValue;
         sc.address = entry.address;
@@ -723,7 +723,7 @@ void fundCcRecipients(const CTransaction& tx, std::vector<CRecipientScCreation>&
         vecScSend.push_back(sc);
     }
 
-    BOOST_FOREACH (const auto& entry, tx.GetVftCcOut()) {
+    for (const auto& entry : tx.GetVftCcOut()) {
         CRecipientForwardTransfer ft;
         ft.scId = entry.scId;
         ft.address = entry.address;
@@ -733,7 +733,7 @@ void fundCcRecipients(const CTransaction& tx, std::vector<CRecipientScCreation>&
         vecFtSend.push_back(ft);
     }
 
-    BOOST_FOREACH (const auto& entry, tx.GetVBwtRequestOut()) {
+    for (const auto& entry : tx.GetVBwtRequestOut()) {
         CRecipientBwtRequest bt;
         bt.scId = entry.scId;
         bt.mcDestinationAddress = entry.mcDestinationAddress;

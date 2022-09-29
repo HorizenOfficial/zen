@@ -254,13 +254,15 @@ static void WalletTxToJSON(const CWalletTransactionBase& wtx, UniValue& entry, i
     entry.pushKV("txid", hash.GetHex());
 
     UniValue conflicts(UniValue::VARR);
-    BOOST_FOREACH (const uint256& conflict, wtx.GetConflicts())
+    for (const uint256& conflict : wtx.GetConflicts()) {
         conflicts.push_back(conflict.GetHex());
+    }
     entry.pushKV("walletconflicts", conflicts);
     entry.pushKV("time", wtx.GetTxTime());
     entry.pushKV("timereceived", (int64_t)wtx.nTimeReceived);
-    BOOST_FOREACH (const PAIRTYPE(string, string) & item, wtx.mapValue)
+    for (const auto& item : wtx.mapValue) {
         entry.pushKV(item.first, item.second);
+    }
 
     // add the cross chain outputs if tx version is -4
     if (wtx.getTxBase()->nVersion == SC_TX_VERSION) {
@@ -343,7 +345,7 @@ CBitcoinAddress GetAccountAddress(string strAccount, bool bForceNew = false) {
              it != pwalletMain->getMapWallet().end() && account.vchPubKey.IsValid(); ++it) {
             const CWalletTransactionBase& wtx = *((*it).second);
 
-            BOOST_FOREACH (const CTxOut& txout, wtx.getTxBase()->GetVout()) {
+            for (const CTxOut& txout : wtx.getTxBase()->GetVout()) {
                 /* Check that txout.scriptPubKey starts with scriptPubKey instead of full match,
                  * cause we cant compare OP_CHECKBLOCKATHEIGHT arguments, they are different all the time */
                 auto res =
@@ -523,7 +525,7 @@ UniValue getaddressesbyaccount(const UniValue& params, bool fHelp) {
 
     // Find all addresses that have the given account
     UniValue ret(UniValue::VARR);
-    BOOST_FOREACH (const PAIRTYPE(CBitcoinAddress, CAddressBookData) & item, pwalletMain->mapAddressBook) {
+    for (const auto& item : pwalletMain->mapAddressBook) {
         const CBitcoinAddress& address = item.first;
         const string& strName = item.second.name;
         if (strName == strAccount) ret.push_back(address.ToString());
@@ -551,7 +553,7 @@ UniValue listaddresses(const UniValue& params, bool fHelp) {
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     UniValue ret(UniValue::VARR);
-    BOOST_FOREACH (const PAIRTYPE(CBitcoinAddress, CAddressBookData) & item, pwalletMain->mapAddressBook) {
+    for (const auto& item : pwalletMain->mapAddressBook) {
         const CBitcoinAddress& address = item.first;
         const string& strName = item.second.name;
         if (strName == "") ret.push_back(address.ToString());
@@ -1507,9 +1509,9 @@ UniValue listaddressgroupings(const UniValue& params, bool fHelp) {
 
     UniValue jsonGroupings(UniValue::VARR);
     map<CTxDestination, CAmount> balances = pwalletMain->GetAddressBalances();
-    BOOST_FOREACH (set<CTxDestination> grouping, pwalletMain->GetAddressGroupings()) {
+    for (set<CTxDestination> grouping : pwalletMain->GetAddressGroupings()) {
         UniValue jsonGrouping(UniValue::VARR);
-        BOOST_FOREACH (CTxDestination address, grouping) {
+        for (CTxDestination address : grouping) {
             UniValue addressInfo(UniValue::VARR);
             addressInfo.push_back(CBitcoinAddress(address).ToString());
             addressInfo.push_back(ValueFromAmount(balances[address]));
@@ -2036,7 +2038,7 @@ UniValue sendmany(const UniValue& params, bool fHelp) {
 
     CAmount totalAmount = 0;
     vector<string> keys = sendTo.getKeys();
-    BOOST_FOREACH (const string& name_, keys) {
+    for (const string& name_ : keys) {
         CBitcoinAddress address(name_);
         if (!address.IsValid()) throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Zen address: ") + name_);
 
@@ -2166,7 +2168,7 @@ UniValue ListReceived(const UniValue& params, bool fByAccounts) {
         int nDepth = wtx.GetDepthInMainChain();
         if (nDepth < nMinDepth) continue;
 
-        BOOST_FOREACH (const CTxOut& txout, wtx.getTxBase()->GetVout()) {
+        for (const CTxOut& txout : wtx.getTxBase()->GetVout()) {
             CTxDestination address;
             if (!ExtractDestination(txout.scriptPubKey, address)) continue;
 
@@ -2184,7 +2186,7 @@ UniValue ListReceived(const UniValue& params, bool fByAccounts) {
     // Reply
     UniValue ret(UniValue::VARR);
     map<string, tallyitem> mapAccountTally;
-    BOOST_FOREACH (const PAIRTYPE(CBitcoinAddress, CAddressBookData) & item, pwalletMain->mapAddressBook) {
+    for (const auto& item : pwalletMain->mapAddressBook) {
         const CBitcoinAddress& address = item.first;
         const string& strAccount = item.second.name;
         map<CBitcoinAddress, tallyitem>::iterator it = mapTally.find(address);
@@ -2213,7 +2215,9 @@ UniValue ListReceived(const UniValue& params, bool fByAccounts) {
             obj.pushKV("confirmations", (nConf == std::numeric_limits<int>::max() ? 0 : nConf));
             UniValue transactions(UniValue::VARR);
             if (it != mapTally.end()) {
-                BOOST_FOREACH (const uint256& item, (*it).second.txids) { transactions.push_back(item.GetHex()); }
+                for (const uint256& item : it->second.txids) {
+                    transactions.push_back(item.GetHex());
+                }
             }
             obj.pushKV("txids", transactions);
             ret.push_back(obj);
@@ -2335,7 +2339,7 @@ void ListTransactions(const CWalletTransactionBase& wtx, const string& strAccoun
 
     // Sent
     if ((!listSent.empty() || nFee != 0) && (fAllAccounts || strAccount == strSentAccount)) {
-        BOOST_FOREACH (const COutputEntry& s, listSent) {
+        for (const COutputEntry& s : listSent) {
             UniValue entry(UniValue::VOBJ);
             if (involvesWatchonly || (::IsMine(*pwalletMain, s.destination) & ISMINE_WATCH_ONLY))
                 entry.pushKV("involvesWatchonly", true);
@@ -2741,13 +2745,15 @@ UniValue listaccounts(const UniValue& params, bool fHelp) {
         if (params[1].get_bool()) includeWatchonly = includeWatchonly | ISMINE_WATCH_ONLY;
 
     map<string, CAmount> mapAccountBalances;
-    BOOST_FOREACH (const PAIRTYPE(CTxDestination, CAddressBookData) & entry, pwalletMain->mapAddressBook) {
-        if (IsMine(*pwalletMain, entry.first) & includeWatchonly)  // This address belongs to me
+    for (const auto& entry : pwalletMain->mapAddressBook) {
+        if (IsMine(*pwalletMain, entry.first) & includeWatchonly) {
+            // This address belongs to me
             mapAccountBalances[entry.second.name] = 0;
+        }
     }
 
-    for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it) {
-        const CWalletTransactionBase& wtx = *((*it).second);
+    for (auto it = pwalletMain->getMapWallet().cbegin(), end = pwalletMain->getMapWallet().end(); it != end; ++it) {
+        const CWalletTransactionBase& wtx = *(it->second);
 
         CAmount nFee;
         string strSentAccount;
@@ -2775,11 +2781,12 @@ UniValue listaccounts(const UniValue& params, bool fHelp) {
     }
 
     const list<CAccountingEntry>& acentries = pwalletMain->laccentries;
-    BOOST_FOREACH (const CAccountingEntry& entry, acentries)
+    for (const CAccountingEntry& entry : acentries) {
         mapAccountBalances[entry.strAccount] += entry.nCreditDebit;
+    }
 
     UniValue ret(UniValue::VOBJ);
-    BOOST_FOREACH (const PAIRTYPE(string, CAmount) & accountBalance, mapAccountBalances) {
+    for (const auto& accountBalance : mapAccountBalances) {
         ret.pushKV(accountBalance.first, ValueFromAmount(accountBalance.second));
     }
     return ret;
@@ -3518,7 +3525,7 @@ UniValue listlockunspent(const UniValue& params, bool fHelp) {
 
     UniValue ret(UniValue::VARR);
 
-    BOOST_FOREACH (COutPoint& outpt, vOutpts) {
+    for (COutPoint& outpt : vOutpts) {
         UniValue o(UniValue::VOBJ);
 
         o.pushKV("txid", outpt.hash.GetHex());
@@ -3615,7 +3622,9 @@ UniValue resendwallettransactions(const UniValue& params, bool fHelp) {
 
     std::vector<uint256> txids = pwalletMain->ResendWalletTransactionsBefore(GetTime());
     UniValue result(UniValue::VARR);
-    BOOST_FOREACH (const uint256& txid, txids) { result.push_back(txid.ToString()); }
+    for (const uint256& txid : txids) {
+        result.push_back(txid.ToString());
+    }
     return result;
 }
 
@@ -4309,7 +4318,7 @@ CAmount getBalanceTaddr(std::string transparentAddress, int minDepth = 1, bool i
 
     pwalletMain->AvailableCoins(vecOutputs, false, NULL, true, true);
 
-    BOOST_FOREACH (const COutput& out, vecOutputs) {
+    for (const COutput& out : vecOutputs) {
         if (out.nDepth < minDepth) {
             continue;
         }
@@ -5359,7 +5368,7 @@ UniValue z_shieldcoinbase(const UniValue& params, bool fHelp) {
     pwalletMain->AvailableCoins(vecOutputs, true, NULL, false, true);
 
     // Find unspent coinbase utxos and update estimated size
-    BOOST_FOREACH (const COutput& out, vecOutputs) {
+    for (const COutput& out : vecOutputs) {
         if (!out.fSpendable) {
             continue;
         }

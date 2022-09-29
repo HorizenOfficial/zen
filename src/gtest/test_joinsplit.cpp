@@ -215,9 +215,8 @@ TEST(joinsplit, h_sig) {
                                                     "1f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100",
                                                     "b61110ec162693bc3d9ca7fb0eec3afd2e278e2f41394b3ff11d7cb761ad4b27"}};
 
-    BOOST_FOREACH (std::vector<std::string>& v, tests) {
+    for (std::vector<std::string>& v : tests) {
         auto expected = ZCJoinSplit::h_sig(uint256S(v[0]), {uint256S(v[1]), uint256S(v[2])}, uint256S(v[3]));
-
         EXPECT_EQ(expected, uint256S(v[4]));
     }
 }

@@ -661,7 +661,9 @@ BOOST_AUTO_TEST_CASE(coins_cache_simulation_test) {
                     missed_an_entry = true;
                 }
             }
-            BOOST_FOREACH (const CCoinsViewCacheTest* test, stack) { test->SelfTest(); }
+            for (const CCoinsViewCacheTest* test : stack) {
+                test->SelfTest();
+            }
         }
 
         if (insecure_rand() % 100 == 0) {

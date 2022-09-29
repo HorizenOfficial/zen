@@ -104,8 +104,8 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
 
     // Scan templates
     const CScript& script1 = scriptPubKey;
-    BOOST_FOREACH (const PAIRTYPE(txnouttype, CScript) & tplate, mTemplates) {
-        const CScript& script2 = tplate.second;
+
+    for (const auto& [typeRet, script2] : mTemplates) {
         vSolutionsRet.clear();
 
         opcodetype opcode1, opcode2;
@@ -124,19 +124,16 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
         while (true) {
             if (pc1 == script1.end() && pc2 == script2.end()) {
                 // Found a match
-                typeRet = tplate.first;
                 if (typeRet == TX_MULTISIG || typeRet == TX_MULTISIG_REPLAY) {
                     // Additional checks for TX_MULTISIG:
                     unsigned char m = vSolutionsRet.front()[0];
                     unsigned char n = vSolutionsRet.back()[0];
                     if (m < 1 || n < 1 || m > n || vSolutionsRet.size() - 2 != n) return false;
                 }
-
                 if (typeRet == TX_SCRIPTHASH || typeRet == TX_SCRIPTHASH_REPLAY) {
                     vector<unsigned char> hashBytes(scriptPubKey.begin() + 2, scriptPubKey.begin() + 22);
                     vSolutionsRet.push_back(hashBytes);
                 }
-
                 return true;
             }
             if (!script1.GetOp(pc1, opcode1, vch1)) break;
@@ -553,8 +550,9 @@ CScript GetScriptForMultisig(int nRequired, const std::vector<CPubKey>& keys) {
     CScript script;
 
     script << CScript::EncodeOP_N(nRequired);
-    BOOST_FOREACH (const CPubKey& key, keys)
+    for (const CPubKey& key : keys) {
         script << ToByteVector(key);
+    }
     script << CScript::EncodeOP_N(keys.size()) << OP_CHECKMULTISIG;
     return script;
 }

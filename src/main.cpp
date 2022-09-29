@@ -11,6 +11,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/math/distributions/poisson.hpp>
+#include <boost/range/adaptor/reversed.hpp>
 #include <boost/static_assert.hpp>
 #include <boost/thread.hpp>
 
@@ -4035,7 +4036,7 @@ static bool ActivateBestChainStep(CValidationState& state, CBlockIndex* pindexMo
         nHeight = nTargetHeight;
 
         // Connect new blocks.
-        BOOST_REVERSE_FOREACH (CBlockIndex* pindexConnect, vpindexToConnect) {
+        for (CBlockIndex* pindexConnect : boost::adaptors::reverse(vpindexToConnect)) {
             if (!ConnectTip(state, pindexConnect, pindexConnect == pindexMostWork ? pblock : NULL)) {
                 if (state.IsInvalid()) {
                     // The block violates a consensus rule.
@@ -4303,7 +4304,7 @@ int getMostRecentGlobalForkTips(std::vector<uint256>& output) {
     sort(begin(vTemp), end(vTemp), [](const map_pair& a, const map_pair& b) { return a.second < b.second; });
 
     int count = MAX_NUM_GLOBAL_FORKS;
-    BOOST_REVERSE_FOREACH (auto const& p, vTemp) {
+    for (auto const& p : boost::adaptors::reverse(vTemp)) {
         output.push_back(p.first->GetBlockHash());
         if (--count <= 0) break;
     }
@@ -6365,8 +6366,9 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         // Relay alerts
         {
             LOCK(cs_mapAlerts);
-            BOOST_FOREACH (PAIRTYPE(const uint256, CAlert) & item, mapAlerts)
-                item.second.RelayTo(pfrom);
+            for (const auto& [_, alert] : mapAlerts) {
+                alert.RelayTo(pfrom);
+            }
         }
 
         pfrom->fSuccessfullyConnected = true;
@@ -6411,7 +6413,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         vector<CAddress> vAddrOk;
         int64_t nNow = GetTime();
         int64_t nSince = nNow - 10 * 60;
-        BOOST_FOREACH (CAddress& addr, vAddr) {
+        for (CAddress& addr : vAddr) {
             boost::this_thread::interruption_point();
 
             if (addr.nTime <= 100000000 || addr.nTime > nNow + 10 * 60) addr.nTime = nNow - 5 * 24 * 60 * 60;
@@ -6430,7 +6432,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                         ArithToUint256(UintToArith256(hashSalt) ^ (hashAddr << 32) ^ ((GetTime() + hashAddr) / (24 * 60 * 60)));
                     hashRand = Hash(BEGIN(hashRand), END(hashRand));
                     multimap<uint256, CNode*> mapMix;
-                    BOOST_FOREACH (CNode* pnode, vNodes) {
+                    for (CNode* pnode : vNodes) {
                         if (pnode->nVersion < CADDR_TIME_VERSION) continue;
                         unsigned int nPointer;
                         memcpy(&nPointer, &pnode, sizeof(nPointer));
@@ -6494,7 +6496,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                         std::vector<uint256> vOutput;
                         getMostRecentGlobalForkTips(vOutput);
 
-                        BOOST_FOREACH (const uint256& hash, vOutput) {
+                        for (const uint256& hash : vOutput) {
                             std::vector<uint256>::iterator b = bl.vHave.begin();
                             LogPrint("forks", "%s():%d - adding tip hash [%s]\n", __func__, __LINE__, hash.ToString());
                             bl.vHave.insert(b, hash);
@@ -6545,7 +6547,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         if (fDebug || (vInv.size() != 1)) LogPrint("net", "received getdata (%u invsz) peer=%d\n", vInv.size(), pfrom->id);
 
         if ((fDebug && vInv.size() > 0) || (vInv.size() == 1)) {
-            BOOST_FOREACH (const CInv& ii, vInv) {
+            for (const CInv& ii : vInv) {
                 LogPrint("net", "received getdata for: %s peer=%d\n", ii.ToString(), pfrom->id);
             }
         }
@@ -6651,7 +6653,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 while (pindexReference) {
                     dHeadersAlternative.push_front(CBlockHeaderForNetwork(pindexReference->GetBlockHeader()));
 
-                    BOOST_FOREACH (const uint256& hash, locator.vHave) {
+                    for (const uint256& hash : locator.vHave) {
                         if (hash == pindexReference->GetBlockHash()) {
                             // we found the tip passed along in locator, we must stop here
                             LogPrint("forks", "%s():%d - matched fork tip in locator [%s]\n", __func__, __LINE__,
@@ -6697,7 +6699,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
                 // we must follow all forks backwards because we can not tell which is the concerned one
                 // peer will discard headers already known if any
-                BOOST_FOREACH (auto mapPair, mGlobalForkTips) {
+                for (const auto& mapPair : mGlobalForkTips) {
                     const CBlockIndex* block = mapPair.first;
                     if (block == chainActive.Tip() || block == pindexBestHeader) {
                         LogPrint("forks", "%s():%d - skipping tips\n", __func__, __LINE__);
@@ -6800,7 +6802,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
         CBlockIndex* pindexLast = NULL;
         int cnt = 0;
-        BOOST_FOREACH (const CBlockHeader& header, headers) {
+        for (const CBlockHeader& header : headers) {
             CValidationState state;
             if (pindexLast != NULL && header.hashPrevBlock != pindexLast->GetBlockHash()) {
                 Misbehaving(pfrom->GetId(), 20);
@@ -6884,8 +6886,9 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
         pfrom->vAddrToSend.clear();
         vector<CAddress> vAddr = addrman.GetAddr();
-        BOOST_FOREACH (const CAddress& addr, vAddr)
+        for (const CAddress& addr : vAddr) {
             pfrom->PushAddress(addr);
+        }
     }
 
     else if (strCommand == "mempool") {
@@ -6973,8 +6976,9 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 pfrom->setKnown.insert(alertHash);
                 {
                     LOCK(cs_vNodes);
-                    BOOST_FOREACH (CNode* pnode, vNodes)
+                    for (CNode* pnode : vNodes) {
                         alert.RelayTo(pnode);
+                    }
                 }
             } else {
                 // Small DoS penalty so peers that send us lots of
@@ -7216,7 +7220,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle) {
         static int64_t nLastRebroadcast;
         if (!IsInitialBlockDownload() && (GetTime() - nLastRebroadcast > 24 * 60 * 60)) {
             LOCK(cs_vNodes);
-            BOOST_FOREACH (CNode* pnode, vNodes) {
+            for (CNode* pnode : vNodes) {
                 // Periodically clear addrKnown to allow refresh broadcasts
                 if (nLastRebroadcast) pnode->addrKnown.reset();
 
@@ -7232,7 +7236,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle) {
         if (fSendTrickle) {
             vector<CAddress> vAddr;
             vAddr.reserve(pto->vAddrToSend.size());
-            BOOST_FOREACH (const CAddress& addr, pto->vAddrToSend) {
+            for (const CAddress& addr : pto->vAddrToSend) {
                 if (!pto->addrKnown.contains(addr.GetKey())) {
                     pto->addrKnown.insert(addr.GetKey());
                     vAddr.push_back(addr);
@@ -7270,9 +7274,10 @@ bool SendMessages(CNode* pto, bool fSendTrickle) {
             state.fShouldBan = false;
         }
 
-        BOOST_FOREACH (const CBlockReject& reject, state.rejects)
+        for (const CBlockReject& reject : state.rejects) {
             pto->PushMessage("reject", (string) "block", CValidationState::CodeToChar(reject.chRejectCode),
                              reject.strRejectReason, reject.hashBlock);
+        }
         state.rejects.clear();
 
         // Start block sync
@@ -7323,7 +7328,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle) {
             LOCK(pto->cs_inventory);
             vInv.reserve(pto->vInventoryToSend.size());
             vInvWait.reserve(pto->vInventoryToSend.size());
-            BOOST_FOREACH (const CInv& inv, pto->vInventoryToSend) {
+            for (const CInv& inv : pto->vInventoryToSend) {
                 if (pto->setInventoryKnown.count(inv)) continue;
 
                 // trickle out tx inv to protect privacy
@@ -7402,7 +7407,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle) {
             NodeId staller = -1;
             FindNextBlocksToDownload(pto->GetId(), MAX_BLOCKS_IN_TRANSIT_PER_PEER - state.nBlocksInFlight, vToDownload,
                                      staller);
-            BOOST_FOREACH (CBlockIndex* pindex, vToDownload) {
+            for (CBlockIndex* pindex : vToDownload) {
                 vGetData.push_back(CInv(MSG_BLOCK, pindex->GetBlockHash()));
                 MarkBlockAsInFlight(pto->GetId(), pindex->GetBlockHash(), consensusParams, pindex);
                 LogPrint("net", "%s():%d Requesting block %s (%d) peer=%d\n", __func__, __LINE__,
@@ -7516,7 +7521,9 @@ bool RelayAlternativeChain(CValidationState& state, CBlock* pblock, BlockSet* sF
 
     std::vector<CInv> vInv;
 
-    BOOST_FOREACH (const CBlockIndex* block, *sForkTips) { vInv.push_back(CInv(MSG_BLOCK, block->GetBlockHash())); }
+    for (const CBlockIndex* block : *sForkTips) {
+        vInv.push_back(CInv(MSG_BLOCK, block->GetBlockHash()));
+    }
 
     // 5. push inv list up to the alternative tips
     int nBlockEstimate = 0;
@@ -7525,7 +7532,7 @@ bool RelayAlternativeChain(CValidationState& state, CBlock* pblock, BlockSet* sF
     int nodeHeight = -1;
     if (nLocalServices & NODE_NETWORK) {
         LOCK(cs_vNodes);
-        BOOST_FOREACH (CNode* pnode, vNodes) {
+        for (CNode* pnode : vNodes) {
             if (pnode->nStartingHeight != -1) {
                 nodeHeight = (pnode->nStartingHeight - 2000);
             } else {
@@ -7533,7 +7540,7 @@ bool RelayAlternativeChain(CValidationState& state, CBlock* pblock, BlockSet* sF
             }
             if (chainActive.Height() > nodeHeight) {
                 {
-                    BOOST_FOREACH (CInv& inv, vInv) {
+                    for (const CInv& inv : vInv) {
                         LogPrint("forks", "%s():%d - Pushing inv to Node [%s] (id=%d) hash[%s]\n", __func__, __LINE__,
                                  pnode->addrName, pnode->GetId(), inv.hash.ToString());
                         pnode->PushInventory(inv);
@@ -7681,18 +7688,20 @@ void dump_db() {
     }
 
     std::set<const CBlockIndex*, CompareBlocksByHeight> setTips;
-    BOOST_FOREACH (const PAIRTYPE(const uint256, CBlockIndex*) & item, mapBlockIndex)
-        setTips.insert(item.second);
+    for (const auto& [_, block] : mapBlockIndex) {
+        setTips.insert(block);
+    }
 
-    BOOST_FOREACH (const PAIRTYPE(const uint256, CBlockIndex*) & item, mapBlockIndex) {
-        const CBlockIndex* pprev = item.second->pprev;
-        if (pprev) setTips.erase(pprev);
+    for (const auto& [_, block] : mapBlockIndex) {
+        if (const auto pprev{block->pprev}; pprev) {
+            setTips.erase(pprev);
+        }
     }
 
     // Always report the currently active tip.
     setTips.insert(chainActive.Tip());
 
-    BOOST_FOREACH (const CBlockIndex* block, setTips) {
+    for (const CBlockIndex* block : setTips) {
         LogPrint("forks", "===========================\n");
         const CBlockIndex* dum = block;
 
@@ -7724,9 +7733,8 @@ void dump_candidates() {
     }
 
     LogPrint("forks", "===== CANDIDATES: %d =================\n", setBlockIndexCandidates.size());
-    BOOST_FOREACH (const CBlockIndex* block, setBlockIndexCandidates) {
+    for (const CBlockIndex* block : setBlockIndexCandidates) {
         const CBlockIndex* dum = block;
-
         dump_index(dum);
     }
 }
@@ -7739,14 +7747,12 @@ void dump_global_tips(int limit) {
     int count = limit;
 
     LogPrint("forks", "===== GLOBAL TIPS: %d =================\n", mGlobalForkTips.size());
-    BOOST_FOREACH (auto mapPair, mGlobalForkTips) {
+    for (const auto [block, val] : mGlobalForkTips) {
         if ((limit > 0) && (count-- <= 0)) {
             LogPrint("forks", "-- stopping after %d elements\n", limit);
             break;
         }
-        const CBlockIndex* block = mapPair.first;
-
-        dump_index(block, mapPair.second);
+        dump_index(block, val);
     }
 
     std::vector<uint256> vOutput;
@@ -7754,7 +7760,9 @@ void dump_global_tips(int limit) {
 
     LogPrint("forks", "Ordered by time:\n");
     LogPrint("forks", "----------------------------------------------------------------\n");
-    BOOST_FOREACH (const uint256& hash, vOutput) { LogPrint("forks", "  %s\n", hash.ToString()); }
+    for (const uint256& hash : vOutput) {
+        LogPrint("forks", "  %s\n", hash.ToString());
+    }
 }
 
 void dump_dirty() {
@@ -7763,9 +7771,9 @@ void dump_dirty() {
     }
 
     LogPrint("forks", "===== DIRTIES: %d =================\n", setDirtyBlockIndex.size());
-    BOOST_FOREACH (const CBlockIndex* block, setDirtyBlockIndex) {
+    for (const CBlockIndex* block : setDirtyBlockIndex) {
+        // TODO : Why this copy ?
         const CBlockIndex* dum = block;
-
         dump_index(dum);
     }
 }
@@ -7777,7 +7785,7 @@ bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, C
         return true;
     }
 
-    BOOST_FOREACH (const uint256& hash, locator.vHave) {
+    for (const uint256& hash : locator.vHave) {
         LogPrint("forks", "%s():%d - locator has [%s]\n", __func__, __LINE__, hash.ToString());
     }
 

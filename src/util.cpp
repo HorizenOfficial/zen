@@ -330,9 +330,9 @@ void ParseParameters(int argc, const char* const argv[]) {
     }
 
     // New 0.6 features:
-    BOOST_FOREACH (const PAIRTYPE(string, string) & entry, mapArgs) {
+    for (const auto& [first, _] : mapArgs) {
         // interpret -nofoo as -foo=0 (and -nofoo=0 as -foo=1) as long as -foo not set
-        InterpretNegativeSetting(entry.first, mapArgs);
+        InterpretNegativeSetting(first, mapArgs);
     }
 }
 

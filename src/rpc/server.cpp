@@ -62,7 +62,7 @@ void RPCServer::OnPostCommand(boost::function<void(const CRPCCommand&)> slot) {
 
 void RPCTypeCheck(const UniValue& params, const list<UniValue::VType>& typesExpected, bool fAllowNull) {
     size_t i = 0;
-    BOOST_FOREACH (UniValue::VType t, typesExpected) {
+    for (UniValue::VType t : typesExpected) {
         if (params.size() <= i) break;
 
         const UniValue& v = params[i];
@@ -75,12 +75,12 @@ void RPCTypeCheck(const UniValue& params, const list<UniValue::VType>& typesExpe
 }
 
 void RPCTypeCheckObj(const UniValue& o, const map<string, UniValue::VType>& typesExpected, bool fAllowNull) {
-    BOOST_FOREACH (const PAIRTYPE(string, UniValue::VType) & t, typesExpected) {
-        const UniValue& v = find_value(o, t.first);
-        if (!fAllowNull && v.isNull()) throw JSONRPCError(RPC_TYPE_ERROR, strprintf("Missing %s", t.first));
+    for (const auto& [key, vtype] : typesExpected) {
+        const UniValue& v = find_value(o, key);
+        if (!fAllowNull && v.isNull()) throw JSONRPCError(RPC_TYPE_ERROR, strprintf("Missing %s", key));
 
-        if (!((v.type() == t.second) || (fAllowNull && (v.isNull())))) {
-            string err = strprintf("Expected type %s for %s, got %s", uvTypeName(t.second), t.first, uvTypeName(v.type()));
+        if (!((v.type() == vtype) || (fAllowNull && (v.isNull())))) {
+            string err = strprintf("Expected type %s for %s, got %s", uvTypeName(vtype), key, uvTypeName(v.type()));
             throw JSONRPCError(RPC_TYPE_ERROR, err);
         }
     }
@@ -143,9 +143,7 @@ std::string CRPCTable::help(const std::string& strCommand) const {
         vCommands.push_back(make_pair(mi->second->category + mi->first, mi->second));
     sort(vCommands.begin(), vCommands.end());
 
-    BOOST_FOREACH (const PAIRTYPE(string, const CRPCCommand*) & command, vCommands) {
-        const CRPCCommand* pcmd = command.second;
-        string strMethod = pcmd->name;
+    for (const auto& [strMethod, pcmd] : vCommands) {
         // We already filter duplicates, but these deprecated screw up the sort order
         if (strMethod.find("label") != string::npos) continue;
         if ((strCommand != "" || pcmd->category == "hidden") && strMethod != strCommand) continue;

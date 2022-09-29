@@ -207,8 +207,9 @@ bool SignSignature(const CKeyStore& keystore, const CScCertificate& certFrom, CM
 
 static CScript PushAll(const vector<valtype>& values) {
     CScript result;
-    BOOST_FOREACH (const valtype& v, values)
+    for (const valtype& v : values) {
         result << v;
+    }
     return result;
 }
 
@@ -216,10 +217,10 @@ static CScript CombineMultisig(const CScript& scriptPubKey, const BaseSignatureC
                                const vector<valtype>& vSolutions, const vector<valtype>& sigs1, const vector<valtype>& sigs2) {
     // Combine all the signatures we've got:
     set<valtype> allsigs;
-    BOOST_FOREACH (const valtype& v, sigs1) {
+    for (const valtype& v : sigs1) {
         if (!v.empty()) allsigs.insert(v);
     }
-    BOOST_FOREACH (const valtype& v, sigs2) {
+    for (const valtype& v : sigs2) {
         if (!v.empty()) allsigs.insert(v);
     }
 
@@ -228,7 +229,7 @@ static CScript CombineMultisig(const CScript& scriptPubKey, const BaseSignatureC
     unsigned int nSigsRequired = vSolutions.front()[0];
     unsigned int nPubKeys = vSolutions.size() - 2;
     map<valtype, valtype> sigs;
-    BOOST_FOREACH (const valtype& sig, allsigs) {
+    for (const valtype& sig : allsigs) {
         for (unsigned int i = 0; i < nPubKeys; i++) {
             const valtype& pubkey = vSolutions[i + 1];
             if (sigs.count(pubkey)) continue;  // Already got a sig for this pubkey

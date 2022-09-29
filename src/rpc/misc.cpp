@@ -141,8 +141,9 @@ class DescribeAddressVisitor : public boost::static_visitor<UniValue> {
             obj.pushKV("script", GetTxnOutputType(whichType));
             obj.pushKV("hex", HexStr(subscript.begin(), subscript.end()));
             UniValue a(UniValue::VARR);
-            BOOST_FOREACH (const CTxDestination& addr, addresses)
+            for (const CTxDestination& addr : addresses) {
                 a.push_back(CBitcoinAddress(addr).ToString());
+            }
             obj.pushKV("addresses", a);
             if (whichType == TX_MULTISIG) obj.pushKV("sigsrequired", nRequired);
         }
@@ -455,7 +456,9 @@ UniValue setmocktime(const UniValue& params, bool fHelp) {
     SetMockTime(params[0].get_int64());
 
     uint64_t t = GetTime();
-    BOOST_FOREACH (CNode* pnode, vNodes) { pnode->nLastSend = pnode->nLastRecv = t; }
+    for (CNode* pnode : vNodes) {
+        pnode->nLastSend = pnode->nLastRecv = t;
+    }
 
     return NullUniValue;
 }
