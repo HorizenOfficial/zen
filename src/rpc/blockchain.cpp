@@ -1207,8 +1207,8 @@ UniValue getchaintips(const UniValue& params, bool fHelp) {
        known blocks, and successively remove blocks that appear as pprev
        of another block. */
     std::set<const CBlockIndex*, CompareBlocksByHeight> setTips;
-    for (const PAIRTYPE(const uint256, CBlockIndex*) & item : mapBlockIndex) setTips.insert(item.second);
-    for (const PAIRTYPE(const uint256, CBlockIndex*) & item : mapBlockIndex) {
+    for (const auto& item : mapBlockIndex) setTips.insert(item.second);
+    for (const auto& item : mapBlockIndex) {
         const CBlockIndex* pprev = item.second->pprev;
         if (pprev) setTips.erase(pprev);
     }

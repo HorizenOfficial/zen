@@ -10,11 +10,6 @@
 
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
-#include <openssl/pem.h>
-#include <openssl/rand.h>
-#include <openssl/rsa.h>
-#include <openssl/ssl.h>
-#include <openssl/x509.h>
 
 #include "util.h"
 
@@ -286,12 +281,13 @@ CredentialsStatus VerifyCredentials(const boost::filesystem::path& keyPath, cons
     key = LoadKey(keyPath, passphrase);
     cert = LoadCertificate(certPath);
 
-    if (key && cert)
+    if (key && cert) {
         status = CheckCredentials(key, cert) ? credOk : credNonConsistent;
-    else if (!key && !cert)
+    } else if (!key && !cert) {
         status = credAbsent;
-    else
+    } else {
         status = credPartiallyAbsent;
+    }
 
     if (key) EVP_PKEY_free(key);
     if (cert) X509_free(cert);
@@ -332,7 +328,6 @@ bool GenerateCredentials(const boost::filesystem::path& keyPath, const boost::fi
 //
 // Validates peer certificate using a chain of CA certificates.
 // If some of intermediate CA certificates are absent in the trusted certificates store, then validation status will be 'false')
-//
 bool ValidatePeerCertificate(SSL* ssl) {
     if (!ssl) return false;
 

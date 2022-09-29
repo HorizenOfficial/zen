@@ -6,6 +6,12 @@
 #define UTILTLS_H
 
 #include <boost/filesystem/path.hpp>
+#include <openssl/pem.h>
+#include <openssl/rand.h>
+#include <openssl/rsa.h>
+#include <openssl/ssl.h>
+#include <openssl/x509.h>
+
 namespace zen {
 
 #define TLS_KEY_FILE_NAME "key.pem"    // default name of a private key
