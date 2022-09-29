@@ -2,8 +2,6 @@
 #include <string>
 
 // Include local headers
-#include <boost/foreach.hpp>
-
 #include "base58.h"
 #include "util.h"
 #include "wallet/crypter.h"

@@ -5,8 +5,6 @@
 
 #include "keystore.h"
 
-#include <boost/foreach.hpp>
-
 #include "key.h"
 #include "util.h"
 

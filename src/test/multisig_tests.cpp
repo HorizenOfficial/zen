@@ -16,7 +16,6 @@
 #include "wallet/wallet_ismine.h"
 #endif
 
-#include <boost/foreach.hpp>
 #include <boost/test/unit_test.hpp>
 
 using namespace std;

@@ -12,7 +12,6 @@
 #include <boost/algorithm/string/case_conv.hpp>  // for to_upper()
 #include <boost/bind.hpp>
 #include <boost/filesystem.hpp>
-#include <boost/foreach.hpp>
 #include <boost/iostreams/concepts.hpp>
 #include <boost/iostreams/stream.hpp>
 #include <boost/shared_ptr.hpp>

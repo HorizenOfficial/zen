@@ -39,7 +39,6 @@
 #endif
 
 #include <boost/algorithm/string/case_conv.hpp>  // for to_lower()
-#include <boost/foreach.hpp>
 #include <boost/scoped_ptr.hpp>
 
 /** HTTP request work item */

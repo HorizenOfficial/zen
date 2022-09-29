@@ -8,8 +8,6 @@
 
 #include <vector>
 
-#include <boost/foreach.hpp>
-
 #include "arith_uint256.h"
 #include "primitives/block.h"
 #include "tinyformat.h"

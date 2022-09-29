@@ -10,7 +10,6 @@
 #include <iostream>
 
 #include <boost/filesystem/operations.hpp>
-#include <boost/foreach.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include "alert.h"

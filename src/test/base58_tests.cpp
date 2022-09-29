@@ -4,7 +4,6 @@
 
 #include <univalue.h>
 
-#include <boost/foreach.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include "base58.h"

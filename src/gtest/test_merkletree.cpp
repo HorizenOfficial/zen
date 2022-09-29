@@ -1,7 +1,6 @@
 #include <iostream>
 #include <stdexcept>
 
-#include <boost/foreach.hpp>
 #include <gtest/gtest.h>
 #include <libsnark/common/default_types/r1cs_ppzksnark_pp.hpp>
 #include <libsnark/gadgetlib1/gadgets/hashes/sha256/sha256_gadget.hpp>

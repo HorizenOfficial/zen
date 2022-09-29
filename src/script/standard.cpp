@@ -5,8 +5,6 @@
 
 #include "script/standard.h"
 
-#include <boost/foreach.hpp>
-
 #include "main.h"
 #include "pubkey.h"
 #include "script/script.h"

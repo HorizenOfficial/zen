@@ -2,8 +2,6 @@
 
 #include <stdexcept>
 
-#include <boost/foreach.hpp>
-
 #include "crypto/sha256.h"
 #include "librustzcash.h"
 #include "zcash/util.h"

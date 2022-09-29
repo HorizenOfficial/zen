@@ -5,8 +5,6 @@
 
 #include "script/sign.h"
 
-#include <boost/foreach.hpp>
-
 #include "key.h"
 #include "keystore.h"
 #include "primitives/certificate.h"

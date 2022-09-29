@@ -3,7 +3,6 @@
 #include <fstream>
 #include <memory>
 
-#include <boost/foreach.hpp>
 #include <boost/format.hpp>
 #include <boost/optional.hpp>
 #include <libsnark/common/default_types/r1cs_ppzksnark_pp.hpp>

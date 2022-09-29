@@ -5,8 +5,6 @@
 
 #include "primitives/transaction.h"
 
-#include <boost/foreach.hpp>
-
 #include "hash.h"
 #include "librustzcash.h"
 #include "tinyformat.h"

@@ -6,8 +6,6 @@
 
 #include <univalue.h>
 
-#include <boost/foreach.hpp>
-
 #include "clientversion.h"
 #include "main.h"
 #include "netbase.h"

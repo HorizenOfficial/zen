@@ -3,7 +3,6 @@
 #include <init.h>
 #include <main.h>
 
-#include <boost/foreach.hpp>
 #include <core_io.h>
 #include <rpc/protocol.h>
 #include <rpc/server.h>

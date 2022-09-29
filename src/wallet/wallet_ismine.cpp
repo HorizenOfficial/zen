@@ -5,8 +5,6 @@
 
 #include "wallet_ismine.h"
 
-#include <boost/foreach.hpp>
-
 #include "keystore.h"
 
 using namespace std;

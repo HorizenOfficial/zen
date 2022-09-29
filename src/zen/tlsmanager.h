@@ -1,6 +1,5 @@
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/path.hpp>
-#include <boost/foreach.hpp>
 #include <boost/signals2/signal.hpp>
 #include <boost/thread.hpp>
 #include <openssl/conf.h>

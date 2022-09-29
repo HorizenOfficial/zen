@@ -1,6 +1,5 @@
 #include <array>
 
-#include <boost/foreach.hpp>
 #include <boost/variant/get.hpp>
 #include <gtest/gtest.h>
 
