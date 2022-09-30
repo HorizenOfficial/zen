@@ -159,11 +159,13 @@ bool CBitcoinAddress::GetIndexKey(uint160& hashBytes, int& type) const
 {
     if (!IsValid()) {
         return false;
-    } else if (vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS)) {
+    } else if (vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS)
+               || vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS_OLD)) {
         memcpy(&hashBytes, &vchData[0], 20);
         type = 1;
         return true;
-    } else if (vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS)) {
+    } else if (vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS)
+               || vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS_OLD)) {
         memcpy(&hashBytes, &vchData[0], 20);
         type = 2;
         return true;
