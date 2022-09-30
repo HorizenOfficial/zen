@@ -7,6 +7,7 @@
 
 #include "sodium.h"
 
+#include "addressindex.h"
 #include "addrman.h"
 #include "alert.h"
 #include "arith_uint256.h"
@@ -1250,7 +1251,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
                     ret_code, "bad-sc-cert-not-applicable");
                 return MempoolReturnValue::INVALID;
             }
-            
+
             // do all inputs exist?
             // Note that this does not check for the presence of actual outputs (see the next check for that),
             // and only helps with filling in pfMissingInputs (to determine missing vs spent).
@@ -1630,7 +1631,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
             unsigned int block_priority_size = DEFAULT_BLOCK_PRIORITY_SIZE;
             if (!ForkManager::getInstance().areSidechainsSupported(nextBlockHeight))
                 block_priority_size = DEFAULT_BLOCK_PRIORITY_SIZE_BEFORE_SC;
-    
+
             // Don't accept it if it can't get into a block
             CAmount txMinFee = GetMinRelayFee(tx, nSize, true, block_priority_size);
 
@@ -2092,7 +2093,7 @@ bool IsInitialBlockDownload()
         return true;
     if (chainActive.Tip() == nullptr)
         return true;
-    if ((chainActive.Height() < pindexBestHeader->nHeight - 24 * 6 || pindexBestHeader->GetBlockTime() < GetTime() - chainParams.MaxTipAge())) 
+    if ((chainActive.Height() < pindexBestHeader->nHeight - 24 * 6 || pindexBestHeader->GetBlockTime() < GetTime() - chainParams.MaxTipAge()))
         return true;
     LogPrintf("Leaving InitialBlockDownload (latching to false)\n");
     lockIBDState.store(true, std::memory_order_relaxed);
@@ -2709,7 +2710,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     std::vector<std::pair<CSpentIndexKey, CSpentIndexValue> > spentIndex;
 #endif // ENABLE_ADDRESS_INDEXING
     std::vector<std::pair<uint256, CTxIndexValue> > vTxIndexValues;
-    std::vector<std::pair<CMaturityHeightKey, CMaturityHeightValue> > maturityHeightValues;  
+    std::vector<std::pair<CMaturityHeightKey, CMaturityHeightValue> > maturityHeightValues;
 
     assert(pindex->GetBlockHash() == view.GetBestBlock());
 
@@ -2881,7 +2882,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                         view.UpdateBackwardTransferIndexes(prevBlockTopQualityCertHash, txIndexVal.txIndex, addressIndex, addressUnspentIndex,
                                                         CCoinsViewCache::flagIndexesUpdateType::RESTORE_CERTIFICATE);
                     }
-#endif // ENABLE_ADDRESS_INDEXING               
+#endif // ENABLE_ADDRESS_INDEXING
                 }
             }
 
@@ -2918,20 +2919,22 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             if (explorerIndexesWrite == flagLevelDBIndexesWrite::ON)
             {
                     // Update the explorer indexes according to the removed inputs
-                    if (fAddressIndex) {
-
+                    if (fAddressIndex)
+                    {
                         CScript::ScriptType scriptType = undo.txout.scriptPubKey.GetType();
 
-                        if (scriptType != CScript::UNKNOWN) {
-                            uint160 const addrHash = undo.txout.scriptPubKey.AddressHash();
+                        if (scriptType != CScript::UNKNOWN)
+                        {
+                            const uint160 addrHash = undo.txout.scriptPubKey.AddressHash();
+                            const unsigned int addressType = fromScriptTypeToAddressType(scriptType);
 
                             // undo spending activity
-                            addressIndex.push_back(make_pair(CAddressIndexKey(scriptType, addrHash, pindex->nHeight, i, hash, j, true),
+                            addressIndex.push_back(make_pair(CAddressIndexKey(addressType, addrHash, pindex->nHeight, i, hash, j, true),
                                                             CAddressIndexValue()));
 
                             // restore unspent index
                             addressUnspentIndex.push_back(make_pair(
-                                CAddressUnspentKey(scriptType, addrHash, undo.txout.GetHash(), out.n),
+                                CAddressUnspentKey(addressType, addrHash, undo.txout.GetHash(), out.n),
                                 CAddressUnspentValue(undo.txout.nValue, undo.txout.scriptPubKey, undo.nHeight, 0)));
                         }
                     }
@@ -2956,18 +2959,20 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             for (unsigned int k = tx.GetVout().size(); k-- > 0;)
             {
                 const CTxOut &out = tx.GetVout()[k];
-
                 CScript::ScriptType scriptType = out.scriptPubKey.GetType();
+
                 if (scriptType != CScript::UNKNOWN)
                 {
-                    uint160 const addrHash = out.scriptPubKey.AddressHash();
+                    const uint160 addrHash = out.scriptPubKey.AddressHash();
+                    const unsigned int addressType = fromScriptTypeToAddressType(scriptType);
 
                     // undo receiving activity
-                    addressIndex.push_back(make_pair(CAddressIndexKey(scriptType, addrHash, pindex->nHeight, i, hash, k, false),
+                    addressIndex.push_back(make_pair(CAddressIndexKey(addressType, addrHash, pindex->nHeight, i, hash, k, false),
                                                      CAddressIndexValue()));
 
                     // undo unspent index
-                    addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(scriptType, addrHash, hash, k), CAddressUnspentValue()));
+                    addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(addressType, addrHash, hash, k),
+                                                            CAddressUnspentValue()));
                 }
             }
         }
@@ -3037,20 +3042,20 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                     if (fAddressIndex)
                     {
                         const CTxOut &prevout = view.GetOutputFor(tx.GetVin()[j]);
-
                         CScript::ScriptType scriptType = prevout.scriptPubKey.GetType();
 
                         if (scriptType != CScript::UNKNOWN)
                         {
-                            uint160 const addrHash = prevout.scriptPubKey.AddressHash();
+                            const uint160 addrHash = prevout.scriptPubKey.AddressHash();
+                            const unsigned int addressType = fromScriptTypeToAddressType(scriptType);
 
                             // undo spending activity
-                            addressIndex.push_back(make_pair(CAddressIndexKey(scriptType, addrHash, pindex->nHeight, i, hash, j, true),
+                            addressIndex.push_back(make_pair(CAddressIndexKey(addressType, addrHash, pindex->nHeight, i, hash, j, true),
                                                              CAddressIndexValue()));
 
                             // restore unspent index
                             addressUnspentIndex.push_back(make_pair(
-                                CAddressUnspentKey(scriptType, addrHash, input.prevout.hash, input.prevout.n),
+                                CAddressUnspentKey(addressType, addrHash, input.prevout.hash, input.prevout.n),
                                 CAddressUnspentValue(prevout.nValue, prevout.scriptPubKey, undo.nHeight, 0)));
                         }
                     }
@@ -3255,13 +3260,13 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         fExpensiveChecks &&
         fScRelatedChecks == flagScRelatedChecks::ON &&
         fScProofVerification == flagScProofVerification::ON &&
-        SidechainTxsCommitmentBuilder::getEmptyCommitment() != block.hashScTxsCommitment // no sc related tx/certs 
+        SidechainTxsCommitmentBuilder::getEmptyCommitment() != block.hashScTxsCommitment // no sc related tx/certs
     );
 
     // if necessary pause rust low priority threads in order to speed up times
     // Note: it works even if the same code was executed for the high priority proof verifier
     CZendooLowPrioThreadGuard lowPrioThreadGuard(pauseLowPrioZendooThread);
-     
+
     auto verifier = libzcash::ProofVerifier::Strict();
     auto disabledVerifier = libzcash::ProofVerifier::Disabled();
 
@@ -3365,7 +3370,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     // Set high priority to verify the proofs as soon as possible (pausing mempool verification operations if any.)
     CScProofVerifier scVerifier{scVerifierMode, CScProofVerifier::Priority::High};
     SidechainTxsCommitmentBuilder scCommitmentBuilder;
-     
+
     for (unsigned int txIdx = 0; txIdx < block.vtx.size(); ++txIdx) // Processing transactions loop
     {
         const CTransaction &tx = block.vtx[txIdx];
@@ -3407,22 +3412,22 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             {
                 for (size_t j = 0; j < tx.GetVin().size(); j++)
                 {
-
                     const CTxIn input = tx.GetVin()[j];
                     const CTxOut &prevout = view.GetOutputFor(tx.GetVin()[j]);
                     CScript::ScriptType scriptType = prevout.scriptPubKey.GetType();
                     const uint160 addrHash = prevout.scriptPubKey.AddressHash();
+                    const unsigned int addressType = fromScriptTypeToAddressType(scriptType);
 
                     if (fAddressIndex && scriptType != CScript::UNKNOWN)
                     {
                         // record spending activity
                         addressIndex.push_back(make_pair(
-                            CAddressIndexKey(scriptType, addrHash, pindex->nHeight, txIdx, tx.GetHash(), j, true),
+                            CAddressIndexKey(addressType, addrHash, pindex->nHeight, txIdx, tx.GetHash(), j, true),
                             CAddressIndexValue(prevout.nValue * -1, 0)));
 
                         // remove address from unspent index
                         addressUnspentIndex.push_back(make_pair(
-                            CAddressUnspentKey(scriptType, addrHash, input.prevout.hash, input.prevout.n),
+                            CAddressUnspentKey(addressType, addrHash, input.prevout.hash, input.prevout.n),
                             CAddressUnspentValue()));
                     }
 
@@ -3434,7 +3439,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                         // spentindex db, with a script type of 0 and addrhash of all zeroes.
                         spentIndex.push_back(make_pair(
                             CSpentIndexKey(input.prevout.hash, input.prevout.n),
-                            CSpentIndexValue(tx.GetHash(), j, pindex->nHeight, prevout.nValue, scriptType, addrHash)));
+                            CSpentIndexValue(tx.GetHash(), j, pindex->nHeight, prevout.nValue, addressType, addrHash)));
                     }
                 }
             }
@@ -3463,18 +3468,19 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             for (unsigned int k = 0; k < tx.GetVout().size(); k++)
             {
                 const CTxOut &out = tx.GetVout()[k];
-
                 CScript::ScriptType scriptType = out.scriptPubKey.GetType();
+
                 if (scriptType != CScript::UNKNOWN)
                 {
-                    uint160 const addrHash = out.scriptPubKey.AddressHash();
+                    const uint160 addrHash = out.scriptPubKey.AddressHash();
+                    const unsigned int addressType = fromScriptTypeToAddressType(scriptType);
 
                     // record receiving activity
-                    addressIndex.push_back(make_pair(CAddressIndexKey(scriptType, addrHash, pindex->nHeight, txIdx, tx.GetHash(), k, false),
+                    addressIndex.push_back(make_pair(CAddressIndexKey(addressType, addrHash, pindex->nHeight, txIdx, tx.GetHash(), k, false),
                                                      CAddressIndexValue(out.nValue, 0)));
 
                     // record unspent output
-                    addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(scriptType, addrHash, tx.GetHash(), k),
+                    addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(addressType, addrHash, tx.GetHash(), k),
                                                             CAddressUnspentValue(out.nValue, out.scriptPubKey, pindex->nHeight, 0)));
                 }
             }
@@ -3545,17 +3551,18 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 const CTxOut &prevout = view.GetOutputFor(cert.GetVin()[j]);
                 CScript::ScriptType scriptType = prevout.scriptPubKey.GetType();
                 const uint160 addrHash = prevout.scriptPubKey.AddressHash();
+                const unsigned int addressType = fromScriptTypeToAddressType(scriptType);
 
                 if (fAddressIndex && scriptType != CScript::UNKNOWN)
                 {
                     // record spending activity
                     addressIndex.push_back(make_pair(
-                        CAddressIndexKey(scriptType, addrHash, pindex->nHeight, certIdx, cert.GetHash(), j, true),
+                        CAddressIndexKey(addressType, addrHash, pindex->nHeight, certIdx, cert.GetHash(), j, true),
                         CAddressIndexValue(prevout.nValue * -1, 0)));
 
                     // remove address from unspent index
                     addressUnspentIndex.push_back(make_pair(
-                        CAddressUnspentKey(scriptType, addrHash, input.prevout.hash, input.prevout.n),
+                        CAddressUnspentKey(addressType, addrHash, input.prevout.hash, input.prevout.n),
                         CAddressUnspentValue()));
                 }
 
@@ -3567,7 +3574,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                     // spentindex db, with a script type of 0 and addrhash of all zeroes.
                     spentIndex.push_back(make_pair(
                         CSpentIndexKey(input.prevout.hash, input.prevout.n),
-                        CSpentIndexValue(cert.GetHash(), j, pindex->nHeight, prevout.nValue, scriptType, addrHash)));
+                        CSpentIndexValue(cert.GetHash(), j, pindex->nHeight, prevout.nValue, addressType, addrHash)));
                 }
             }
         }
@@ -3609,18 +3616,19 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             for (unsigned int k = 0; k < cert.nFirstBwtPos; k++)
             {
                 const CTxOut &out = cert.GetVout()[k];
-
                 CScript::ScriptType scriptType = out.scriptPubKey.GetType();
+
                 if (scriptType != CScript::UNKNOWN)
                 {
-                    uint160 const addrHash = out.scriptPubKey.AddressHash();
+                    const uint160 addrHash = out.scriptPubKey.AddressHash();
+                    const unsigned int addressType = fromScriptTypeToAddressType(scriptType);
 
                     // record receiving activity
-                    addressIndex.push_back(make_pair(CAddressIndexKey(scriptType, addrHash, pindex->nHeight, certIdx, cert.GetHash(), k, false),
+                    addressIndex.push_back(make_pair(CAddressIndexKey(addressType, addrHash, pindex->nHeight, certIdx, cert.GetHash(), k, false),
                                                      CAddressIndexValue(out.nValue, 0)));
 
                     // record unspent output
-                    addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(scriptType, addrHash, cert.GetHash(), k),
+                    addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(addressType, addrHash, cert.GetHash(), k),
                                                             CAddressUnspentValue(out.nValue, out.scriptPubKey, pindex->nHeight, 0)));
                 }
             }
@@ -3726,18 +3734,19 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             for (unsigned int k = cert.nFirstBwtPos; k < cert.GetVout().size(); k++)
             {
                 const CTxOut &out = cert.GetVout()[k];
-
                 CScript::ScriptType scriptType = out.scriptPubKey.GetType();
+
                 if (scriptType != CScript::UNKNOWN)
                 {
-                    uint160 const addrHash = out.scriptPubKey.AddressHash();
+                    const uint160 addrHash = out.scriptPubKey.AddressHash();
+                    const unsigned int addressType = fromScriptTypeToAddressType(scriptType);
 
                     // record receiving activity
-                    addressIndex.push_back(make_pair(CAddressIndexKey(scriptType, addrHash, pindex->nHeight, certIdx, cert.GetHash(), k, false),
+                    addressIndex.push_back(make_pair(CAddressIndexKey(addressType, addrHash, pindex->nHeight, certIdx, cert.GetHash(), k, false),
                                                      CAddressIndexValue(out.nValue, certMaturityHeight)));
 
                     // record unspent output
-                    addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(scriptType, addrHash, cert.GetHash(), k),
+                    addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(addressType, addrHash, cert.GetHash(), k),
                                                             CAddressUnspentValue(out.nValue, out.scriptPubKey, pindex->nHeight, certMaturityHeight)));
                 }
             }
@@ -3761,7 +3770,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             //Remove the certificates from the MaturityHeight DB related to the ceased sidechains
             view.HandleMaturityHeightIndexSidechainEvents(pindex->nHeight, pblocktree, maturityHeightValues);
         }
-        if (fTxIndex) 
+        if (fTxIndex)
         {
             view.HandleTxIndexSidechainEvents(pindex->nHeight, pblocktree, vTxIndexValues);
         }
@@ -3839,7 +3848,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
         int64_t deltaBatchVerifyTime = GetTimeMicros() - nBatchVerifyStartTime;
         LogPrint("bench", "    - scBatchVerify: %.2fms\n", deltaBatchVerifyTime * 0.001);
-    } 
+    }
 
     int64_t nTime2b = GetTimeMicros();
 
@@ -4855,7 +4864,7 @@ bool FindBlockPos(CValidationState &state, CDiskBlockPos &pos, unsigned int nAdd
             nFile++;
             vinfoBlockFile.resize(nFile + 1);
         }
-        
+
         pos.nFile = nFile;
         pos.nPos = vinfoBlockFile[nFile].nSize;
     }
@@ -4980,7 +4989,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state,
     // because we receive the wrong transactions for it.
 
     // Size limits
-    // - From the sidechains fork point on, the block size has been increased 
+    // - From the sidechains fork point on, the block size has been increased
     unsigned int block_size_limit = MAX_BLOCK_SIZE;
     if (block.nVersion != BLOCK_VERSION_SC_SUPPORT)
         block_size_limit = MAX_BLOCK_SIZE_BEFORE_SC;
@@ -4989,7 +4998,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state,
     size_t totTxSize = 0;
     size_t totCertSize = 0;
     size_t blockSize = block.GetSerializeComponentsSize(headerSize, totTxSize, totCertSize);
- 
+
     if (block.vtx.empty() || blockSize > block_size_limit)
         return state.DoS(100, error("CheckBlock(): size limits failed"),
                          CValidationState::Code::INVALID, "bad-blk-length");
@@ -5680,7 +5689,7 @@ bool static LoadBlockIndexDB()
 
     // Check whether we have a maturityHeight index
     pblocktree->ReadFlag("maturityheightindex", fMaturityHeightIndex);
-    LogPrintf("%s: maturityHeight index %s\n", __func__, fMaturityHeightIndex ? "enabled" : "disabled");  
+    LogPrintf("%s: maturityHeight index %s\n", __func__, fMaturityHeightIndex ? "enabled" : "disabled");
 
 #ifdef ENABLE_ADDRESS_INDEXING
     // Check whether we have an address index
@@ -5892,7 +5901,7 @@ bool InitBlockIndex() {
 
     // set the flag upon db initialization
     std::string indexVersionStr = CURRENT_INDEX_VERSION_STR;
-    pblocktree->WriteString("indexVersion", indexVersionStr); 
+    pblocktree->WriteString("indexVersion", indexVersionStr);
 
     // Use the provided setting for -txindex in the new database
     fTxIndex = GetBoolArg("-txindex", false);
@@ -6793,7 +6802,7 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
     if (!AlreadyHave(inv))
     {
         BatchVerificationStateFlag flag = BatchVerificationStateFlag::NOT_VERIFIED_YET;
-        
+
         // CODE USED FOR UNIT TEST ONLY [Start]
         if (BOOST_UNLIKELY(Params().NetworkIDString() == "regtest" && GetBoolArg("-skipscproof", false)))
         {
@@ -6807,7 +6816,7 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
     {
         assert(recentRejects);
         recentRejects->insert(txBase.GetHash());
- 
+
         if (pfrom->fWhitelisted)
         {
             // Always relay transactions received from whitelisted peers, even
@@ -6830,7 +6839,7 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
             }
         }
     }
-   
+
     if (state.IsInvalid())
     {
         RejectMemoryPoolTxBase(state, txBase, pfrom);
@@ -7243,7 +7252,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 if (pindex)
                     pindex = chainActive.Next(pindex);
             }
- 
+
             // we cannot use CBlockHeaders since it won't include the 0x00 nTx count at the end
             // we cannot use CBlock, since we added Certificates and its serialization is not backward compatible
             // We must use CBlockHeaderForNetwork, and ad-hoc class for this task
@@ -7466,7 +7475,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             }
 
             bool lookForwardTips = (++cnt == MAX_HEADERS_RESULTS);
-             
+
             if (!AcceptBlockHeader(header, state, &pindexLast, lookForwardTips))
             {
                 if (state.IsInvalid())
@@ -8730,4 +8739,3 @@ bool getRequireStandard()
     static int retVal( getInitRequireStandard() );
     return retVal;
 }
-
