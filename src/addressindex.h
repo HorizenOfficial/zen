@@ -10,6 +10,12 @@
 #include "amount.h"
 #include "script/script.h"
 
+enum AddressType : int {
+    UNKNOWN = 0,
+    PUBKEY = 1,
+    SCRIPT = 2
+};
+
 struct CAddressUnspentKey {
     unsigned int type;
     uint160 hashBytes;
@@ -366,5 +372,15 @@ struct CMempoolAddressDeltaKeyCompare
         }
     }
 };
+
+inline AddressType fromScriptTypeToAddressType(CScript::ScriptType scriptType)
+{
+    AddressType addressType = AddressType::UNKNOWN;
+    if (scriptType == CScript::P2PKH || scriptType == CScript::P2PK)
+        addressType = AddressType::PUBKEY;
+    else if (scriptType == CScript::P2SH)
+        addressType = AddressType::SCRIPT;
+    return addressType;
+}
 
 #endif // BITCOIN_ADDRESSINDEX_H

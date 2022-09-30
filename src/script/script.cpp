@@ -7,6 +7,7 @@
 
 #include "tinyformat.h"
 #include "utilstrencodings.h"
+#include "hash.h"
 
 namespace {
 inline std::string ValueString(const std::vector<unsigned char>& vch)
@@ -262,6 +263,21 @@ bool CScript::IsPayToScriptHash() const
     return p2sh || p2shWithReplay;
 }
 
+bool CScript::IsPayToPublicKey() const
+{
+    // Extra-fast test for pay-to-pubkey CScripts:
+
+    // Check if this script is P2PK without OP_CHECKBLOCKATHEIGHT
+    bool p2pk = (this->size() == 35 &&
+               (*this)[0] == 0x21 &&
+               (*this)[34] == OP_CHECKSIG);
+
+     // Check if this script is P2PKH with OP_CHECKBLOCKATHEIGHT
+    bool p2pkWithReplay = false; //TODO: check format
+
+    return p2pk || p2pkWithReplay;
+}
+
 bool CScript::IsPushOnly() const
 {
     const_iterator pc = begin();
@@ -309,6 +325,8 @@ CScript::ScriptType CScript::GetType() const
         return CScript::P2PKH;
     if (this->IsPayToScriptHash())
         return CScript::P2SH;
+    if (this->IsPayToPublicKey())
+        return CScript::P2PK;
     // We don't know this script type
     return CScript::UNKNOWN;
 }
@@ -316,17 +334,37 @@ CScript::ScriptType CScript::GetType() const
 uint160 CScript::AddressHash() const
 {
     // where the address bytes begin depends on the script type
-    int start;
+    int start, size;
+    bool toBeHashed = false;
     if (this->IsPayToPublicKeyHash())
+    {
         start = 3;
+        size = 20;
+    }
     else if (this->IsPayToScriptHash())
+    {
         start = 2;
+        size = 20;
+    }
+    else if (this->IsPayToPublicKey())
+    {
+        start = 1;
+        size = 33;
+        toBeHashed = true; //the public key is not already hashed and need to be
+    }
     else {
         // unknown script type; return zeros (this can happen)
         vector<unsigned char> hashBytes;
         hashBytes.resize(20, 0);
         return uint160(hashBytes);
     }
-    vector<unsigned char> hashBytes(this->begin() + start, this->begin() + start + 20);
+    
+    vector<unsigned char> hashBytes(this->begin() + start, this->begin() + start + size);
+
+    if (toBeHashed)
+    {
+        return Hash160(hashBytes);
+    }
+
     return uint160(hashBytes);
 }
