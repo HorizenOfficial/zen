@@ -1,11 +1,13 @@
 #ifndef BENCHMARKS_H
 #define BENCHMARKS_H
 
-#include <stdlib.h>
-
+#include <cstdlib>
 #include <vector>
 
 #include <sys/time.h>
+
+#include "amount.h"
+#include "primitives/transaction.h"
 
 extern double benchmark_sleep();
 extern double benchmark_parameter_loading();
