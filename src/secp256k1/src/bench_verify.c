@@ -7,9 +7,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "bench.h"
 #include "include/secp256k1.h"
 #include "util.h"
+#include "bench.h"
 
 #ifdef ENABLE_OPENSSL_TESTS
 #include <openssl/bn.h>
@@ -18,7 +18,7 @@
 #endif
 
 typedef struct {
-    secp256k1_context* ctx;
+    secp256k1_context *ctx;
     unsigned char msg[32];
     unsigned char key[32];
     unsigned char sig[72];
@@ -59,8 +59,8 @@ static void benchmark_verify_openssl(void* arg) {
         data->sig[data->siglen - 2] ^= ((i >> 8) & 0xFF);
         data->sig[data->siglen - 3] ^= ((i >> 16) & 0xFF);
         {
-            EC_KEY* pkey = EC_KEY_new();
-            const unsigned char* pubkey = &data->pubkey[0];
+            EC_KEY *pkey = EC_KEY_new();
+            const unsigned char *pubkey = &data->pubkey[0];
             int result;
 
             CHECK(pkey != NULL);

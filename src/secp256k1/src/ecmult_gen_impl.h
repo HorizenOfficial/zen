@@ -7,16 +7,18 @@
 #ifndef SECP256K1_ECMULT_GEN_IMPL_H
 #define SECP256K1_ECMULT_GEN_IMPL_H
 
-#include "ecmult_gen.h"
-#include "group.h"
-#include "hash_impl.h"
 #include "scalar.h"
+#include "group.h"
+#include "ecmult_gen.h"
+#include "hash_impl.h"
 #ifdef USE_ECMULT_STATIC_PRECOMPUTATION
 #include "ecmult_static_context.h"
 #endif
-static void secp256k1_ecmult_gen_context_init(secp256k1_ecmult_gen_context* ctx) { ctx->prec = NULL; }
+static void secp256k1_ecmult_gen_context_init(secp256k1_ecmult_gen_context *ctx) {
+    ctx->prec = NULL;
+}
 
-static void secp256k1_ecmult_gen_context_build(secp256k1_ecmult_gen_context* ctx, const secp256k1_callback* cb) {
+static void secp256k1_ecmult_gen_context_build(secp256k1_ecmult_gen_context *ctx, const secp256k1_callback* cb) {
 #ifndef USE_ECMULT_STATIC_PRECOMPUTATION
     secp256k1_ge prec[1024];
     secp256k1_gej gj;
@@ -28,7 +30,7 @@ static void secp256k1_ecmult_gen_context_build(secp256k1_ecmult_gen_context* ctx
         return;
     }
 #ifndef USE_ECMULT_STATIC_PRECOMPUTATION
-    ctx->prec = (secp256k1_ge_storage(*)[64][16])checked_malloc(cb, sizeof(*ctx->prec));
+    ctx->prec = (secp256k1_ge_storage (*)[64][16])checked_malloc(cb, sizeof(*ctx->prec));
 
     /* get the generator */
     secp256k1_gej_set_ge(&gj, &secp256k1_ge_const_g);
@@ -55,13 +57,13 @@ static void secp256k1_ecmult_gen_context_build(secp256k1_ecmult_gen_context* ctx
         secp256k1_gej precj[1024]; /* Jacobian versions of prec. */
         secp256k1_gej gbase;
         secp256k1_gej numsbase;
-        gbase = gj;          /* 16^j * G */
+        gbase = gj; /* 16^j * G */
         numsbase = nums_gej; /* 2^j * nums. */
         for (j = 0; j < 64; j++) {
             /* Set precj[j*16 .. j*16+15] to (numsbase, numsbase + gbase, ..., numsbase + 15*gbase). */
-            precj[j * 16] = numsbase;
+            precj[j*16] = numsbase;
             for (i = 1; i < 16; i++) {
-                secp256k1_gej_add_var(&precj[j * 16 + i], &precj[j * 16 + i - 1], &gbase, NULL);
+                secp256k1_gej_add_var(&precj[j*16 + i], &precj[j*16 + i - 1], &gbase, NULL);
             }
             /* Multiply gbase by 16. */
             for (i = 0; i < 4; i++) {
@@ -79,25 +81,27 @@ static void secp256k1_ecmult_gen_context_build(secp256k1_ecmult_gen_context* ctx
     }
     for (j = 0; j < 64; j++) {
         for (i = 0; i < 16; i++) {
-            secp256k1_ge_to_storage(&(*ctx->prec)[j][i], &prec[j * 16 + i]);
+            secp256k1_ge_to_storage(&(*ctx->prec)[j][i], &prec[j*16 + i]);
         }
     }
 #else
     (void)cb;
-    ctx->prec = (secp256k1_ge_storage(*)[64][16])secp256k1_ecmult_static_context;
+    ctx->prec = (secp256k1_ge_storage (*)[64][16])secp256k1_ecmult_static_context;
 #endif
     secp256k1_ecmult_gen_blind(ctx, NULL);
 }
 
-static int secp256k1_ecmult_gen_context_is_built(const secp256k1_ecmult_gen_context* ctx) { return ctx->prec != NULL; }
+static int secp256k1_ecmult_gen_context_is_built(const secp256k1_ecmult_gen_context* ctx) {
+    return ctx->prec != NULL;
+}
 
-static void secp256k1_ecmult_gen_context_clone(secp256k1_ecmult_gen_context* dst, const secp256k1_ecmult_gen_context* src,
-                                               const secp256k1_callback* cb) {
+static void secp256k1_ecmult_gen_context_clone(secp256k1_ecmult_gen_context *dst,
+                                               const secp256k1_ecmult_gen_context *src, const secp256k1_callback* cb) {
     if (src->prec == NULL) {
         dst->prec = NULL;
     } else {
 #ifndef USE_ECMULT_STATIC_PRECOMPUTATION
-        dst->prec = (secp256k1_ge_storage(*)[64][16])checked_malloc(cb, sizeof(*dst->prec));
+        dst->prec = (secp256k1_ge_storage (*)[64][16])checked_malloc(cb, sizeof(*dst->prec));
         memcpy(dst->prec, src->prec, sizeof(*dst->prec));
 #else
         (void)cb;
@@ -108,7 +112,7 @@ static void secp256k1_ecmult_gen_context_clone(secp256k1_ecmult_gen_context* dst
     }
 }
 
-static void secp256k1_ecmult_gen_context_clear(secp256k1_ecmult_gen_context* ctx) {
+static void secp256k1_ecmult_gen_context_clear(secp256k1_ecmult_gen_context *ctx) {
 #ifndef USE_ECMULT_STATIC_PRECOMPUTATION
     free(ctx->prec);
 #endif
@@ -117,7 +121,7 @@ static void secp256k1_ecmult_gen_context_clear(secp256k1_ecmult_gen_context* ctx
     ctx->prec = NULL;
 }
 
-static void secp256k1_ecmult_gen(const secp256k1_ecmult_gen_context* ctx, secp256k1_gej* r, const secp256k1_scalar* gn) {
+static void secp256k1_ecmult_gen(const secp256k1_ecmult_gen_context *ctx, secp256k1_gej *r, const secp256k1_scalar *gn) {
     secp256k1_ge add;
     secp256k1_ge_storage adds;
     secp256k1_scalar gnb;
@@ -152,7 +156,7 @@ static void secp256k1_ecmult_gen(const secp256k1_ecmult_gen_context* ctx, secp25
 }
 
 /* Setup blinding values for secp256k1_ecmult_gen. */
-static void secp256k1_ecmult_gen_blind(secp256k1_ecmult_gen_context* ctx, const unsigned char* seed32) {
+static void secp256k1_ecmult_gen_blind(secp256k1_ecmult_gen_context *ctx, const unsigned char *seed32) {
     secp256k1_scalar b;
     secp256k1_gej gb;
     secp256k1_fe s;

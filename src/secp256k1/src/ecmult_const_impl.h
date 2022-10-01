@@ -7,40 +7,40 @@
 #ifndef SECP256K1_ECMULT_CONST_IMPL_H
 #define SECP256K1_ECMULT_CONST_IMPL_H
 
+#include "scalar.h"
+#include "group.h"
 #include "ecmult_const.h"
 #include "ecmult_impl.h"
-#include "group.h"
-#include "scalar.h"
 
 #ifdef USE_ENDOMORPHISM
-#define WNAF_BITS 128
+    #define WNAF_BITS 128
 #else
-#define WNAF_BITS 256
+    #define WNAF_BITS 256
 #endif
-#define WNAF_SIZE(w) ((WNAF_BITS + (w)-1) / (w))
+#define WNAF_SIZE(w) ((WNAF_BITS + (w) - 1) / (w))
 
 /* This is like `ECMULT_TABLE_GET_GE` but is constant time */
-#define ECMULT_CONST_TABLE_GET_GE(r, pre, n, w)                             \
-    do {                                                                    \
-        int m;                                                              \
-        int abs_n = (n) * (((n) > 0) * 2 - 1);                              \
-        int idx_n = abs_n / 2;                                              \
-        secp256k1_fe neg_y;                                                 \
-        VERIFY_CHECK(((n)&1) == 1);                                         \
-        VERIFY_CHECK((n) >= -((1 << ((w)-1)) - 1));                         \
-        VERIFY_CHECK((n) <= ((1 << ((w)-1)) - 1));                          \
-        VERIFY_SETUP(secp256k1_fe_clear(&(r)->x));                          \
-        VERIFY_SETUP(secp256k1_fe_clear(&(r)->y));                          \
-        for (m = 0; m < ECMULT_TABLE_SIZE(w); m++) {                        \
-            /* This loop is used to avoid secret data in array indices. See \
-             * the comment in ecmult_gen_impl.h for rationale. */           \
-            secp256k1_fe_cmov(&(r)->x, &(pre)[m].x, m == idx_n);            \
-            secp256k1_fe_cmov(&(r)->y, &(pre)[m].y, m == idx_n);            \
-        }                                                                   \
-        (r)->infinity = 0;                                                  \
-        secp256k1_fe_negate(&neg_y, &(r)->y, 1);                            \
-        secp256k1_fe_cmov(&(r)->y, &neg_y, (n) != abs_n);                   \
-    } while (0)
+#define ECMULT_CONST_TABLE_GET_GE(r,pre,n,w) do { \
+    int m; \
+    int abs_n = (n) * (((n) > 0) * 2 - 1); \
+    int idx_n = abs_n / 2; \
+    secp256k1_fe neg_y; \
+    VERIFY_CHECK(((n) & 1) == 1); \
+    VERIFY_CHECK((n) >= -((1 << ((w)-1)) - 1)); \
+    VERIFY_CHECK((n) <=  ((1 << ((w)-1)) - 1)); \
+    VERIFY_SETUP(secp256k1_fe_clear(&(r)->x)); \
+    VERIFY_SETUP(secp256k1_fe_clear(&(r)->y)); \
+    for (m = 0; m < ECMULT_TABLE_SIZE(w); m++) { \
+        /* This loop is used to avoid secret data in array indices. See
+         * the comment in ecmult_gen_impl.h for rationale. */ \
+        secp256k1_fe_cmov(&(r)->x, &(pre)[m].x, m == idx_n); \
+        secp256k1_fe_cmov(&(r)->y, &(pre)[m].y, m == idx_n); \
+    } \
+    (r)->infinity = 0; \
+    secp256k1_fe_negate(&neg_y, &(r)->y, 1); \
+    secp256k1_fe_cmov(&(r)->y, &neg_y, (n) != abs_n); \
+} while(0)
+
 
 /** Convert a number to WNAF notation.
  *  The number becomes represented by sum(2^{wi} * wnaf[i], i=0..WNAF_SIZE(w)+1) - return_val.
@@ -55,7 +55,7 @@
  *
  *  Numbers reference steps of `Algorithm SPA-resistant Width-w NAF with Odd Scalar` on pp. 335
  */
-static int secp256k1_wnaf_const(int* wnaf, secp256k1_scalar s, int w) {
+static int secp256k1_wnaf_const(int *wnaf, secp256k1_scalar s, int w) {
     int global_sign;
     int skew = 0;
     int word = 0;
@@ -119,7 +119,8 @@ static int secp256k1_wnaf_const(int* wnaf, secp256k1_scalar s, int w) {
     return skew;
 }
 
-static void secp256k1_ecmult_const(secp256k1_gej* r, const secp256k1_ge* a, const secp256k1_scalar* scalar) {
+
+static void secp256k1_ecmult_const(secp256k1_gej *r, const secp256k1_ge *a, const secp256k1_scalar *scalar) {
     secp256k1_ge pre_a[ECMULT_TABLE_SIZE(WINDOW_A)];
     secp256k1_ge tmpa;
     secp256k1_fe Z;
@@ -140,10 +141,10 @@ static void secp256k1_ecmult_const(secp256k1_gej* r, const secp256k1_ge* a, cons
 #ifdef USE_ENDOMORPHISM
     /* split q into q_1 and q_lam (where q = q_1 + q_lam*lambda, and q_1 and q_lam are ~128 bit) */
     secp256k1_scalar_split_lambda(&q_1, &q_lam, &sc);
-    skew_1 = secp256k1_wnaf_const(wnaf_1, q_1, WINDOW_A - 1);
+    skew_1   = secp256k1_wnaf_const(wnaf_1,   q_1,   WINDOW_A - 1);
     skew_lam = secp256k1_wnaf_const(wnaf_lam, q_lam, WINDOW_A - 1);
 #else
-    skew_1 = secp256k1_wnaf_const(wnaf_1, sc, WINDOW_A - 1);
+    skew_1   = secp256k1_wnaf_const(wnaf_1, sc, WINDOW_A - 1);
 #endif
 
     /* Calculate odd multiples of a.
