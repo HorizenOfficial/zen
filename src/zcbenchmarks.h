@@ -3,6 +3,8 @@
 
 #include <stdlib.h>
 
+#include <vector>
+
 #include <sys/time.h>
 
 extern double benchmark_sleep();
