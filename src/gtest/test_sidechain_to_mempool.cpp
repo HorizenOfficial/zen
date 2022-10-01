@@ -45,7 +45,7 @@ class SidechainsInMempoolTestSuite : public ::testing::Test {
           pathTemp(boost::filesystem::temp_directory_path() / boost::filesystem::unique_path()),
           chainStateDbSize(2 * 1024 * 1024),
           pChainStateDb(nullptr),
-          minimalHeightForSidechains(SidechainFork().getHeight(CBaseChainParams::REGTEST)),
+          minimalHeightForSidechains(zen::SidechainFork().getHeight(CBaseChainParams::REGTEST)),
           csMainLock(cs_main, "cs_main", __FILE__, __LINE__),
           csAMempool(aMempool.cs, "cs_AMempool", __FILE__, __LINE__) {
         SelectParams(CBaseChainParams::REGTEST);
