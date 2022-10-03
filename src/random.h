@@ -6,8 +6,7 @@
 #ifndef BITCOIN_RANDOM_H
 #define BITCOIN_RANDOM_H
 
-#include <stdint.h>
-
+#include <cstdint>
 #include <functional>
 #include <limits>
 

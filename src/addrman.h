@@ -5,8 +5,7 @@
 #ifndef BITCOIN_ADDRMAN_H
 #define BITCOIN_ADDRMAN_H
 
-#include <stdint.h>
-
+#include <cstdint>
 #include <map>
 #include <set>
 #include <vector>

@@ -4,10 +4,11 @@
 
 #include "httpserver.h"
 
-#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+
+#include <csignal>
+#include <string>
 
 // clang-format off
 // Do not remove this ... protocol.h needs to be included before <event2/http.h>

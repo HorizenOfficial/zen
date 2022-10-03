@@ -5,9 +5,8 @@
 
 #include "alert.h"
 
-#include <stdint.h>
-
 #include <algorithm>
+#include <cstdint>
 #include <map>
 
 #include <boost/algorithm/string/classification.hpp>

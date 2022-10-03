@@ -4,7 +4,7 @@
 
 #include "checkpoints.h"
 
-#include <stdint.h>
+#include <cstdint>
 
 #include <boost/range/adaptor/reversed.hpp>
 

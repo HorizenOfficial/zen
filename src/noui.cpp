@@ -5,8 +5,7 @@
 
 #include "noui.h"
 
-#include <stdint.h>
-
+#include <cstdint>
 #include <cstdio>
 #include <string>
 

@@ -7,8 +7,8 @@
 #define BITCOIN_ARITH_UINT256_H
 
 #include <assert.h>
-#include <stdint.h>
 
+#include <cstdint>
 #include <cstring>
 #include <stdexcept>
 #include <string>

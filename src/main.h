@@ -15,9 +15,8 @@
 #include "timestampindex.h"
 #endif  // ENABLE_ADDRESS_INDEXING
 
-#include <stdint.h>
-
 #include <algorithm>
+#include <cstdint>
 #include <exception>
 #include <map>
 #include <set>

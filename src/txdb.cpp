@@ -5,7 +5,7 @@
 
 #include "txdb.h"
 
-#include <stdint.h>
+#include <cstdint>
 
 #include <boost/thread.hpp>
 #include <sc/sidechaintypes.h>

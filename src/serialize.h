@@ -7,10 +7,9 @@
 #define BITCOIN_SERIALIZE_H
 
 #include <assert.h>
-#include <stdint.h>
-#include <string.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <ios>
 #include <limits>
 #include <list>

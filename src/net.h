@@ -6,8 +6,7 @@
 #ifndef BITCOIN_NET_H
 #define BITCOIN_NET_H
 
-#include <stdint.h>
-
+#include <cstdint>
 #include <deque>
 
 #include "bloom.h"

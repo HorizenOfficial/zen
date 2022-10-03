@@ -5,9 +5,8 @@
 #include "base58.h"
 
 #include <assert.h>
-#include <stdint.h>
-#include <string.h>
 
+#include <cstdint>
 #include <string>
 #include <vector>
 

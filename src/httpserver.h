@@ -5,8 +5,7 @@
 #ifndef BITCOIN_HTTPSERVER_H
 #define BITCOIN_HTTPSERVER_H
 
-#include <stdint.h>
-
+#include <cstdint>
 #include <string>
 
 #include <boost/function.hpp>

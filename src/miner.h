@@ -6,7 +6,7 @@
 #ifndef BITCOIN_MINER_H
 #define BITCOIN_MINER_H
 
-#include <stdint.h>
+#include <cstdint>
 
 #include <boost/optional.hpp>
 #include <boost/tuple/tuple.hpp>

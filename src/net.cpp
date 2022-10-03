@@ -18,7 +18,7 @@
 #include "zen/utiltls.h"
 
 #ifdef WIN32
-#include <string.h>
+#include <string>
 #else
 #include <fcntl.h>
 #endif

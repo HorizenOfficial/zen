@@ -5,8 +5,7 @@
 #ifndef BITCOIN_TIMEDATA_H
 #define BITCOIN_TIMEDATA_H
 
-#include <stdint.h>
-
+#include <cstdint>
 #include <set>
 
 #include "netbase.h"

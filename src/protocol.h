@@ -10,8 +10,7 @@
 #ifndef BITCOIN_PROTOCOL_H
 #define BITCOIN_PROTOCOL_H
 
-#include <stdint.h>
-
+#include <cstdint>
 #include <string>
 
 #include "netbase.h"

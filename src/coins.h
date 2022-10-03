@@ -7,7 +7,8 @@
 #define BITCOIN_COINS_H
 
 #include <assert.h>
-#include <stdint.h>
+
+#include <cstdint>
 
 #include <boost/unordered_map.hpp>
 #include <consensus/validation.h>

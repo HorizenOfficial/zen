@@ -14,9 +14,8 @@
 #include "config/bitcoin-config.h"
 #endif
 
-#include <stdint.h>
-
 #include <atomic>
+#include <cstdint>
 #include <exception>
 #include <map>
 #include <string>

@@ -9,8 +9,7 @@
 #include "config/bitcoin-config.h"
 #endif
 
-#include <stdint.h>
-
+#include <cstdint>
 #include <string>
 #include <vector>
 

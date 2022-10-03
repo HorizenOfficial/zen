@@ -6,7 +6,8 @@
 #include "uint256.h"
 
 #include <stdio.h>
-#include <string.h>
+
+#include <string>
 
 #include "utilstrencodings.h"
 

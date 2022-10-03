@@ -5,7 +5,7 @@
 #ifndef BITCOIN_POW_H
 #define BITCOIN_POW_H
 
-#include <stdint.h>
+#include <cstdint>
 
 namespace Consensus {
 class Params;

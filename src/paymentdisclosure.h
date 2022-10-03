@@ -14,7 +14,7 @@
 // For JSOutPoint
 #include <array>
 #include <cstdint>
-#include <string>
+#include <cstring>
 
 #include "wallet/wallet.h"
 

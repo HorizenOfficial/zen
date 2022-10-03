@@ -6,17 +6,15 @@
 #ifndef BITCOIN_STREAMS_H
 #define BITCOIN_STREAMS_H
 
-#include <assert.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <string.h>
-
 #include <algorithm>
+#include <cassert>
+#include <cstdint>
+#include <cstring>
 #include <ios>
+#include <iostream>
 #include <limits>
 #include <map>
 #include <set>
-#include <string>
 #include <utility>
 #include <vector>
 
