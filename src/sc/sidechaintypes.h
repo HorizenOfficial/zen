@@ -2,10 +2,10 @@
 #define _SIDECHAIN_TYPES_H
 
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 
-#include <boost/optional.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/variant.hpp>
 #include <zendoo/zendoo_mc.h>
@@ -482,18 +482,18 @@ struct ScFixedParameters {
     int withdrawalEpochLength;
     // all creation data follows...
     std::vector<unsigned char> customData;
-    boost::optional<CFieldElement> constant;
+    std::optional<CFieldElement> constant;
     CScVKey wCertVk;
-    boost::optional<CScVKey> wCeasedVk;
+    std::optional<CScVKey> wCeasedVk;
     std::vector<FieldElementCertificateFieldConfig> vFieldElementCertificateFieldConfig;
     std::vector<BitVectorCertificateFieldConfig> vBitVectorCertificateFieldConfig;
     uint8_t mainchainBackwardTransferRequestDataLength; /**< The mandatory size of the field element included in MBTR
                                                            transaction outputs (0 to disable the MBTR). */
 
     bool IsNull() const {
-        return (version == 0xff && withdrawalEpochLength == -1 && customData.empty() && constant == boost::none &&
-                wCertVk.IsNull() && wCeasedVk == boost::none && vFieldElementCertificateFieldConfig.empty() &&
-                vBitVectorCertificateFieldConfig.empty() && mainchainBackwardTransferRequestDataLength == 0);
+        return (version == 0xff && withdrawalEpochLength == -1 && customData.empty() && !constant && wCertVk.IsNull() &&
+                !wCeasedVk && vFieldElementCertificateFieldConfig.empty() && vBitVectorCertificateFieldConfig.empty() &&
+                mainchainBackwardTransferRequestDataLength == 0);
     }
 
     ADD_SERIALIZE_METHODS;

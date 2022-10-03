@@ -6,6 +6,7 @@
 #ifndef BITCOIN_CHAIN_H
 #define BITCOIN_CHAIN_H
 
+#include <optional>
 #include <vector>
 
 #include "arith_uint256.h"
@@ -163,13 +164,13 @@ class CBlockIndex {
     uint256 hashAnchorEnd;
 
     //! Change in value held by the Sprout circuit over this block.
-    //! Will be boost::none for older blocks on old nodes until a reindex has taken place.
-    boost::optional<CAmount> nSproutValue;
+    //! Will be std::nullopt for older blocks on old nodes until a reindex has taken place.
+    std::optional<CAmount> nSproutValue;
 
     //! (memory only) Total value held by the Sprout circuit up to and including this block.
-    //! Will be boost::none for on old nodes until a reindex has taken place.
-    //! Will be boost::none if nChainTx is zero.
-    boost::optional<CAmount> nChainSproutValue;
+    //! Will be std::nullopt for on old nodes until a reindex has taken place.
+    //! Will be std::nullopt if nChainTx is zero.
+    std::optional<CAmount> nChainSproutValue;
 
     //! block header
     int nVersion;
@@ -202,8 +203,8 @@ class CBlockIndex {
         hashAnchor = uint256();
         hashAnchorEnd = uint256();
         nSequenceId = 0;
-        nSproutValue = boost::none;
-        nChainSproutValue = boost::none;
+        nSproutValue.reset();
+        nChainSproutValue.reset();
 
         nVersion = 0;
         hashMerkleRoot = uint256();

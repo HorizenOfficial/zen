@@ -1127,7 +1127,7 @@ TEST(CctpLibrary, CommitmentTreeBuilding) {
             }
 
             wrappedFieldPtr sptrConstant(nullptr);
-            if (ccout.constant.is_initialized()) {
+            if (ccout.constant.has_value()) {
                 sptrConstant = ccout.constant->GetFieldElement();
             }
             field_t* constant_fe = sptrConstant.get();
@@ -1135,7 +1135,7 @@ TEST(CctpLibrary, CommitmentTreeBuilding) {
             BufferWithSize bws_cert_vk(ccout.wCertVk.GetDataBuffer(), ccout.wCertVk.GetDataSize());
 
             BufferWithSize bws_csw_vk(nullptr, 0);
-            if (ccout.wCeasedVk.is_initialized()) {
+            if (ccout.wCeasedVk.has_value()) {
                 bws_csw_vk.data = ccout.wCeasedVk->GetDataBuffer();
                 bws_csw_vk.len = ccout.wCeasedVk->GetDataSize();
             }
@@ -1421,7 +1421,7 @@ TEST(CctpLibrary, CommitmentTreeBuilding_Negative) {
             }
 
             wrappedFieldPtr sptrConstant(nullptr);
-            if (ccout.constant.is_initialized()) {
+            if (ccout.constant.has_value()) {
                 sptrConstant = ccout.constant->GetFieldElement();
             }
             field_t* constant_fe = sptrConstant.get();
@@ -1429,7 +1429,7 @@ TEST(CctpLibrary, CommitmentTreeBuilding_Negative) {
             BufferWithSize bws_cert_vk(ccout.wCertVk.GetDataBuffer(), ccout.wCertVk.GetDataSize());
 
             std::unique_ptr<BufferWithSize> bws_csw_vk(nullptr);
-            if (ccout.wCeasedVk.is_initialized()) {
+            if (ccout.wCeasedVk.has_value()) {
                 bws_csw_vk.reset(new BufferWithSize(ccout.wCeasedVk->GetDataBuffer(), ccout.wCeasedVk->GetDataSize()));
             }
 

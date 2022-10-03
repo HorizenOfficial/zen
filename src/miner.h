@@ -7,8 +7,8 @@
 #define BITCOIN_MINER_H
 
 #include <cstdint>
+#include <optional>
 
-#include <boost/optional.hpp>
 #include <boost/tuple/tuple.hpp>
 
 #include "primitives/block.h"
@@ -75,10 +75,10 @@ void GetBlockCertPriorityData(const CCoinsViewCache& view, int nHeight, std::vec
 CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn);
 CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn, unsigned int nBlockMaxComplexitySize);
 #ifdef ENABLE_WALLET
-boost::optional<CScript> GetMinerScriptPubKey(CReserveKey& reservekey);
+std::optional<CScript> GetMinerScriptPubKey(CReserveKey& reservekey);
 CBlockTemplate* CreateNewBlockWithKey(CReserveKey& reservekey);
 #else
-boost::optional<CScript> GetMinerScriptPubKey();
+std::optional<CScript> GetMinerScriptPubKey();
 CBlockTemplate* CreateNewBlockWithKey();
 #endif
 

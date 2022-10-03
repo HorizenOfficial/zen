@@ -79,8 +79,8 @@ double GetDifficulty(const CBlockIndex* blockindex) { return GetDifficultyINTERN
 
 double GetNetworkDifficulty(const CBlockIndex* blockindex) { return GetDifficultyINTERNAL(blockindex, true); }
 
-static UniValue ValuePoolDesc(const std::string& name, const boost::optional<CAmount> chainValue,
-                              const boost::optional<CAmount> valueDelta) {
+static UniValue ValuePoolDesc(const std::string& name, const std::optional<CAmount> chainValue,
+                              const std::optional<CAmount> valueDelta) {
     UniValue rv(UniValue::VOBJ);
     rv.pushKV("id", name);
     rv.pushKV("monitored", (bool)chainValue);
@@ -1132,7 +1132,7 @@ UniValue getblockchaininfo(const UniValue& params, bool fHelp) {
 
     CBlockIndex* tip = chainActive.Tip();
     UniValue valuePools(UniValue::VARR);
-    valuePools.push_back(ValuePoolDesc("sprout", tip->nChainSproutValue, boost::none));
+    valuePools.push_back(ValuePoolDesc("sprout", tip->nChainSproutValue, std::nullopt));
     obj.pushKV("valuePools", valuePools);
 
     const Consensus::Params& consensusParams = Params().GetConsensus();
@@ -1464,15 +1464,15 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             sc.pushKV("wCertVk", info.fixedParams.wCertVk.GetHexRepr());
             sc.pushKV("customData", HexStr(info.fixedParams.customData));
 
-            if (info.fixedParams.constant.is_initialized())
+            if (info.fixedParams.constant.has_value())
                 sc.pushKV("constant", info.fixedParams.constant->GetHexRepr());
             else
                 sc.pushKV("constant", std::string{"NOT INITIALIZED"});
 
-            if (info.fixedParams.wCeasedVk.is_initialized()) {
+            if (info.fixedParams.wCeasedVk.has_value()) {
                 sc.pushKV("cswProvingSystem",
-                          Sidechain::ProvingSystemTypeToString(info.fixedParams.wCeasedVk.get().getProvingSystemType()));
-                sc.pushKV("wCeasedVk", info.fixedParams.wCeasedVk.get().GetHexRepr());
+                          Sidechain::ProvingSystemTypeToString(info.fixedParams.wCeasedVk->getProvingSystemType()));
+                sc.pushKV("wCeasedVk", info.fixedParams.wCeasedVk->GetHexRepr());
             } else
                 sc.pushKV("wCeasedVk", std::string{"NOT INITIALIZED"});
 
@@ -1560,15 +1560,15 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                 sc.pushKV("unconfWCertVk", info.fixedParams.wCertVk.GetHexRepr());
                 sc.pushKV("unconfCustomData", HexStr(info.fixedParams.customData));
 
-                if (info.fixedParams.constant.is_initialized())
+                if (info.fixedParams.constant.has_value())
                     sc.pushKV("unconfConstant", info.fixedParams.constant->GetHexRepr());
                 else
                     sc.pushKV("unconfConstant", std::string{"NOT INITIALIZED"});
 
-                if (info.fixedParams.wCeasedVk.is_initialized()) {
+                if (info.fixedParams.wCeasedVk.has_value()) {
                     sc.pushKV("unconfCswProvingSystem",
-                              Sidechain::ProvingSystemTypeToString(info.fixedParams.wCeasedVk.get().getProvingSystemType()));
-                    sc.pushKV("unconfWCeasedVk", info.fixedParams.wCeasedVk.get().GetHexRepr());
+                              Sidechain::ProvingSystemTypeToString(info.fixedParams.wCeasedVk->getProvingSystemType()));
+                    sc.pushKV("unconfWCeasedVk", info.fixedParams.wCeasedVk->GetHexRepr());
                 } else
                     sc.pushKV("unconfWCeasedVk", std::string{"NOT INITIALIZED"});
 

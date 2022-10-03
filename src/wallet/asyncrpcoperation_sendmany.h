@@ -44,7 +44,7 @@ struct AsyncJoinSplitInfo {
 
 // A struct to help us track the witness and anchor for a given JSOutPoint
 struct WitnessAnchorData {
-    boost::optional<ZCIncrementalWitness> witness;
+    std::optional<ZCIncrementalWitness> witness;
     uint256 anchor;
 };
 
@@ -112,7 +112,7 @@ class AsyncRPCOperation_sendmany : public AsyncRPCOperation {
     UniValue perform_joinsplit(AsyncJoinSplitInfo&, std::vector<JSOutPoint>&);
 
     // JoinSplit where you have the witnesses and anchor
-    UniValue perform_joinsplit(AsyncJoinSplitInfo& info, std::vector<boost::optional<ZCIncrementalWitness>> witnesses,
+    UniValue perform_joinsplit(AsyncJoinSplitInfo& info, std::vector<std::optional<ZCIncrementalWitness>> witnesses,
                                uint256 anchor);
 
     void sign_send_raw_transaction(UniValue obj);  // throws exception if there was an error
@@ -156,7 +156,7 @@ class TEST_FRIEND_AsyncRPCOperation_sendmany {
         return delegate->perform_joinsplit(info, v);
     }
 
-    UniValue perform_joinsplit(AsyncJoinSplitInfo& info, std::vector<boost::optional<ZCIncrementalWitness>> witnesses,
+    UniValue perform_joinsplit(AsyncJoinSplitInfo& info, std::vector<std::optional<ZCIncrementalWitness>> witnesses,
                                uint256 anchor) {
         return delegate->perform_joinsplit(info, witnesses, anchor);
     }

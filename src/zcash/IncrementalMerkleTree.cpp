@@ -126,17 +126,17 @@ void IncrementalMerkleTree<Depth, Hash>::append(Hash obj) {
         right = obj;
     } else {
         // Combine the leaves and propagate it up the tree
-        boost::optional<Hash> combined = Hash::combine(*left, *right, 0);
+        std::optional<Hash> combined = Hash::combine(*left, *right, 0);
 
         // Set the "left" leaf to the object and make the "right" leaf none
         left = obj;
-        right = boost::none;
+        right.reset();
 
         for (size_t i = 0; i < Depth; i++) {
             if (i < parents.size()) {
                 if (parents[i]) {
                     combined = Hash::combine(*parents[i], *combined, i + 1);
-                    parents[i] = boost::none;
+                    parents[i].reset();
                 } else {
                     parents[i] = *combined;
                     break;
@@ -162,7 +162,7 @@ bool IncrementalMerkleTree<Depth, Hash>::is_complete(size_t depth) const {
         return false;
     }
 
-    for (const boost::optional<Hash>& parent : parents) {
+    for (const std::optional<Hash>& parent : parents) {
         if (!parent) {
             return false;
         }
@@ -193,7 +193,7 @@ size_t IncrementalMerkleTree<Depth, Hash>::next_depth(size_t skip) const {
 
     size_t d = 1;
 
-    for (const boost::optional<Hash>& parent : parents) {
+    for (const std::optional<Hash>& parent : parents) {
         if (!parent) {
             if (skip) {
                 skip--;
@@ -220,7 +220,7 @@ Hash IncrementalMerkleTree<Depth, Hash>::root(size_t depth, std::deque<Hash> fil
 
     size_t d = 1;
 
-    for (const boost::optional<Hash>& parent : parents) {
+    for (const std::optional<Hash>& parent : parents) {
         if (parent) {
             root = Hash::combine(*parent, root, d);
         } else {
@@ -263,7 +263,7 @@ MerklePath IncrementalMerkleTree<Depth, Hash>::path(std::deque<Hash> filler_hash
 
     size_t d = 1;
 
-    for (const boost::optional<Hash>& parent : parents) {
+    for (const std::optional<Hash>& parent : parents) {
         if (parent) {
             index.push_back(true);
             path.push_back(*parent);
@@ -311,7 +311,7 @@ void IncrementalWitness<Depth, Hash>::append(Hash obj) {
 
         if (cursor->is_complete(cursor_depth)) {
             filled.push_back(cursor->root(cursor_depth));
-            cursor = boost::none;
+            cursor.reset();
         }
     } else {
         cursor_depth = tree.next_depth(filled.size());

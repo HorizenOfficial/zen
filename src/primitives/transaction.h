@@ -515,9 +515,9 @@ class CTxScCreationOut : public CTxCrosschainOut {
     uint8_t version;
     int withdrawalEpochLength;
     std::vector<unsigned char> customData;
-    boost::optional<CFieldElement> constant;
+    std::optional<CFieldElement> constant;
     CScVKey wCertVk;
-    boost::optional<CScVKey> wCeasedVk;
+    std::optional<CScVKey> wCeasedVk;
     std::vector<FieldElementCertificateFieldConfig> vFieldElementCertificateFieldConfig;
     std::vector<BitVectorCertificateFieldConfig> vBitVectorCertificateFieldConfig;
     CAmount forwardTransferScFee;

@@ -3,7 +3,7 @@
 
 #include <array>
 
-#include <boost/optional.hpp>
+#include <optional>
 
 #include "Address.hpp"
 #include "NoteEncryption.hpp"

@@ -922,7 +922,7 @@ UniValue sc_create(const UniValue& params, bool fHelp) {
             }
 
             fixedParams.wCeasedVk = CScVKey(wCeasedVkVec);
-            if (!fixedParams.wCeasedVk.get().IsValid()) {
+            if (!fixedParams.wCeasedVk->IsValid()) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wCeasedVk");
             }
         }
@@ -4018,7 +4018,7 @@ UniValue zc_raw_receive(const UniValue& params, bool fHelp) {
     Note decrypted_note = npt.note(payment_addr);
 
     assert(pwalletMain != NULL);
-    std::vector<boost::optional<ZCIncrementalWitness>> witnesses;
+    std::vector<std::optional<ZCIncrementalWitness>> witnesses;
     uint256 anchor;
     uint256 commitment = decrypted_note.cm();
     pwalletMain->WitnessNoteCommitment({commitment}, witnesses, anchor);
@@ -4106,7 +4106,7 @@ UniValue zc_raw_joinsplit(const UniValue& params, bool fHelp) {
     }
 
     uint256 anchor;
-    std::vector<boost::optional<ZCIncrementalWitness>> witnesses;
+    std::vector<std::optional<ZCIncrementalWitness>> witnesses;
     pwalletMain->WitnessNoteCommitment(commitments, witnesses, anchor);
 
     assert(witnesses.size() == notes.size());

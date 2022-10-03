@@ -14,13 +14,13 @@
 #include <limits>
 #include <list>
 #include <map>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include <boost/array.hpp>
-#include <boost/optional.hpp>
 
 #include "compat/endian.h"
 
@@ -608,11 +608,11 @@ void Unserialize(Stream& is, CScript& v, int nType, int nVersion);
  * optional
  */
 template <typename T>
-unsigned int GetSerializeSize(const boost::optional<T>& item, int nType, int nVersion);
+unsigned int GetSerializeSize(const std::optional<T>& item, int nType, int nVersion);
 template <typename Stream, typename T>
-void Serialize(Stream& os, const boost::optional<T>& item, int nType, int nVersion);
+void Serialize(Stream& os, const std::optional<T>& item, int nType, int nVersion);
 template <typename Stream, typename T>
-void Unserialize(Stream& is, boost::optional<T>& item, int nType, int nVersion);
+void Unserialize(Stream& is, std::optional<T>& item, int nType, int nVersion);
 
 /**
  * array
@@ -815,7 +815,7 @@ void Unserialize(Stream& is, CScript& v, int nType, int nVersion) {
  * optional
  */
 template <typename T>
-unsigned int GetSerializeSize(const boost::optional<T>& item, int nType, int nVersion) {
+unsigned int GetSerializeSize(const std::optional<T>& item, int nType, int nVersion) {
     if (item) {
         return 1 + GetSerializeSize(*item, nType, nVersion);
     } else {
@@ -824,7 +824,7 @@ unsigned int GetSerializeSize(const boost::optional<T>& item, int nType, int nVe
 }
 
 template <typename Stream, typename T>
-void Serialize(Stream& os, const boost::optional<T>& item, int nType, int nVersion) {
+void Serialize(Stream& os, const std::optional<T>& item, int nType, int nVersion) {
     // If the value is there, put 0x01 and then serialize the value.
     // If it's not, put 0x00.
     if (item) {
@@ -838,12 +838,12 @@ void Serialize(Stream& os, const boost::optional<T>& item, int nType, int nVersi
 }
 
 template <typename Stream, typename T>
-void Unserialize(Stream& is, boost::optional<T>& item, int nType, int nVersion) {
+void Unserialize(Stream& is, std::optional<T>& item, int nType, int nVersion) {
     unsigned char discriminant = 0x00;
     Unserialize(is, discriminant, nType, nVersion);
 
     if (discriminant == 0x00) {
-        item = boost::none;
+        item.reset();
     } else if (discriminant == 0x01) {
         T object;
         Unserialize(is, object, nType, nVersion);

@@ -543,7 +543,7 @@ TEST(wallet_tests, cached_witnesses_empty_chain) {
     wtx.SetNoteData(noteData);
 
     std::vector<JSOutPoint> notes{jsoutpt, jsoutpt2};
-    std::vector<boost::optional<ZCIncrementalWitness>> witnesses;
+    std::vector<std::optional<ZCIncrementalWitness>> witnesses;
     uint256 anchor;
 
     wallet.GetNoteWitnesses(notes, witnesses, anchor);
@@ -588,7 +588,7 @@ TEST(wallet_tests, cached_witnesses_chain_tip) {
 
         // Called to fetch anchor
         std::vector<JSOutPoint> notes{jsoutpt};
-        std::vector<boost::optional<ZCIncrementalWitness>> witnesses;
+        std::vector<std::optional<ZCIncrementalWitness>> witnesses;
         wallet.GetNoteWitnesses(notes, witnesses, anchor1);
     }
 
@@ -606,7 +606,7 @@ TEST(wallet_tests, cached_witnesses_chain_tip) {
         wallet.AddToWallet(wtx, true, NULL);
 
         std::vector<JSOutPoint> notes{jsoutpt};
-        std::vector<boost::optional<ZCIncrementalWitness>> witnesses;
+        std::vector<std::optional<ZCIncrementalWitness>> witnesses;
         uint256 anchor2;
 
         wallet.GetNoteWitnesses(notes, witnesses, anchor2);
@@ -645,7 +645,7 @@ TEST(wallet_tests, cached_witnesses_chain_tip) {
         // Incrementing with the same block again should not change the cache
         uint256 anchor5;
         wallet.IncrementNoteWitnesses(&index2, &block2, tree);
-        std::vector<boost::optional<ZCIncrementalWitness>> witnesses5;
+        std::vector<std::optional<ZCIncrementalWitness>> witnesses5;
         wallet.GetNoteWitnesses(notes, witnesses5, anchor5);
         EXPECT_EQ(witnesses, witnesses5);
         EXPECT_EQ(anchor4, anchor5);
@@ -677,7 +677,7 @@ TEST(wallet_tests, CachedWitnessesDecrementFirst) {
 
         // Called to fetch anchor
         std::vector<JSOutPoint> notes{jsoutpt};
-        std::vector<boost::optional<ZCIncrementalWitness>> witnesses;
+        std::vector<std::optional<ZCIncrementalWitness>> witnesses;
         wallet.GetNoteWitnesses(notes, witnesses, anchor2);
     }
 
@@ -695,7 +695,7 @@ TEST(wallet_tests, CachedWitnessesDecrementFirst) {
         wallet.AddToWallet(wtx, true, NULL);
 
         std::vector<JSOutPoint> notes{jsoutpt};
-        std::vector<boost::optional<ZCIncrementalWitness>> witnesses;
+        std::vector<std::optional<ZCIncrementalWitness>> witnesses;
         uint256 anchor3;
 
         wallet.GetNoteWitnesses(notes, witnesses, anchor3);
@@ -729,7 +729,7 @@ TEST(wallet_tests, CachedWitnessesCleanIndex) {
     std::vector<uint256> anchors;
     ZCIncrementalMerkleTree tree;
     ZCIncrementalMerkleTree riTree = tree;
-    std::vector<boost::optional<ZCIncrementalWitness>> witnesses;
+    std::vector<std::optional<ZCIncrementalWitness>> witnesses;
 
     auto sk = libzcash::SpendingKey::random();
     wallet.AddSpendingKey(sk);
@@ -824,7 +824,7 @@ TEST(wallet_tests, ClearNoteWitnessCache) {
     wallet.AddToWallet(wtx, true, NULL);
 
     std::vector<JSOutPoint> notes{jsoutpt, jsoutpt2};
-    std::vector<boost::optional<ZCIncrementalWitness>> witnesses;
+    std::vector<std::optional<ZCIncrementalWitness>> witnesses;
     uint256 anchor2;
 
     // Before clearing, we should have a witness for one note

@@ -4,7 +4,7 @@
 #include <memory>
 
 #include <boost/format.hpp>
-#include <boost/optional.hpp>
+#include <optional>
 #include <libsnark/common/default_types/r1cs_ppzksnark_pp.hpp>
 #include <libsnark/gadgetlib1/gadgets/hashes/sha256/sha256_gadget.hpp>
 #include <libsnark/gadgetlib1/gadgets/merkle_tree/merkle_tree_check_read_gadget.hpp>

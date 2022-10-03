@@ -255,7 +255,7 @@ void TestMaxWeight(int maxWeight, std::map<int, int> expectedInputTx) {
     TestReserveKey reserveKey;
     boost::chrono::steady_clock::time_point startTime = boost::chrono::steady_clock::now();
 
-    boost::optional<CScript> scriptPubKey = GetMinerScriptPubKey(reserveKey);
+    std::optional<CScript> scriptPubKey = GetMinerScriptPubKey(reserveKey);
 
     CBlockTemplate* pblocktemplate = CreateNewBlock(*scriptPubKey, maxWeight);
     boost::chrono::steady_clock::time_point endTime = boost::chrono::steady_clock::now();

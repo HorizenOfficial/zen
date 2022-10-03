@@ -1408,15 +1408,14 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
             return CValidationState::Code::INVALID;
         }
 
-        if (!sidechain.fixedParams.wCeasedVk.is_initialized()) {
+        if (!sidechain.fixedParams.wCeasedVk.has_value()) {
             LogPrintf("%s():%d - ERROR: Tx[%s] CSW input [%s]\n refers to SC without CSW support\n", __func__, __LINE__,
                       tx.GetHash().ToString(), csw.ToString());
             if (banSenderNode) *banSenderNode = true;
             return CValidationState::Code::INVALID;
         }
 
-        size_t proof_plus_vk_size =
-            sidechain.fixedParams.wCeasedVk.get().GetByteArray().size() + csw.scProof.GetByteArray().size();
+        size_t proof_plus_vk_size = sidechain.fixedParams.wCeasedVk->GetByteArray().size() + csw.scProof.GetByteArray().size();
         if (proof_plus_vk_size > Sidechain::MAX_PROOF_PLUS_VK_SIZE) {
             LogPrintf("%s():%d - ERROR: Tx[%s] CSW input [%s]\n proof plus vk size (%d) exceeded the limit %d\n", __func__,
                       __LINE__, tx.GetHash().ToString(), csw.ToString(), proof_plus_vk_size, Sidechain::MAX_PROOF_PLUS_VK_SIZE);

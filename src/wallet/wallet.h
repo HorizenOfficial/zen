@@ -206,7 +206,7 @@ class CNoteData {
      * transactions they are spent in. This is the same security semantics as
      * for transparent addresses.
      */
-    boost::optional<uint256> nullifier;
+    std::optional<uint256> nullifier;
 
     /**
      * Cached incremental witnesses for spendable Notes.
@@ -1016,7 +1016,7 @@ class CWallet : public CCryptoKeyStore, public CValidationInterface {
     bool ReadSidechain(const uint256& scId, CScCertificateStatusUpdateInfo& sidechain);
     bool AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock* pblock, int bwtMaturityDepth, bool fUpdate);
     void EraseFromWallet(const uint256& hash) override;
-    void WitnessNoteCommitment(std::vector<uint256> commitments, std::vector<boost::optional<ZCIncrementalWitness>>& witnesses,
+    void WitnessNoteCommitment(std::vector<uint256> commitments, std::vector<std::optional<ZCIncrementalWitness>>& witnesses,
                                uint256& final_anchor);
     int ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate);
     void ReacceptWalletTransactions();
@@ -1068,11 +1068,11 @@ class CWallet : public CCryptoKeyStore, public CValidationInterface {
 
     std::set<CTxDestination> GetAccountAddresses(const std::string& strAccount) const;
 
-    boost::optional<uint256> GetNoteNullifier(const JSDescription& jsdesc, const libzcash::PaymentAddress& address,
+    std::optional<uint256> GetNoteNullifier(const JSDescription& jsdesc, const libzcash::PaymentAddress& address,
                                               const ZCNoteDecryption& dec, const uint256& hSig, uint8_t n) const;
     mapNoteData_t FindMyNotes(const CTransactionBase& tx) const;
     bool IsFromMe(const uint256& nullifier) const;
-    void GetNoteWitnesses(std::vector<JSOutPoint> notes, std::vector<boost::optional<ZCIncrementalWitness>>& witnesses,
+    void GetNoteWitnesses(std::vector<JSOutPoint> notes, std::vector<std::optional<ZCIncrementalWitness>>& witnesses,
                           uint256& final_anchor);
 
     isminetype IsMine(const CTxIn& txin) const;

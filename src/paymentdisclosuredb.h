@@ -11,7 +11,6 @@
 #include <mutex>
 #include <string>
 
-#include <boost/optional.hpp>
 #include <leveldb/db.h>
 
 #include "paymentdisclosure.h"

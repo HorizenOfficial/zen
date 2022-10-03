@@ -1210,9 +1210,9 @@ void CWallet::EraseFromWallet(const uint256& hash) {
  * Returns a nullifier if the SpendingKey is available
  * Throws std::runtime_error if the decryptor doesn't match this note
  */
-boost::optional<uint256> CWallet::GetNoteNullifier(const JSDescription& jsdesc, const libzcash::PaymentAddress& address,
+std::optional<uint256> CWallet::GetNoteNullifier(const JSDescription& jsdesc, const libzcash::PaymentAddress& address,
                                                    const ZCNoteDecryption& dec, const uint256& hSig, uint8_t n) const {
-    boost::optional<uint256> ret;
+    std::optional<uint256> ret;
     auto note_pt = libzcash::NotePlaintext::decrypt(dec, jsdesc.ciphertexts[n], jsdesc.ephemeralKey, hSig, (unsigned char)n);
     auto note = note_pt.note(address);
 
@@ -1283,12 +1283,12 @@ bool CWallet::IsFromMe(const uint256& nullifier) const {
     return false;
 }
 
-void CWallet::GetNoteWitnesses(std::vector<JSOutPoint> notes, std::vector<boost::optional<ZCIncrementalWitness>>& witnesses,
+void CWallet::GetNoteWitnesses(std::vector<JSOutPoint> notes, std::vector<std::optional<ZCIncrementalWitness>>& witnesses,
                                uint256& final_anchor) {
     {
         LOCK(cs_wallet);
         witnesses.resize(notes.size());
-        boost::optional<uint256> rt;
+        std::optional<uint256> rt;
         int i = 0;
         for (JSOutPoint note : notes) {
             if (mapWallet.count(note.hash) && mapWallet[note.hash]->mapNoteData.count(note) &&
@@ -1684,7 +1684,7 @@ bool CWalletTransactionBase::WriteToDisk(CWalletDB* pwalletdb) {
 }
 
 void CWallet::WitnessNoteCommitment(std::vector<uint256> commitments,
-                                    std::vector<boost::optional<ZCIncrementalWitness>>& witnesses, uint256& final_anchor) {
+                                    std::vector<std::optional<ZCIncrementalWitness>>& witnesses, uint256& final_anchor) {
     witnesses.resize(commitments.size());
     CBlockIndex* pindex = chainActive.Genesis();
     ZCIncrementalMerkleTree tree;
@@ -1698,7 +1698,7 @@ void CWallet::WitnessNoteCommitment(std::vector<uint256> commitments,
                 for (const uint256& note_commitment : jsdesc.commitments) {
                     tree.append(note_commitment);
 
-                    for (boost::optional<ZCIncrementalWitness>& wit : witnesses) {
+                    for (std::optional<ZCIncrementalWitness>& wit : witnesses) {
                         if (wit) {
                             wit->append(note_commitment);
                         }
@@ -1728,7 +1728,7 @@ void CWallet::WitnessNoteCommitment(std::vector<uint256> commitments,
     // TODO: #93; Select a root via some heuristic.
     final_anchor = tree.root();
 
-    for (boost::optional<ZCIncrementalWitness>& wit : witnesses) {
+    for (std::optional<ZCIncrementalWitness>& wit : witnesses) {
         if (wit) {
             assert(final_anchor == wit->root());
         }

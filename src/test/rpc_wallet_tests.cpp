@@ -1222,7 +1222,7 @@ BOOST_AUTO_TEST_CASE(rpc_z_sendmany_internals) {
         static_cast<AsyncRPCOperation_sendmany*>(operation.get())->testmode = true;
 
         AsyncJoinSplitInfo info;
-        std::vector<boost::optional<ZCIncrementalWitness>> witnesses;
+        std::vector<std::optional<ZCIncrementalWitness>> witnesses;
         uint256 anchor;
         try {
             proxy.perform_joinsplit(info, witnesses, anchor);
