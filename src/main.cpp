@@ -2872,18 +2872,19 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 for (unsigned int k = cert.GetVout().size(); k-- > 0;)
                 {
                     const CTxOut &out = cert.GetVout()[k];
-
                     CScript::ScriptType scriptType = out.scriptPubKey.GetType();
+
                     if (scriptType != CScript::UNKNOWN)
                     {
-                        uint160 const addrHash = out.scriptPubKey.AddressHash();
+                        const uint160 addrHash = out.scriptPubKey.AddressHash();
+                        const unsigned int addressType = fromScriptTypeToAddressType(scriptType);
 
                         // undo receiving activity
-                        addressIndex.push_back(make_pair(CAddressIndexKey(scriptType, addrHash, pindex->nHeight, i, hash, k, false),
+                        addressIndex.push_back(make_pair(CAddressIndexKey(addressType, addrHash, pindex->nHeight, i, hash, k, false),
                                                          CAddressIndexValue()));
 
                         // undo unspent index
-                        addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(scriptType, addrHash, hash, k), CAddressUnspentValue()));
+                        addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(addressType, addrHash, hash, k), CAddressUnspentValue()));
                     }
                 }
             }
@@ -2995,31 +2996,28 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
 
             if (explorerIndexesWrite == flagLevelDBIndexesWrite::ON)
             {
-                    // Update the explorer indexes according to the removed inputs
-                    if (fAddressIndex)
+                // Update the explorer indexes according to the removed inputs
+                if (fAddressIndex)
+                {
+                    CScript::ScriptType scriptType = undo.txout.scriptPubKey.GetType();
+                    if (scriptType != CScript::UNKNOWN)
                     {
-                        CScript::ScriptType scriptType = undo.txout.scriptPubKey.GetType();
-
-                        if (scriptType != CScript::UNKNOWN)
-                        {
-                            const uint160 addrHash = undo.txout.scriptPubKey.AddressHash();
-                            const unsigned int addressType = fromScriptTypeToAddressType(scriptType);
-
-                            // undo spending activity
-                            addressIndex.push_back(make_pair(CAddressIndexKey(addressType, addrHash, pindex->nHeight, i, hash, j, true),
-                                                            CAddressIndexValue()));
-
-                            // restore unspent index
-                            addressUnspentIndex.push_back(make_pair(
-                                CAddressUnspentKey(addressType, addrHash, undo.txout.GetHash(), out.n),
-                                CAddressUnspentValue(undo.txout.nValue, undo.txout.scriptPubKey, undo.nHeight, 0)));
-                        }
+                        const uint160 addrHash = undo.txout.scriptPubKey.AddressHash();
+                        const unsigned int addressType = fromScriptTypeToAddressType(scriptType);
+                        
+                        // undo spending activity
+                        addressIndex.push_back(make_pair(CAddressIndexKey(addressType, addrHash, pindex->nHeight, i, hash, j, true),
+                                                        CAddressIndexValue()));
+                        // restore unspent index
+                        addressUnspentIndex.push_back(make_pair(
+                            CAddressUnspentKey(addressType, addrHash, undo.txout.GetHash(), out.n),
+                            CAddressUnspentValue(undo.txout.nValue, undo.txout.scriptPubKey, undo.nHeight, 0)));
                     }
-
-                    if (fSpentIndex) {
-                        // undo and delete the spent index
-                        spentIndex.push_back(make_pair(CSpentIndexKey(out.hash, out.n), CSpentIndexValue()));
-                    }
+                }
+                if (fSpentIndex) {
+                    // undo and delete the spent index
+                    spentIndex.push_back(make_pair(CSpentIndexKey(out.hash, out.n), CSpentIndexValue()));
+                }
             }
 
         }
@@ -3176,7 +3174,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             }
             if (!pblocktree->UpdateAddressUnspentIndex(addressUnspentIndex))
             {
-                return AbortNode(state, "Failed to write address unspent index");
+                return AbortNode(state, "Failed to update address unspent index");
             }
         }
 
@@ -3184,7 +3182,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         {
             if (!pblocktree->UpdateSpentIndex(spentIndex))
             {
-                return AbortNode(state, "Failed to write address spent index");
+                return AbortNode(state, "Failed to update address spent index");
             }
         }
     }
@@ -3987,7 +3985,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
             if (!pblocktree->UpdateAddressUnspentIndex(addressUnspentIndex))
             {
-                return AbortNode(state, "Failed to write address unspent index");
+                return AbortNode(state, "Failed to update address unspent index");
             }
         }
 
@@ -3995,7 +3993,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         {
             if (!pblocktree->UpdateSpentIndex(spentIndex))
             {
-                return AbortNode(state, "Failed to write address spent index");
+                return AbortNode(state, "Failed to update address spent index");
             }
         }
 
