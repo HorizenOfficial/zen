@@ -122,6 +122,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
         while (true) {
             if (pc1 == script1.end() && pc2 == script2.end()) {
                 // Found a match
+                typeRet = typeRet2;
                 if (typeRet2 == TX_MULTISIG || typeRet2 == TX_MULTISIG_REPLAY) {
                     // Additional checks for TX_MULTISIG:
                     unsigned char m = vSolutionsRet.front()[0];
