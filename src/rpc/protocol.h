@@ -6,9 +6,9 @@
 #ifndef BITCOIN_RPCPROTOCOL_H
 #define BITCOIN_RPCPROTOCOL_H
 
-#include <stdint.h>
 #include <univalue.h>
 
+#include <cstdint>
 #include <list>
 #include <map>
 #include <string>

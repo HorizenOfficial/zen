@@ -5,9 +5,9 @@
 
 #include "rpc/client.h"
 
-#include <stdint.h>
 #include <univalue.h>
 
+#include <cstdint>
 #include <set>
 
 #include "rpc/protocol.h"

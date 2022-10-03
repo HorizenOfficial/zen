@@ -6,9 +6,9 @@
 #ifndef BITCOIN_RPCSERVER_H
 #define BITCOIN_RPCSERVER_H
 
-#include <stdint.h>
 #include <univalue.h>
 
+#include <cstdint>
 #include <list>
 #include <map>
 #include <memory>

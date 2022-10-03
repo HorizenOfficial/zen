@@ -5,8 +5,7 @@
 
 #include "rpc/protocol.h"
 
-#include <stdint.h>
-
+#include <cstdint>
 #include <fstream>
 
 #include "random.h"

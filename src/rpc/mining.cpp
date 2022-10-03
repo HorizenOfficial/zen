@@ -25,8 +25,9 @@
 #include "wallet/wallet.h"
 #endif
 
-#include <stdint.h>
 #include <univalue.h>
+
+#include <cstdint>
 
 #include <boost/assign/list_of.hpp>
 
