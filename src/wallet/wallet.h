@@ -255,7 +255,16 @@ typedef std::map<JSOutPoint, CNoteData> mapNoteData_t;
 /** Decrypted note and its location in a transaction. */
 struct CNotePlaintextEntry {
     JSOutPoint jsop;
+    libzcash::PaymentAddress address;
     libzcash::NotePlaintext plaintext;
+};
+
+/** Decrypted note, location in a transaction, and confirmation height. */
+struct CUnspentNotePlaintextEntry {
+    JSOutPoint jsop;
+    libzcash::PaymentAddress address;
+    libzcash::NotePlaintext plaintext;
+    int nHeight;
 };
 
 class CWalletTransactionBase {
@@ -901,6 +910,7 @@ class CWallet : public CCryptoKeyStore, public CValidationInterface {
     CPubKey vchDefaultKey;
 
     std::set<COutPoint> setLockedCoins;
+    std::set<JSOutPoint> setLockedNotes;
 
     int64_t nTimeFirstKey;
 
@@ -926,6 +936,12 @@ class CWallet : public CCryptoKeyStore, public CValidationInterface {
     void UnlockCoin(COutPoint& output);
     void UnlockAllCoins();
     void ListLockedCoins(std::vector<COutPoint>& vOutpts);
+
+    bool IsLockedNote(uint256 hash, size_t js, uint8_t n) const;
+    void LockNote(JSOutPoint& output);
+    void UnlockNote(JSOutPoint& output);
+    void UnlockAllNotes();
+    std::vector<JSOutPoint> ListLockedNotes();
 
     /**
      * keystore implementation
@@ -1069,7 +1085,7 @@ class CWallet : public CCryptoKeyStore, public CValidationInterface {
     std::set<CTxDestination> GetAccountAddresses(const std::string& strAccount) const;
 
     std::optional<uint256> GetNoteNullifier(const JSDescription& jsdesc, const libzcash::PaymentAddress& address,
-                                              const ZCNoteDecryption& dec, const uint256& hSig, uint8_t n) const;
+                                            const ZCNoteDecryption& dec, const uint256& hSig, uint8_t n) const;
     mapNoteData_t FindMyNotes(const CTransactionBase& tx) const;
     bool IsFromMe(const uint256& nullifier) const;
     void GetNoteWitnesses(std::vector<JSOutPoint> notes, std::vector<std::optional<ZCIncrementalWitness>>& witnesses,
@@ -1168,6 +1184,15 @@ class CWallet : public CCryptoKeyStore, public CValidationInterface {
     /* Find notes filtered by payment address, min depth, ability to spend */
     void GetFilteredNotes(std::vector<CNotePlaintextEntry>& outEntries, std::string address, int minDepth = 1,
                           bool ignoreSpent = true, bool ignoreUnspendable = true);
+
+    /* Find notes filtered by payment addresses, min depth, ability to spend */
+    void GetFilteredNotes(std::vector<CNotePlaintextEntry>& outEntries, std::set<libzcash::PaymentAddress>& filterAddresses,
+                          int minDepth = 1, bool ignoreSpent = true, bool ignoreUnspendable = true);
+
+    /* Find unspent notes filtered by payment address, min depth and max depth */
+    void GetUnspentFilteredNotes(std::vector<CUnspentNotePlaintextEntry>& outEntries,
+                                 std::set<libzcash::PaymentAddress>& filterAddresses, int minDepth = 1, int maxDepth = INT_MAX,
+                                 bool requireSpendingKey = true);
 };
 
 /** A key allocated from the key pool. */

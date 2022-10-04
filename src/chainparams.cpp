@@ -170,79 +170,84 @@ class CMainParams : public CChainParams {
         nScMaxWithdrawalEpochLength = 4032;  // one week at 1 block/2.5 min rate
         nScMaxNumberOfCswInputsInMempool = 100;
 
-        checkpointData =
-            (Checkpoints::CCheckpointData){
-                boost::assign::map_list_of(0, consensus.hashGenesisBlock)(
-                    30000, uint256S("0x000000005c2ad200c3c7c8e627f67b306659efca1268c9bb014335fdadc0c39"
-                                    "2"))(
-                    96577, uint256S(
-                               "0x0000000177751545bd1af3ccf276ec2920d258453ab01f3d2f8f7f"
-                               "cc5f3a37b8"))(110000,
-                                              uint256S(
-                                                  "0x000000003f5d6ba1385c6cd2d4f836dfc5a"
-                                                  "df7f98834309ad67e26faef46245"
-                                                  "4"))(139200, uint256S("0x00000001ea53c09a45e3"
-                                                                         "f097ba8f48a4c117b5b368"
-                                                                         "031c4eb2fa02cb5a84c99"
-                                                                         "e"))(294072, uint256S("0x000000005f"
-                                                                                                "9ceecc87d9e5"
-                                                                                                "eaab2cf548c7"
-                                                                                                "87231829ad6f"
-                                                                                                "609975fadd10"
-                                                                                                "fff5b"
-                                                                                                "e"))(429014,
-                                                                                                      uint256S("0x"
-                                                                                                               "00"
-                                                                                                               "00"
-                                                                                                               "00"
-                                                                                                               "00"
-                                                                                                               "0d"
-                                                                                                               "c4"
-                                                                                                               "f5"
-                                                                                                               "83"
-                                                                                                               "75"
-                                                                                                               "d9"
-                                                                                                               "fa"
-                                                                                                               "6d"
-                                                                                                               "c4"
-                                                                                                               "cb"
-                                                                                                               "1b"
-                                                                                                               "fc"
-                                                                                                               "4b"
-                                                                                                               "0a"
-                                                                                                               "fe"
-                                                                                                               "fb"
-                                                                                                               "f4"
-                                                                                                               "f7"
-                                                                                                               "e1"
-                                                                                                               "ee"
-                                                                                                               "2c"
-                                                                                                               "c7"
-                                                                                                               "55"
-                                                                                                               "d6"
-                                                                                                               "ca"
-                                                                                                               "3b"
-                                                                                                               "40"
-                                                                                                               "b"
-                                                                                                               "0"))(491000,
-                                                                                                                     uint256S("0x0000000018d0b189de58bcd8ff5048d2e4d1c652b98912ff002c8f07c6f81b8c"))(543000,
-                                                                                                                                                                                                     uint256S(
-                                                                                                                                                                                                         "0x00000000111469e247ecb152e57c371147775b56173260950075dcb471614fed"))(596000, uint256S("0x000000000656846513b2d3faf3a70f59dc22fffcb8e14401ec5a17eec8994410"))(671000, uint256S("0x00000000097174dacaf850075917d1a24145fce88a800881ece709bb8f8746cf"))(724100,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                uint256S("0x000000000ab34fd9c61be9f10a11a97f63a0f26c8f530e67a6397fb9934709dc"))(812000, uint256S("0x0000000000bccf70e0d2caa0473279decddb798f456d5a4bb399898e00eb4ce9"))(902500,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        uint256S(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            "0x0000000001258f2009278d042ed42dfd825de9a2bc31e410c0463bc8d6371ee4"))(1014400,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   uint256S(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       "0x00000000001564ef09ddc49728c4c44701fd348c418ced0ee9f656660cc08e3a"))(1035000,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              uint256S(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  "0x0000000002cadc8f4c43ab96406211c489318c2e56b8e7d1e4e4b9fa5dffeea5"))(1107000,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         uint256S(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             "0x000000000184d804ea3b77864616d5af5bb2dbe1953a805a47c427e9dceeca7b")),
-                1647344181,  // * UNIX timestamp of last checkpoint block
-                27632932,    // * total number of transactions between genesis and last checkpoint
-                             //   (the tx=... number in the SetBestChain debug.log lines)
-                14384        // * estimated number of transactions per day after checkpoint
-                             //   total number of tx / (checkpoint block height / (24 * 24))
-            };
+        checkpointData = (Checkpoints::CCheckpointData){
+            boost::assign::map_list_of(
+                0,
+                consensus.hashGenesisBlock)(30000, uint256S("0x000000005c2ad200c3c7c8e627f67b306659efca1268c9bb014335fdadc0c39"
+                                                            "2"))(96577,
+                                                                  uint256S(
+                                                                      "0x0000000177751545bd1af3ccf276ec2920d258453ab01f3d2f8f7f"
+                                                                      "cc5f3a37b8"))(110000,
+                                                                                     uint256S(
+                                                                                         "0x000000003f5d6ba1385c6cd2d4f836dfc5a"
+                                                                                         "df7f98834309ad67e26faef46245"
+                                                                                         "4"))(139200,
+                                                                                               uint256S("0x00000001ea53c09a45e3"
+                                                                                                        "f097ba8f48a4c117b5b368"
+                                                                                                        "031c4eb2fa02cb5a84c99"
+                                                                                                        "e"))(294072,
+                                                                                                              uint256S(
+                                                                                                                  "0x000000005f"
+                                                                                                                  "9ceecc87d9e5"
+                                                                                                                  "eaab2cf548c7"
+                                                                                                                  "87231829ad6f"
+                                                                                                                  "609975fadd10"
+                                                                                                                  "fff5b"
+                                                                                                                  "e"))(429014,
+                                                                                                                        uint256S(
+                                                                                                                            "0x"
+                                                                                                                            "00"
+                                                                                                                            "00"
+                                                                                                                            "00"
+                                                                                                                            "00"
+                                                                                                                            "0d"
+                                                                                                                            "c4"
+                                                                                                                            "f5"
+                                                                                                                            "83"
+                                                                                                                            "75"
+                                                                                                                            "d9"
+                                                                                                                            "fa"
+                                                                                                                            "6d"
+                                                                                                                            "c4"
+                                                                                                                            "cb"
+                                                                                                                            "1b"
+                                                                                                                            "fc"
+                                                                                                                            "4b"
+                                                                                                                            "0a"
+                                                                                                                            "fe"
+                                                                                                                            "fb"
+                                                                                                                            "f4"
+                                                                                                                            "f7"
+                                                                                                                            "e1"
+                                                                                                                            "ee"
+                                                                                                                            "2c"
+                                                                                                                            "c7"
+                                                                                                                            "55"
+                                                                                                                            "d6"
+                                                                                                                            "ca"
+                                                                                                                            "3b"
+                                                                                                                            "40"
+                                                                                                                            "b"
+                                                                                                                            "0"))(491000,
+                                                                                                                                  uint256S(
+                                                                                                                                      "0x0000000018d0b189de58bcd8ff5048d2e4d1c652b98912ff002c8f07c6f81b8c"))(543000,
+                                                                                                                                                                                                             uint256S("0x00000000111469e247ecb152e57c371147775b56173260950075dcb471614fed"))(596000, uint256S("0x000000000656846513b2d3faf3a70f59dc22fffcb8e14401ec5a17eec8994410"))(671000, uint256S(
+                                                                                                                                                                                                                                                                                                                                                                                                 "0x00000000097174dacaf850075917d1a24145fce88a800881ece709bb8f8746cf"))(724100,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                        uint256S("0x000000000ab34fd9c61be9f10a11a97f63a0f26c8f530e67a6397fb9934709dc"))(812000, uint256S("0x0000000000bccf70e0d2caa0473279decddb798f456d5a4bb399898e00eb4ce9"))(902500,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                uint256S(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    "0x0000000001258f2009278d042ed42dfd825de9a2bc31e410c0463bc8d6371ee4"))(1014400,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           uint256S(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               "0x00000000001564ef09ddc49728c4c44701fd348c418ced0ee9f656660cc08e3a"))(1035000,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      uint256S(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          "0x0000000002cadc8f4c43ab96406211c489318c2e56b8e7d1e4e4b9fa5dffeea5"))(1107000, uint256S("0x000000000184d804ea3b77864616d5af5bb2dbe1953a805a47c427e9dceeca7b"))(1218500,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          uint256S(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              "0x000000000335a5c54143d3fc6e143baeeb9a11e5e2250487b578f370114cd879")),
+            1664247134,  // * UNIX timestamp of last checkpoint block
+            31438112,    // * total number of transactions between genesis and last checkpoint
+                         //   (the tx=... number in the SetBestChain debug.log lines)
+            14864        // * estimated number of transactions per day after checkpoint
+                         //   total number of tx / (checkpoint block height / (24 * 24))
+        };
 
         //  commented out - seems to make no sense but kept around for reference just in case
         //        assert(vCommunityFundAddress.size() <= consensus.GetLastCommunityRewardBlockHeight());
@@ -353,120 +358,88 @@ class CTestNetParams : public CMainParams {
         nScMaxNumberOfCswInputsInMempool = 100;
 
         checkpointData = (Checkpoints::CCheckpointData){
-            boost::assign::map_list_of(0, consensus.hashGenesisBlock)(
-                38000, uint256S("0x001e9a2d2e2892b88e9998cf7b079b41d59dd085423a921fe8386cecc42287b"
-                                "8"))(
-                362210,
-                uint256S(
-                    "0x00023d5c074a7c2ccf130dac34b2b6f77e3c4466cfed0b72c3f371"
-                    "5157c92949"))(423000,
-                                   uint256S(
-                                       "0x000d04b28067fe99445961f795ee7436f1d"
-                                       "bbffc3a045f6890868e605209d17"
-                                       "0"))(467550,
-                                             uint256S(
-                                                 "0x0007f73f339ea99e920e"
-                                                 "83da38d7537ce7d0028d48"
-                                                 "e709c88b1b89adf521b4f"
-                                                 "9"))(520000,
-                                                       uint256S(
-                                                           "0x00052e6542"
-                                                           "6a0ffbb90893"
-                                                           "208a6c89a828"
-                                                           "16abbed328fa"
-                                                           "2be5a6478286"
-                                                           "09e61"
-                                                           "a"))(595000,
-                                                                 uint256S(
-                                                                     "0x"
-                                                                     "00"
-                                                                     "00"
-                                                                     "da"
-                                                                     "85"
-                                                                     "dd"
-                                                                     "c7"
-                                                                     "9f"
-                                                                     "dd"
-                                                                     "29"
-                                                                     "7e"
-                                                                     "99"
-                                                                     "6d"
-                                                                     "6b"
-                                                                     "6b"
-                                                                     "88"
-                                                                     "7f"
-                                                                     "c5"
-                                                                     "b3"
-                                                                     "45"
-                                                                     "61"
-                                                                     "9b"
-                                                                     "7a"
-                                                                     "67"
-                                                                     "26"
-                                                                     "c4"
-                                                                     "96"
-                                                                     "94"
-                                                                     "1d"
-                                                                     "cf"
-                                                                     "83"
-                                                                     "09"
-                                                                     "6"
-                                                                     "6"))(643000,
-                                                                           uint256S(
-                                                                               "0x0000cabf39e3ac435d54b95c32e6173d6"
-                                                                               "bb1b060066ecb7453d2146a0dd4094"
-                                                                               "7"))(729000,
+            boost::assign::map_list_of(
+                0,
+                consensus.hashGenesisBlock)(38000, uint256S("0x001e9a2d2e2892b88e9998cf7b079b41d59dd085423a921fe8386cecc42287b"
+                                                            "8"))(362210,
+                                                                  uint256S(
+                                                                      "0x00023d5c074a7c2ccf130dac34b2b6f77e3c4466cfed0b72c3f371"
+                                                                      "5157c92949"))(423000,
                                                                                      uint256S(
-                                                                                         "0x00013f6d5315f29094287bf"
-                                                                                         "0981b177098c5d467422bc4ab"
-                                                                                         "7764f88f11333f5"
-                                                                                         "f"))(816500,
-                                                                                               uint256S(
-                                                                                                   "0x0004c69745c68"
-                                                                                                   "058fb35b2a8e090"
-                                                                                                   "887500f71f7e107"
-                                                                                                   "f0fd6f3e57d21af"
-                                                                                                   "a5fe7"
-                                                                                                   "6"))(869828,
-                                                                                                         uint256S(
-                                                                                                             "0x000"
-                                                                                                             "9d4d6"
-                                                                                                             "d27f5"
-                                                                                                             "23b76"
-                                                                                                             "ef9ed"
-                                                                                                             "76b4a"
-                                                                                                             "4c504"
-                                                                                                             "4d30b"
-                                                                                                             "3a624"
-                                                                                                             "8b0a7"
-                                                                                                             "296bd"
-                                                                                                             "c58a5"
-                                                                                                             "524c0"
-                                                                                                             "5"))(924840,
-                                                                                                                   uint256S(
-                                                                                                                       "0x0007e"
-                                                                                                                       "7525b89"
-                                                                                                                       "58d387a"
-                                                                                                                       "edbfbc6"
-                                                                                                                       "22feed4"
-                                                                                                                       "a82d7ec"
-                                                                                                                       "b1033a0"
-                                                                                                                       "80af75d"
-                                                                                                                       "cb8933a"
-                                                                                                                       "45"
-                                                                                                                       "3"))(926224,
-                                                                                                                             uint256S(
-                                                                                                                                 "0x0001bbe15a4dc7b4c580ba3211c0d074d5716a0eb924d228440f88e0dfc23248"))  // pre fork8
+                                                                                         "0x000d04b28067fe99445961f795ee7436f1d"
+                                                                                         "bbffc3a045f6890868e605209d17"
+                                                                                         "0"))(467550,
+                                                                                               uint256S("0x0007f73f339ea99e920e"
+                                                                                                        "83da38d7537ce7d0028d48"
+                                                                                                        "e709c88b1b89adf521b4f"
+                                                                                                        "9"))(520000,
+                                                                                                              uint256S(
+                                                                                                                  "0x00052e6542"
+                                                                                                                  "6a0ffbb90893"
+                                                                                                                  "208a6c89a828"
+                                                                                                                  "16abbed328fa"
+                                                                                                                  "2be5a6478286"
+                                                                                                                  "09e61"
+                                                                                                                  "a"))(595000,
+                                                                                                                        uint256S(
+                                                                                                                            "0x"
+                                                                                                                            "00"
+                                                                                                                            "00"
+                                                                                                                            "da"
+                                                                                                                            "85"
+                                                                                                                            "dd"
+                                                                                                                            "c7"
+                                                                                                                            "9f"
+                                                                                                                            "dd"
+                                                                                                                            "29"
+                                                                                                                            "7e"
+                                                                                                                            "99"
+                                                                                                                            "6d"
+                                                                                                                            "6b"
+                                                                                                                            "6b"
+                                                                                                                            "88"
+                                                                                                                            "7f"
+                                                                                                                            "c5"
+                                                                                                                            "b3"
+                                                                                                                            "45"
+                                                                                                                            "61"
+                                                                                                                            "9b"
+                                                                                                                            "7a"
+                                                                                                                            "67"
+                                                                                                                            "26"
+                                                                                                                            "c4"
+                                                                                                                            "96"
+                                                                                                                            "94"
+                                                                                                                            "1d"
+                                                                                                                            "cf"
+                                                                                                                            "83"
+                                                                                                                            "09"
+                                                                                                                            "6"
+                                                                                                                            "6"))(643000,
+                                                                                                                                  uint256S(
+                                                                                                                                      "0x0000cabf39e3ac435d54b95c32e6173d6bb1b060066ecb7453d2146a0dd40947"))(729000,
+                                                                                                                                                                                                             uint256S("0x00013f6d5315f29094287bf0981b177098c5d467422bc4ab7764f88f11333f5f"))(816500, uint256S("0x0004c69745c68058fb35b2a8e090887500f71f7e107f0fd6f3e57d21afa5fe76"))(869828, uint256S(
+                                                                                                                                                                                                                                                                                                                                                                                                 "0x0009d4d6d27f523b76ef9ed76b4a4c5044d30b3a6248b0a7296bdc58a5524c05"))(924840,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                        uint256S(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                            "0x0007e7525b8958d387aedbfbc622feed4a82d7ecb1033a080af75dcb8933a453"))(926224,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   uint256S(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       "0x0001bbe15a4dc7b4c580ba3211c0d074d5716a0eb924d228440f88e0dfc23248"))  // pre fork8
             (926225, uint256S("0x0002032ec1b1cc65502e24959a3fb6ed04ff52ff67add53c90cddfeca6cd13c6"))  // fork8 activation
             (949700,
-             uint256S("0x0001ec9be52a04c305335d0669bd2aa283248be6f274ab5280bd883d8b8db0d8"))(1021000,
-                                                                                             uint256S("0x000118d2f94a42758d0efa"
-                                                                                                      "60d5a95f968a668b0d4669cd"
-                                                                                                      "7ca0c20b95d1d187e8")),
-            1647369475,  // * UNIX timestamp of last checkpoint block
-            1853635,     // * total number of transactions between genesis and last checkpoint
+             uint256S(
+                 "0x0001ec9be52a04c305335d0669bd2aa283248be6f274ab5280bd883d8b8db0d8"))(1021000,
+                                                                                        uint256S(
+                                                                                            "0x000118d2f94a42758d0efa60d5a95f96"
+                                                                                            "8a668b0d4669cd7ca0c20b95d1d187e"
+                                                                                            "8"))(1133000,
+                                                                                                  uint256S(
+                                                                                                      "0x00022703828f9b9e76d2c1"
+                                                                                                      "1525d9fcc182b2119095b27c"
+                                                                                                      "5f51081615b3132b11")),
+            1664287404,  // * UNIX timestamp of last checkpoint block
+            1980015,     // * total number of transactions between genesis and last checkpoint
                          //   (the tx=... number in the SetBestChain debug.log lines)
-            1046         //   total number of tx / (checkpoint block height / (24 * 24))
+            1006         //   total number of tx / (checkpoint block height / (24 * 24))
         };
 
         //  commented out - seems to make no sense but kept around for reference just in case
