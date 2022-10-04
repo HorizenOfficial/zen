@@ -19,7 +19,7 @@ static int zmq_send_multipart(void* sock, const void* data, size_t size, ...) {
     va_list args;
     va_start(args, size);
 
-    while (1) {
+    while (true) {
         zmq_msg_t msg;
 
         int rc = zmq_msg_init_size(&msg, size);

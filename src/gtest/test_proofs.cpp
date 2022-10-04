@@ -45,7 +45,7 @@ TEST(proofs, g2_subgroup_check) {
     // but that doesn't mean all elements that satisfy the curve equation are in G2...
     curve_G2 p = curve_G2::one();
 
-    while (1) {
+    while (true) {
         // This will construct an order r(2q-r) point with high probability
         p.X = curve_Fq2::random_element();
         try {

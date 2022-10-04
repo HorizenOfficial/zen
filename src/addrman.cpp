@@ -313,7 +313,7 @@ CAddrInfo CAddrMan::Select_(bool newOnly) {
     if (!newOnly && (nTried > 0 && (nNew == 0 || RandomInt(2) == 0))) {
         // use a tried node
         double fChanceFactor = 1.0;
-        while (1) {
+        while (true) {
             int i = 0;
             int nKBucket = RandomInt(ADDRMAN_TRIED_BUCKET_COUNT);
             int nKBucketPos = RandomInt(ADDRMAN_BUCKET_SIZE);
@@ -332,7 +332,7 @@ CAddrInfo CAddrMan::Select_(bool newOnly) {
     } else {
         // use a new node
         double fChanceFactor = 1.0;
-        while (1) {
+        while (true) {
             int i = 0;
             int nUBucket = RandomInt(ADDRMAN_NEW_BUCKET_COUNT);
             int nUBucketPos = RandomInt(ADDRMAN_BUCKET_SIZE);
