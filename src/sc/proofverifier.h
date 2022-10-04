@@ -128,11 +128,10 @@ class CScProofVerifier {
 
     const Verification verificationMode; /**< The type of verification to be performed by this instance of proof verifier. */
 
-    const Priority
-        verificationPriority; /**< Proof verification priority.
-                                If True => during BatchVerify() will pause low priority verification threads if exist.
-                                If False => BatchVerify() will run with low priority and may be paused by high priority
-                                operations.*/
+    const Priority verificationPriority; /**< Proof verification priority.
+                                           If True => during BatchVerify() will pause low priority verification threads if
+                                           exist. If False => BatchVerify() will run with low priority and may be paused by high
+                                           priority operations.*/
 };
 
 #endif  // _SC_PROOF_VERIFIER_H

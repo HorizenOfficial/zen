@@ -4824,7 +4824,7 @@ UniValue z_getoperationstatus_IMPL(const UniValue& params, bool fRemoveFinishedO
 UniValue z_sendmany(const UniValue& params, bool fHelp) {
     if (!EnsureWalletIsAvailable(fHelp)) return NullUniValue;
 
-    const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(chainActive.Height() + 1);
+    const int shieldedTxVersion = zen::ForkManager::getInstance().getShieldedTxVersion(chainActive.Height() + 1);
     LogPrintf("z_sendmany shieldedTxVersion: %d\n", shieldedTxVersion);
 
     if (fHelp || params.size() < 2 || params.size() > 5)
@@ -5673,7 +5673,7 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: z_mergetoaddress is disabled.");
     }
 
-    const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(chainActive.Height() + 1);
+    const int shieldedTxVersion = zen::ForkManager::getInstance().getShieldedTxVersion(chainActive.Height() + 1);
     LogPrintf("z_mergetoaddress shieldedTxVersion (Forkmanager): %d\n", shieldedTxVersion);
 
     LOCK2(cs_main, pwalletMain->cs_wallet);

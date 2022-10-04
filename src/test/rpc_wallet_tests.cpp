@@ -1619,7 +1619,7 @@ BOOST_AUTO_TEST_CASE(rpc_z_mergetoaddress_parameters) {
     UniValue retValue = CallRPC("getblockcount");
     int nHeight = retValue.get_int();
     CMutableTransaction mtx;
-    mtx.nVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight + 1);
+    mtx.nVersion = zen::ForkManager::getInstance().getShieldedTxVersion(nHeight + 1);
 
     // Test constructor of AsyncRPCOperation_mergetoaddress
     MergeToAddressRecipient testnetzaddr(
@@ -1671,7 +1671,7 @@ BOOST_AUTO_TEST_CASE(rpc_z_mergetoaddress_internals) {
     UniValue retValue = CallRPC("getblockcount");
     int nHeight = retValue.get_int();
     CMutableTransaction mtx;
-    mtx.nVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight + 1);
+    mtx.nVersion = zen::ForkManager::getInstance().getShieldedTxVersion(nHeight + 1);
 
     // Test that option -mempooltxinputlimit is respected.
     mapArgs["-mempooltxinputlimit"] = "1";
@@ -1770,7 +1770,7 @@ BOOST_AUTO_TEST_CASE(rpc_z_mergetoaddress_internals) {
         static_cast<AsyncRPCOperation_sendmany*>(operation.get())->testmode = true;
 
         MergeToAddressJSInfo info;
-        std::vector<boost::optional<ZCIncrementalWitness>> witnesses;
+        std::vector<std::optional<ZCIncrementalWitness>> witnesses;
         uint256 anchor;
         try {
             proxy.perform_joinsplit(info, witnesses, anchor);

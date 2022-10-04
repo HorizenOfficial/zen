@@ -5,6 +5,13 @@
 
 #include "wallet/wallet.h"
 
+#include <algorithm>
+#include <cassert>
+
+#include <boost/algorithm/string/replace.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/thread.hpp>
+
 #include "base58.h"
 #include "chainparams.h"
 #include "checkpoints.h"
@@ -15,27 +22,18 @@
 #include "main.h"
 #include "net.h"
 #include "random.h"
+#include "rpc/protocol.h"
+#include "sc/sidechain.h"
 #include "script/script.h"
 #include "script/sign.h"
 #include "timedata.h"
+#include "univalue.h"
 #include "utilmoneystr.h"
 #include "zcash/Note.hpp"
 #include "zen/forkmanager.h"
-using namespace zen;
-
-#include <assert.h>
-#include <univalue.h>
-
-#include <algorithm>
-
-#include <boost/algorithm/string/replace.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/thread.hpp>
-
-#include "rpc/protocol.h"
-#include "sc/sidechain.h"
 
 using namespace std;
+using namespace zen;
 using namespace libzcash;
 using namespace Sidechain;
 
