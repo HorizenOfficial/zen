@@ -9,7 +9,6 @@ BreakConstructorInitializers : BeforeColon
 ForEachMacros: [ foreach, BOOST_REVERSE_FOREACH ]
 MaxEmptyLinesToKeep: 1
 NamespaceIndentation: Inner
-AllowShortEnumsOnASingleLine: false
 DerivePointerAlignment: false
 PointerAlignment: Left
 UseTab: Never
