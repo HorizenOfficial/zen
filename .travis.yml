@@ -186,58 +186,58 @@ os: linux
       - DOCKER_IS_DEB=true
       - TEST_CMD="./qa/zcash/full_test_suite.py"
       - TEST_ARGS="rpc --rpc-extended --rpc-split=4:4"
-  - &amd64_osx_xcode9_4_unit-tests
+  - &amd64_osx_xcode_11_unit-tests
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
       - TEST_ARGS="btest gtest util-test secp256k1 libsnark univalue"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
   # TODO figure out why the excluded tests are failing on MacOS in Travis when we migrate to OSX 10.14 after 10.13 EOL
-  - &amd64_osx_xcode9_4_rpc-tests_1
+  - &amd64_osx_xcode_11_rpc-tests_1
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
       - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py --rpc-split=10:1"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
-  - &amd64_osx_xcode9_4_rpc-tests_2
+  - &amd64_osx_xcode_11_rpc-tests_2
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
       - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py --rpc-split=10:2"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
-  - &amd64_osx_xcode9_4_rpc-tests_3
+  - &amd64_osx_xcode_11_rpc-tests_3
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
       - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py --rpc-split=10:3"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
-  - &amd64_osx_xcode9_4_rpc-tests_4
+  - &amd64_osx_xcode_11_rpc-tests_4
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
       - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py --rpc-split=10:4"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
-  - &amd64_osx_xcode9_4_rpc-tests_5
+  - &amd64_osx_xcode_11_rpc-tests_5
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
       - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py --rpc-split=10:5"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
-  - &amd64_osx_xcode9_4_rpc-tests_6
+  - &amd64_osx_xcode_11_rpc-tests_6
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
       - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py --rpc-split=10:6"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
-  - &amd64_osx_xcode9_4_rpc-tests_7
+  - &amd64_osx_xcode_11_rpc-tests_7
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
       - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py --rpc-split=10:7"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
-  - &amd64_osx_xcode9_4_rpc-tests_8
+  - &amd64_osx_xcode_11_rpc-tests_8
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
       - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py --rpc-split=10:8"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
-  - &amd64_osx_xcode9_4_rpc-tests_9
+  - &amd64_osx_xcode_11_rpc-tests_9
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
       - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py --rpc-split=10:9"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
-  - &amd64_osx_xcode9_4_rpc-tests_10
+  - &amd64_osx_xcode_11_rpc-tests_10
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
       - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py --rpc-split=10:10"
@@ -286,10 +286,10 @@ os: linux
       - bash -c "RENAME_FOLDER='true' RENAME_SUFFIX='_clean' ${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/get_archive.sh ${B2_DL_DECOMPRESS_FOLDER} ${B2_DL_FILENAME}"
       - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/travis_stay_alive.sh"
       - bash -c '${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/test/run_test.sh "${TEST_CMD}" "${TEST_ARGS}"'
-  - &test_osx_xcode9_4
+  - &test_osx_xcode_11
     if: (env(SKIP_TESTS) != true) AND (env(SKIP_OSX) != true)
     os: osx
-    osx_image: xcode9.4
+    osx_image: xcode11
     cache:
       directories:
         - "$HOME/ZcashParams"
@@ -426,46 +426,46 @@ jobs:
     # osx based tests
     - stage: Test
       if: env(SKIP_OSX) != true
-      <<: *test_osx_xcode9_4
-      <<: *amd64_osx_xcode9_4_unit-tests
+      <<: *test_osx_xcode_11
+      <<: *amd64_osx_xcode_11_unit-tests
     - stage: Test
       if: env(SKIP_OSX) != true
-      <<: *test_osx_xcode9_4
-      <<: *amd64_osx_xcode9_4_rpc-tests_1
+      <<: *test_osx_xcode_11
+      <<: *amd64_osx_xcode_11_rpc-tests_1
     - stage: Test
       if: env(SKIP_OSX) != true
-      <<: *test_osx_xcode9_4
-      <<: *amd64_osx_xcode9_4_rpc-tests_2
+      <<: *test_osx_xcode_11
+      <<: *amd64_osx_xcode_11_rpc-tests_2
     - stage: Test
       if: env(SKIP_OSX) != true
-      <<: *test_osx_xcode9_4
-      <<: *amd64_osx_xcode9_4_rpc-tests_3
+      <<: *test_osx_xcode_11
+      <<: *amd64_osx_xcode_11_rpc-tests_3
     - stage: Test
       if: env(SKIP_OSX) != true
-      <<: *test_osx_xcode9_4
-      <<: *amd64_osx_xcode9_4_rpc-tests_4
+      <<: *test_osx_xcode_11
+      <<: *amd64_osx_xcode_11_rpc-tests_4
     - stage: Test
       if: env(SKIP_OSX) != true
-      <<: *test_osx_xcode9_4
-      <<: *amd64_osx_xcode9_4_rpc-tests_5
+      <<: *test_osx_xcode_11
+      <<: *amd64_osx_xcode_11_rpc-tests_5
     - stage: Test
       if: env(SKIP_OSX) != true
-      <<: *test_osx_xcode9_4
-      <<: *amd64_osx_xcode9_4_rpc-tests_6
+      <<: *test_osx_xcode_11
+      <<: *amd64_osx_xcode_11_rpc-tests_6
     - stage: Test
       if: env(SKIP_OSX) != true
-      <<: *test_osx_xcode9_4
-      <<: *amd64_osx_xcode9_4_rpc-tests_7
+      <<: *test_osx_xcode_11
+      <<: *amd64_osx_xcode_11_rpc-tests_7
     - stage: Test
       if: env(SKIP_OSX) != true
-      <<: *test_osx_xcode9_4
-      <<: *amd64_osx_xcode9_4_rpc-tests_8
+      <<: *test_osx_xcode_11
+      <<: *amd64_osx_xcode_11_rpc-tests_8
     - stage: Test
       if: env(SKIP_OSX) != true
-      <<: *test_osx_xcode9_4
-      <<: *amd64_osx_xcode9_4_rpc-tests_9
+      <<: *test_osx_xcode_11
+      <<: *amd64_osx_xcode_11_rpc-tests_9
     - stage: Test
       if: env(SKIP_OSX) != true
-      <<: *test_osx_xcode9_4
-      <<: *amd64_osx_xcode9_4_rpc-tests_10
+      <<: *test_osx_xcode_11
+      <<: *amd64_osx_xcode_11_rpc-tests_10
 
