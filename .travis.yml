@@ -328,7 +328,7 @@ jobs:
     - stage: Prepare
       if: env(SKIP_OSX) != true
       os: osx
-      osx_image: xcode9.4
+      osx_image: xcode11
       cache: false
       script:
         - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/prepare/build_zencash-apple.sh"
@@ -360,7 +360,7 @@ jobs:
     - stage: Build
       if: env(SKIP_OSX) != true
       os: osx
-      osx_image: xcode9.4
+      osx_image: xcode11
       env:
         - MAKEFLAGS="--disable-libs --legacy-cpu"
       cache:
