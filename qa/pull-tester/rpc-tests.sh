@@ -96,6 +96,7 @@ testScripts=(
   'sc_cert_getraw.py'
   'sc_quality_mempool.py'
   'sc_ft_and_mbtr_fees.py'
+  'sc_ft_and_mbtr_fees_update.py'
   'sc_bwt_request.py'
   'sc_cert_quality_wallet.py'
   'ws_messages.py'
