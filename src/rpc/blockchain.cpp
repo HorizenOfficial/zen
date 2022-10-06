@@ -1654,12 +1654,25 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
         sc.pushKV("immatureAmounts", ia);
 
         UniValue sf(UniValue::VARR);
-        for(const auto& entry: info.scFees)
-        {
-            UniValue o(UniValue::VOBJ);
-            o.pushKV("forwardTxScFee", ValueFromAmount(entry.forwardTxScFee));
-            o.pushKV("mbtrTxScFee", ValueFromAmount(entry.mbtrTxScFee));
-            sf.push_back(o);
+        // v2 non-ceasable sc
+        if (info.isNonCeasing()) {
+            for(const auto& entry: info.scFees_v2)
+            {
+                UniValue o(UniValue::VOBJ);
+                o.pushKV("forwardTxScFee", ValueFromAmount(entry.forwardTxScFee));
+                o.pushKV("mbtrTxScFee", ValueFromAmount(entry.mbtrTxScFee));
+                o.pushKV("submissionHeight", entry.submissionHeight);
+                sf.push_back(o);
+            }
+        }
+        else {
+            for(const auto& entry: info.scFees)
+            {
+                UniValue o(UniValue::VOBJ);
+                o.pushKV("forwardTxScFee", ValueFromAmount(entry.forwardTxScFee));
+                o.pushKV("mbtrTxScFee", ValueFromAmount(entry.mbtrTxScFee));
+                sf.push_back(o);
+            }
         }
         sc.pushKV("scFees", sf);
 
