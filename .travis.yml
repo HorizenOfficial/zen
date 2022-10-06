@@ -289,7 +289,7 @@ os: linux
   - &test_osx_xcode_11
     if: (env(SKIP_TESTS) != true) AND (env(SKIP_OSX) != true)
     os: osx
-    osx_image: xcode11
+    osx_image: xcode11.1
     cache:
       directories:
         - "$HOME/ZcashParams"
@@ -328,7 +328,7 @@ jobs:
     - stage: Prepare
       if: env(SKIP_OSX) != true
       os: osx
-      osx_image: xcode11
+      osx_image: xcode11.1
       cache: false
       script:
         - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/prepare/build_zencash-apple.sh"
@@ -360,7 +360,7 @@ jobs:
     - stage: Build
       if: env(SKIP_OSX) != true
       os: osx
-      osx_image: xcode11
+      osx_image: xcode11.1
       env:
         - MAKEFLAGS="--disable-libs --legacy-cpu"
       cache:
