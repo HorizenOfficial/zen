@@ -483,6 +483,26 @@ typedef struct sScFeeData_tag
 
 } ScFeeData;
 
+struct ScFeeData_v2 : public ScFeeData {
+    int submissionHeight;
+    ScFeeData_v2() : ScFeeData(), submissionHeight(-1) {};
+    ScFeeData_v2(CAmount f, CAmount m, int submHeight) : ScFeeData(f, m), submissionHeight(submHeight) {};
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(forwardTxScFee);
+        READWRITE(mbtrTxScFee);
+        READWRITE(submissionHeight);
+    }
+
+    inline bool operator==(const ScFeeData_v2& rhs) const
+    {
+        return (forwardTxScFee == rhs.forwardTxScFee && mbtrTxScFee == rhs.mbtrTxScFee && submissionHeight == rhs.submissionHeight);
+    }
+};
+
 static const std::string PROVING_SYS_TYPE_COBOUNDARY_MARLIN = "CoboundaryMarlin";
 static const std::string PROVING_SYS_TYPE_DARLIN            = "Darlin";
 static const std::string PROVING_SYS_TYPE_UNDEFINED         = "Undefined";

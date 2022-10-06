@@ -78,7 +78,8 @@ public:
              balance == 0                                                     &&
              fixedParams.IsNull()                                             &&
              mImmatureAmounts.empty())                                        &&
-             scFees.empty();
+             scFees.empty()                                                   &&
+             scFees_v2.empty();
     }
 
     // We can not serialize a pointer value to block index, but can retrieve it from chainActive if we have height
@@ -118,6 +119,7 @@ public:
     // the last ftScFee and mbtrScFee values, as set by the active certificates
     // it behaves like a circular buffer once the max size is reached
     std::list<Sidechain::ScFeeData> scFees;
+    std::list<Sidechain::ScFeeData_v2> scFees_v2;
 
     // compute the max size of the sc fee list
     int getMaxSizeOfScFeesContainers();
@@ -170,10 +172,13 @@ public:
         READWRITE(balance);
         READWRITE(fixedParams);
         READWRITE(mImmatureAmounts);
-        READWRITE(scFees);
+        if (isNonCeasing())
+            READWRITE(scFees_v2);
+        else
+            READWRITE(scFees);
         if (ser_action.ForRead())
         {
-            if (!scFees.empty())
+            if (!scFees.empty() || !scFees_v2.empty())
             {
                 maxSizeOfScFeesContainers = getMaxSizeOfScFeesContainers();
             }
@@ -198,7 +203,8 @@ public:
                (this->balance                                    == rhs.balance)                           &&
                (this->fixedParams                                == rhs.fixedParams)                       &&
                (this->mImmatureAmounts                           == rhs.mImmatureAmounts)                  &&
-               (this->scFees                                     == rhs.scFees);
+               (this->scFees                                     == rhs.scFees)                            &&
+               (this->scFees_v2                                  == rhs.scFees_v2);
     }
     inline bool operator!=(const CSidechain& rhs) const { return !(*this == rhs); }
 
@@ -227,7 +233,7 @@ public:
     }
 
     void InitScFees();
-    void UpdateScFees(const CScCertificateView& certView);
+    void UpdateScFees(const CScCertificateView& certView, int blockHeight);
     void DumpScFees() const;
 
     CAmount GetMinFtScFee() const;

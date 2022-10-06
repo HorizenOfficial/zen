@@ -300,7 +300,7 @@ std::string CSidechain::ToString() const
 }
 
 size_t CSidechain::DynamicMemoryUsage() const {
-    return memusage::DynamicUsage(mImmatureAmounts) + memusage::DynamicUsage(scFees);
+    return memusage::DynamicUsage(mImmatureAmounts) + memusage::DynamicUsage(scFees) + memusage::DynamicUsage(scFees_v2);
 }
 
 size_t CSidechainEvents::DynamicMemoryUsage() const {
@@ -312,7 +312,7 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
 bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state) { return true; }
 bool CSidechain::GetCeasingCumTreeHash(CFieldElement& ceasedBlockCum) const { return true; }
 void CSidechain::InitScFees() {}
-void CSidechain::UpdateScFees(const CScCertificateView& certView) {}
+void CSidechain::UpdateScFees(const CScCertificateView& certView, int blockHeight) {}
 #else
 bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state)
 {
@@ -713,17 +713,30 @@ int CSidechain::getNumBlocksForScFeeCheck()
 
 int CSidechain::getMaxSizeOfScFeesContainers()
 {
-    int epochLength = fixedParams.withdrawalEpochLength;
-    int numBlocks = getNumBlocksForScFeeCheck();
+    if (maxSizeOfScFeesContainers == -1) {
+        maxSizeOfScFeesContainers = getNumBlocksForScFeeCheck();
 
-    //assert(epochLength > 0);
-    if (epochLength == 0) {
-        maxSizeOfScFeesContainers = 1;
-    } else {
-        maxSizeOfScFeesContainers = numBlocks / epochLength;
-        if (maxSizeOfScFeesContainers == 0 || (numBlocks % epochLength != 0) )
-        {
-            maxSizeOfScFeesContainers++;
+        if (!isNonCeasing()) {
+            int epochLength = fixedParams.withdrawalEpochLength;
+            int numBlocks = getNumBlocksForScFeeCheck();
+            if (epochLength == 0) {
+                maxSizeOfScFeesContainers = 1;
+            } else {
+                maxSizeOfScFeesContainers = numBlocks / epochLength;
+                if (maxSizeOfScFeesContainers == 0 || (numBlocks % epochLength != 0) )
+                {
+                    maxSizeOfScFeesContainers++;
+                }
+            }
+        }
+        else {
+            // As defined in chainparams.cpp, maxSizeOfScFeesContainers is 200 for mainnet and testnet,
+            // and 10 for regtest. For regtest, this value can be overridden with the command line option
+            // -blocksforscfeecheck=<n>. In this case, we provide a safe guard of five slots for the scFees
+            // size. This value has been chosen as it was the max possible size obtainable by the previous
+            // implementation.
+            if (maxSizeOfScFeesContainers < 5)
+                maxSizeOfScFeesContainers = 5;
         }
     }
 
@@ -739,14 +752,22 @@ void CSidechain::InitScFees()
         LogPrint("sc", "%s():%d - maxSizeOfScFeesContainers set to %d\n", __func__, __LINE__, maxSizeOfScFeesContainers);
 
         assert(scFees.empty());
+        assert(scFees_v2.empty());
 
-        Sidechain::ScFeeData defaultData(
-            lastTopQualityCertView.forwardTransferScFee, lastTopQualityCertView.mainchainBackwardTransferRequestScFee);
-        scFees.push_back(defaultData);
+        if (!isNonCeasing()) {
+            Sidechain::ScFeeData defaultData(
+                lastTopQualityCertView.forwardTransferScFee, lastTopQualityCertView.mainchainBackwardTransferRequestScFee);
+            scFees.push_back(defaultData);
+        }
+        else {
+            Sidechain::ScFeeData_v2 defaultData(
+                lastTopQualityCertView.forwardTransferScFee, lastTopQualityCertView.mainchainBackwardTransferRequestScFee, lastReferencedHeight);
+            scFees_v2.push_back(defaultData);
+        }
     }
 }
 
-void CSidechain::UpdateScFees(const CScCertificateView& certView)
+void CSidechain::UpdateScFees(const CScCertificateView& certView, int blockHeight)
 {
     // this is mostly for new UTs which need to call InitScFees() beforehand, should never happen otherwise
     assert(maxSizeOfScFeesContainers > 0);
@@ -757,48 +778,117 @@ void CSidechain::UpdateScFees(const CScCertificateView& certView)
     LogPrint("sc", "%s():%d - pushing f=%d/m=%d into list with size %d\n",
         __func__, __LINE__, ftScFee, mbtrScFee, scFees.size());
 
-    scFees.push_back(Sidechain::ScFeeData(ftScFee, mbtrScFee));
+    // v1 sidechains
+    if (!isNonCeasing()) {
+        scFees.push_back(Sidechain::ScFeeData(ftScFee, mbtrScFee));
 
-    // check if we are past the buffer size
-    int delta = scFees.size() - maxSizeOfScFeesContainers;
-    if (delta > 0)
-    {
-        // remove from the front as many elements are needed to be within the circular buffer size
-        // --
-        // usually this is just one element, but in regtest a node can set the max size via a startup option
-        // therefore such size might be lesser than scFee size after a node restart
-        while (delta > 0)
+        int delta = scFees.size() - maxSizeOfScFeesContainers;
+        if (delta > 0)
         {
-            if (scFees.empty())
-                break;
+            // remove from the front as many elements are needed to be within the circular buffer size
+            // --
+            // usually this is just one element, but in regtest a node can set the max size via a startup option
+            // therefore such size might be lesser than scFee size after a node restart
+            while (delta > 0)
+            {
+                if (scFees.empty())
+                    break;
 
-            const auto& entry = scFees.front();
-            LogPrint("sc", "%s():%d - popping f=%d, m=%d from list\n",
-                __func__, __LINE__, entry.forwardTxScFee, entry.mbtrTxScFee);
-            scFees.pop_front();
-            delta--;
+                const auto& entry = scFees.front();
+                LogPrint("sc", "%s():%d - popping f=%d, m=%d from list, as scFees maxsize has been reached\n",
+                    __func__, __LINE__, entry.forwardTxScFee, entry.mbtrTxScFee);
+                scFees.pop_front();
+                delta--;
+            }
+        }
+    }
+    // v2 sidechains
+    else {
+        auto scFeeIt = std::find_if(scFees_v2.begin(), scFees_v2.end(), 
+            [&blockHeight](Sidechain::ScFeeData_v2 scFeeElem){return scFeeElem.submissionHeight == blockHeight;});
+
+        // We have not found a scFeeData for the current height, so we add a new one and perform all the checks
+        // on the container size / element age
+        if (scFeeIt == scFees_v2.end()) {
+            scFees_v2.push_back(Sidechain::ScFeeData_v2(ftScFee, mbtrScFee, blockHeight));
+
+            // as for v1 sidechains
+            int delta = scFees_v2.size() - maxSizeOfScFeesContainers;
+            if (delta > 0)
+            {
+                while (delta > 0)
+                {
+                    if (scFees_v2.empty())
+                        break;
+
+                    const auto& entry = scFees_v2.front();
+                    LogPrint("sc", "%s():%d - popping f=%d, m=%d, h=%d from list, as scFees maxsize has been reached\n",
+                        __func__, __LINE__, entry.forwardTxScFee, entry.mbtrTxScFee, entry.submissionHeight);
+                    scFees_v2.pop_front();
+                    delta--;
+                }
+            }
+
+            // Also purge all elements submitted within a block that now is too old to be
+            // considered - this also covers ceasable sidechain, as certificate submission
+            // happens at regular intervals
+            auto& entry = scFees_v2.front();
+            while (entry.submissionHeight <= blockHeight - getMaxSizeOfScFeesContainers())
+            {
+                LogPrint("sc", "%s():%d - popping f=%d, m=%d, h=%d from list, as entry is too old\n",
+                    __func__, __LINE__, entry.forwardTxScFee, entry.mbtrTxScFee, entry.submissionHeight);
+                scFees_v2.pop_front();
+                entry = scFees_v2.front();
+            }
+        }
+        // On the other end, if we found a scFeeData element for the current height, we just update it with lower
+        // ft and/or mbtr fee rates. All the checks on the container size and element age have been performed
+        // at the moment of the element insertion, hence their are not required here
+        else {
+            if (ftScFee < scFeeIt->forwardTxScFee)
+                scFeeIt->forwardTxScFee = ftScFee;
+            if (mbtrScFee < scFeeIt->mbtrTxScFee)
+                scFeeIt->mbtrTxScFee = mbtrScFee;
         }
     }
 }
 
 void CSidechain::DumpScFees() const
 {
-    for (const auto& entry : scFees)
-    {
-        std::cout << "[" << std::setw(2) << entry.forwardTxScFee
-                  << "/" << std::setw(2) << entry.mbtrTxScFee << "]";
+    if (!isNonCeasing()) {
+        for (const auto& entry : scFees) {
+            std::cout   << "[" << std::setw(2) << entry.forwardTxScFee
+                        << "/" << std::setw(2) << entry.mbtrTxScFee << "]";
+        }
+        std::cout << std::endl;
     }
-    std::cout << std::endl;
+    else {
+        for (const auto& entry : scFees_v2) {
+            std::cout   << "[" << std::setw(2) << entry.forwardTxScFee
+                        << "/" << std::setw(2) << entry.mbtrTxScFee
+                        << "/" << std::setw(2) << entry.submissionHeight << "]";
+        }
+        std::cout << std::endl;
+    }
 }
 
 CAmount CSidechain::GetMinFtScFee() const
 {
-    assert(!scFees.empty());
-
-    CAmount minScFee = std::min_element(
-        scFees.begin(), scFees.end(),
-        [] (const Sidechain::ScFeeData& a, const Sidechain::ScFeeData& b) { return a.forwardTxScFee < b.forwardTxScFee; }
-    )->forwardTxScFee;
+    CAmount minScFee;
+    if (!isNonCeasing()) {
+        assert(!scFees.empty());
+        minScFee = std::min_element(
+            scFees.begin(), scFees.end(),
+            [] (const Sidechain::ScFeeData& a, const Sidechain::ScFeeData& b) { return a.forwardTxScFee < b.forwardTxScFee; }
+        )->forwardTxScFee;
+    }
+    else {
+        assert(!scFees_v2.empty());
+        minScFee = std::min_element(
+            scFees_v2.begin(), scFees_v2.end(),
+            [] (const Sidechain::ScFeeData_v2& a, const Sidechain::ScFeeData_v2& b) { return a.forwardTxScFee < b.forwardTxScFee; }
+        )->forwardTxScFee;
+    }
 
     LogPrint("sc", "%s():%d - returning min=%lld\n", __func__, __LINE__, minScFee);
     return minScFee;
@@ -806,12 +896,21 @@ CAmount CSidechain::GetMinFtScFee() const
 
 CAmount CSidechain::GetMinMbtrScFee() const
 {
-    assert(!scFees.empty());
-
-    CAmount minScFee = std::min_element(
-        scFees.begin(), scFees.end(),
-        [] (const Sidechain::ScFeeData& a, const Sidechain::ScFeeData& b) { return a.mbtrTxScFee < b.mbtrTxScFee; }
-    )->mbtrTxScFee;
+    CAmount minScFee;
+    if (!isNonCeasing()) {
+        assert(!scFees.empty());
+        minScFee = std::min_element(
+            scFees.begin(), scFees.end(),
+            [] (const Sidechain::ScFeeData& a, const Sidechain::ScFeeData& b) { return a.mbtrTxScFee < b.mbtrTxScFee; }
+        )->mbtrTxScFee;
+    }
+    else {
+        assert(!scFees_v2.empty());
+        minScFee = std::min_element(
+            scFees_v2.begin(), scFees_v2.end(),
+            [] (const Sidechain::ScFeeData_v2& a, const Sidechain::ScFeeData_v2& b) { return a.mbtrTxScFee < b.mbtrTxScFee; }
+        )->mbtrTxScFee;
+    }
 
     LogPrint("sc", "%s():%d - returning min=%lld\n", __func__, __LINE__, minScFee);
     return minScFee;
