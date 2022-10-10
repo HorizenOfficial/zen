@@ -7,7 +7,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, assert_greater_than, assert_true, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs,\
-    get_epoch_data, assert_false, swap_bytes, disconnect_nodes, colorize as cc
+    get_epoch_data, assert_false, swap_bytes, disconnect_nodes ##, colorize as cc
 from test_framework.test_framework import ForkHeights
 from test_framework.mc_test.mc_test import CertTestUtils, generate_random_field_element_hex
 from decimal import Decimal
@@ -22,6 +22,13 @@ MBTR_SC_FEE   = Decimal('0.03')
 CERT_FEE      = Decimal('0.015')
 
 NUM_TXS       = 10
+
+#### temporary logs functions
+def cc(c, inp):
+    return inp
+def mark_logs_temp(msg, nodes, debug = 0, color = 'n'):
+    return mark_logs(msg, nodes, debug)
+####
 
 class provaFee(BitcoinTestFramework):
 
@@ -79,7 +86,7 @@ class provaFee(BitcoinTestFramework):
         epoch_length = 0 if not ceasable else EPOCH_LENGTH
 
         if (self.firstRound):
-            mark_logs(f"Node 0 generates {ForkHeights['MINIMAL_SC']} block", self.nodes, DEBUG_MODE, color='e')
+            mark_logs_temp(f"Node 0 generates {ForkHeights['MINIMAL_SC']} block", self.nodes, DEBUG_MODE, color='e')
             self.nodes[0].generate(ForkHeights['MINIMAL_SC'])
             self.sync_all()
             self.firstRound = False
@@ -106,10 +113,10 @@ class provaFee(BitcoinTestFramework):
         ret = self.nodes[0].sc_create(cmdInput)
         scid = ret['scid']
         scid_swapped = str(swap_bytes(scid))
-        mark_logs(cc('g',"Node 0 created a SC: ") + scid, self.nodes, DEBUG_MODE, color='n')
+        mark_logs_temp(cc('g',"Node 0 created a SC: ") + scid, self.nodes, DEBUG_MODE, color='n')
 
         ### Sidechain confirmation
-        mark_logs(f"Node 0 mines 1 block to confirm the sidechain", self.nodes, DEBUG_MODE, color='e')
+        mark_logs_temp(f"Node 0 mines 1 block to confirm the sidechain", self.nodes, DEBUG_MODE, color='e')
         self.nodes[0].generate(1)
         self.sync_all()
         # Ensure that the SC is alive
@@ -117,7 +124,7 @@ class provaFee(BitcoinTestFramework):
         assert_equal(sc_info['items'][0]['state'], 'ALIVE')
 
         # Send some funds to node 2 to create a certificate
-        mark_logs("Node 0 sends some funds to nodes 1 and 2", self.nodes, DEBUG_MODE, color='g')
+        mark_logs_temp("Node 0 sends some funds to nodes 1 and 2", self.nodes, DEBUG_MODE, color='g')
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 10.0)
         self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 20.0)
         self.nodes[0].generate(1)
@@ -125,7 +132,7 @@ class provaFee(BitcoinTestFramework):
 
         # Mine blocks until reaching new epoch
         nodesToBeGen = sc_info['items'][0]['endEpochHeight'] - self.nodes[0].getblockcount() + 1
-        mark_logs(f"Node 0 mines {nodesToBeGen} blocks until a new epoch begins", self.nodes, DEBUG_MODE, color='e')
+        mark_logs_temp(f"Node 0 mines {nodesToBeGen} blocks until a new epoch begins", self.nodes, DEBUG_MODE, color='e')
         self.nodes[0].generate(nodesToBeGen)
         self.sync_all()
 
@@ -140,16 +147,16 @@ class provaFee(BitcoinTestFramework):
                 malicious_ft_fees, epoch_cum_tree_hash, constant, [addr_node3], [bwt_amount])
         amount_cert_3 = [{"address": addr_node3, "amount": bwt_amount}]
 
-        mark_logs("Node 2 sends a certificate with increased fees", self.nodes, DEBUG_MODE, color='g')
+        mark_logs_temp("Node 2 sends a certificate with increased fees", self.nodes, DEBUG_MODE, color='g')
         try:
             cert_epoch_0 = self.nodes[2].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_3, malicious_ft_fees, malicious_mbtr_fees, CERT_FEE)
             assert(len(cert_epoch_0) > 0)
         except JSONRPCException as e:
             errorString = e.error['message']
-            mark_logs(f"Send certificate failed with reason {errorString}", self.nodes, DEBUG_MODE, color='r')
+            mark_logs_temp(f"Send certificate failed with reason {errorString}", self.nodes, DEBUG_MODE, color='r')
             assert(False)
-        mark_logs(cc('e',"Node 2 mines 1 block to validate cert: ") + cert_epoch_0, self.nodes, DEBUG_MODE, color='n')
+        mark_logs_temp(cc('e',"Node 2 mines 1 block to validate cert: ") + cert_epoch_0, self.nodes, DEBUG_MODE, color='n')
         self.nodes[2].generate(1)
         self.sync_all()
 
@@ -164,12 +171,12 @@ class provaFee(BitcoinTestFramework):
         loopfirstround = True
         for _ in range(nodesToBeGen):
             # 1.
-            mark_logs(f"Net split", self.nodes, DEBUG_MODE, color='c')
+            mark_logs_temp(f"Net split", self.nodes, DEBUG_MODE, color='c')
             self.split_network()
 
             # 2.
             if loopfirstround:
-                mark_logs(f"Node 0 adds {NUM_TXS} transactions to nodes 0 and 1 mempools", self.nodes, DEBUG_MODE, color='g')
+                mark_logs_temp(f"Node 0 adds {NUM_TXS} transactions to nodes 0 and 1 mempools", self.nodes, DEBUG_MODE, color='g')
                 initial_balances = [self.nodes[x].getbalance() for x in range(NUMB_OF_NODES)]
                 ft_address_1 = self.nodes[1].getnewaddress() # = mc_return_address
                 forwardTransferOuts = [{'toaddress': address, 'amount': Decimal(float(FT_SC_FEE) + 0.05), "scid": scid, "mcReturnAddress": ft_address_1}]
@@ -185,14 +192,14 @@ class provaFee(BitcoinTestFramework):
             assert_equal(float(self.nodes[1].getbalance()), float(initial_balances[1]))
 
             # 3.
-            mark_logs("Node 2 mines 1 block", self.nodes, DEBUG_MODE, color='e')
+            mark_logs_temp("Node 2 mines 1 block", self.nodes, DEBUG_MODE, color='e')
             self.nodes[2].generate(1)
             sync_blocks(self.nodes[2:])
             sync_mempools(self.nodes[2:])
             self.assert_chain_height_difference(1)      # Test that the newly mined block is only on nodes 2 and 3
 
             # 4.
-            mark_logs(f"Net join", self.nodes, DEBUG_MODE, color='c')
+            mark_logs_temp(f"Net join", self.nodes, DEBUG_MODE, color='c')
             self.join_network()
             sync_blocks(self.nodes)
 
@@ -209,7 +216,7 @@ class provaFee(BitcoinTestFramework):
         ### 8. rejoin the network and check block heights and txs
         ### 9. repeat the loop for advancing blocks until entering epoch 3
         # 6.
-        mark_logs(f"Net split", self.nodes, DEBUG_MODE, color='c')
+        mark_logs_temp(f"Net split", self.nodes, DEBUG_MODE, color='c')
         self.split_network()
         # 7.
         malicious_ft_fees = Decimal('0.07')
@@ -219,22 +226,22 @@ class provaFee(BitcoinTestFramework):
                 malicious_ft_fees, epoch_cum_tree_hash, constant, [addr_node3], [bwt_amount])
         amount_cert_3 = [{"address": addr_node3, "amount": bwt_amount}]
 
-        mark_logs("Node 2 sends a certificate with increased fees", self.nodes, DEBUG_MODE, color='g')
+        mark_logs_temp("Node 2 sends a certificate with increased fees", self.nodes, DEBUG_MODE, color='g')
         try:
             cert_epoch_0 = self.nodes[2].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_3, malicious_ft_fees, malicious_mbtr_fees, CERT_FEE)
             assert(len(cert_epoch_0) > 0)
         except JSONRPCException as e:
             errorString = e.error['message']
-            mark_logs(f"Send certificate failed with reason {errorString}", self.nodes, DEBUG_MODE, color='r')
+            mark_logs_temp(f"Send certificate failed with reason {errorString}", self.nodes, DEBUG_MODE, color='r')
             assert(False)
-        mark_logs(cc('e',"Node 2 mines 1 block to validate cert: ") + cert_epoch_0, self.nodes, DEBUG_MODE, color='n')
+        mark_logs_temp(cc('e',"Node 2 mines 1 block to validate cert: ") + cert_epoch_0, self.nodes, DEBUG_MODE, color='n')
         self.nodes[2].generate(1)
         sync_blocks(self.nodes[2:])
         sync_mempools(self.nodes[2:])
         self.assert_chain_height_difference(1)          # Test that the newly mined block is only on nodes 2 and 3
         # 8.
-        mark_logs(f"Net join", self.nodes, DEBUG_MODE, color='c')
+        mark_logs_temp(f"Net join", self.nodes, DEBUG_MODE, color='c')
         self.join_network()
         sync_blocks(self.nodes)
         self.assert_chain_height_difference(0)          # Make sure that block is propagated to nodes 0 and 1
@@ -243,20 +250,20 @@ class provaFee(BitcoinTestFramework):
         nodesToBeGen = self.nodes[0].getscinfo(scid)['items'][0]['endEpochHeight'] - self.nodes[0].getblockcount() + 1
         for _ in range(nodesToBeGen):
             # 1.
-            mark_logs(f"Net split", self.nodes, DEBUG_MODE, color='c')
+            mark_logs_temp(f"Net split", self.nodes, DEBUG_MODE, color='c')
             self.split_network()
             # 2.
             self.assert_txs_in_mempool(NUM_TXS)         # Make sure that txs are only in nodes 0 and 1 mempool
             assert_greater_than(float(self.nodes[0].getbalance()), float(initial_balances[0]))
             assert_equal(float(self.nodes[1].getbalance()), float(initial_balances[1]))
             # 3.
-            mark_logs("Node 2 mines a block", self.nodes, DEBUG_MODE, color='e')
+            mark_logs_temp("Node 2 mines a block", self.nodes, DEBUG_MODE, color='e')
             self.nodes[2].generate(1)
             sync_blocks(self.nodes[2:])
             sync_mempools(self.nodes[2:])
             self.assert_chain_height_difference(1)      # Test that the newly mined block is only on nodes 2 and 3
             # 4.
-            mark_logs(f"Net join", self.nodes, DEBUG_MODE, color='c')
+            mark_logs_temp(f"Net join", self.nodes, DEBUG_MODE, color='c')
             self.join_network()
             sync_blocks(self.nodes)
             # 5.
@@ -271,7 +278,7 @@ class provaFee(BitcoinTestFramework):
         ### 12. mine a block on node 2 to confirm the cert
         ### 13. rejoin the net and sync everything
         # 10.
-        mark_logs(f"Net split", self.nodes, DEBUG_MODE, color='c')
+        mark_logs_temp(f"Net split", self.nodes, DEBUG_MODE, color='c')
         self.split_network()
         # 11.
         malicious_ft_fees = Decimal('0.1')
@@ -281,24 +288,24 @@ class provaFee(BitcoinTestFramework):
                 malicious_ft_fees, epoch_cum_tree_hash, constant, [addr_node3], [bwt_amount])
         amount_cert_3 = [{"address": addr_node3, "amount": bwt_amount}]
 
-        mark_logs("Node 2 sends a certificate with increased fees", self.nodes, DEBUG_MODE, color='g')
+        mark_logs_temp("Node 2 sends a certificate with increased fees", self.nodes, DEBUG_MODE, color='g')
         try:
             cert_epoch_0 = self.nodes[2].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_3, malicious_ft_fees, malicious_mbtr_fees, CERT_FEE)
             assert(len(cert_epoch_0) > 0)
         except JSONRPCException as e:
             errorString = e.error['message']
-            mark_logs(f"Send certificate failed with reason {errorString}", self.nodes, DEBUG_MODE, color='r')
+            mark_logs_temp(f"Send certificate failed with reason {errorString}", self.nodes, DEBUG_MODE, color='r')
             assert(False)
         # 12.
-        mark_logs(cc('e',"Node 2 mines 1 block to validate cert: ") + cert_epoch_0, self.nodes, DEBUG_MODE, color='n')
+        mark_logs_temp(cc('e',"Node 2 mines 1 block to validate cert: ") + cert_epoch_0, self.nodes, DEBUG_MODE, color='n')
         self.nodes[2].generate(1)
         sync_blocks(self.nodes[2:])
         sync_mempools(self.nodes[2:])
         self.assert_chain_height_difference(1)          # Test that the newly mined block is only on nodes 2 and 3
 
         # 13.
-        mark_logs(f"Net join", self.nodes, DEBUG_MODE, color='c')
+        mark_logs_temp(f"Net join", self.nodes, DEBUG_MODE, color='c')
         self.join_network()
         sync_blocks(self.nodes)
 
@@ -309,7 +316,7 @@ class provaFee(BitcoinTestFramework):
         # a.
         self.assert_chain_height_difference(0)          # Make sure that block is propagated to nodes 0 and 1
         # b.
-        mark_logs("Assert txs are no longer in mempool", self.nodes, DEBUG_MODE, color='y')
+        mark_logs_temp("Assert txs are no longer in mempool", self.nodes, DEBUG_MODE, color='y')
         self.assert_txs_in_mempool(0)                   # BOOM! Transactions should no longer in mempool
         # c.
         assert_greater_than(float(self.nodes[0].getbalance()), float(initial_balances[0]))  # and balance is unaffected
@@ -329,7 +336,7 @@ class provaFee(BitcoinTestFramework):
         epoch_length = 0 if not ceasable else EPOCH_LENGTH
 
         if (self.firstRound):
-            mark_logs(f"Node 0 generates {ForkHeights['NON_CEASING_SC']} block", self.nodes, DEBUG_MODE, color='e')
+            mark_logs_temp(f"Node 0 generates {ForkHeights['NON_CEASING_SC']} block", self.nodes, DEBUG_MODE, color='e')
             self.nodes[0].generate(ForkHeights['NON_CEASING_SC'])
             self.sync_all()
             self.firstRound = False
@@ -351,10 +358,10 @@ class provaFee(BitcoinTestFramework):
         ret = self.nodes[0].sc_create(cmdInput)
         scid = ret['scid']
         scid_swapped = str(swap_bytes(scid))
-        mark_logs(cc('g',"Node 0 created a SC: ") + scid, self.nodes, DEBUG_MODE, color='n')
+        mark_logs_temp(cc('g',"Node 0 created a SC: ") + scid, self.nodes, DEBUG_MODE, color='n')
 
         ### Sidechain confirmation
-        mark_logs(f"Node 0 generating 1 block to confirm the sidechain", self.nodes, DEBUG_MODE, color='e')
+        mark_logs_temp(f"Node 0 generating 1 block to confirm the sidechain", self.nodes, DEBUG_MODE, color='e')
         self.nodes[0].generate(1)
         self.sync_all()
         # Ensure that the SC is alive
@@ -363,7 +370,7 @@ class provaFee(BitcoinTestFramework):
 
         # Send some funds to node 2 to create a certificate and
         # generate a few blocks for allowing correct block referencing
-        mark_logs("Node 0 sends some funds to nodes 1 and 2", self.nodes, DEBUG_MODE, color='g')
+        mark_logs_temp("Node 0 sends some funds to nodes 1 and 2", self.nodes, DEBUG_MODE, color='g')
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 10.0)
         self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 20.0)
         self.nodes[0].generate(6)
@@ -377,7 +384,7 @@ class provaFee(BitcoinTestFramework):
         ### 5. rejoin the network
         ### 6. mined block should be broadcasted to nodes 0 and 1, but transactions shouldn't
         # 1.
-        mark_logs(f"Net split", self.nodes, DEBUG_MODE, color='c')
+        mark_logs_temp(f"Net split", self.nodes, DEBUG_MODE, color='c')
         self.split_network()
 
         # 2.
@@ -390,7 +397,7 @@ class provaFee(BitcoinTestFramework):
         assert_greater_than(float(initial_balances[0]), float(self.nodes[0].getbalance()))  # balance is unaffected
         self.assert_txs_in_mempool(NUM_TXS)
         assert_equal(float(self.nodes[1].getbalance()), float(initial_balances[1]))  # balance is unaffected
-        mark_logs(f"Node 0 added {NUM_TXS} transactions to nodes 0 and 1 mempools", self.nodes, DEBUG_MODE, color='c')
+        mark_logs_temp(f"Node 0 added {NUM_TXS} transactions to nodes 0 and 1 mempools", self.nodes, DEBUG_MODE, color='c')
 
         # 3.
         # node 2 send a ceritificate to node 3
@@ -404,25 +411,25 @@ class provaFee(BitcoinTestFramework):
                 malicious_ft_fees, epoch_cum_tree_hash, constant, [addr_node3], [bwt_amount])
         amount_cert_3 = [{"address": addr_node3, "amount": bwt_amount}]
 
-        mark_logs("Node 2 sends a certificate with increased fees", self.nodes, DEBUG_MODE, color='g')
+        mark_logs_temp("Node 2 sends a certificate with increased fees", self.nodes, DEBUG_MODE, color='g')
         try:
             cert_epoch_0 = self.nodes[2].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_3, malicious_ft_fees, malicious_mbtr_fees, CERT_FEE)
             assert(len(cert_epoch_0) > 0)
         except JSONRPCException as e:
             errorString = e.error['message']
-            mark_logs(f"Send certificate failed with reason {errorString}", self.nodes, DEBUG_MODE, color='r')
+            mark_logs_temp(f"Send certificate failed with reason {errorString}", self.nodes, DEBUG_MODE, color='r')
             assert(False)
 
         # 4.
-        mark_logs(cc('e',"Node 2 mines 1 block to validate cert: ") + cert_epoch_0, self.nodes, DEBUG_MODE, color='n')
+        mark_logs_temp(cc('e',"Node 2 mines 1 block to validate cert: ") + cert_epoch_0, self.nodes, DEBUG_MODE, color='n')
         self.nodes[2].generate(1)
         sync_blocks(self.nodes[2:])
         sync_mempools(self.nodes[2:])
         self.assert_chain_height_difference(1)      # Test that the newly mined block is only on nodes 2 and 3
 
         # 5.
-        mark_logs(f"Net join", self.nodes, DEBUG_MODE, color='c')
+        mark_logs_temp(f"Net join", self.nodes, DEBUG_MODE, color='c')
         self.join_network()
         sync_blocks(self.nodes)
 
@@ -434,7 +441,7 @@ class provaFee(BitcoinTestFramework):
 
         ### Repeat the same process, minus tx generation
         # 1.
-        mark_logs(f"Net split", self.nodes, DEBUG_MODE, color='c')
+        mark_logs_temp(f"Net split", self.nodes, DEBUG_MODE, color='c')
         self.split_network()
         # 3.
         # node 2 send a ceritificate to node 3
@@ -446,24 +453,24 @@ class provaFee(BitcoinTestFramework):
                 malicious_ft_fees, epoch_cum_tree_hash, constant, [addr_node3], [bwt_amount])
         amount_cert_3 = [{"address": addr_node3, "amount": bwt_amount}]
 
-        mark_logs("Node 2 sends a certificate with increased fees", self.nodes, DEBUG_MODE, color='g')
+        mark_logs_temp("Node 2 sends a certificate with increased fees", self.nodes, DEBUG_MODE, color='g')
         try:
             cert_epoch_0 = self.nodes[2].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_3, malicious_ft_fees, malicious_mbtr_fees, CERT_FEE)
             assert(len(cert_epoch_0) > 0)
         except JSONRPCException as e:
             errorString = e.error['message']
-            mark_logs(f"Send certificate failed with reason {errorString}", self.nodes, DEBUG_MODE, color='r')
+            mark_logs_temp(f"Send certificate failed with reason {errorString}", self.nodes, DEBUG_MODE, color='r')
             assert(False)
 
         # 4.
-        mark_logs(cc('e',"Node 2 mines 1 block to validate cert: ") + cert_epoch_0, self.nodes, DEBUG_MODE, color='n')
+        mark_logs_temp(cc('e',"Node 2 mines 1 block to validate cert: ") + cert_epoch_0, self.nodes, DEBUG_MODE, color='n')
         self.nodes[2].generate(1)
         sync_blocks(self.nodes[2:])
         sync_mempools(self.nodes[2:])
         self.assert_chain_height_difference(1)      # Test that the newly mined block is only on nodes 2 and 3
         # 5.
-        mark_logs(f"Net join", self.nodes, DEBUG_MODE, color='c')
+        mark_logs_temp(f"Net join", self.nodes, DEBUG_MODE, color='c')
         self.join_network()
         sync_blocks(self.nodes)
         self.assert_chain_height_difference(0)      # Make sure that block is propagated to nodes 0 and 1
@@ -471,7 +478,7 @@ class provaFee(BitcoinTestFramework):
         # Before the update, txs should be removed here, as soon as we sync the split
         if old_version:
             # 6.
-            mark_logs("Assert txs are no longer in mempool", self.nodes, DEBUG_MODE, color='y')
+            mark_logs_temp("Assert txs are no longer in mempool", self.nodes, DEBUG_MODE, color='y')
             self.assert_txs_in_mempool(0)               # BOOM! Transactions should no longer in mempool
             assert_greater_than(float(self.nodes[0].getbalance()), float(initial_balances[0]))  # and balance is unaffected
             assert_equal(float(self.nodes[1].getbalance()), float(initial_balances[1]))
@@ -483,7 +490,7 @@ class provaFee(BitcoinTestFramework):
             for i in range(7):
                 self.assert_txs_in_mempool(NUM_TXS)         # Make sure that txs are only in nodes 0 and 1 mempool
 
-                mark_logs(f"Net split", self.nodes, DEBUG_MODE, color='c')
+                mark_logs_temp(f"Net split", self.nodes, DEBUG_MODE, color='c')
                 self.split_network()
 
                 incremental_fees = incremental_fees + 0.05
@@ -494,23 +501,23 @@ class provaFee(BitcoinTestFramework):
                         malicious_ft_fees, epoch_cum_tree_hash, constant, [addr_node3], [bwt_amount])
                 amount_cert_3 = [{"address": addr_node3, "amount": bwt_amount}]
 
-                mark_logs("Node 2 sends a certificate with increased fees", self.nodes, DEBUG_MODE, color='g')
+                mark_logs_temp("Node 2 sends a certificate with increased fees", self.nodes, DEBUG_MODE, color='g')
                 try:
                     cert_epoch_0 = self.nodes[2].sc_send_certificate(scid, epoch_number, quality,
                         epoch_cum_tree_hash, proof, amount_cert_3, malicious_ft_fees, malicious_mbtr_fees, CERT_FEE)
                     assert(len(cert_epoch_0) > 0)
                 except JSONRPCException as e:
                     errorString = e.error['message']
-                    mark_logs(f"Send certificate failed with reason {errorString}", self.nodes, DEBUG_MODE, color='r')
+                    mark_logs_temp(f"Send certificate failed with reason {errorString}", self.nodes, DEBUG_MODE, color='r')
                     assert(False)
 
-                mark_logs(cc('e',"Node 2 mines 1 block to validate cert: ") + cert_epoch_0, self.nodes, DEBUG_MODE, color='n')
+                mark_logs_temp(cc('e',"Node 2 mines 1 block to validate cert: ") + cert_epoch_0, self.nodes, DEBUG_MODE, color='n')
                 self.nodes[2].generate(1)
                 sync_blocks(self.nodes[2:])
                 sync_mempools(self.nodes[2:])
                 self.assert_chain_height_difference(1)      # Test that the newly mined block is only on nodes 2 and 3
 
-                mark_logs(f"Net join", self.nodes, DEBUG_MODE, color='c')
+                mark_logs_temp(f"Net join", self.nodes, DEBUG_MODE, color='c')
                 self.join_network()
                 sync_blocks(self.nodes)
                 self.assert_chain_height_difference(0)      # Make sure that block is propagated to nodes 0 and 1
@@ -519,7 +526,7 @@ class provaFee(BitcoinTestFramework):
             # only the lower fees of each block
             for j in range(2):
                 self.assert_txs_in_mempool(NUM_TXS)         # Make sure that txs are only in nodes 0 and 1 mempool
-                mark_logs(f"Net split", self.nodes, DEBUG_MODE, color='c')
+                mark_logs_temp(f"Net split", self.nodes, DEBUG_MODE, color='c')
                 self.split_network()
 
                 for i in range(2):
@@ -531,23 +538,23 @@ class provaFee(BitcoinTestFramework):
                             malicious_ft_fees, epoch_cum_tree_hash, constant, [addr_node3], [bwt_amount])
                     amount_cert_3 = [{"address": addr_node3, "amount": bwt_amount}]
 
-                    mark_logs("Node 2 sends a certificate with increased fees", self.nodes, DEBUG_MODE, color='g')
+                    mark_logs_temp("Node 2 sends a certificate with increased fees", self.nodes, DEBUG_MODE, color='g')
                     try:
                         cert_epoch_0 = self.nodes[2].sc_send_certificate(scid, epoch_number, quality,
                             epoch_cum_tree_hash, proof, amount_cert_3, malicious_ft_fees, malicious_mbtr_fees, CERT_FEE)
                         assert(len(cert_epoch_0) > 0)
                     except JSONRPCException as e:
                         errorString = e.error['message']
-                        mark_logs(f"Send certificate failed with reason {errorString}", self.nodes, DEBUG_MODE, color='r')
+                        mark_logs_temp(f"Send certificate failed with reason {errorString}", self.nodes, DEBUG_MODE, color='r')
                         assert(False)
 
-                mark_logs(cc('e',"Node 2 mines 1 block to validate cert: ") + cert_epoch_0, self.nodes, DEBUG_MODE, color='n')
+                mark_logs_temp(cc('e',"Node 2 mines 1 block to validate cert: ") + cert_epoch_0, self.nodes, DEBUG_MODE, color='n')
                 self.nodes[2].generate(1)
                 sync_blocks(self.nodes[2:])
                 sync_mempools(self.nodes[2:])
                 self.assert_chain_height_difference(1)      # Test that the newly mined block is only on nodes 2 and 3
 
-                mark_logs(f"Net join", self.nodes, DEBUG_MODE, color='c')
+                mark_logs_temp(f"Net join", self.nodes, DEBUG_MODE, color='c')
                 self.join_network()
                 sync_blocks(self.nodes)
                 self.assert_chain_height_difference(0)      # Make sure that block is propagated to nodes 0 and 1
@@ -564,7 +571,7 @@ class provaFee(BitcoinTestFramework):
             assert_equal(float(scFeesList[-2]['forwardTxScFee'] - scFeesList[-3]['forwardTxScFee']), 0.05)
 
             # Finally, we are over the minScFeesBlocksUpdate border
-            mark_logs("Assert txs are no longer in mempool", self.nodes, DEBUG_MODE, color='y')
+            mark_logs_temp("Assert txs are no longer in mempool", self.nodes, DEBUG_MODE, color='y')
             self.assert_txs_in_mempool(0)                   # BOOM! Transactions should no longer in mempool
             assert_greater_than(float(self.nodes[0].getbalance()), float(initial_balances[0]))  # and balance is unaffected
             assert_equal(float(self.nodes[1].getbalance()), float(initial_balances[1]))
@@ -573,14 +580,11 @@ class provaFee(BitcoinTestFramework):
 
 
     def run_test(self):
-        mark_logs("*** SC version 0", self.nodes, DEBUG_MODE, color='b')
+        mark_logs_temp("*** SC version 0", self.nodes, DEBUG_MODE, color='b')
         self.run_test_with_scversion(0)
-        mark_logs("*** SC version 2 - ceasable SC", self.nodes, DEBUG_MODE, color='b')
+        mark_logs_temp("*** SC version 2 - ceasable SC", self.nodes, DEBUG_MODE, color='b')
         self.run_test_with_scversion(2, True)
-        # # NON SERVE PIU'
-        # # mark_logs("*** SC version 2 - non-ceasable SC - before the update", self.nodes, DEBUG_MODE, color='b')
-        # # self.run_test_non_ceasable(2, False, True)
-        mark_logs("*** SC version 2 - non-ceasable SC - after the update", self.nodes, DEBUG_MODE, color='b')
+        mark_logs_temp("*** SC version 2 - non-ceasable SC - after the update", self.nodes, DEBUG_MODE, color='b')
         self.run_test_non_ceasable(2, False, False)
 
 if __name__ == '__main__':
