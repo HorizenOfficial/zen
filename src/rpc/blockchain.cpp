@@ -3,6 +3,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include "addressindex.h"
 #include "amount.h"
 #include "base58.h"
 #include "chain.h"
@@ -184,9 +185,9 @@ UniValue blockToDeltasJSON(const CBlock& block, const CBlockIndex* blockindex)
                 CSpentIndexKey spentKey(input.prevout.hash, input.prevout.n);
 
                 if (GetSpentIndex(spentKey, spentInfo)) {
-                    if (spentInfo.addressType == 1) {
+                    if (spentInfo.addressType == AddressType::PUBKEY) {
                         delta.pushKV("address", CBitcoinAddress(CKeyID(spentInfo.addressHash)).ToString());
-                    } else if (spentInfo.addressType == 2)  {
+                    } else if (spentInfo.addressType == AddressType::SCRIPT)  {
                         delta.pushKV("address", CBitcoinAddress(CScriptID(spentInfo.addressHash)).ToString());
                     } else {
                         continue;

@@ -591,7 +591,7 @@ public:
 
     bool IsPayToPublicKey() const;
 
-    enum ScriptType : int {
+    enum class ScriptType {
         UNKNOWN = 0,
         P2PKH = 1,
         P2SH = 2,

@@ -14,6 +14,7 @@
 #ifndef BITCOIN_BASE58_H
 #define BITCOIN_BASE58_H
 
+#include "addressindex.h"
 #include "chainparams.h"
 #include "key.h"
 #include "pubkey.h"
@@ -163,7 +164,7 @@ public:
 
     CTxDestination Get() const;
     bool GetKeyID(CKeyID &keyID) const;
-    bool GetIndexKey(uint160& hashBytes, int& type) const;
+    bool GetIndexKey(uint160& hashBytes, AddressType& type) const;
     bool IsScript() const;
     bool IsPubKey() const;
 };
