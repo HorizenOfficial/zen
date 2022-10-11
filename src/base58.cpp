@@ -156,7 +156,7 @@ CTxDestination CBitcoinAddress::Get() const
         return CNoDestination();
 }
 
-bool CBitcoinAddress::GetIndexKey(uint160& hashBytes, int& type) const
+bool CBitcoinAddress::GetIndexKey(uint160& hashBytes, AddressType& type) const
 {
     if (!IsValid()) {
         return false;
