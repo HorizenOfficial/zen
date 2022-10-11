@@ -317,7 +317,7 @@ class provaFee(BitcoinTestFramework):
         self.assert_chain_height_difference(0)          # Make sure that block is propagated to nodes 0 and 1
         # b.
         mark_logs_temp("Assert txs are no longer in mempool", self.nodes, DEBUG_MODE, color='y')
-        self.assert_txs_in_mempool(0)                   # BOOM! Transactions should no longer in mempool
+        self.assert_txs_in_mempool(0)                   # BOOM! Transactions should no longer be in mempool
         # c.
         assert_greater_than(float(self.nodes[0].getbalance()), float(initial_balances[0]))  # and balance is unaffected
         assert_equal(float(self.nodes[1].getbalance()), float(initial_balances[1]))
@@ -479,7 +479,7 @@ class provaFee(BitcoinTestFramework):
         if old_version:
             # 6.
             mark_logs_temp("Assert txs are no longer in mempool", self.nodes, DEBUG_MODE, color='y')
-            self.assert_txs_in_mempool(0)               # BOOM! Transactions should no longer in mempool
+            self.assert_txs_in_mempool(0)               # BOOM! Transactions should no longer be in mempool
             assert_greater_than(float(self.nodes[0].getbalance()), float(initial_balances[0]))  # and balance is unaffected
             assert_equal(float(self.nodes[1].getbalance()), float(initial_balances[1]))
 
@@ -572,7 +572,7 @@ class provaFee(BitcoinTestFramework):
 
             # Finally, we are over the minScFeesBlocksUpdate border
             mark_logs_temp("Assert txs are no longer in mempool", self.nodes, DEBUG_MODE, color='y')
-            self.assert_txs_in_mempool(0)                   # BOOM! Transactions should no longer in mempool
+            self.assert_txs_in_mempool(0)                   # BOOM! Transactions should no longer be in mempool
             assert_greater_than(float(self.nodes[0].getbalance()), float(initial_balances[0]))  # and balance is unaffected
             assert_equal(float(self.nodes[1].getbalance()), float(initial_balances[1]))
 
