@@ -322,13 +322,13 @@ std::string CScript::ToString() const
 CScript::ScriptType CScript::GetType() const
 {
     if (this->IsPayToPublicKeyHash())
-        return CScript::P2PKH;
+        return CScript::ScriptType::P2PKH;
     if (this->IsPayToScriptHash())
-        return CScript::P2SH;
+        return CScript::ScriptType::P2SH;
     if (this->IsPayToPublicKey())
-        return CScript::P2PK;
+        return CScript::ScriptType::P2PK;
     // We don't know this script type
-    return CScript::UNKNOWN;
+    return CScript::ScriptType::UNKNOWN;
 }
 
 uint160 CScript::AddressHash() const

@@ -6,6 +6,7 @@
 #ifndef BITCOIN_TXDB_H
 #define BITCOIN_TXDB_H
 
+#include "addressindex.h"
 #include "chain.h"
 #include "coins.h"
 #include "leveldbwrapper.h"
@@ -177,12 +178,12 @@ public:
     bool ReadSpentIndex(CSpentIndexKey &key, CSpentIndexValue &value);
     bool UpdateSpentIndex(const std::vector<std::pair<CSpentIndexKey, CSpentIndexValue> >&vect);
     bool UpdateAddressUnspentIndex(const std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue > >&vect);
-    bool ReadAddressUnspentIndex(uint160 addressHash, int type,
+    bool ReadAddressUnspentIndex(uint160 addressHash, AddressType type,
                                  std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &vect);
     bool WriteAddressIndex(const std::vector<std::pair<CAddressIndexKey, CAddressIndexValue> > &vect);
     bool EraseAddressIndex(const std::vector<std::pair<CAddressIndexKey, CAddressIndexValue> > &vect);
     bool UpdateAddressIndex(const std::vector<std::pair<CAddressIndexKey, CAddressIndexValue> > &vect);
-    bool ReadAddressIndex(uint160 addressHash, int type,
+    bool ReadAddressIndex(uint160 addressHash, AddressType type,
                           std::vector<std::pair<CAddressIndexKey, CAddressIndexValue> > &addressIndex,
                           int start = 0, int end = 0);
     bool WriteTimestampIndex(const CTimestampIndexKey &timestampIndex);

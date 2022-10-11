@@ -1860,7 +1860,7 @@ bool GetSpentIndex(CSpentIndexKey &key, CSpentIndexValue &value)
     return true;
 }
 
-bool GetAddressIndex(uint160 addressHash, int type,
+bool GetAddressIndex(uint160 addressHash, AddressType type,
                      std::vector<std::pair<CAddressIndexKey, CAddressIndexValue> > &addressIndex, int start, int end)
 {
     if (!fAddressIndex)
@@ -1872,7 +1872,7 @@ bool GetAddressIndex(uint160 addressHash, int type,
     return true;
 }
 
-bool GetAddressUnspent(uint160 addressHash, int type,
+bool GetAddressUnspent(uint160 addressHash, AddressType type,
                        std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs)
 {
     if (!fAddressIndex)
@@ -2874,10 +2874,10 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                     const CTxOut &out = cert.GetVout()[k];
                     CScript::ScriptType scriptType = out.scriptPubKey.GetType();
 
-                    if (scriptType != CScript::UNKNOWN)
+                    if (scriptType != CScript::ScriptType::UNKNOWN)
                     {
                         const uint160 addrHash = out.scriptPubKey.AddressHash();
-                        const unsigned int addressType = fromScriptTypeToAddressType(scriptType);
+                        const AddressType addressType = fromScriptTypeToAddressType(scriptType);
 
                         // undo receiving activity
                         addressIndex.push_back(make_pair(CAddressIndexKey(addressType, addrHash, pindex->nHeight, i, hash, k, false),
@@ -3000,10 +3000,10 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 if (fAddressIndex)
                 {
                     CScript::ScriptType scriptType = undo.txout.scriptPubKey.GetType();
-                    if (scriptType != CScript::UNKNOWN)
+                    if (scriptType != CScript::ScriptType::UNKNOWN)
                     {
                         const uint160 addrHash = undo.txout.scriptPubKey.AddressHash();
-                        const unsigned int addressType = fromScriptTypeToAddressType(scriptType);
+                        const AddressType addressType = fromScriptTypeToAddressType(scriptType);
                         
                         // undo spending activity
                         addressIndex.push_back(make_pair(CAddressIndexKey(addressType, addrHash, pindex->nHeight, i, hash, j, true),
@@ -3035,10 +3035,10 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 const CTxOut &out = tx.GetVout()[k];
                 CScript::ScriptType scriptType = out.scriptPubKey.GetType();
 
-                if (scriptType != CScript::UNKNOWN)
+                if (scriptType != CScript::ScriptType::UNKNOWN)
                 {
                     const uint160 addrHash = out.scriptPubKey.AddressHash();
-                    const unsigned int addressType = fromScriptTypeToAddressType(scriptType);
+                    const AddressType addressType = fromScriptTypeToAddressType(scriptType);
 
                     // undo receiving activity
                     addressIndex.push_back(make_pair(CAddressIndexKey(addressType, addrHash, pindex->nHeight, i, hash, k, false),
@@ -3116,10 +3116,10 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                         const CTxOut &prevout = view.GetOutputFor(tx.GetVin()[j]);
                         CScript::ScriptType scriptType = prevout.scriptPubKey.GetType();
 
-                        if (scriptType != CScript::UNKNOWN)
+                        if (scriptType != CScript::ScriptType::UNKNOWN)
                         {
                             const uint160 addrHash = prevout.scriptPubKey.AddressHash();
-                            const unsigned int addressType = fromScriptTypeToAddressType(scriptType);
+                            const AddressType addressType = fromScriptTypeToAddressType(scriptType);
 
                             // undo spending activity
                             addressIndex.push_back(make_pair(CAddressIndexKey(addressType, addrHash, pindex->nHeight, i, hash, j, true),
@@ -3503,9 +3503,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                     const CTxOut &prevout = view.GetOutputFor(tx.GetVin()[j]);
                     CScript::ScriptType scriptType = prevout.scriptPubKey.GetType();
                     const uint160 addrHash = prevout.scriptPubKey.AddressHash();
-                    const unsigned int addressType = fromScriptTypeToAddressType(scriptType);
+                    const AddressType addressType = fromScriptTypeToAddressType(scriptType);
 
-                    if (fAddressIndex && scriptType != CScript::UNKNOWN)
+                    if (fAddressIndex && scriptType != CScript::ScriptType::UNKNOWN)
                     {
                         // record spending activity
                         addressIndex.push_back(make_pair(
@@ -3555,10 +3555,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 const CTxOut &out = tx.GetVout()[k];
                 CScript::ScriptType scriptType = out.scriptPubKey.GetType();
 
-                if (scriptType != CScript::UNKNOWN)
+                if (scriptType != CScript::ScriptType::UNKNOWN)
                 {
                     const uint160 addrHash = out.scriptPubKey.AddressHash();
-                    const unsigned int addressType = fromScriptTypeToAddressType(scriptType);
+                    const AddressType addressType = fromScriptTypeToAddressType(scriptType);
 
                     // record receiving activity
                     addressIndex.push_back(make_pair(CAddressIndexKey(addressType, addrHash, pindex->nHeight, txIdx, tx.GetHash(), k, false),
@@ -3638,9 +3638,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 const CTxOut &prevout = view.GetOutputFor(cert.GetVin()[j]);
                 CScript::ScriptType scriptType = prevout.scriptPubKey.GetType();
                 const uint160 addrHash = prevout.scriptPubKey.AddressHash();
-                const unsigned int addressType = fromScriptTypeToAddressType(scriptType);
+                const AddressType addressType = fromScriptTypeToAddressType(scriptType);
 
-                if (fAddressIndex && scriptType != CScript::UNKNOWN)
+                if (fAddressIndex && scriptType != CScript::ScriptType::UNKNOWN)
                 {
                     // record spending activity
                     addressIndex.push_back(make_pair(
@@ -3703,10 +3703,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 const CTxOut &out = cert.GetVout()[k];
                 CScript::ScriptType scriptType = out.scriptPubKey.GetType();
 
-                if (scriptType != CScript::UNKNOWN)
+                if (scriptType != CScript::ScriptType::UNKNOWN)
                 {
                     const uint160 addrHash = out.scriptPubKey.AddressHash();
-                    const unsigned int addressType = fromScriptTypeToAddressType(scriptType);
+                    const AddressType addressType = fromScriptTypeToAddressType(scriptType);
 
                     // record receiving activity
                     addressIndex.push_back(make_pair(CAddressIndexKey(addressType, addrHash, pindex->nHeight, certIdx, cert.GetHash(), k, false),
@@ -3828,10 +3828,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 const CTxOut &out = cert.GetVout()[k];
                 CScript::ScriptType scriptType = out.scriptPubKey.GetType();
 
-                if (scriptType != CScript::UNKNOWN)
+                if (scriptType != CScript::ScriptType::UNKNOWN)
                 {
                     const uint160 addrHash = out.scriptPubKey.AddressHash();
-                    const unsigned int addressType = fromScriptTypeToAddressType(scriptType);
+                    const AddressType addressType = fromScriptTypeToAddressType(scriptType);
 
                     // record receiving activity
                     addressIndex.push_back(make_pair(CAddressIndexKey(addressType, addrHash, pindex->nHeight, certIdx, cert.GetHash(), k, false),

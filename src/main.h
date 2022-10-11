@@ -13,6 +13,7 @@
 #include "spentindex.h"
 #include "timestampindex.h"
 
+#include "addressindex.h"
 #include "amount.h"
 #include "chain.h"
 #include "chainparams.h"
@@ -537,10 +538,10 @@ public:
 
 bool GetTimestampIndex(const unsigned int &high, const unsigned int &low, const bool fActiveOnly, std::vector<std::pair<uint256, unsigned int> > &hashes);
 bool GetSpentIndex(CSpentIndexKey &key, CSpentIndexValue &value);
-bool GetAddressIndex(uint160 addressHash, int type,
+bool GetAddressIndex(uint160 addressHash, AddressType type,
                      std::vector<std::pair<CAddressIndexKey, CAddressIndexValue> > &addressIndex,
                      int start = 0, int end = 0);
-bool GetAddressUnspent(uint160 addressHash, int type,
+bool GetAddressUnspent(uint160 addressHash, AddressType type,
                        std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs);
 
 

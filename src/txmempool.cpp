@@ -5,6 +5,7 @@
 
 #include "txmempool.h"
 
+#include "addressindex.h"
 #include "clientversion.h"
 #include "consensus/consensus.h"
 #include "consensus/validation.h"
@@ -244,11 +245,12 @@ void CTxMemPool::addAddressIndex(const CTransactionBase &txBase, int64_t nTime, 
         const CTxIn& input = txBase.GetVin()[j];
         const CTxOut& prevout = view.GetOutputFor(input);
 
-        CScript::ScriptType type = prevout.scriptPubKey.GetType();
-        if (type == CScript::UNKNOWN)
+        const CScript::ScriptType scriptType = prevout.scriptPubKey.GetType();
+        if (scriptType == CScript::ScriptType::UNKNOWN)
             continue;
+        const AddressType addressType = fromScriptTypeToAddressType(scriptType);
 
-        CMempoolAddressDeltaKey key(type, prevout.scriptPubKey.AddressHash(), txBaseHash, j, 1);
+        CMempoolAddressDeltaKey key(addressType, prevout.scriptPubKey.AddressHash(), txBaseHash, j, 1);
         CMempoolAddressDelta delta(nTime, prevout.nValue * -1, input.prevout.hash, input.prevout.n);
         mapAddress.insert(std::make_pair(key, delta));
         inserted.push_back(key);
@@ -301,11 +303,12 @@ void CTxMemPool::addAddressIndex(const CTransactionBase &txBase, int64_t nTime, 
             {
                 const CTxOut &out = certSuperseeded.GetVout()[m];
   
-                CScript::ScriptType type = out.scriptPubKey.GetType();
-                if (type == CScript::UNKNOWN)
+                const CScript::ScriptType scriptType = out.scriptPubKey.GetType();
+                if (scriptType == CScript::ScriptType::UNKNOWN)
                     continue;
+                const AddressType addressType = fromScriptTypeToAddressType(scriptType);
 
-                CMempoolAddressDeltaKey key(type, out.scriptPubKey.AddressHash(), certSuperseededHash, m, 0);
+                CMempoolAddressDeltaKey key(addressType, out.scriptPubKey.AddressHash(), certSuperseededHash, m, 0);
                 mapAddress[key].outStatus = CMempoolAddressDelta::OutputStatus::LOW_QUALITY_CERT_BACKWARD_TRANSFER;
 
             }
@@ -324,11 +327,12 @@ void CTxMemPool::addAddressIndex(const CTransactionBase &txBase, int64_t nTime, 
             outStatus = certBwtStatus;
         }
 
-        CScript::ScriptType type = out.scriptPubKey.GetType();
-        if (type == CScript::UNKNOWN)
+        const CScript::ScriptType scriptType = out.scriptPubKey.GetType();
+        if (scriptType == CScript::ScriptType::UNKNOWN)
             continue;
+        const AddressType addressType = fromScriptTypeToAddressType(scriptType);
 
-        CMempoolAddressDeltaKey key(type, out.scriptPubKey.AddressHash(), txBaseHash, k, 0);
+        CMempoolAddressDeltaKey key(addressType, out.scriptPubKey.AddressHash(), txBaseHash, k, 0);
         mapAddress.insert(std::make_pair(key, CMempoolAddressDelta(nTime, out.nValue, outStatus)));
         inserted.push_back(key);
     }
@@ -350,24 +354,25 @@ void CTxMemPool::updateTopQualCertAddressIndex(const uint256& scid)
         {
             const CTxOut &out = certTopQual.GetVout()[m];
   
-            CScript::ScriptType type = out.scriptPubKey.GetType();
-            if (type == CScript::UNKNOWN)
+            const CScript::ScriptType scriptType = out.scriptPubKey.GetType();
+            if (scriptType == CScript::ScriptType::UNKNOWN)
                 continue;
- 
-            CMempoolAddressDeltaKey key(type, out.scriptPubKey.AddressHash(), topQualHash, m, 0);
+            const AddressType addressType = fromScriptTypeToAddressType(scriptType);
+
+            CMempoolAddressDeltaKey key(addressType, out.scriptPubKey.AddressHash(), topQualHash, m, 0);
             mapAddress[key].outStatus = CMempoolAddressDelta::OutputStatus::TOP_QUALITY_CERT_BACKWARD_TRANSFER;
         }
     }
 }
 
-bool CTxMemPool::getAddressIndex(std::vector<std::pair<uint160, int> > &addresses,
+bool CTxMemPool::getAddressIndex(std::vector<std::pair<uint160, AddressType> > &addresses,
                                  std::vector<std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> > &results)
 {
     if (!fAddressIndex)
         return false;
         
     LOCK(cs);
-    for (std::vector<std::pair<uint160, int> >::iterator it = addresses.begin(); it != addresses.end(); it++) {
+    for (std::vector<std::pair<uint160, AddressType> >::iterator it = addresses.begin(); it != addresses.end(); it++) {
         addressDeltaMap::iterator ait = mapAddress.lower_bound(CMempoolAddressDeltaKey((*it).second, (*it).first));
         while (ait != mapAddress.end() && (*ait).first.addressBytes == (*it).first && (*ait).first.type == (*it).second) {
             results.push_back(*ait);
@@ -406,8 +411,8 @@ void CTxMemPool::addSpentIndex(const CTransactionBase &txBase, const CCoinsViewC
 
         CSpentIndexKey key = CSpentIndexKey(input.prevout.hash, input.prevout.n);
         CSpentIndexValue value = CSpentIndexValue(txBaseHash, j, -1, prevout.nValue,
-            prevout.scriptPubKey.GetType(),
-            prevout.scriptPubKey.AddressHash());
+                                                  fromScriptTypeToAddressType(prevout.scriptPubKey.GetType()),
+                                                  prevout.scriptPubKey.AddressHash());
 
         mapSpent.insert(std::make_pair(key, value));
         inserted.push_back(key);
