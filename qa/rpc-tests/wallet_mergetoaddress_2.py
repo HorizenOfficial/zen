@@ -16,6 +16,14 @@ from distutils.dir_util import copy_tree
 
 class WalletMergeToAddressTest (BitcoinTestFramework):
 
+    op_result_k = "op_result"
+    balance_delta_k = "balance_delta"
+    joinsplit_len_k = "joinsplit_len"
+    mergingUTXOs_k = "mergingUTXOs"
+    mergingNotes_k = "mergingNotes"
+    mergingTransparentValue_k = "mergingTransparentValue"
+    mergingShieldedValue_k = "mergingShieldedValue"
+
     def import_data_to_data_dir(self):
         #importing datadir resource
         import os
@@ -39,10 +47,6 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
             wait_and_assert_operationid_status(self.nodes[0], results[i]['opid'])
         self.nodes[1].generate(1)
         self.sync_all()
-        assert_equal(self.nodes[0].getblockcount(), quantity * (1 + 100) + 1)
-        assert_equal(self.nodes[0].getwalletinfo()["balance"] +
-                     self.nodes[0].getwalletinfo()["unconfirmed_balance"] +
-                     self.nodes[0].getwalletinfo()["immature_balance"], 0)
 
     def send_transparent(self, quantity):
         for i in range(quantity):
@@ -69,11 +73,7 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
         self.nodes[1].generate(100)
         self.sync_all()
         tx = self.get_merged_transaction(listunspent_before_merge, self.nodes[2].listunspent(0))
-        assert_equal(result["mergingUTXOs"], utxos_quantity)
-        assert_equal(result["mergingTransparentValue"], self.nodes[2].z_getbalance(mytaddr2) - balance_before_merge)
-        assert_equal(result["mergingNotes"], 0)
-        #no joinsplit is required because every input is transparent and every output is transparent
-        assert_equal(len(tx["vjoinsplit"]), 0)
+        return {self.op_result_k: result, self.balance_delta_k: self.nodes[2].z_getbalance(mytaddr2) - balance_before_merge, self.joinsplit_len_k: len(tx["vjoinsplit"])}
 
     def z_mergetoaddress_t2z(self, utxos_quantity):
         if (len(self.nodes[2].z_listaddresses()) == 0):
@@ -87,11 +87,7 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
         self.nodes[1].generate(100)
         self.sync_all()
         tx = self.get_merged_transaction(listunspent_before_merge, self.nodes[2].z_listunspent(0))
-        assert_equal(result["mergingUTXOs"], utxos_quantity)
-        assert_equal(result["mergingTransparentValue"], self.nodes[2].z_getbalance(myzaddr2) - balance_before_merge)
-        assert_equal(result["mergingNotes"], 0)
-        #only 1 joinsplit is required because every input is transparent and there is only a single shielded output
-        assert_equal(len(tx["vjoinsplit"]), 1)
+        return {self.op_result_k: result, self.balance_delta_k: self.nodes[2].z_getbalance(myzaddr2) - balance_before_merge, self.joinsplit_len_k: len(tx["vjoinsplit"])}
 
     def z_mergetoaddress_z2t(self, notes_quantity):
         mytaddr2 = self.nodes[2].listaddresses()[0]
@@ -102,14 +98,7 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
         self.nodes[1].generate(100)
         self.sync_all()
         tx = self.get_merged_transaction(listunspent_before_merge, self.nodes[2].listunspent(0))
-        assert_equal(result["mergingUTXOs"], 0)
-        assert_equal(result["mergingNotes"], notes_quantity)
-        assert_equal(result["mergingShieldedValue"], self.nodes[2].z_getbalance(mytaddr2) - balance_before_merge)
-        #(notes_quantity - 1) joinsplits are required because first two shielded inputs are merged in a shielded output,
-        #which is then set as shielded input (change) in the subsequent joinsplit and paired with another shielded input
-        #until the final shielded output is obtained; eventually, the last joinsplit contains the total amount of funds
-        #flowinf back to public pool
-        assert_equal(len(tx["vjoinsplit"]), notes_quantity - 1)
+        return {self.op_result_k: result, self.balance_delta_k: self.nodes[2].z_getbalance(mytaddr2) - balance_before_merge, self.joinsplit_len_k: len(tx["vjoinsplit"])}
 
     def z_mergetoaddress_z2z(self, notes_quantity):
         if (len(self.nodes[2].z_listaddresses()) == 0):
@@ -123,13 +112,7 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
         self.nodes[1].generate(100)
         self.sync_all()
         tx = self.get_merged_transaction(listunspent_before_merge, self.nodes[2].z_listunspent(0))
-        assert_equal(result["mergingUTXOs"], 0)
-        assert_equal(result["mergingNotes"], notes_quantity)
-        assert_equal(result["mergingShieldedValue"], self.nodes[2].z_getbalance(myzaddr2) - balance_before_merge)
-        #(notes_quantity - 1) joinsplits are required because first two shielded inputs are merged in a shielded output,
-        #which is then set as shielded input (change) in the subsequent joinsplit and paired with another shielded input
-        #until the final shielded output is obtained
-        assert_equal(len(tx["vjoinsplit"]), notes_quantity - 1)
+        return {self.op_result_k: result, self.balance_delta_k: self.nodes[2].z_getbalance(myzaddr2) - balance_before_merge, self.joinsplit_len_k: len(tx["vjoinsplit"])}
 
     def z_mergetoaddress_tz2t(self, utxos_quantity, notes_quantity):
         mytaddr2 = self.nodes[2].listaddresses()[0]
@@ -140,11 +123,7 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
         self.nodes[1].generate(100)
         self.sync_all()
         tx = self.get_merged_transaction(listunspent_before_merge, self.nodes[2].listunspent(0))
-        assert_equal(result["mergingUTXOs"], utxos_quantity)
-        assert_equal(result["mergingNotes"], notes_quantity)
-        assert_equal(result["mergingTransparentValue"] + result["mergingShieldedValue"], self.nodes[2].z_getbalance(mytaddr2) - balance_before_merge)
-        #analogous to t2t + z2t
-        assert_equal(len(tx["vjoinsplit"]), notes_quantity - 1)
+        return {self.op_result_k: result, self.balance_delta_k: self.nodes[2].z_getbalance(mytaddr2) - balance_before_merge, self.joinsplit_len_k: len(tx["vjoinsplit"])}
 
     def z_mergetoaddress_tz2z(self, utxos_quantity, notes_quantity):
         if (len(self.nodes[2].z_listaddresses()) == 0):
@@ -158,11 +137,7 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
         self.nodes[1].generate(100)
         self.sync_all()
         tx = self.get_merged_transaction(listunspent_before_merge, self.nodes[2].z_listunspent(0))
-        assert_equal(result["mergingUTXOs"], utxos_quantity)
-        assert_equal(result["mergingNotes"], notes_quantity)
-        assert_equal(result["mergingTransparentValue"] + result["mergingShieldedValue"], self.nodes[2].z_getbalance(myzaddr2) - balance_before_merge)
-        #analogous to t2z + z2z, but consider the joinsplit required by t2z is actually collpased in the final z2z joinsplit
-        assert_equal(len(tx["vjoinsplit"]), notes_quantity - 1)
+        return {self.op_result_k: result, self.balance_delta_k: self.nodes[2].z_getbalance(myzaddr2) - balance_before_merge, self.joinsplit_len_k: len(tx["vjoinsplit"])}
 
     def setup_chain(self):
         self.import_data_to_data_dir()
@@ -188,36 +163,186 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
         # Node1 acts as miner and funds distributor
         # Node2 acts ad "to" (merge_to_address receiver)
 
+        #(generate 1b on n0, generate 100bs on node1, shield 1 b on n0) * 100 + generate 1b on n1
+        #this code is provided if there is need to extend setup datadir
         #self.generate_notes(100)
-        quantity_start, quantity_end = 3, 4
+        #assert_equal(self.nodes[0].getblockcount(), 10101)
+        #assert_equal(self.nodes[0].getwalletinfo()["balance"] +
+        #             self.nodes[0].getwalletinfo()["unconfirmed_balance"] +
+        #             self.nodes[0].getwalletinfo()["immature_balance"], 0)
+ 
 
-        #T to T
-        for i in range(quantity_start, quantity_end + 1):
-            self.send_transparent(i)
-            self.z_mergetoaddress_t2t(i)
+        # ---------- T to T ----------      
+        #move 3 utxos from n1 to n0
+        self.send_transparent(3)
+        #merge up to 3 utxos (available more than 3) from n0 to n2
+        result = self.z_mergetoaddress_t2t(3)
+        assert_equal(result[self.op_result_k][self.mergingUTXOs_k], 3)
+        assert_equal(result[self.op_result_k][self.mergingNotes_k], 0)
+        assert_equal(result[self.op_result_k][self.mergingTransparentValue_k], result[self.balance_delta_k])
+        assert_equal(result[self.op_result_k][self.mergingShieldedValue_k], 0)
+        #no joinsplit is required because every input is transparent and every output is transparent
+        assert_equal(result[self.joinsplit_len_k], 0)
+
+        #move 4 utxos from n1 to n0
+        self.send_transparent(4)
+        #merge up to 4 utxos (available more than 4) from n0 to n2
+        result = self.z_mergetoaddress_t2t(4)
+        assert_equal(result[self.op_result_k][self.mergingUTXOs_k], 4)
+        assert_equal(result[self.op_result_k][self.mergingNotes_k], 0)
+        assert_equal(result[self.op_result_k][self.mergingTransparentValue_k], result[self.balance_delta_k])
+        assert_equal(result[self.op_result_k][self.mergingShieldedValue_k], 0)
+        #no joinsplit is required because every input is transparent and every output is transparent
+        assert_equal(result[self.joinsplit_len_k], 0)
+        # ---------- T to T ----------
+
+
+        # ---------- T to Z ----------
+        #move 3 utxos from n1 to n0
+        self.send_transparent(3)
+        #merge up to 3 utxos (available more than 3) from n0 to n2
+        result = self.z_mergetoaddress_t2z(3)
+        assert_equal(result[self.op_result_k][self.mergingUTXOs_k], 3)
+        assert_equal(result[self.op_result_k][self.mergingNotes_k], 0)
+        assert_equal(result[self.op_result_k][self.mergingTransparentValue_k], result[self.balance_delta_k])
+        assert_equal(result[self.op_result_k][self.mergingShieldedValue_k], 0)
+        #only 1 joinsplit is required because every input is transparent and there is only a single shielded output
+        assert_equal(result[self.joinsplit_len_k], 1)
+
+        #move 4 utxos from n1 to n0
+        self.send_transparent(4)
+        #merge up to 4 utxos (available more than 4) from n0 to n2
+        result = self.z_mergetoaddress_t2z(4)
+        assert_equal(result[self.op_result_k][self.mergingUTXOs_k], 4)
+        assert_equal(result[self.op_result_k][self.mergingNotes_k], 0)
+        assert_equal(result[self.op_result_k][self.mergingTransparentValue_k], result[self.balance_delta_k])
+        assert_equal(result[self.op_result_k][self.mergingShieldedValue_k], 0)
+        #only 1 joinsplit is required because every input is transparent and there is only a single shielded output
+        assert_equal(result[self.joinsplit_len_k], 1)
+        # ---------- T to Z ----------
+
+
+        # ---------- Z to T ----------
+        #merge up to 3 notes (available more than 3) from n0 to n2
+        result = self.z_mergetoaddress_z2t(3)
+        assert_equal(result[self.op_result_k][self.mergingUTXOs_k], 0)
+        assert_equal(result[self.op_result_k][self.mergingNotes_k], 3)
+        assert_equal(result[self.op_result_k][self.mergingTransparentValue_k], 0)
+        assert_equal(result[self.op_result_k][self.mergingShieldedValue_k], result[self.balance_delta_k])
+        #2 joinsplits are required because first two shielded inputs are merged in a shielded output,
+        #which is then set as shielded input (change) in the subsequent joinsplit and paired with another shielded input
+        #until the final shielded output is obtained; eventually, the last joinsplit contains the total amount of funds
+        #flowing back to public pool
+        assert_equal(result[self.joinsplit_len_k], 2)
+
+        #merge up to 4 notes (available more than 4) from n0 to n2
+        result = self.z_mergetoaddress_z2t(4)
+        assert_equal(result[self.op_result_k][self.mergingUTXOs_k], 0)
+        assert_equal(result[self.op_result_k][self.mergingNotes_k], 4)
+        assert_equal(result[self.op_result_k][self.mergingTransparentValue_k], 0)
+        assert_equal(result[self.op_result_k][self.mergingShieldedValue_k], result[self.balance_delta_k])
+        #3 joinsplits are required because first two shielded inputs are merged in a shielded output,
+        #which is then set as shielded input (change) in the subsequent joinsplit and paired with another shielded input
+        #until the final shielded output is obtained; eventually, the last joinsplit contains the total amount of funds
+        #flowing back to public pool
+        assert_equal(result[self.joinsplit_len_k], 3)
+        # ---------- Z to T ----------
         
-        #T to Z
-        for i in range(quantity_start, quantity_end + 1):
-            self.send_transparent(i)
-            self.z_mergetoaddress_t2z(i)
-        
-        #Z to T
-        for i in range(quantity_start, quantity_end + 1):
-            self.z_mergetoaddress_z2t(i)
-        
-        #Z to Z
-        for i in range(quantity_start, quantity_end + 1):
-            self.z_mergetoaddress_z2z(i)
-        
-        #TZ to T
-        for i in range(quantity_start, quantity_end + 1):
-            self.send_transparent(i)
-            self.z_mergetoaddress_tz2t(i, i)
-        
-        #TZ to Z
-        for i in range(quantity_start, quantity_end + 1):
-            self.send_transparent(i)
-            self.z_mergetoaddress_tz2z(i, i)
+
+        # ---------- Z to Z ----------
+        #merge up to 3 notes (available more than 3) from n0 to n2
+        result = self.z_mergetoaddress_z2z(3)
+        assert_equal(result[self.op_result_k][self.mergingUTXOs_k], 0)
+        assert_equal(result[self.op_result_k][self.mergingNotes_k], 3)
+        assert_equal(result[self.op_result_k][self.mergingTransparentValue_k], 0)
+        assert_equal(result[self.op_result_k][self.mergingShieldedValue_k], result[self.balance_delta_k])
+        #2 joinsplits are required because first two shielded inputs are merged in a shielded output,
+        #which is then set as shielded input (change) in the subsequent joinsplit and paired with another shielded input
+        #until the final shielded output is obtained
+        assert_equal(result[self.joinsplit_len_k], 2)
+
+        #merge up to 4 notes (available more than 4) from n0 to n2
+        result = self.z_mergetoaddress_z2z(4)
+        assert_equal(result[self.op_result_k][self.mergingUTXOs_k], 0)
+        assert_equal(result[self.op_result_k][self.mergingNotes_k], 4)
+        assert_equal(result[self.op_result_k][self.mergingTransparentValue_k], 0)
+        assert_equal(result[self.op_result_k][self.mergingShieldedValue_k], result[self.balance_delta_k])
+        #3 joinsplits are required because first two shielded inputs are merged in a shielded output,
+        #which is then set as shielded input (change) in the subsequent joinsplit and paired with another shielded input
+        #until the final shielded output is obtained
+        assert_equal(result[self.joinsplit_len_k], 3)
+        # ---------- Z to Z ----------
+
+
+        # ---------- TZ to T ----------
+        #move 3 utxos from n1 to n0
+        self.send_transparent(3)
+        #merge up to 3 utxos (available more than 3) and up to 3 notes (available more than 3) from n0 to n2
+        result = self.z_mergetoaddress_tz2t(3, 3)
+        assert_equal(result[self.op_result_k][self.mergingUTXOs_k], 3)
+        assert_equal(result[self.op_result_k][self.mergingNotes_k], 3)
+        assert_equal(result[self.op_result_k][self.mergingTransparentValue_k] + result[self.op_result_k][self.mergingShieldedValue_k], result[self.balance_delta_k])
+        #number of joinsplits analogous to t2t + z2t
+        assert_equal(result[self.joinsplit_len_k], 2)
+
+        #move 4 utxos from n1 to n0
+        self.send_transparent(4)
+        #merge up to 4 utxos (available more than 4) and up to 4 notes (available more than 4) from n0 to n2
+        result = self.z_mergetoaddress_tz2t(4, 4)
+        assert_equal(result[self.op_result_k][self.mergingUTXOs_k], 4)
+        assert_equal(result[self.op_result_k][self.mergingNotes_k], 4)
+        assert_equal(result[self.op_result_k][self.mergingTransparentValue_k] + result[self.op_result_k][self.mergingShieldedValue_k], result[self.balance_delta_k])
+        #number of joinsplits analogous to t2t + z2t
+        assert_equal(result[self.joinsplit_len_k], 3)
+        # ---------- TZ to T ----------
+
+
+        # ---------- TZ to Z ----------
+        #move 3 utxos from n1 to n0
+        self.send_transparent(3)
+        #merge up to 3 utxos (available more than 3) and up to 3 notes (available more than 3) from n0 to n2
+        result = self.z_mergetoaddress_tz2z(3, 3)
+        assert_equal(result[self.op_result_k][self.mergingUTXOs_k], 3)
+        assert_equal(result[self.op_result_k][self.mergingNotes_k], 3)
+        assert_equal(result[self.op_result_k][self.mergingTransparentValue_k] + result[self.op_result_k][self.mergingShieldedValue_k], result[self.balance_delta_k])
+        #number of joinsplits analogous to t2z + z2z, but consider the joinsplit required by t2z is actually collpased in the final z2z joinsplit
+        assert_equal(result[self.joinsplit_len_k], 2)
+
+        #move 4 utxos from n1 to n0
+        self.send_transparent(4)
+        #merge up to 4 utxos (available more than 4) and up to 4 notes (available more than 4) from n0 to n2
+        result = self.z_mergetoaddress_tz2z(4, 4)
+        assert_equal(result[self.op_result_k][self.mergingUTXOs_k], 4)
+        assert_equal(result[self.op_result_k][self.mergingNotes_k], 4)
+        assert_equal(result[self.op_result_k][self.mergingTransparentValue_k] + result[self.op_result_k][self.mergingShieldedValue_k], result[self.balance_delta_k])
+        #number of joinsplits analogous to t2z + z2z, but consider the joinsplit required by t2z is actually collpased in the final z2z joinsplit
+        assert_equal(result[self.joinsplit_len_k], 3)
+        # ---------- TZ to Z ----------
+
+
+        # ---------- big size ----------
+        #merge up to 60 notes (available more than 60, but transaction size limit admits up to 58) from n0 to n2
+        result = self.z_mergetoaddress_z2z(60)
+        assert_equal(result[self.op_result_k][self.mergingUTXOs_k], 0)
+        assert_equal(result[self.op_result_k][self.mergingNotes_k], 58)
+        assert_equal(result[self.op_result_k][self.mergingTransparentValue_k], 0)
+        assert_equal(result[self.op_result_k][self.mergingShieldedValue_k], result[self.balance_delta_k])
+        #57 joinsplits are required because first two shielded inputs are merged in a shielded output,
+        #which is then set as shielded input (change) in the subsequent joinsplit and paired with another shielded input
+        #until the final shielded output is obtained
+        assert_equal(result[self.joinsplit_len_k], 57)
+
+        #merge up to 60 notes (available only 14) from n0 to n2
+        result = self.z_mergetoaddress_z2z(60)
+        assert_equal(result[self.op_result_k][self.mergingUTXOs_k], 0)
+        assert_equal(result[self.op_result_k][self.mergingNotes_k], 14)
+        assert_equal(result[self.op_result_k][self.mergingTransparentValue_k], 0)
+        assert_equal(result[self.op_result_k][self.mergingShieldedValue_k], result[self.balance_delta_k])
+        #13 joinsplits are required because first two shielded inputs are merged in a shielded output,
+        #which is then set as shielded input (change) in the subsequent joinsplit and paired with another shielded input
+        #until the final shielded output is obtained
+        assert_equal(result[self.joinsplit_len_k], 13)
+        # ---------- big size ----------
 
 if __name__ == '__main__':
     WalletMergeToAddressTest().main()
