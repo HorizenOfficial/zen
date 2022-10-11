@@ -768,7 +768,7 @@ void CSidechain::UpdateScFees(const CScCertificateView& certView, int blockHeigh
 
     // v1 sidechains
     if (!isNonCeasing()) {
-        scFees.emplace_back(Sidechain::ScFeeData(ftScFee, mbtrScFee));
+        scFees.emplace_back(ftScFee, mbtrScFee);
 
         // remove from the front as many elements are needed to be within the circular buffer size
         // --
@@ -791,7 +791,7 @@ void CSidechain::UpdateScFees(const CScCertificateView& certView, int blockHeigh
         // We have not found a scFeeData for the current height, so we add a new one and perform all the checks
         // on the container size / element age
         if (scFeeIt == scFees_v2.end()) {
-            scFees_v2.emplace_back(Sidechain::ScFeeData_v2(ftScFee, mbtrScFee, blockHeight));
+            scFees_v2.emplace_back(ftScFee, mbtrScFee, blockHeight);
 
             // as for v1 sidechains
             const size_t max_size { static_cast<size_t>(maxSizeOfScFeesContainers) };
