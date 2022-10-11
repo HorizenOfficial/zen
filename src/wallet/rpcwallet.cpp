@@ -5946,7 +5946,7 @@ UniValue z_shieldcoinbase(const UniValue& params, bool fHelp)
 #define MERGE_TO_ADDRESS_DEFAULT_TRANSPARENT_LIMIT 50
 #define MERGE_TO_ADDRESS_DEFAULT_SHIELDED_LIMIT 10
 
-#define JOINSPLIT_SIZE JSDescription::getNewInstance(GROTH_TX_VERSION).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION, GROTH_TX_VERSION)
+#define JOINSPLIT_SIZE(TX_VER) JSDescription::getNewInstance(TX_VER == GROTH_TX_VERSION).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION, TX_VER)
 
 UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
 {
@@ -6139,7 +6139,7 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
 
     size_t estimatedTxSize = 200;  // tx overhead + wiggle room
     if (isToZaddr) {
-        estimatedTxSize += JOINSPLIT_SIZE;
+        estimatedTxSize += JOINSPLIT_SIZE(shieldedTxVersion);
     }
 
     if (useAny || useAnyUTXO || taddrs.size() > 0) {
@@ -6199,9 +6199,7 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
             if (!maxedOutNotesFlag) {
                 // If we haven't added any notes yet and the merge is to a
                 // z-address, we have already accounted for the first JoinSplit.
-                // TODO size estimation doesn't work correctly leading to oversized tx with 114 JoinSplit when nNoteLimit == 0
-                // TODO max JoinSplit per transaction is 58 since Groth16, with one JS == 1698 bytes, IIRC size estimation is also broken for z_sendmany
-                size_t increase = (noteInputs.empty() && !isToZaddr) || (noteInputs.size() % 2 == 0) ? JOINSPLIT_SIZE : 0;
+                size_t increase = (!noteInputs.empty() || !isToZaddr) ? JOINSPLIT_SIZE(shieldedTxVersion) : 0;
                 if (estimatedTxSize + increase >= MAX_TX_SIZE ||
                     (nNoteLimit > 0 && noteCounter > nNoteLimit))
                 {
