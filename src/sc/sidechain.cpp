@@ -719,6 +719,9 @@ int CSidechain::getMaxSizeOfScFeesContainers()
             const int epochLength = fixedParams.withdrawalEpochLength;
             assert(epochLength > 0);
             maxSizeOfScFeesContainers = (numBlocks + epochLength - 1) / epochLength;
+            // CSidechain::getNumBlocksForScFeeCheck() may return 0 for regtest...
+            // This was managed in the same way in the old version
+            maxSizeOfScFeesContainers = std::max(maxSizeOfScFeesContainers, 1);
         } else {
             // As defined in chainparams.cpp, maxSizeOfScFeesContainers is 200 for mainnet and testnet,
             // and 10 for regtest. For regtest, this value can be overridden with the command line option
