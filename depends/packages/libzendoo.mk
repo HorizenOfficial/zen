@@ -3,26 +3,30 @@ $(package)_version=0.2.1
 $(package)_download_path=https://github.com/HorizenOfficial/zendoo-mc-cryptolib/archive/
 $(package)_file_name=$(package)-$($(package)_git_commit).tar.gz
 $(package)_download_file=$($(package)_git_commit).tar.gz
-$(package)_sha256_hash=3285fe94d067ab249ed64935da70edb75383cc6b2bea50b5bf988cf37b65e55f
-$(package)_git_commit=16b63d9187a6cffded5290597e8e23ecee799ee5
+$(package)_sha256_hash=83772c0a013a920338ca727694c3d1d3fc935eae76d0ca79b184756aa474bf0b
+$(package)_git_commit=399358abb53cc849fbab982f05f4e747269fa4ad
 $(package)_dependencies=rust $(rust_crates_z)
 $(package)_patches=cargo.config
 
 ifeq ($(CLANG_ARG),true)
 $(package)_compiler=$(CT_PREFIX)clang
-RUST_CC=CC=$($(package)_compiler)
 else
 $(package)_compiler=$(CT_PREFIX)gcc
-RUST_CC=CC=$($(package)_compiler)
 endif
+
+RUST_CC=CC=$($(package)_compiler)
 
 ifeq ($(host_os),mingw32)
 $(package)_library_file=target/x86_64-pc-windows-gnu/release/libzendoo_mc.a
+# libmcTestCall.a must be compiled with the host compiler
+LIB_CXX=CXX=$(HOST)-g++
 # Unset custom CC
 RUST_CC=
 else
 $(package)_library_file=target/release/libzendoo_mc.a
 endif
+
+$(package)_mctest_library_file=target/release/libmcTestCall.a
 
 ifeq ($(LIBZENDOO_LEGACY_CPU),true)
 $(package)_target_feature=
@@ -41,7 +45,8 @@ define $(package)_preprocess_cmds
 endef
 
 define $(package)_build_cmds
-  $(RUST_CC) RUSTFLAGS="$($(package)_target_feature)" cargo build $($(package)_build_opts)
+  $(RUST_CC) RUSTFLAGS="$($(package)_target_feature)" cargo build $($(package)_build_opts) && \
+  $(LIB_CXX) $($(package)_build_env) make ../target/release/libmcTestCall.a -C mc_test
 endef
 
 
@@ -49,6 +54,6 @@ define $(package)_stage_cmds
   mkdir $($(package)_staging_dir)$(host_prefix)/lib/ && \
   mkdir $($(package)_staging_dir)$(host_prefix)/include/ && \
   mkdir $($(package)_staging_dir)$(host_prefix)/include/zendoo/ && \
-  cp $($(package)_library_file) $($(package)_staging_dir)$(host_prefix)/lib/ && \
-  cp include/zendoo_mc.h $($(package)_staging_dir)$(host_prefix)/include/zendoo
+  cp $($(package)_library_file) $($(package)_mctest_library_file) $($(package)_staging_dir)$(host_prefix)/lib/ && \
+  cp include/zendoo_mc.h include/mcTestCall.h $($(package)_staging_dir)$(host_prefix)/include/zendoo
 endef
