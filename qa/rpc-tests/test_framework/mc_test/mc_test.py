@@ -37,8 +37,7 @@ class MCTestUtils(object):
         args.append(os.getenv("ZENDOOMC", os.path.join(self.srcdir, "zendoo/mcTest")))
         args.append(op)
 
-        args.append("-c")
-        args.append(str(circuit_type))
+        args += ["-c", str(circuit_type), "-p", str(ps_type), "-s", str(segment_size), "-n", str(num_constraints)]
 
         if constant is not None:
             args.append("-k")
@@ -49,8 +48,6 @@ class MCTestUtils(object):
 
         if keyrot == True:
             args.append("-r")
-
-        args += ["-p", str(ps_type), "-s", str(segment_size), "-n", str(num_constraints)]
 
         args.append(str(params_dir))
 
