@@ -33,6 +33,12 @@ std::string ProofVerificationResultToString(ProofVerificationResult res)
  * 
  * @return CCertProofVerifierInput The structure containing all the data needed for the proof verification of the certificate.
  */
+#ifdef BITCOIN_TX
+CCertProofVerifierInput CScProofVerifier::CertificateToVerifierItem(const CScCertificate& certificate, const Sidechain::ScFixedParameters& scFixedParams, CNode* pfrom, const CCoinsViewCache* view)
+{
+    return CCertProofVerifierInput();
+}
+#else
 CCertProofVerifierInput CScProofVerifier::CertificateToVerifierItem(const CScCertificate& certificate, const Sidechain::ScFixedParameters& scFixedParams, CNode* pfrom, const CCoinsViewCache* view)
 {
     CCertProofVerifierInput certData;
@@ -89,6 +95,7 @@ CCertProofVerifierInput CScProofVerifier::CertificateToVerifierItem(const CScCer
     }
     return certData;
 }
+#endif
 
 /**
  * @brief Creates the proof verifier input of a CSW transaction for the proof verifier.
