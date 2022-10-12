@@ -961,5 +961,5 @@ void dumpBt(const backward_transfer_t& bt, const std::string& name)
         ptr++;
     }
     printf("] -- ");
-    printf("amount:  %lu\n", bt.amount);
+    printf("amount:  %llu\n", bt.amount);
 }
