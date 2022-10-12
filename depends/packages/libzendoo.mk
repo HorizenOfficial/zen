@@ -3,8 +3,8 @@ $(package)_version=0.2.1
 $(package)_download_path=https://github.com/HorizenOfficial/zendoo-mc-cryptolib/archive/
 $(package)_file_name=$(package)-$($(package)_git_commit).tar.gz
 $(package)_download_file=$($(package)_git_commit).tar.gz
-$(package)_sha256_hash=83772c0a013a920338ca727694c3d1d3fc935eae76d0ca79b184756aa474bf0b
-$(package)_git_commit=399358abb53cc849fbab982f05f4e747269fa4ad
+$(package)_sha256_hash=31fbcbd051230d3b83c664b01940e7de95235057c08e62041475e01199d970e3
+$(package)_git_commit=87c716ec5d4702c832c3e6a730ea3cf3c4d7de95
 $(package)_dependencies=rust $(rust_crates_z)
 $(package)_patches=cargo.config
 
@@ -46,7 +46,7 @@ endef
 
 define $(package)_build_cmds
   $(RUST_CC) RUSTFLAGS="$($(package)_target_feature)" cargo build $($(package)_build_opts) && \
-  $(LIB_CXX) $($(package)_build_env) make ../target/release/libmcTestCall.a -C mc_test
+  $(LIB_CXX) $($(package)_build_env) make mcTestLib -C mc_test
 endef
 
 
