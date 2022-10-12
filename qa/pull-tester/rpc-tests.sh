@@ -129,6 +129,7 @@ testScripts=(
   'sc_rpc_cmds_fee_handling.py'
   'sc_cert_listsinceblock.py'
   'sc_cert_dust.py'
+  'sc_keyrot.py'
   'txindex.py'
   'getblockexpanded.py'
   'sc_rpc_cmds_json_output.py'
