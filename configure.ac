@@ -788,7 +788,7 @@ case $host in
     ;;
 esac
 
-ZENDOO_MCTEST_LIBS="-lzendoo_mc -lpthread"
+ZENDOO_MCTEST_LIBS="-lmcTestCall -lzendoo_mc -lpthread"
 case $host in
   *mingw*)
     ;;
