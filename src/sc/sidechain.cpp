@@ -807,8 +807,9 @@ void CSidechain::UpdateScFees(const CScCertificateView& certView, int blockHeigh
             }
 
             // Also purge all elements submitted within a block that now is too old to be considered
-            scFees_v2.remove_if([blockHeight, this](Sidechain::ScFeeData_v2 entry) {
-                const bool testCondition = (entry.submissionHeight <= blockHeight - this->maxSizeOfScFeesContainers);
+            const auto threshold{blockHeight - this->maxSizeOfScFeesContainers};
+            scFees_v2.remove_if([threshold](Sidechain::ScFeeData_v2 entry) {
+                const bool testCondition = (entry.submissionHeight <= threshold);
                 if (testCondition)
                     LogPrint("sc", "%s():%d - popping f=%d, m=%d, h=%d from list, as entry is too old\n",
                         __func__, __LINE__, entry.forwardTxScFee, entry.mbtrTxScFee, entry.submissionHeight);
