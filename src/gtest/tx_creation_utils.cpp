@@ -1127,6 +1127,9 @@ std::string BlockchainTestManager::GetTestFilePath(ProvingSystem provingSystem, 
         case TestCircuitType::CSWNoConstant:
             filename += "csw_no_const_test_";
             break;
+        case TestCircuitType::Undefined:
+        default:
+            assert(false);
     }
 
     return tempFolderPath.string() + filename;
