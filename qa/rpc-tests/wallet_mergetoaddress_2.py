@@ -3,15 +3,11 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-import shutil
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
-    start_node, connect_nodes_bi, sync_blocks, sync_mempools, \
-    wait_and_assert_operationid_status
-
-import time
-from decimal import Decimal
+    start_node, connect_nodes_bi, wait_and_assert_operationid_status
+import os
+import zipfile
 
 class WalletMergeToAddressTest (BitcoinTestFramework):
 
@@ -25,10 +21,7 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
 
     def import_data_to_data_dir(self):
         #importing datadir resource
-        import os
-        os.chdir(os.path.dirname(__file__))
-        resource_file = os.getcwd() + "/resources/wallet_mergetoaddress_2/test_setup_.zip"
-        import zipfile
+        resource_file = os.sep.join([os.path.dirname(__file__), 'resources', 'wallet_mergetoaddress_2', 'test_setup_.zip'])
         with zipfile.ZipFile(resource_file, 'r') as zip_ref:
             zip_ref.extractall(self.options.tmpdir)
 
@@ -48,18 +41,15 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
     def send_transparent(self, quantity):
         for i in range(quantity):
             self.nodes[1].sendmany("", {self.nodes[0].listaddresses()[0]: 10}, 100)
-        self.nodes[1].generate(100)
+        self.nodes[1].generate(1)
         self.sync_all()
 
     def get_merged_transaction(self, unspent_transactions_before_merge, unspent_transactions_after_merge):
-        txid = unspent_transactions_after_merge[0]["txid"]
-        for aft in range(len(unspent_transactions_after_merge)):
-            for bef in range(len(unspent_transactions_before_merge)):
-                if (unspent_transactions_after_merge[aft]["txid"] == unspent_transactions_before_merge[bef]["txid"]):
-                    break
-                if (bef == len(unspent_transactions_before_merge) - 1):
-                    txid = unspent_transactions_after_merge[aft]["txid"]
-        return self.nodes[2].gettransaction(txid)
+        unspent_txid_before = [x["txid"] for x in unspent_transactions_before_merge]
+        for txid in [x["txid"] for x in unspent_transactions_after_merge]:
+            if txid not in unspent_txid_before:
+                return self.nodes[2].gettransaction(txid)
+        return None
 
     def z_mergetoaddress_t2t(self, utxos_quantity):
         mytaddr2 = self.nodes[2].listaddresses()[0]
@@ -67,7 +57,7 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
         balance_before_merge = self.nodes[2].z_getbalance(mytaddr2)
         result = self.nodes[0].z_mergetoaddress(["ANY_TADDR"], mytaddr2, 0, utxos_quantity, 0)        
         wait_and_assert_operationid_status(self.nodes[0], result['opid'], "success", "", 3600)
-        self.nodes[1].generate(100)
+        self.nodes[1].generate(1)
         self.sync_all()
         tx = self.get_merged_transaction(listunspent_before_merge, self.nodes[2].listunspent(0))
         return {self.op_result_k: result, self.balance_delta_k: self.nodes[2].z_getbalance(mytaddr2) - balance_before_merge, self.joinsplit_len_k: len(tx["vjoinsplit"])}
@@ -81,7 +71,7 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
         balance_before_merge = self.nodes[2].z_getbalance(myzaddr2)
         result = self.nodes[0].z_mergetoaddress(["ANY_TADDR"], myzaddr2, 0, utxos_quantity, 0)        
         wait_and_assert_operationid_status(self.nodes[0], result['opid'], "success", "", 3600)
-        self.nodes[1].generate(100)
+        self.nodes[1].generate(1)
         self.sync_all()
         tx = self.get_merged_transaction(listunspent_before_merge, self.nodes[2].z_listunspent(0))
         return {self.op_result_k: result, self.balance_delta_k: self.nodes[2].z_getbalance(myzaddr2) - balance_before_merge, self.joinsplit_len_k: len(tx["vjoinsplit"])}
@@ -92,7 +82,7 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
         balance_before_merge = self.nodes[2].z_getbalance(mytaddr2)
         result = self.nodes[0].z_mergetoaddress(["ANY_ZADDR"], mytaddr2, 0, 0, notes_quantity)        
         wait_and_assert_operationid_status(self.nodes[0], result['opid'], "success", "", 3600)
-        self.nodes[1].generate(100)
+        self.nodes[1].generate(1)
         self.sync_all()
         tx = self.get_merged_transaction(listunspent_before_merge, self.nodes[2].listunspent(0))
         return {self.op_result_k: result, self.balance_delta_k: self.nodes[2].z_getbalance(mytaddr2) - balance_before_merge, self.joinsplit_len_k: len(tx["vjoinsplit"])}
@@ -106,7 +96,7 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
         balance_before_merge = self.nodes[2].z_getbalance(myzaddr2)
         result = self.nodes[0].z_mergetoaddress(["ANY_ZADDR"], myzaddr2, 0, 0, notes_quantity)        
         wait_and_assert_operationid_status(self.nodes[0], result['opid'], "success", "", 3600)
-        self.nodes[1].generate(100)
+        self.nodes[1].generate(1)
         self.sync_all()
         tx = self.get_merged_transaction(listunspent_before_merge, self.nodes[2].z_listunspent(0))
         return {self.op_result_k: result, self.balance_delta_k: self.nodes[2].z_getbalance(myzaddr2) - balance_before_merge, self.joinsplit_len_k: len(tx["vjoinsplit"])}
@@ -117,7 +107,7 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
         balance_before_merge = self.nodes[2].z_getbalance(mytaddr2)
         result = self.nodes[0].z_mergetoaddress(["*"], mytaddr2, 0, utxos_quantity, notes_quantity)        
         wait_and_assert_operationid_status(self.nodes[0], result['opid'], "success", "", 3600)
-        self.nodes[1].generate(100)
+        self.nodes[1].generate(1)
         self.sync_all()
         tx = self.get_merged_transaction(listunspent_before_merge, self.nodes[2].listunspent(0))
         return {self.op_result_k: result, self.balance_delta_k: self.nodes[2].z_getbalance(mytaddr2) - balance_before_merge, self.joinsplit_len_k: len(tx["vjoinsplit"])}
@@ -131,7 +121,7 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
         balance_before_merge = self.nodes[2].z_getbalance(myzaddr2)
         result = self.nodes[0].z_mergetoaddress(["*"], myzaddr2, 0, utxos_quantity, notes_quantity)        
         wait_and_assert_operationid_status(self.nodes[0], result['opid'], "success", "", 3600)
-        self.nodes[1].generate(100)
+        self.nodes[1].generate(1)
         self.sync_all()
         tx = self.get_merged_transaction(listunspent_before_merge, self.nodes[2].z_listunspent(0))
         return {self.op_result_k: result, self.balance_delta_k: self.nodes[2].z_getbalance(myzaddr2) - balance_before_merge, self.joinsplit_len_k: len(tx["vjoinsplit"])}
