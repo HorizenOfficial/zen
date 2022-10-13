@@ -3,7 +3,7 @@ $(package)_version=1_74_0
 $(package)_download_path=https://boostorg.jfrog.io/artifactory/main/release/1.74.0/source
 $(package)_file_name=$(package)_$($(package)_version).tar.bz2
 $(package)_sha256_hash=83bfc1507731a0906e387fc28b7ef5417d591429e51e788417fe9ff025e116b1
-$(package)_patches=signals2-noise.patch
+$(package)_patches=signals2-noise.patch nonnull.patch
 
 $(package)_compiler=
 ifeq ($(CLANG_ARG),true)
@@ -34,7 +34,8 @@ $(package)_cxxflags_freebsd=-fPIC
 endef
 
 define $(package)_preprocess_cmds
-  patch -p2 < $($(package)_patch_dir)/signals2-noise.patch
+  patch -p2 < $($(package)_patch_dir)/signals2-noise.patch && \
+  patch -p2 < $($(package)_patch_dir)/nonnull.patch
 endef
 
 define $(package)_config_cmds
