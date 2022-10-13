@@ -12,7 +12,6 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
 
 import time
 from decimal import Decimal
-from distutils.dir_util import copy_tree
 
 class WalletMergeToAddressTest (BitcoinTestFramework):
 
@@ -32,8 +31,6 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
         import zipfile
         with zipfile.ZipFile(resource_file, 'r') as zip_ref:
             zip_ref.extractall(self.options.tmpdir)
-        copy_tree(self.options.tmpdir + "/test_setup_", self.options.tmpdir)
-        shutil.rmtree(self.options.tmpdir + "/test_setup_")
 
     def generate_notes(self, quantity):
         myzaddr0 = self.nodes[0].z_getnewaddress()
@@ -52,7 +49,7 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
         for i in range(quantity):
             self.nodes[1].sendmany("", {self.nodes[0].listaddresses()[0]: 10}, 100)
         self.nodes[1].generate(100)
-        self.sync_all
+        self.sync_all()
 
     def get_merged_transaction(self, unspent_transactions_before_merge, unspent_transactions_after_merge):
         txid = unspent_transactions_after_merge[0]["txid"]
@@ -145,11 +142,11 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
         initialize_chain_clean(self.options.tmpdir, 3)
 
     def setup_network(self, split=False):
-        args = ['-debug=zrpcunsafe', '-experimentalfeatures', '-zmergetoaddress']
+        args = ['-debug=zrpcunsafe', '-experimentalfeatures', '-zmergetoaddress', '-maxtipage=36000000']
         self.nodes = []
         self.nodes.append(start_node(0, self.options.tmpdir, args))
         self.nodes.append(start_node(1, self.options.tmpdir, args))
-        args2 = ['-debug=zrpcunsafe', '-experimentalfeatures', '-zmergetoaddress', '-mempooltxinputlimit=7']
+        args2 = ['-debug=zrpcunsafe', '-experimentalfeatures', '-zmergetoaddress', '-mempooltxinputlimit=7', "-maxtipage=36000000"]
         self.nodes.append(start_node(2, self.options.tmpdir, args2))
         connect_nodes_bi(self.nodes,0,1)
         connect_nodes_bi(self.nodes,1,2)
@@ -171,7 +168,6 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
         #             self.nodes[0].getwalletinfo()["unconfirmed_balance"] +
         #             self.nodes[0].getwalletinfo()["immature_balance"], 0)
  
-
         # ---------- T to T ----------      
         #move 3 utxos from n1 to n0
         self.send_transparent(3)
