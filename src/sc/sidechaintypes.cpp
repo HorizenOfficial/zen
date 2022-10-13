@@ -2,6 +2,7 @@
 #include "util.h"
 #include <consensus/consensus.h>
 #include <limits>
+#include <cinttypes> // PRIu64
 
 CZendooLowPrioThreadGuard::CZendooLowPrioThreadGuard(bool pauseThreads): _pause(pauseThreads)
 {
@@ -797,7 +798,7 @@ void dumpBuffer(BufferWithSize* buf, const std::string& name)
 
     printf("buffer address: %p\n", buf);
     printf("     data ptr : %p\n", ptr);
-    printf("          len : %lu\n", len);
+    printf("          len : %zu\n", len);
     printf("--------------------------------------------------------------------------------\n");
 
     if (ptr == nullptr)
@@ -836,7 +837,7 @@ void dumpBvCfg(BitVectorElementsConfig* buf, size_t len, const std::string& name
 
 
     printf("buffer arr address: %p\n", buf);
-    printf("              len : %lu\n", len);
+    printf("              len : %zu\n", len);
     printf("--------------------------------------------------------------------------------\n");
 
     BitVectorElementsConfig* ptr = buf;
@@ -904,14 +905,14 @@ void dumpFeArr(field_t** feArr, size_t len, const std::string& name)
     }
 
     printf("feArray address: %p\n", feArr);
-    printf("           len : %lu\n", len);
+    printf("           len : %zu\n", len);
     printf("--------------------------------------------------------------------------------\n");
 
     static const size_t BUF_SIZE = 32;
     for (size_t i = 0; i < len; i++)
     {
         char buf[BUF_SIZE] = {};
-        snprintf(buf, BUF_SIZE, "fe %2lu)", i);
+        snprintf(buf, BUF_SIZE, "fe %2zu)", i);
         field_t* fe = feArr[i];
         dumpFe(fe, std::string(buf));
     }
@@ -934,14 +935,14 @@ void dumpBtArr(backward_transfer_t* bt_list, size_t len, const std::string& name
     }
 
     printf("bt_list address: %p\n", bt_list);
-    printf("           len : %lu\n", len);
+    printf("           len : %zu\n", len);
     printf("--------------------------------------------------------------------------------\n");
 
     static const size_t BUF_SIZE = 32;
     for (size_t i = 0; i < len; i++)
     {
         char buf[BUF_SIZE] = {};
-        snprintf(buf, BUF_SIZE, "bt %2lu)", i);
+        snprintf(buf, BUF_SIZE, "bt %2zu)", i);
         const backward_transfer_t& bt = bt_list[i];
         dumpBt(bt, std::string(buf));
     }
@@ -961,5 +962,5 @@ void dumpBt(const backward_transfer_t& bt, const std::string& name)
         ptr++;
     }
     printf("] -- ");
-    printf("amount:  %llu\n", bt.amount);
+    printf("amount:  %" PRIu64 "\n", bt.amount);
 }
