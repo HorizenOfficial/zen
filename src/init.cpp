@@ -609,6 +609,9 @@ std::string HelpMessage(HelpMessageMode mode)
         strUsage += HelpMessageOpt("-metricsrefreshtime", strprintf(_("Number of seconds between metrics refreshes (default: %u if running in a console, %u otherwise)"), 1, 600));
     }
 
+    strUsage += HelpMessageOpt("-maxtipage=<n>",
+        "regtest only - Set the maximum tip age)");
+
     return strUsage;
 }
 
