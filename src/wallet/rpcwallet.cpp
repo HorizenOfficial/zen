@@ -5946,7 +5946,9 @@ UniValue z_shieldcoinbase(const UniValue& params, bool fHelp)
 #define MERGE_TO_ADDRESS_DEFAULT_TRANSPARENT_LIMIT 50
 #define MERGE_TO_ADDRESS_DEFAULT_SHIELDED_LIMIT 10
 
-#define JOINSPLIT_SIZE(TX_VER) JSDescription::getNewInstance(TX_VER == GROTH_TX_VERSION).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION, TX_VER)
+int GetJoinSplitSize(int shieldedTxVersion) {
+    return JSDescription::getNewInstance(shieldedTxVersion == GROTH_TX_VERSION).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION, shieldedTxVersion);
+}
 
 UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
 {
@@ -6139,7 +6141,7 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
 
     size_t estimatedTxSize = 200;  // tx overhead + wiggle room
     if (isToZaddr) {
-        estimatedTxSize += JOINSPLIT_SIZE(shieldedTxVersion);
+        estimatedTxSize += GetJoinSplitSize(shieldedTxVersion);
     }
 
     if (useAny || useAnyUTXO || taddrs.size() > 0) {
@@ -6199,7 +6201,7 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
             if (!maxedOutNotesFlag) {
                 // If we haven't added any notes yet and the merge is to a
                 // z-address, we have already accounted for the first JoinSplit.
-                size_t increase = (!noteInputs.empty() || !isToZaddr) ? JOINSPLIT_SIZE(shieldedTxVersion) : 0;
+                size_t increase = (!noteInputs.empty() || !isToZaddr) ? GetJoinSplitSize(shieldedTxVersion) : 0;
                 if (estimatedTxSize + increase >= MAX_TX_SIZE ||
                     (nNoteLimit > 0 && noteCounter > nNoteLimit))
                 {

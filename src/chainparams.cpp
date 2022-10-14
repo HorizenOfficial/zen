@@ -397,6 +397,15 @@ bool SelectParamsFromCommandLine()
     return true;
 }
 
+int64_t CChainParams::MaxTipAge() const {
+    if ( Params().NetworkIDString() == "regtest" )
+    {
+        int maxTipAge = (int)GetArg("-maxtipage", nMaxTipAge);
+        return maxTipAge;
+    }
+    
+    return nMaxTipAge;
+}
 
 // Block height must be >0 and <=last CF reward block height (note that after hfCommunityFundHeight hard fork CF reward is permanent)
 // Index variable i ranges from 0 - (vCommunityFundAddress.size()-1)
