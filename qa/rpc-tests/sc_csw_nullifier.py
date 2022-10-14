@@ -422,12 +422,12 @@ class CswNullifierTest(BitcoinTestFramework):
             mark_logs("Send csw failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
 
-        time.sleep(1)
+        self.sync_all()
 
         mark_logs("Node2 sent csw {} retrieving {} coins for himself".format(tx_n2, sc_csws[0]['amount']), self.nodes, DEBUG_MODE)
 
         self.nodes[2].generate(1)
-        time.sleep(1)
+        self.sync_all()
         
         n2_bal = self.nodes[2].z_gettotalbalance()['total']
         mark_logs("Node2 has {} confirmed balance".format(n2_bal), self.nodes, DEBUG_MODE)
@@ -444,7 +444,7 @@ class CswNullifierTest(BitcoinTestFramework):
         mark_logs("Network joined", self.nodes, DEBUG_MODE)
 
         self.nodes[2].generate(5)
-        time.sleep(1)
+        self.sync_all()
 
         # Node2 should have prevailed therefore nullifier n0 should have disappeared
         mark_logs("Check nullifier used by Node0 is not in MC...", self.nodes, DEBUG_MODE)
