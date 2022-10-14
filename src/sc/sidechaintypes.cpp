@@ -164,13 +164,8 @@ void CFieldElement::SetByteArray(const std::vector<unsigned char>& byteArrayIn)
 
 CFieldElement::CFieldElement(const uint256& value)
 {
-    if (value.IsNull()) {
-        SetNull();
-    }
-    else {
-        this->byteVector.resize(CFieldElement::ByteSize(),0x0);
-        std::copy(value.begin(), value.end(), this->byteVector.begin());
-    }
+    this->byteVector.resize(CFieldElement::ByteSize(),0x0);
+    std::copy(value.begin(), value.end(), this->byteVector.begin());
     fieldData.reset();
 }
 

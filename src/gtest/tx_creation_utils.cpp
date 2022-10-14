@@ -736,7 +736,7 @@ CScCertificate BlockchainTestManager::GenerateCertificate(uint256 scId, int epoc
     CSidechain sidechain;
     assert(viewCache->GetSidechain(scId, sidechain));
 
-    CCertProofVerifierInput input = CScProofVerifier::CertificateToVerifierItem(res, sidechain.fixedParams, nullptr);
+    CCertProofVerifierInput input = CScProofVerifier::CertificateToVerifierItem(res, sidechain.fixedParams, nullptr, viewCache.get());
     res.scProof = GenerateTestCertificateProof(input, provingSystem);
 
     return res;
@@ -773,6 +773,7 @@ CScProof BlockchainTestManager::GenerateTestCertificateProof(
 
     wrappedFieldPtr sptrConst = certificate.constant.GetFieldElement();
     wrappedFieldPtr sptrCum   = certificate.endEpochCumScTxCommTreeRoot.GetFieldElement();
+    wrappedFieldPtr sptrPHash   = certificate.lastCertHash.GetFieldElement();
 
     std::string certProofPath = GetTestFilePath(provingSystem, circuitType) + "proof";
     sc_pk_t* provingKey = GetTestProvingKey(provingSystem, circuitType);
@@ -822,7 +823,7 @@ CScProof BlockchainTestManager::GenerateTestCertificateProof(
                                   (path_char_t*)certProofPath.c_str(),
                                   strlen(certProofPath.c_str()),
                                   1 << 10,
-                                  nullptr, // prev_cert_hash
+                                  sptrPHash.get(),
                                   &errorCode);
 
     zendoo_sc_pk_free(provingKey);

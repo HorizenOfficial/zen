@@ -77,7 +77,7 @@ class sc_getcertmaturityinfo(BitcoinTestFramework):
         mark_logs("Node 0 creates a certificate for the 3 sidechains", self.nodes, DEBUG_MODE)
         cert1_sc1: str = test_helper.send_certificate(v1_sc1_name, 10) # Epoch 0
         cert1_sc2: str = test_helper.send_certificate(v2_ceasing_sc2_name, 10) # Epoch 0
-        cert1_sc3: str = test_helper.send_certificate(v2_non_ceasing_sc3_name, 0) # Epoch 0
+        cert1_sc3: str = test_helper.send_certificate(v2_non_ceasing_sc3_name, 0, self.nodes[0].getblockcount()-1) # Epoch 0, reference one block in the past
 
         mark_logs("Node 0 generates another certificate for each sidechain", self.nodes, DEBUG_MODE)
         cert2_sc1: str = test_helper.send_certificate(v1_sc1_name, 20) # Higher quality, same epoch 0
