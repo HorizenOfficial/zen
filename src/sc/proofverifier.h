@@ -102,7 +102,7 @@ public:
         High       /**< High priority. Verification will pause low priority verification threads if running. */
     };
 
-    static CCertProofVerifierInput CertificateToVerifierItem(const CScCertificate& certificate, const Sidechain::ScFixedParameters& scFixedParams, CNode* pfrom, const CCoinsViewCache* view = nullptr);
+    static CCertProofVerifierInput CertificateToVerifierItem(const CScCertificate& certificate, const Sidechain::ScFixedParameters& scFixedParams, CNode* pfrom, const CCoinsViewCache* view);
     static CCswProofVerifierInput CswInputToVerifierItem(const CTxCeasedSidechainWithdrawalInput& cswInput, const CTransaction* cswTransaction, const Sidechain::ScFixedParameters& scFixedParams, CNode* pfrom);
 
     CScProofVerifier(Verification mode, Priority priority) :
