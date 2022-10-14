@@ -1649,7 +1649,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             UniValue o(UniValue::VOBJ);
             o.pushKV("maturityHeight", entry.first);
             o.pushKV("amount", ValueFromAmount(entry.second));
-            ia.push_back(o);
+            ia.push_back(std::move(o));
         }
         sc.pushKV("immatureAmounts", ia);
 
@@ -1662,7 +1662,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                 o.pushKV("forwardTxScFee", ValueFromAmount(entry.forwardTxScFee));
                 o.pushKV("mbtrTxScFee", ValueFromAmount(entry.mbtrTxScFee));
                 o.pushKV("submissionHeight", entry.submissionHeight);
-                sf.push_back(o);
+                sf.push_back(std::move(o));
             }
         }
         else {
@@ -1671,7 +1671,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                 UniValue o(UniValue::VOBJ);
                 o.pushKV("forwardTxScFee", ValueFromAmount(entry.forwardTxScFee));
                 o.pushKV("mbtrTxScFee", ValueFromAmount(entry.mbtrTxScFee));
-                sf.push_back(o);
+                sf.push_back(std::move(o));
             }
         }
         sc.pushKV("scFees", sf);
