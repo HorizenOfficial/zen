@@ -492,14 +492,13 @@ struct ScFeeData_v2 : public ScFeeData {
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(forwardTxScFee);
-        READWRITE(mbtrTxScFee);
+        ScFeeData::SerializationOp(s, ser_action, nType, nVersion);
         READWRITE(submissionHeight);
     }
 
     inline bool operator==(const ScFeeData_v2& rhs) const
     {
-        return (forwardTxScFee == rhs.forwardTxScFee && mbtrTxScFee == rhs.mbtrTxScFee && submissionHeight == rhs.submissionHeight);
+        return ScFeeData::operator==(rhs) && submissionHeight == rhs.submissionHeight;
     }
 };
 
