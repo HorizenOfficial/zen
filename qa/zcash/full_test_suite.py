@@ -192,6 +192,8 @@ def main():
                         action='store', help='comma separated string of rpc tests to exclude, see qa/rpc-tests/README.md for more')
     parser.add_argument('--rpc-split', dest='split',
                         action='store', help='string in format m:n, see qa/rpc-tests/README.md for more')
+    parser.add_argument('--rpc-specific', dest='specific',
+                        action='store', help='execute only a specific python test, see qa/rpc-tests/README.md for more')                        
     args = parser.parse_args()
 
     # Check for list
@@ -218,6 +220,8 @@ def main():
                 options.append('-exclude=' + args.exclude)
             if args.split:
                 options.append('-split=' + args.split)
+            if args.specific:
+            	options.append('-specific=' + args.specific)
             passed &= run_stage(s, options)
         else:
             passed &= run_stage(s)
