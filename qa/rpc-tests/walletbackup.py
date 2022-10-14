@@ -173,7 +173,7 @@ class WalletBackupTest(BitcoinTestFramework):
 
             #generate wCertVk and constant
             mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
-            vk = mcTest.generate_params(sc_name)
+            vk = mcTest.generate_params(sc_name) if scversion < 2 else mcTest.generate_params(sc_name, keyrot = True)
             constant = generate_random_field_element_hex()
 
             # do a shielded transaction for testing zaddresses in backup
@@ -222,7 +222,7 @@ class WalletBackupTest(BitcoinTestFramework):
             self.sync_all()
 
             current_reference_height1 = self.nodes[0].getblockcount() - 2
-            epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], epoch_length, not ceasable, current_reference_height1)
+            epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[0], epoch_length, not ceasable, current_reference_height1)
             if not ceasable:
                 epoch_number = 0
 
@@ -238,8 +238,21 @@ class WalletBackupTest(BitcoinTestFramework):
             try:
                 #Create proof for WCert
                 quality = 1 if ceasable else 0
-                proof = mcTest.create_test_proof(sc_name, scid_swapped, epoch_number, quality, MBTR_SC_FEE,
-                    FT_SC_FEE, epoch_cum_tree_hash, constant = constant, pks = [addr_node1, addr_node1], amounts = [bwt_amount1, bwt_amount2])
+
+                if scversion < 2:
+                    prev_cert_hash = None
+
+                proof = mcTest.create_test_proof(sc_name,
+                                                 scid_swapped,
+                                                 epoch_number,
+                                                 quality,
+                                                 MBTR_SC_FEE,
+                                                 FT_SC_FEE,
+                                                 epoch_cum_tree_hash,
+                                                 prev_cert_hash,
+                                                 constant = constant,
+                                                 pks = [addr_node1, addr_node1],
+                                                 amounts = [bwt_amount1, bwt_amount2])
 
                 cert_1 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                     epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -261,7 +274,11 @@ class WalletBackupTest(BitcoinTestFramework):
             self.sync_all()
 
             current_reference_height2 = self.nodes[0].getblockcount() - 1
-            epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], epoch_length, not ceasable, current_reference_height2)
+            epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[0], epoch_length, not ceasable, current_reference_height2)
+
+            if scversion < 2:
+                prev_cert_hash = None
+
             if not ceasable:
                 epoch_number = 1
             mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)
@@ -272,8 +289,17 @@ class WalletBackupTest(BitcoinTestFramework):
             try:
                 #Create proof for WCert
                 quality = 1 if ceasable else 0
-                proof = mcTest.create_test_proof(sc_name, scid_swapped, epoch_number, quality, MBTR_SC_FEE,
-                    FT_SC_FEE, epoch_cum_tree_hash, constant = constant, pks = [addr_node1], amounts = [bwt_amount3])
+                proof = mcTest.create_test_proof(sc_name,
+                                                 scid_swapped,
+                                                 epoch_number,
+                                                 quality,
+                                                 MBTR_SC_FEE,
+                                                 FT_SC_FEE,
+                                                 epoch_cum_tree_hash,
+                                                 prev_cert_hash,
+                                                 constant = constant,
+                                                 pks = [addr_node1],
+                                                 amounts = [bwt_amount3])
 
                 cert_2 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                     epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
