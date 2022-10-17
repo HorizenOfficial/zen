@@ -286,7 +286,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_UndoDa
     EXPECT_TRUE(initialScState == revertedSidechain);
 }
 
-TEST_F(SidechainsMultipleCertsTestSuite, V2Cert_HigherQuality_SameEpoch_SidechainIsNotUpdated) {
+TEST_F(SidechainsMultipleCertsTestSuite, V2Cert_SameEpoch_SidechainIsNotUpdated) {
     uint256 scId = uint256S("aaa");
 
     // setup sidechain initial state...
@@ -313,41 +313,6 @@ TEST_F(SidechainsMultipleCertsTestSuite, V2Cert_HigherQuality_SameEpoch_Sidechai
     //test
     //sidechainsView->UpdateSidechain(highQualityCert, dummyUndo);
     ASSERT_FALSE(sidechainsView->UpdateSidechain(highQualityCert, dummyUndo, sidechainsView->GetHeight()+1));
-
-    //check
-    CSidechain sidechain;
-    ASSERT_TRUE(sidechainsView->GetSidechain(scId,sidechain));
-    EXPECT_TRUE(sidechain.lastTopQualityCertHash      == initialScState.lastTopQualityCertHash);
-    EXPECT_TRUE(sidechain.lastTopQualityCertQuality   == initialScState.lastTopQualityCertQuality);
-    EXPECT_TRUE(sidechain.lastTopQualityCertBwtAmount == initialScState.lastTopQualityCertBwtAmount);
-    EXPECT_TRUE(sidechain.balance                     == initialScState.balance);
-}
-
-TEST_F(SidechainsMultipleCertsTestSuite, V2Cert_LowerQuality_SameEpoch_SidechainIsNotUpdated) {
-    uint256 scId = uint256S("aaa");
-
-    // setup sidechain initial state...
-    CSidechain initialScState;
-    initialScState.fixedParams.withdrawalEpochLength = 0;
-    initialScState.fixedParams.version = 2;
-    initialScState.creationBlockHeight = 400;
-    initialScState.lastTopQualityCertHash = uint256S("cccc");
-    initialScState.lastTopQualityCertQuality = 0;
-    initialScState.lastTopQualityCertReferencedEpoch = 1987;
-    initialScState.lastTopQualityCertBwtAmount = 50;
-    initialScState.balance = CAmount(100);
-    initialScState.InitScFees();
-    storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
-
-    //Insert low quality Certificate
-    CMutableScCertificate lowQualityCert;
-    lowQualityCert.scId        = scId;
-    lowQualityCert.epochNumber = initialScState.lastTopQualityCertReferencedEpoch;
-    lowQualityCert.quality     = 0;
-    lowQualityCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
-
-    //test
-    EXPECT_FALSE(sidechainsView->UpdateSidechain(lowQualityCert, dummyUndo, sidechainsView->GetHeight()+1));
 
     //check
     CSidechain sidechain;
