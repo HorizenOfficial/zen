@@ -87,11 +87,9 @@ CCertProofVerifierInput CScProofVerifier::CertificateToVerifierItem(const CScCer
     certData.proof = certificate.scProof;
     certData.verificationKey = scFixedParams.wCertVk;
 
-    if (view != nullptr) {
-        if (scFixedParams.version >= 2) {
-            auto const& cdh = view->GetActiveCertView(certData.scId).certDataHash;
-            certData.lastCertHash = cdh.IsNull() ? CFieldElement::GetPhantomHash() : cdh;
-        }
+    if (view && scFixedParams.version >= 2) {
+        auto const& cdh = view->GetActiveCertView(certData.scId).certDataHash;
+        certData.lastCertHash = cdh.IsNull() ? CFieldElement::GetPhantomHash() : cdh;
     }
     return certData;
 }
