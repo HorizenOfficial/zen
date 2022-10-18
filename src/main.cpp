@@ -4805,7 +4805,7 @@ CBlockIndex* AddToBlockIndex(const CBlockHeader& block)
     {
         const CFieldElement& prevScCumTreeHash =
                 (pindexNew->pprev->nVersion == BLOCK_VERSION_SC_SUPPORT) ?
-                        pindexNew->pprev->scCumTreeHash : CBlockIndex::defaultScCumTreeHash;
+                        pindexNew->pprev->scCumTreeHash : CFieldElement::GetPhantomHash();
         pindexNew->scCumTreeHash = CFieldElement::ComputeHash(prevScCumTreeHash, CFieldElement{block.hashScTxsCommitment});
         mapCumtreeHeight.insert(std::make_pair(pindexNew->scCumTreeHash.GetLegacyHash(), pindexNew->nHeight));
     }

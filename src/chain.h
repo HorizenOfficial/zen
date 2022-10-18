@@ -194,9 +194,6 @@ public:
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
     uint32_t nSequenceId;
 
-    //! hashable CFieldElement used for pre-sidechain forks hash calculations
-    static const CFieldElement defaultScCumTreeHash;
-
     void SetNull()
     {
         phashBlock = NULL;
