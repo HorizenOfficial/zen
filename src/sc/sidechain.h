@@ -178,10 +178,7 @@ public:
             READWRITE(scFees);
         if (ser_action.ForRead())
         {
-            if (!scFees.empty() || !scFees_v2.empty())
-            {
-                maxSizeOfScFeesContainers = getMaxSizeOfScFeesContainers();
-            }
+            maxSizeOfScFeesContainers = getMaxSizeOfScFeesContainers();
         }
         if (isNonCeasing()) {
             READWRITE(VARINT(lastInclusionHeight));
