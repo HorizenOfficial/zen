@@ -2013,38 +2013,39 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
         return false;
 
     // Check if there is any unconfirmed tx or certificate in the mempool
-    if(mempool.mapSidechains.count(scId) > 0)
+    const auto sc_it = mempool.mapSidechains.find(scId);
+    if (sc_it != mempool.mapSidechains.end())
     {
         // Consider mempool Tx CSW amount for sidechain balance
-        if (mempool.mapSidechains.at(scId).cswTotalAmount > 0)
+        const CSidechainMemPoolEntry& sc = sc_it->second;
+        if (sc.cswTotalAmount > 0)
         {
-            info.balance -= mempool.mapSidechains.at(scId).cswTotalAmount;
+            info.balance -= sc.cswTotalAmount;
         }
 
         // Update sidechain info with data from the unconfirmed certificates
         // This is useful for non-ceasing sidechains only as they can have
         // certificates of later epochs.
-        if (!mempool.mapSidechains.at(scId).mBackwardCertificates.empty()) {
+        if (info.isNonCeasing() && !sc.mBackwardCertificates.empty()) {
+            const uint256& topQualHash = sc.GetTopQualityCert()->second;
+            const CScCertificate& certTopQual = mempool.mapCertificate[topQualHash].GetCertificate();
+            info.lastTopQualityCertView.certDataHash = certTopQual.GetDataHash(info.fixedParams);
+            info.lastTopQualityCertView.forwardTransferScFee = certTopQual.forwardTransferScFee;
+            info.lastTopQualityCertView.mainchainBackwardTransferRequestScFee = certTopQual.mainchainBackwardTransferRequestScFee;
 
-            if (info.isNonCeasing())
+
+            const auto map_it = mapCumtreeHeight.find(certTopQual.endEpochCumScTxCommTreeRoot.GetLegacyHash());
+            if (map_it == mapCumtreeHeight.end())
             {
-                const uint256& topQualHash = mempool.mapSidechains.at(scId).GetTopQualityCert()->second;
-                const CScCertificate& certTopQual = mempool.mapCertificate[topQualHash].GetCertificate();
-                info.lastTopQualityCertView.certDataHash = certTopQual.GetDataHash(info.fixedParams);
-
-                const auto map_it = mapCumtreeHeight.find(certTopQual.endEpochCumScTxCommTreeRoot.GetLegacyHash());
-                if (map_it == mapCumtreeHeight.end())
-                {
-                    LogPrint("mempool", "%s():%d - could not find referenced block for certTopQual %s\n", __func__, __LINE__, certTopQual.GetHash().ToString());
-                    info.lastUnconfirmedReferencedHeight = -1; // -1 stands for no valid values in mempool
-                }
-                else
-                {
-                    info.lastUnconfirmedReferencedHeight = map_it->second;
-                }
-
-                info.lastUnconfirmedReferencedEpoch = certTopQual.epochNumber;
+                LogPrint("mempool", "%s():%d - could not find referenced block for certTopQual %s\n", __func__, __LINE__, certTopQual.GetHash().ToString());
+                info.lastUnconfirmedReferencedHeight = -1; // -1 stands for no valid values in mempool
             }
+            else
+            {
+                info.lastUnconfirmedReferencedHeight = map_it->second;
+            }
+
+            info.lastUnconfirmedReferencedEpoch = certTopQual.epochNumber;
         }
     }
 
