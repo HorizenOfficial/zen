@@ -4,6 +4,10 @@
 #include <limits>
 #include <cinttypes> // PRIu64
 
+namespace {
+    CFieldElement phantom_element;
+}
+
 CZendooLowPrioThreadGuard::CZendooLowPrioThreadGuard(bool pauseThreads): _pause(pauseThreads)
 {
     if (_pause)
@@ -275,13 +279,17 @@ CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldE
 const CFieldElement& CFieldElement::GetPhantomHash()
 {
     // zendoo_mc_cryptolib allocates a new buffer with static lifetime on each call to zendoo_get_phantom_cert_data_hash().
-    static field_t* phantom_ptr = zendoo_get_phantom_cert_data_hash();
-    size_t size = (int)CFieldElement::ByteSize() / sizeof(unsigned char);
-    unsigned char phantom_buf[size];
+    if (phantom_element.IsValid()) return phantom_element;
+
+    std::vector<unsigned char> buf(CFieldElement::ByteSize());
     CctpErrorCode err_code;
-    zendoo_serialize_field(phantom_ptr, phantom_buf, &err_code);
-    static CFieldElement ret{std::vector<unsigned char>(phantom_buf, phantom_buf + size)};
-    return ret;
+    zendoo_serialize_field(zendoo_get_phantom_cert_data_hash(), buf.data(), &err_code);
+    if (err_code != CctpErrorCode::OK) {
+        LogPrintf("%s():%d - ERROR: could not create phantom hash, code[0x%x]\n", __func__, __LINE__, err_code);
+    }
+
+    phantom_element.SetByteArray(buf);
+    return phantom_element;
 }
 #endif
 ///////////////////////////// End of CFieldElement /////////////////////////////
