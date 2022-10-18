@@ -588,6 +588,7 @@ def get_epoch_data(scid, node, epochLen, is_non_ceasing = False, reference_heigh
         epoch_cum_tree_hash = node.getblock(end_epoch_block_hash)['scCumTreeHash']
         if 'lastCertificateDataHash' in sc_info and sc_info['lastCertificateDataHash'] != '':
             last_cert_data_hash = sc_info['lastCertificateDataHash']
+
     return epoch_number, epoch_cum_tree_hash, last_cert_data_hash
 
 def get_spendable(node, min_amount):
