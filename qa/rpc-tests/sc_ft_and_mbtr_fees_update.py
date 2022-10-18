@@ -131,12 +131,12 @@ class provaFee(BitcoinTestFramework):
         self.sync_all()
 
         # Mine blocks until reaching new epoch
-        nodesToBeGen = sc_info['items'][0]['endEpochHeight'] - self.nodes[0].getblockcount() + 1
-        mark_logs_temp(f"Node 0 mines {nodesToBeGen} blocks until a new epoch begins", self.nodes, DEBUG_MODE, color='e')
-        self.nodes[0].generate(nodesToBeGen)
+        blocksToBeGen = sc_info['items'][0]['endEpochHeight'] - self.nodes[0].getblockcount() + 1
+        mark_logs_temp(f"Node 0 mines {blocksToBeGen} blocks until a new epoch begins", self.nodes, DEBUG_MODE, color='e')
+        self.nodes[0].generate(blocksToBeGen)
         self.sync_all()
 
-        # node 2 send a ceritificate to node 3 to keep the sc alive
+        # node 2 sends a certificate to node 3 to keep the sc alive
         # this certificate has both ft and mbtr fees greater than those specified during sc creation
         malicious_ft_fees = Decimal('0.05')
         malicious_mbtr_fees = Decimal('0.07')
@@ -167,9 +167,9 @@ class provaFee(BitcoinTestFramework):
         ### 4. rejoin the network
         ### 5. mined block should be broadcasted to nodes 0 and 1, but transactions shouldn't
         ### This process should repeat until we enter epoch 2
-        nodesToBeGen = self.nodes[0].getscinfo(scid)['items'][0]['endEpochHeight'] - self.nodes[0].getblockcount() + 1
+        blocksToBeGen = self.nodes[0].getscinfo(scid)['items'][0]['endEpochHeight'] - self.nodes[0].getblockcount() + 1
         loopfirstround = True
-        for _ in range(nodesToBeGen):
+        for _ in range(blocksToBeGen):
             # 1.
             mark_logs_temp(f"Net split", self.nodes, DEBUG_MODE, color='c')
             self.split_network()
@@ -181,7 +181,6 @@ class provaFee(BitcoinTestFramework):
                 ft_address_1 = self.nodes[1].getnewaddress() # = mc_return_address
                 forwardTransferOuts = [{'toaddress': address, 'amount': Decimal(float(FT_SC_FEE) + 0.05), "scid": scid, "mcReturnAddress": ft_address_1}]
                 for _ in range(NUM_TXS):
-                    # self.nodes[0].sendtoaddress(ft_address_1, 0.03)
                     self.nodes[0].sc_send(forwardTransferOuts)
                     sync_mempools(self.nodes[:2])
                 loopfirstround = False
@@ -247,8 +246,8 @@ class provaFee(BitcoinTestFramework):
         self.assert_chain_height_difference(0)          # Make sure that block is propagated to nodes 0 and 1
 
         # 9.
-        nodesToBeGen = self.nodes[0].getscinfo(scid)['items'][0]['endEpochHeight'] - self.nodes[0].getblockcount() + 1
-        for _ in range(nodesToBeGen):
+        blocksToBeGen = self.nodes[0].getscinfo(scid)['items'][0]['endEpochHeight'] - self.nodes[0].getblockcount() + 1
+        for _ in range(blocksToBeGen):
             # 1.
             mark_logs_temp(f"Net split", self.nodes, DEBUG_MODE, color='c')
             self.split_network()
@@ -312,7 +311,7 @@ class provaFee(BitcoinTestFramework):
         ### Final test
         ### a. nodes are at the same height
         ### b. transactions are no longer in 0 and 1 mempools
-        ### c. balance of nodes 0 and 1 have not changed
+        ### c. balances of nodes 0 and 1 have not changed
         # a.
         self.assert_chain_height_difference(0)          # Make sure that block is propagated to nodes 0 and 1
         # b.
@@ -322,7 +321,7 @@ class provaFee(BitcoinTestFramework):
         assert_greater_than(float(self.nodes[0].getbalance()), float(initial_balances[0]))  # and balance is unaffected
         assert_equal(float(self.nodes[1].getbalance()), float(initial_balances[1]))
 
-        ### If so, attack was successful and transactions have been removed
+        ### If so, transactions have been removed
         return
 
     def run_test_non_ceasable(self, scversion, ceasable = True, old_version = True):
@@ -380,7 +379,7 @@ class provaFee(BitcoinTestFramework):
         ### 1. disconnect nodes 1 and 2, so that the the nets are nodes 0, 1 and 2, 3
         ### 2. node 0 sends many small txs to sc; save the node balances
         ### 3. node 2 generate a certificate for epoch 0
-        ### 4. node 2 mines a block to validate the certificate and end epoch 0
+        ### 4. node 2 mines a block to validate the certificate and ends epoch 0
         ### 5. rejoin the network
         ### 6. mined block should be broadcasted to nodes 0 and 1, but transactions shouldn't
         # 1.
@@ -444,7 +443,7 @@ class provaFee(BitcoinTestFramework):
         mark_logs_temp(f"Net split", self.nodes, DEBUG_MODE, color='c')
         self.split_network()
         # 3.
-        # node 2 send a ceritificate to node 3
+        # node 2 sends a ceritificate to node 3
         # this certificate has ftr fee greater than those specified during sc creation
         malicious_ft_fees = Decimal('0.1')
         addr_node3 = self.nodes[3].getnewaddress()
@@ -475,7 +474,7 @@ class provaFee(BitcoinTestFramework):
         sync_blocks(self.nodes)
         self.assert_chain_height_difference(0)      # Make sure that block is propagated to nodes 0 and 1
 
-        # Before the update, txs should be removed here, as soon as we sync the split
+        # Before the update, txs should be removed here as soon as we sync the split
         if old_version:
             # 6.
             mark_logs_temp("Assert txs are no longer in mempool", self.nodes, DEBUG_MODE, color='y')
@@ -522,7 +521,7 @@ class provaFee(BitcoinTestFramework):
                 sync_blocks(self.nodes)
                 self.assert_chain_height_difference(0)      # Make sure that block is propagated to nodes 0 and 1
 
-            # For the last two iterations, we send two certificates per block to test to ensure that we keep
+            # For the last two iterations, we send two certificates per block to ensure that we keep
             # only the lower fees of each block
             for j in range(2):
                 self.assert_txs_in_mempool(NUM_TXS)         # Make sure that txs are only in nodes 0 and 1 mempool
