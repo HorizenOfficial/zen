@@ -28,18 +28,14 @@ class MCTestUtils(object):
         self.ps_type = ps_type
 
     def _get_file_prefix(self, circ_type, constant):
-        if constant != None:
-            return str(self.ps_type) + "_" + circ_type + "_"
-        return str(self.ps_type) + "_" + circ_type + "_no_const_"
+        return str(self.ps_type) + "_" + circ_type + ("_" if (constant != None and constant != False) else "_no_const_")
 
     def _get_args(self, op, circuit_type, constant, keyrot, ps_type, params_dir, num_constraints, segment_size, proof_path = None):
-        args = []
-        args.append(os.getenv("ZENDOOMC", os.path.join(self.srcdir, "zendoo/mcTest")))
-        args.append(op)
+        args = [os.getenv("ZENDOOMC", os.path.join(self.srcdir, "zendoo/mcTest"))]
 
-        args += ["-c", str(circuit_type), "-p", str(ps_type), "-s", str(segment_size), "-n", str(num_constraints)]
+        args += [op, "-c", str(circuit_type), "-p", str(ps_type), "-s", str(segment_size), "-n", str(num_constraints)]
 
-        if constant is not None:
+        if constant is not None and constant != False:
             args.append("-k")
             if constant == True:
                 args.append("CONSTANT_PLACEHOLDER")
