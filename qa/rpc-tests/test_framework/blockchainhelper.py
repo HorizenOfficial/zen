@@ -174,7 +174,6 @@ class BlockchainHelper:
         """
 
         sc_input = SidechainCreationInput.from_rpc_args(self, sc_name, sidechain_version, optional_parameters)
-        sc_input.version = sidechain_version
 
         return self.create_sidechain_from_args(sc_input, should_fail)
 
@@ -297,5 +296,10 @@ class BlockchainHelper:
             "",
             custom_fields,
             [RANDOM_BITVECTOR])
+
+        sc_info["last_certificate_epoch"] = epoch_number
+
+        if is_non_ceasing_sidechain:
+            sc_info["last_referenced_height"] = ref_height
 
         return certificate_id

@@ -239,9 +239,6 @@ class WalletBackupTest(BitcoinTestFramework):
                 #Create proof for WCert
                 quality = 1 if ceasable else 0
 
-                if scversion < 2:
-                    prev_cert_hash = None
-
                 proof = mcTest.create_test_proof(sc_name,
                                                  scid_swapped,
                                                  epoch_number,
@@ -249,7 +246,7 @@ class WalletBackupTest(BitcoinTestFramework):
                                                  MBTR_SC_FEE,
                                                  FT_SC_FEE,
                                                  epoch_cum_tree_hash,
-                                                 prev_cert_hash,
+                                                 prev_cert_hash = prev_cert_hash if version >= 2 else None,
                                                  constant = constant,
                                                  pks = [addr_node1, addr_node1],
                                                  amounts = [bwt_amount1, bwt_amount2])
@@ -276,9 +273,6 @@ class WalletBackupTest(BitcoinTestFramework):
             current_reference_height2 = self.nodes[0].getblockcount() - 1
             epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[0], epoch_length, not ceasable, current_reference_height2)
 
-            if scversion < 2:
-                prev_cert_hash = None
-
             if not ceasable:
                 epoch_number = 1
             mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)
@@ -296,7 +290,7 @@ class WalletBackupTest(BitcoinTestFramework):
                                                  MBTR_SC_FEE,
                                                  FT_SC_FEE,
                                                  epoch_cum_tree_hash,
-                                                 prev_cert_hash,
+                                                 prev_cert_hash = prev_cert_hash if version >= 2 else None,
                                                  constant = constant,
                                                  pks = [addr_node1],
                                                  amounts = [bwt_amount3])
