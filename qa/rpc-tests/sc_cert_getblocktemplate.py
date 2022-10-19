@@ -186,15 +186,10 @@ class sc_cert_base(BitcoinTestFramework):
         # It is a time consuming operation, so may take more than GET_BLOCK_TEMPLATE_DELAY seconds.
         if ceasable:
             quality = quality + 1
-            epoch_number, epoch_cum_tree_hash, prev_cert_data_hash = get_epoch_data(scid, self.nodes[0], epoch_length, not ceasable)
-            proof = mcTest.create_test_proof(
-                sc_name, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-                prev_cert_hash = prev_cert_data_hash if scversion >= 2 else None, constant = constant, pks = [addr_node1], amounts = [bwt_amount])
-        else:
-            epoch_number, epoch_cum_tree_hash, prev_cert_data_hash = get_epoch_data(scid, self.nodes[0], epoch_length, not ceasable)
-            proof = mcTest.create_test_proof(
-                sc_name, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-                prev_cert_hash = prev_cert_data_hash if scversion >= 2 else None, constant = constant, pks = [addr_node1], amounts = [bwt_amount])
+        epoch_number, epoch_cum_tree_hash, prev_cert_data_hash = get_epoch_data(scid, self.nodes[0], epoch_length, not ceasable)
+        proof = mcTest.create_test_proof(
+            sc_name, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
+            prev_cert_hash = prev_cert_data_hash if scversion >= 2 else None, constant = constant, pks = [addr_node1], amounts = [bwt_amount])
 
         mark_logs("\nCall GetBlockTemplate on each node to create a new cached version", self.nodes, DEBUG_MODE)
         for i in range(0, NUMB_OF_NODES):
