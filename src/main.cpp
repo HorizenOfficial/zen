@@ -1262,13 +1262,12 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
                 return MempoolReturnValue::INVALID;
             }
 
-            bool banSenderNode = false;
             int nDoS = 0;
 
-            CValidationState::Code ret_code = view.IsCertApplicableToState(cert, fSkipTimingCheck == SkipTimingCheckFlag::ON, &banSenderNode);
+            CValidationState::Code ret_code = view.IsCertApplicableToState(cert, fSkipTimingCheck == SkipTimingCheckFlag::ON);
             if (ret_code != CValidationState::Code::OK)
             {
-                if (banSenderNode)
+                if (ret_code == CValidationState::Code::INVALID_AND_BAN)
                     nDoS = 100;
 
                 state.DoS(nDoS, error("%s():%d - certificate not applicable: ret_code[0x%x]",
@@ -1299,8 +1298,6 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
                 return MempoolReturnValue::INVALID;
             }
 
-            // Bring the best block into scope: it's gonna be needed for CheckInputsTx hereinafter
-            view.GetBestBlock();
             nFees = cert.GetFeeAmount(view.GetValueIn(cert));
 
             if (!conflictingCertData.first.IsNull())
@@ -1597,13 +1594,14 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
                 return MempoolReturnValue::INVALID;
             }
 
-            bool banSenderNode = false;
             int nDoS = 0;
 
-            CValidationState::Code ret_code = view.IsScTxApplicableToState(tx, Sidechain::ScFeeCheckFlag::LATEST_VALUE, &banSenderNode);
+            // We pass pcoinsTip to IsScTxApplicableToState because we want to validate the fees against the last certificate
+            // in the blockchain, and not against certificates in the mempool.
+            CValidationState::Code ret_code = view.IsScTxApplicableToState(tx, Sidechain::ScFeeCheckFlag::LATEST_VALUE, pcoinsTip);
             if (ret_code != CValidationState::Code::OK)
             {
-                if (banSenderNode)
+                if (ret_code == CValidationState::Code::INVALID_AND_BAN)
                     nDoS = 100;
 
                 state.DoS(nDoS,
