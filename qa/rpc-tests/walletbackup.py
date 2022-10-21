@@ -246,7 +246,7 @@ class WalletBackupTest(BitcoinTestFramework):
                                                  MBTR_SC_FEE,
                                                  FT_SC_FEE,
                                                  epoch_cum_tree_hash,
-                                                 prev_cert_hash = prev_cert_hash if version >= 2 else None,
+                                                 prev_cert_hash = prev_cert_hash if scversion >= 2 else None,
                                                  constant = constant,
                                                  pks = [addr_node1, addr_node1],
                                                  amounts = [bwt_amount1, bwt_amount2])
@@ -290,7 +290,7 @@ class WalletBackupTest(BitcoinTestFramework):
                                                  MBTR_SC_FEE,
                                                  FT_SC_FEE,
                                                  epoch_cum_tree_hash,
-                                                 prev_cert_hash = prev_cert_hash if version >= 2 else None,
+                                                 prev_cert_hash = prev_cert_hash if scversion >= 2 else None,
                                                  constant = constant,
                                                  pks = [addr_node1],
                                                  amounts = [bwt_amount3])

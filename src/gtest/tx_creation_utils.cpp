@@ -749,12 +749,17 @@ CScCertificate BlockchainTestManager::GenerateCertificate(uint256 scId, int epoc
  * @param provingSystem The proving system whose parameters have to be created
  * @param circuitType The type of circuit whose parameters have to be created
  */
-void BlockchainTestManager::GenerateSidechainTestParameters(ProvingSystem provingSystem, TestCircuitType circuitType) const
+void BlockchainTestManager::GenerateSidechainTestParameters(ProvingSystem provingSystem, TestCircuitType circuitType, bool key_rotation) const
 {
     CctpErrorCode errorCode;
-    zendoo_generate_mc_test_params(
-        circuitType, provingSystem, 1 << 10, false, //FIXME?
-        (path_char_t*)tempFolderPath.string().c_str(), strlen(tempFolderPath.string().c_str()), &errorCode);
+    zendoo_generate_mc_test_params(circuitType,
+                                   provingSystem,
+                                   1 << 10,
+                                   key_rotation,
+                                   (path_char_t*)tempFolderPath.string().c_str(),
+                                   tempFolderPath.string().size(),
+                                   &errorCode
+                                   );
 }
 
 /**
@@ -945,6 +950,8 @@ bool BlockchainTestManager::VerifyCertificateProof(CCertProofVerifierInput certi
     wrappedScProofPtr sptrProof  = certificate.proof.GetProofPtr();
     wrappedScVkeyPtr  sptrCertVk = certificate.verificationKey.GetVKeyPtr();
 
+    wrappedFieldPtr sptrPHash   = certificate.lastCertHash.GetFieldElement();
+
     int customFieldsLen = certificate.vCustomFields.size(); 
 
     std::unique_ptr<const field_t*[]> customFields(new const field_t*[customFieldsLen]);
@@ -989,7 +996,7 @@ bool BlockchainTestManager::VerifyCertificateProof(CCertProofVerifierInput certi
                                            certificate.forwardTransferScFee,
                                            sptrProof.get(),
                                            sptrCertVk.get(),
-                                           nullptr, // TODO: check this
+                                           sptrPHash.get(),
                                            &errorCode
                                            );
 }

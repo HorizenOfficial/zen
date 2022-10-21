@@ -90,6 +90,22 @@ class ncsc_cert_epochs(BitcoinTestFramework):
 
     def run_test(self):
         '''
+        This test checks that the expected configuration in terms of key rotation is enforced in combination with
+        specific sidechain versions.
+
+        mc-cryptolib does not have any notion of sidechain version, so the generation of parameters is always considered
+        correct, even when we plan to use such parameters in deliberately wrong scenarios.
+
+        Concretely, this test checks that submitting the first certificate with the wrong configuration for the given sidechain
+        fails when it should. Subsequent certificates for v2 sidechains (i.e. w/ key rot) are tested in other tests
+        (e.g. sc_cert_nonceasing).
+
+        CHECKLIST:
+        v0 with key rotation                   -> expect failure, since v0 does not support key rotation
+        v0 without key rotation                -> expect success
+        v2 without key rotation                -> expect failure, since key rotation is enforced for v2 nd above
+        v2 with key rotation, wrong first hash -> expect failure, since the first hash must be phantom_hash by definition
+        v0 with key rotation, phantom_hash     -> expect success
         '''
 
         #------------------------------------------------
