@@ -2002,8 +2002,6 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
                 info.fixedParams.mainchainBackwardTransferRequestDataLength = scCreation.mainchainBackwardTransferRequestDataLength;
                 // This sidechain does not appear in a block yet, use default null values
                 info.lastReferencedHeight              = -1;
-                info.lastUnconfirmedReferencedHeight   = -1;
-                info.lastUnconfirmedReferencedEpoch    = -1;
                 info.lastInclusionHeight               = -1;
                 info.lastTopQualityCertReferencedEpoch = -1;
                 break;
@@ -2033,19 +2031,19 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
             info.lastTopQualityCertView.forwardTransferScFee = certTopQual.forwardTransferScFee;
             info.lastTopQualityCertView.mainchainBackwardTransferRequestScFee = certTopQual.mainchainBackwardTransferRequestScFee;
 
-
             const auto map_it = mapCumtreeHeight.find(certTopQual.endEpochCumScTxCommTreeRoot.GetLegacyHash());
             if (map_it == mapCumtreeHeight.end())
             {
                 LogPrint("mempool", "%s():%d - could not find referenced block for certTopQual %s\n", __func__, __LINE__, certTopQual.GetHash().ToString());
-                info.lastUnconfirmedReferencedHeight = -1; // -1 stands for no valid values in mempool
+                info.lastReferencedHeight = -1; // -1 stands for no valid values in mempool
             }
             else
             {
-                info.lastUnconfirmedReferencedHeight = map_it->second;
+                info.lastReferencedHeight = map_it->second;
             }
 
-            info.lastUnconfirmedReferencedEpoch = certTopQual.epochNumber;
+            info.lastTopQualityCertReferencedEpoch = certTopQual.epochNumber;
+            // info.lastInclusionHeight cannot be affected by mempool
         }
     }
 
