@@ -16,10 +16,6 @@ for i in "$@"; do
       EXTENDED="true"
       shift
       ;;
-    -specific=*)
-      SPECIFIC="${i#*=}"
-      shift
-      ;;
     -exclude=*)
       EXCLUDE="${i#*=}"
       shift
@@ -204,10 +200,6 @@ if [ ! -z "$EXCLUDE" ]; then
       fi
     done
   done
-fi
-
-if [ ! -z "$SPECIFIC" ]; then
-	testScripts=( "$SPECIFIC" )
 fi
 
 # split array into m parts and only run tests of part n where SPLIT=m:n

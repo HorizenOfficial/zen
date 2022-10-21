@@ -404,8 +404,7 @@ bool SelectParamsFromCommandLine()
 int64_t CChainParams::MaxTipAge() const {
     if ( Params().NetworkIDString() == "regtest" )
     {
-        int maxTipAge = (int)GetArg("-maxtipage", nMaxTipAge);
-        return maxTipAge;
+        return GetArg("-maxtipage", nMaxTipAge);
     }
     
     return nMaxTipAge;
