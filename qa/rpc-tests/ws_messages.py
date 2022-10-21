@@ -499,7 +499,7 @@ class ws_messages(BitcoinTestFramework):
 
         #Create proof for WCert
         cert_2_quality = 25
-        proof = mcTest.create_test_proof("sc2",
+        proof2 = mcTest.create_test_proof("sc2",
                                          scid_swapped,
                                          epoch_number,
                                          cert_2_quality,
