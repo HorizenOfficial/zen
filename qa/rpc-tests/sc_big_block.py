@@ -107,10 +107,19 @@ class sc_big_block(BitcoinTestFramework):
                 t0 = time.time()
                 scid_swapped = str(swap_bytes(scids[i]))
 
-                proof = certMcTest.create_test_proof(
-                    "scs", scid_swapped, epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-                    constant = constant, pks = [], amounts = [], custom_fields = proofCfeArray,
-                    num_constraints = CERT_NUM_CONSTRAINTS, segment_size = SEGMENT_SIZE)
+                proof = certMcTest.create_test_proof("scs",
+                                                     scid_swapped,
+                                                     epoch_number,
+                                                     q,
+                                                     MBTR_SC_FEE,
+                                                     FT_SC_FEE,
+                                                     epoch_cum_tree_hash,
+                                                     constant        = constant,
+                                                     pks             = [],
+                                                     amounts         = [],
+                                                     custom_fields   = proofCfeArray,
+                                                     num_constraints = CERT_NUM_CONSTRAINTS,
+                                                     segment_size    = SEGMENT_SIZE)
                 assert_true(proof != None)
                 t1 = time.time()
                 print("...proof generated: {} secs".format(t1-t0))
@@ -225,9 +234,16 @@ class sc_big_block(BitcoinTestFramework):
  
             print("Generating csw proof...")
             t0 = time.time()
-            sc_proof = cswMcTest.create_test_proof(
-                "scs", sc_csw_amount, str(scid_swapped), nullifier, csw_mc_address, ceasingCumScTxCommTree,
-                cert_data_hash = actCertData, constant = constant, num_constraints = CSW_NUM_CONSTRAINTS, segment_size = SEGMENT_SIZE)
+            sc_proof = cswMcTest.create_test_proof("scs",
+                                                   sc_csw_amount,
+                                                   str(scid_swapped),
+                                                   nullifier,
+                                                   csw_mc_address,
+                                                   ceasingCumScTxCommTree,
+                                                   cert_data_hash  = actCertData,
+                                                   constant        = constant,
+                                                   num_constraints = CSW_NUM_CONSTRAINTS,
+                                                   segment_size    = SEGMENT_SIZE)
             assert_true(sc_proof != None)
             t1 = time.time()
             print("...proof generated: {} secs".format(t1-t0))

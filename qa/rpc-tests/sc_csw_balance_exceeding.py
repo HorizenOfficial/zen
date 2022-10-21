@@ -160,9 +160,14 @@ class CswNullifierTest(BitcoinTestFramework):
         ceasingCumScTxCommTree = self.nodes[0].getceasingcumsccommtreehash(scid)['ceasingCumScTxCommTree']
 
         scid_swapped = swap_bytes(scid)
-        sc_proof1 = cswMcTest.create_test_proof(
-                "sc1", sc_csw_amount, str(scid_swapped), null1, csw_mc_address, ceasingCumScTxCommTree,
-                cert_data_hash = actCertData, constant = constant)
+        sc_proof1 = cswMcTest.create_test_proof("sc1",
+                                                sc_csw_amount,
+                                                str(scid_swapped),
+                                                null1,
+                                                csw_mc_address,
+                                                ceasingCumScTxCommTree,
+                                                cert_data_hash = actCertData,
+                                                constant       = constant)
 
         sc_csws = [{
             "amount": sc_csw_amount,
@@ -197,9 +202,14 @@ class CswNullifierTest(BitcoinTestFramework):
         sc_csw_amount = sc_bal * Decimal("0.9")
         null1 = generate_random_field_element_hex()
 
-        sc_proof1 = cswMcTest.create_test_proof(
-                "sc1", sc_csw_amount, str(scid_swapped), null1, csw_mc_address, ceasingCumScTxCommTree,
-                cert_data_hash = actCertData, constant = constant)
+        sc_proof1 = cswMcTest.create_test_proof("sc1",
+                                                sc_csw_amount,
+                                                str(scid_swapped),
+                                                null1,
+                                                csw_mc_address,
+                                                ceasingCumScTxCommTree,
+                                                cert_data_hash = actCertData,
+                                                constant       = constant)
 
         sc_csws = [{
             "amount": sc_csw_amount,

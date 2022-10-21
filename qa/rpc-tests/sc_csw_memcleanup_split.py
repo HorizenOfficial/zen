@@ -159,8 +159,17 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         quality = 10
         scid_swapped = str(swap_bytes(scid))
 
-        proof = certMcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, None, constant, [addr_node1], [bt_amount])
+        proof = certMcTest.create_test_proof("sc1",
+                                             scid_swapped,
+                                             epoch_number,
+                                             quality,
+                                             MBTR_SC_FEE,
+                                             FT_SC_FEE,
+                                             epoch_cum_tree_hash,
+                                             prev_cert_hash = None,
+                                             constant       = constant,
+                                             pks            = [addr_node1],
+                                             amounts        = [bt_amount])
 
         amount_cert = [{"address": addr_node1, "amount": bt_amount}]
         try:
@@ -201,9 +210,14 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         actCertData            = self.nodes[3].getactivecertdatahash(scid)['certDataHash']
         ceasingCumScTxCommTree = self.nodes[3].getceasingcumsccommtreehash(scid)['ceasingCumScTxCommTree']
 
-        csw_proof = cswMcTest.create_test_proof(
-                "csw1", sc_csw_amount, str(scid_swapped), null, csw_mc_address, ceasingCumScTxCommTree,
-                cert_data_hash = actCertData, constant = constant)
+        csw_proof = cswMcTest.create_test_proof("csw1",
+                                                sc_csw_amount,
+                                                str(scid_swapped),
+                                                null,
+                                                csw_mc_address,
+                                                ceasingCumScTxCommTree,
+                                                cert_data_hash = actCertData,
+                                                constant       = constant)
 
         sc_csws = [{
             "amount": sc_csw_amount,
