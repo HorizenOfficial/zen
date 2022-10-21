@@ -215,13 +215,23 @@ class ScCswEvictionFromMempool(BitcoinTestFramework):
             nullifiers1.append(generate_random_field_element_hex())
             nullifiers2.append(generate_random_field_element_hex())
 
-            csw_proofs1.append(cswMcTest.create_test_proof(
-                "sc1", sc_csw_amount, str(scid1_swapped), nullifiers1[i], csw_mc_address,
-                ceasingCumScTxCommTree1, cert_data_hash = actCertData1, constant = constant1))
+            csw_proofs1.append(cswMcTest.create_test_proof("sc1",
+                                                           sc_csw_amount,
+                                                           str(scid1_swapped),
+                                                           nullifiers1[i],
+                                                           csw_mc_address,
+                                                           ceasingCumScTxCommTree1,
+                                                           cert_data_hash = actCertData1,
+                                                           constant       = constant1))
 
-            csw_proofs2.append(cswMcTest.create_test_proof(
-                "sc2", sc_csw_amount, str(scid2_swapped), nullifiers2[i], csw_mc_address,
-                ceasingCumScTxCommTree2, cert_data_hash = actCertData2, constant = constant2))
+            csw_proofs2.append(cswMcTest.create_test_proof("sc2",
+                                                           sc_csw_amount,
+                                                           str(scid2_swapped),
+                                                           nullifiers2[i],
+                                                           csw_mc_address,
+                                                           ceasingCumScTxCommTree2,
+                                                           cert_data_hash = actCertData2,
+                                                           constant       = constant2))
         
         sc_csws = []
 

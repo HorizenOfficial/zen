@@ -132,9 +132,16 @@ class ScCertListsinceblock(BitcoinTestFramework):
                 pkh_arr.append(entry["address"])
                 am_bwt_arr.append(entry["amount"])
  
-            proof = mcTest.create_test_proof(
-                "sc1", scid_swapped, epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-                constant = constant, pks =  pkh_arr, amounts = am_bwt_arr)
+            proof = mcTest.create_test_proof("sc1",
+                                             scid_swapped,
+                                             epoch_number,
+                                             q,
+                                             MBTR_SC_FEE,
+                                             FT_SC_FEE,
+                                             epoch_cum_tree_hash,
+                                             constant = constant,
+                                             pks = pkh_arr,
+                                             amounts = am_bwt_arr)
             
             utx, change = get_spendable(self.nodes[1], CERT_FEE + am_out)
             raw_inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]

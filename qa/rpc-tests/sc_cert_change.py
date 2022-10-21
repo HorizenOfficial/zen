@@ -107,8 +107,16 @@ class sc_cert_change(BitcoinTestFramework):
         amounts = [{"address": addr_node1, "amount": bwt_amount}]
 
         quality = 0
-        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-            constant = constant, pks = [addr_node1], amounts = [bwt_amount])
+        proof = mcTest.create_test_proof("sc1",
+                                         scid_swapped,
+                                         epoch_number,
+                                         quality,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         epoch_cum_tree_hash,
+                                         constant = constant,
+                                         pks      = [addr_node1],
+                                         amounts  = [bwt_amount])
         
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node1 address {}".format(bwt_amount, addr_node1), self.nodes, DEBUG_MODE)
         try:
@@ -134,8 +142,16 @@ class sc_cert_change(BitcoinTestFramework):
         amounts = [{"address": addr_node2, "amount": bwt_amount}]
 
         quality = 1
-        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-            constant = constant, pks = [addr_node2], amounts = [bwt_amount])
+        proof = mcTest.create_test_proof("sc1",
+                                         scid_swapped,
+                                         epoch_number,
+                                         quality,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         epoch_cum_tree_hash,
+                                         constant = constant,
+                                         pks      = [addr_node2],
+                                         amounts  = [bwt_amount])
 
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node2 address {}".format(bwt_amount, addr_node2), self.nodes, DEBUG_MODE)
         try:
@@ -161,8 +177,16 @@ class sc_cert_change(BitcoinTestFramework):
         amounts = [{"address": addr_node3, "amount": bwt_amount}]
 
         quality = 2
-        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-            constant = constant, pks = [addr_node3], amounts = [bwt_amount])
+        proof = mcTest.create_test_proof("sc1",
+                                         scid_swapped,
+                                         epoch_number,
+                                         quality,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         epoch_cum_tree_hash,
+                                         constant = constant,
+                                         pks      = [addr_node3],
+                                         amounts  = [bwt_amount])
 
         mark_logs("Node 1 performs a bwd transfer of {} coins to Node3 address {}".format(bwt_amount, addr_node3), self.nodes, DEBUG_MODE)
         try:

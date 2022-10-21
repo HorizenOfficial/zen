@@ -125,9 +125,14 @@ class sc_block_partitions(BitcoinTestFramework):
 
         while True:
             t0 = time.time()
-            proof = certMcTest.create_test_proof(
-                "scs", scid_swapped, epoch_number, (q+tot_num_cert), MBTR_SC_FEE, FT_SC_FEE,
-                epoch_cum_tree_hash, constant = constant)
+            proof = certMcTest.create_test_proof("scs",
+                                                 scid_swapped,
+                                                 epoch_number,
+                                                 (q+tot_num_cert),
+                                                 MBTR_SC_FEE,
+                                                 FT_SC_FEE,
+                                                 epoch_cum_tree_hash,
+                                                 constant = constant)
             assert_true(proof != None)
             t1 = time.time()
             print("...proof generated: {} secs".format(t1-t0))
