@@ -6,6 +6,7 @@
 
 namespace {
     CFieldElement phantom_element;
+    CFieldElement zero_element(std::vector<unsigned char>(CFieldElement::ByteSize(), 0x00));
 }
 
 CZendooLowPrioThreadGuard::CZendooLowPrioThreadGuard(bool pauseThreads): _pause(pauseThreads)
@@ -283,13 +284,20 @@ const CFieldElement& CFieldElement::GetPhantomHash()
 
     std::vector<unsigned char> buf(CFieldElement::ByteSize());
     CctpErrorCode err_code;
-    zendoo_serialize_field(zendoo_get_phantom_cert_data_hash(), buf.data(), &err_code);
+    field_t* zendoo_field = zendoo_get_phantom_cert_data_hash();
+    zendoo_serialize_field(zendoo_field, buf.data(), &err_code);
     if (err_code != CctpErrorCode::OK) {
         LogPrintf("%s():%d - ERROR: could not create phantom hash, code[0x%x]\n", __func__, __LINE__, err_code);
     }
 
     phantom_element.SetByteArray(buf);
+    zendoo_field_free(zendoo_field);
     return phantom_element;
+}
+
+const CFieldElement& CFieldElement::GetZeroHash()
+{
+    return zero_element;
 }
 #endif
 ///////////////////////////// End of CFieldElement /////////////////////////////

@@ -624,7 +624,6 @@ def advance_epoch(mcTest, node, sync_call,
 
     scid_swapped = str(swap_bytes(scid))
 
-    print(constant)
     proof = mcTest.create_test_proof(sc_tag,
                                      scid_swapped,
                                      epoch_number,

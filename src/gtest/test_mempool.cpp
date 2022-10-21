@@ -361,7 +361,7 @@ TEST(Mempool, SidechainVersionTest)
     blockchain_test_utils::BlockchainTestManager& testManager = blockchain_test_utils::BlockchainTestManager::GetInstance();
 
     // Initialize the sidechain keys
-    testManager.GenerateSidechainTestParameters(ProvingSystem::CoboundaryMarlin, TestCircuitType::Certificate);
+    testManager.GenerateSidechainTestParameters(ProvingSystem::CoboundaryMarlin, TestCircuitType::Certificate, false);
 
     // Create a Sidechain Creation transaction with version 0
     blockchain_test_utils::CTransactionCreationArguments args;
