@@ -191,8 +191,16 @@ class CeasingSplitTest(BitcoinTestFramework):
         quality = 10
         scid_swapped = str(swap_bytes(scid))
  
-        proof = certMcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-            constant = constant, pks = [addr_node1], amounts = [bt_amount])
+        proof = certMcTest.create_test_proof("sc1",
+                                             scid_swapped,
+                                             epoch_number,
+                                             quality,
+                                             MBTR_SC_FEE,
+                                             FT_SC_FEE,
+                                             epoch_cum_tree_hash,
+                                             constant = constant,
+                                             pks      = [addr_node1],
+                                             amounts  = [bt_amount])
  
         amount_cert = [{"address": addr_node1, "amount": bt_amount}]
         try:

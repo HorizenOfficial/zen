@@ -195,22 +195,42 @@ class CswActCertDataTest(BitcoinTestFramework):
         ceasingCumScTxCommTree2 = self.nodes[0].getceasingcumsccommtreehash(scid2)['ceasingCumScTxCommTree']
 
         scid1_swapped = swap_bytes(scid1)
-        sc_proof1_1 = cswMcTest.create_test_proof(
-            "sc1", sc_csw_amount, str(scid1_swapped), null_1_1, csw_mc_address, ceasingCumScTxCommTree1,
-            cert_data_hash = actCertData1, constant = constant1)
+        sc_proof1_1 = cswMcTest.create_test_proof("sc1",
+                                                  sc_csw_amount,
+                                                  str(scid1_swapped),
+                                                  null_1_1,
+                                                  csw_mc_address,
+                                                  ceasingCumScTxCommTree1,
+                                                  cert_data_hash = actCertData1,
+                                                  constant       = constant1)
         
-        sc_proof1_2 = cswMcTest.create_test_proof(
-            "sc1", sc_csw_amount, str(scid1_swapped), null_1_2, csw_mc_address, ceasingCumScTxCommTree1,
-            cert_data_hash = actCertData1, constant = constant1)
+        sc_proof1_2 = cswMcTest.create_test_proof("sc1",
+                                                  sc_csw_amount,
+                                                  str(scid1_swapped),
+                                                  null_1_2,
+                                                  csw_mc_address,
+                                                  ceasingCumScTxCommTree1,
+                                                  cert_data_hash = actCertData1,
+                                                  constant       = constant1)
 
-        sc_proof1_3 = cswMcTest.create_test_proof(
-            "sc1", sc_csw_amount, str(scid1_swapped), null_1_3, csw_mc_address, ceasingCumScTxCommTree1,
-            cert_data_hash = actCertData1, constant = constant1)
+        sc_proof1_3 = cswMcTest.create_test_proof("sc1",
+                                                  sc_csw_amount,
+                                                  str(scid1_swapped),
+                                                  null_1_3,
+                                                  csw_mc_address,
+                                                  ceasingCumScTxCommTree1,
+                                                  cert_data_hash = actCertData1,
+                                                  constant       = constant1)
 
         scid2_swapped = swap_bytes(scid2)
-        sc_proof2 = cswMcTest.create_test_proof(
-            "sc2", sc_csw_amount, str(scid2_swapped), null_2_1, csw_mc_address, ceasingCumScTxCommTree2,
-            cert_data_hash = actCertData2, constant = constant2) 
+        sc_proof2 = cswMcTest.create_test_proof("sc2",
+                                                sc_csw_amount,
+                                                str(scid2_swapped),
+                                                null_2_1,
+                                                csw_mc_address,
+                                                ceasingCumScTxCommTree2,
+                                                cert_data_hash = actCertData2,
+                                                constant       = constant2) 
         #print "sc_proof1 =", sc_proof1
         #print "sc_proof2 =", sc_proof2
 
@@ -297,9 +317,14 @@ class CswActCertDataTest(BitcoinTestFramework):
 
         null_1_4 = generate_random_field_element_hex()
         wrong_act_cert_data = generate_random_field_element_hex()
-        sc_proof1_4 = cswMcTest.create_test_proof(
-            "sc1", sc_csw_amount, str(scid1_swapped), null_1_4, csw_mc_address, ceasingCumScTxCommTree1,
-            cert_data_hash = wrong_act_cert_data, constant = constant1) 
+        sc_proof1_4 = cswMcTest.create_test_proof("sc1",
+                                                  sc_csw_amount,
+                                                  str(scid1_swapped),
+                                                  null_1_4,
+                                                  csw_mc_address,
+                                                  ceasingCumScTxCommTree1,
+                                                  cert_data_hash = wrong_act_cert_data,
+                                                  constant       = constant1) 
 
         sc_csws = [ {
             "amount": sc_csw_amount,

@@ -118,9 +118,17 @@ class sc_cert_base(BitcoinTestFramework):
 
         #Create proof for WCert
         quality = 1
-        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-            constant = constant, pks = [addr_node2], amounts = [bwt_amount])
-        
+        proof = mcTest.create_test_proof("sc1",
+                                         scid_swapped,
+                                         epoch_number,
+                                         quality,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         epoch_cum_tree_hash,
+                                         constant = constant,
+                                         pks      = [addr_node2],
+                                         amounts  = [bwt_amount])
+
         mark_logs("Node 1 performs a bwd transfer of {} coins to Node2 address {}".format(bwt_amount, addr_node2), self.nodes, DEBUG_MODE)
         try:
             cert_good = self.nodes[1].sc_send_certificate(scid, epoch_number, quality,
@@ -200,8 +208,16 @@ class sc_cert_base(BitcoinTestFramework):
 
         #Create proof for WCert
         quality = 2
-        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-            constant = constant, pks = [addr_node2], amounts = [bwt_amount_2])
+        proof = mcTest.create_test_proof("sc1",
+                                         scid_swapped,
+                                         epoch_number,
+                                         quality,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         epoch_cum_tree_hash,
+                                         constant = constant,
+                                         pks      = [addr_node2],
+                                         amounts  = [bwt_amount_2])
         
         mark_logs("Node 3 performs a bwd transfer of {} coins to Node2 address {}".format(bwt_amount_2, addr_node2), self.nodes, DEBUG_MODE)
         try:

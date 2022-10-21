@@ -133,9 +133,16 @@ class ScCertDust(BitcoinTestFramework):
 
             mark_logs("Node 1 sends a cert with a bwd transfers of {} coins to Node2".format(bwt_amount), self.nodes, DEBUG_MODE)
             #==============================================================
-            proof = mc_test.create_test_proof(
-                "sc1", scid_swapped, epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-                constant = constant, pks = addr_array, amounts = bwt_amount_array)
+            proof = mc_test.create_test_proof("sc1",
+                                              scid_swapped,
+                                              epoch_number,
+                                              q,
+                                              MBTR_SC_FEE,
+                                              FT_SC_FEE,
+                                              epoch_cum_tree_hash,
+                                              constant = constant,
+                                              pks      = addr_array,
+                                              amounts  = bwt_amount_array)
 
             try:
                 cert = self.nodes[1].sc_send_certificate(scid, epoch_number, q,
@@ -169,9 +176,16 @@ class ScCertDust(BitcoinTestFramework):
         bwt_amount_array = [dust_amount]
         addr_array = [addr_node2]
         quality = 0
-        proof = mc_test.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE,
-            epoch_cum_tree_hash, constant = constant, pks = addr_array, amounts = bwt_amount_array)
+        proof = mc_test.create_test_proof("sc1",
+                                          scid_swapped,
+                                          epoch_number,
+                                          quality,
+                                          MBTR_SC_FEE,
+                                          FT_SC_FEE,
+                                          epoch_cum_tree_hash,
+                                          constant = constant,
+                                          pks      = addr_array,
+                                          amounts  = bwt_amount_array)
 
         utx, change = get_spendable(self.nodes[0], CERT_FEE)
         raw_inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]

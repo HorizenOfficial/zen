@@ -410,9 +410,16 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         newMbtrFee = mbtrFee + 1
         scid_swapped = str(swap_bytes(scid))
 
-        proof = mcTest.create_test_proof(
-            vk_tag, scid_swapped, epoch_number, quality, newMbtrFee, newFtFee, epoch_cum_tree_hash,
-            constant = constant, pks = [addr_node1], amounts = [cert_amount])
+        proof = mcTest.create_test_proof(vk_tag,
+                                         scid_swapped,
+                                         epoch_number,
+                                         quality,
+                                         newMbtrFee,
+                                         newFtFee,
+                                         epoch_cum_tree_hash,
+                                         constant = constant,
+                                         pks      = [addr_node1],
+                                         amounts  = [cert_amount])
         cert_epoch_0 = self.nodes[1].sc_send_certificate(scid, epoch_number, quality,
             epoch_cum_tree_hash, proof, amount_cert_1, newFtFee, newMbtrFee)
 

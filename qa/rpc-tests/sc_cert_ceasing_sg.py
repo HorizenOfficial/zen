@@ -127,8 +127,16 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         # Certificate epoch 0 
         #----------------------------------------------------------------------
         quality = 1
-        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-            constant = constant, pks = [addr_node1], amounts = [bwt_amount_1])
+        proof = mcTest.create_test_proof("sc1",
+                                         scid_swapped,
+                                         epoch_number,
+                                         quality,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         epoch_cum_tree_hash,
+                                         constant = constant,
+                                         pks      = [addr_node1],
+                                         amounts  = [bwt_amount_1])
 
         mark_logs("Node 0 sends a cert for scid {} with a bwd transfer of {} coins to Node1 address {}".format(scid, bwt_amount_1, addr_node1), self.nodes, DEBUG_MODE)
         try:
@@ -161,8 +169,16 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         # Certificate epoch 1 
         #----------------------------------------------------------------------
         quality = 1
-        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-            constant = constant, pks = [addr_node1], amounts = [bwt_amount_2])
+        proof = mcTest.create_test_proof("sc1",
+                                         scid_swapped,
+                                         epoch_number,
+                                         quality,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         epoch_cum_tree_hash,
+                                         constant = constant,
+                                         pks      = [addr_node1],
+                                         amounts  = [bwt_amount_2])
 
         mark_logs("Node 0 sends a cert for scid {} with a bwd transfer of {} coins to Node1 address {}".format(scid, bwt_amount_2, addr_node1), self.nodes, DEBUG_MODE)
         try:
@@ -258,8 +274,14 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         try:
             #Create proof for WCert
             quality = 2
-            proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-                constant = constant)
+            proof = mcTest.create_test_proof("sc1",
+                                             scid_swapped,
+                                             epoch_number,
+                                             quality,
+                                             MBTR_SC_FEE,
+                                             FT_SC_FEE,
+                                             epoch_cum_tree_hash,
+                                             constant = constant)
 
             cert_2 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
