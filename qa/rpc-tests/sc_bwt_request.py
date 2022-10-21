@@ -445,9 +445,16 @@ class sc_bwt_request(BitcoinTestFramework):
         amounts = [{"address": mc_dest_addr2, "amount": bwt_amount}]
         scid1_swapped = str(swap_bytes(scid1))
 
-        proof = mcTest.create_test_proof(
-            "sc1", scid1_swapped, epoch_number, 0, mbtrScFee, ftScFee, epoch_cum_tree_hash,
-            constant = c1, pks = [mc_dest_addr2], amounts = [bwt_amount])
+        proof = mcTest.create_test_proof("sc1",
+                                         scid1_swapped,
+                                         epoch_number,
+                                         0,
+                                         mbtrScFee,
+                                         ftScFee,
+                                         epoch_cum_tree_hash,
+                                         constant = c1,
+                                         pks      = [mc_dest_addr2],
+                                         amounts  = [bwt_amount])
 
         mark_logs("Node1 sends a cert withdrawing the contribution of the creation amount to the sc balance", self.nodes, DEBUG_MODE)
         try:
@@ -579,9 +586,16 @@ class sc_bwt_request(BitcoinTestFramework):
         quality = 10
         scid2_swapped = str(swap_bytes(scid2))
 
-        proof = mcTest.create_test_proof(
-            "sc2", scid2_swapped, epoch_number, quality, mbtrScFee, ftScFee, epoch_cum_tree_hash,
-            constant = c2, pks = [addr_node1], amounts = [bt_amount])
+        proof = mcTest.create_test_proof("sc2",
+                                         scid2_swapped,
+                                         epoch_number,
+                                         quality,
+                                         mbtrScFee,
+                                         ftScFee,
+                                         epoch_cum_tree_hash,
+                                         constant = c2,
+                                         pks      = [addr_node1],
+                                         amounts  = [bt_amount])
  
         amount_cert = [{"address": addr_node1, "amount": bt_amount}]
         try:

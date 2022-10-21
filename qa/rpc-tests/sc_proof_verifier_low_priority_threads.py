@@ -122,9 +122,16 @@ class sc_proof_verifier_low_priority_threads(BitcoinTestFramework):
 
         #Create proof for WCert
         quality = 10
-        proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-            constant = constant, pks = [addr_node0], amounts = [bwt_amount])
+        proof = mcTest.create_test_proof("sc1",
+                                         scid_swapped,
+                                         epoch_number,
+                                         quality,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         epoch_cum_tree_hash,
+                                         constant = constant,
+                                         pks      = [addr_node0],
+                                         amounts  = [bwt_amount])
 
         amount_cert_1 = [{"address": addr_node0, "amount": bwt_amount}]
 

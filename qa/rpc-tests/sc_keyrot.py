@@ -54,11 +54,10 @@ class ncsc_cert_epochs(BitcoinTestFramework):
                                               mbtr_fee,
                                               ft_fee,
                                               epoch_cum_tree_hash,
-                                              prev_cert_hash,
-                                              constant = self.constant,
-                                              pks = [bt["address"]],
-                                              amounts = [bt["amount"]]
-                                             )
+                                              prev_cert_hash = prev_cert_hash,
+                                              constant       = self.constant,
+                                              pks            = [bt["address"]],
+                                              amounts        = [bt["amount"]])
 
         mark_logs("Node {} sends cert of quality {} epoch {} ref {} with bwt of {}, expecting {}".format(0, quality, epoch_number, ref_height, bt["amount"], "failure" if expect_failure else "success"), self.nodes, DEBUG_MODE)
         try:

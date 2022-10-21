@@ -664,9 +664,18 @@ def advance_epoch(mcTest, node, sync_call,
     scid_swapped = str(swap_bytes(scid))
 
     print(constant)
-    proof = mcTest.create_test_proof(
-        sc_tag, scid_swapped, epoch_number, cert_quality, mbtrScFee, ftScFee, epoch_cum_tree_hash, 
-        prev_cert_hash = None, constant = constant, pks = [], amounts = [], custom_fields = proofCfeArray)
+    proof = mcTest.create_test_proof(sc_tag,
+                                     scid_swapped,
+                                     epoch_number,
+                                     cert_quality,
+                                     mbtrScFee,
+                                     ftScFee,
+                                     epoch_cum_tree_hash,
+                                     prev_cert_hash = None,
+                                     constant       = constant,
+                                     pks            = [],
+                                     amounts        = [],
+                                     custom_fields  = proofCfeArray)
 
     if proof == None:
         print("could not create proof")

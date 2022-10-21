@@ -189,9 +189,16 @@ class ws_messages(BitcoinTestFramework):
 
         #Create proof for WCert
         quality = 0
-        proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, cum_tree_hash,
-            constant = constant, pks = [addr_node1], amounts = [bwt_amount])
+        proof = mcTest.create_test_proof("sc1",
+                                         scid_swapped,
+                                         epoch_number,
+                                         quality,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         cum_tree_hash,
+                                         constant = constant,
+                                         pks      = [addr_node1],
+                                         amounts  = [bwt_amount])
 
         amount_cert_1 = [{"address": addr_node1, "amount": bwt_amount}]
         mark_logs("Node 0 performs a bwd transfer to Node1 address {} of {} coins via Websocket".format(amount_cert_1[0]["address"], amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)
@@ -452,9 +459,16 @@ class ws_messages(BitcoinTestFramework):
         #Create proof for WCert
         cert1_quality = 20
         scid_swapped = str(swap_bytes(scid2))
-        proof = mcTest.create_test_proof(
-            "sc2", scid_swapped, epoch_number, cert1_quality, MBTR_SC_FEE, FT_SC_FEE, cum_tree_hash,
-            constant = sc2_constant, pks = [addr_node1], amounts = [bwt_amount])
+        proof = mcTest.create_test_proof("sc2",
+                                         scid_swapped,
+                                         epoch_number,
+                                         cert1_quality,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         cum_tree_hash,
+                                         constant = sc2_constant,
+                                         pks      = [addr_node1],
+                                         amounts  = [bwt_amount])
 
         amount_cert_1 = [{"address": addr_node1, "amount": bwt_amount}]
         mark_logs("Node 0 performs a bwd transfer to Node1 address {} of {} coins via Websocket".format(amount_cert_1[0]["address"], amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)
@@ -485,9 +499,16 @@ class ws_messages(BitcoinTestFramework):
 
         #Create proof for WCert
         cert_2_quality = 25
-        proof2 = mcTest.create_test_proof(
-            "sc2", scid_swapped, epoch_number, cert_2_quality, MBTR_SC_FEE, FT_SC_FEE, cum_tree_hash,
-            constant = sc2_constant, pks = [addr_node1], amounts = [bwt_amount])
+        proof = mcTest.create_test_proof("sc2",
+                                         scid_swapped,
+                                         epoch_number,
+                                         cert_2_quality,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         cum_tree_hash,
+                                         constant = sc2_constant,
+                                         pks      = [addr_node1],
+                                         amounts  = [bwt_amount])
 
         amount_cert_2 = [{"address": addr_node1, "amount": bwt_amount}]
         mark_logs("Node 0 performs a bwd transfer to Node1 address {} of {} coins via Websocket".format(amount_cert_1[0]["address"], amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)

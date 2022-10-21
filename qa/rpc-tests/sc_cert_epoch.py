@@ -153,9 +153,17 @@ class sc_cert_epoch(BitcoinTestFramework):
 
         #Create proof for WCert
         quality = 0
-        
-        proof_bad = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-            constant = constant, pks = [addr_node2], amounts = [bwt_amount + fwt_amount_immature_at_epoch])
+
+        proof_bad = mcTest.create_test_proof("sc1",
+                                             scid_swapped,
+                                             epoch_number,
+                                             quality,
+                                             MBTR_SC_FEE,
+                                             FT_SC_FEE,
+                                             epoch_cum_tree_hash,
+                                             constant = constant,
+                                             pks      = [addr_node2],
+                                             amounts  = [bwt_amount + fwt_amount_immature_at_epoch])
 
         try:
             self.nodes[0].sc_send_certificate(scid, epoch_number, quality, epoch_cum_tree_hash, proof_bad, amounts_bad, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -165,12 +173,19 @@ class sc_cert_epoch(BitcoinTestFramework):
             mark_logs(errorString, self.nodes, DEBUG_MODE)
             assert_equal("sidechain has insufficient funds" in errorString, True)
 
-        
         #Create proof for WCert
         quality = 0
-        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-            constant = constant, pks = [addr_node2], amounts = [bwt_amount])
-        
+        proof = mcTest.create_test_proof("sc1",
+                                         scid_swapped,
+                                         epoch_number,
+                                         quality,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         epoch_cum_tree_hash,
+                                         constant = constant,
+                                         pks = [addr_node2],
+                                         amounts = [bwt_amount])
+
         try:
             cert_epoch_0 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality, epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("Node 0 performs a bwd transfer of {} coins to Node2 address via cert {}.".format(bwt_amount, cert_epoch_0), self.nodes, DEBUG_MODE)
@@ -213,11 +228,17 @@ class sc_cert_epoch(BitcoinTestFramework):
         try:
             epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
             mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)
-            
+
             #Create proof for WCert
             quality = 1
-            proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-                constant = constant)
+            proof = mcTest.create_test_proof("sc1",
+                                             scid_swapped,
+                                             epoch_number,
+                                             quality,
+                                             MBTR_SC_FEE,
+                                             FT_SC_FEE,
+                                             epoch_cum_tree_hash,
+                                             constant = constant)
 
             cert_epoch_1 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality, epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("Node 0 send a certificate {} with no bwd transfers".format(cert_epoch_1), self.nodes, DEBUG_MODE)
