@@ -103,13 +103,19 @@ class getblockexpanded(BitcoinTestFramework):
         ########### Mine Certificate 1 with quality = 5 ##################
         mark_logs("########### Mine Certificate 1 with quality = 5 ##################", self.nodes, DEBUG_MODE)
         epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
-        if scversion < 2:
-            prev_cert_hash = None
 
         quality = 5
-        proof = self.mcTest.create_test_proof(
-            sc_name, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, 
-            prev_cert_hash, constant = self.constant, pks = [node1Addr], amounts = [bwt_amount])
+        proof = self.mcTest.create_test_proof(sc_name,
+                                              scid_swapped,
+                                              epoch_number,
+                                              quality,
+                                              MBTR_SC_FEE,
+                                              FT_SC_FEE,
+                                              epoch_cum_tree_hash, 
+                                              prev_cert_hash = prev_cert_hash if scversion >= 2 else None,
+                                              constant       = self.constant,
+                                              pks            = [node1Addr],
+                                              amounts        = [bwt_amount])
 
         amount_cert_1 = [{"address": node1Addr, "amount": bwt_amount}]
 
@@ -122,9 +128,17 @@ class getblockexpanded(BitcoinTestFramework):
         mark_logs("########### Add to mempool Certificate 2 with quality = 7 ##################", self.nodes, DEBUG_MODE)
         quality = 7  
         bwt_amount2 = Decimal("7")
-        proof = self.mcTest.create_test_proof(
-            sc_name, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-            prev_cert_hash, constant = self.constant, pks = [node1Addr], amounts = [bwt_amount2])
+        proof = self.mcTest.create_test_proof(sc_name,
+                                              scid_swapped,
+                                              epoch_number,
+                                              quality,
+                                              MBTR_SC_FEE,
+                                              FT_SC_FEE,
+                                              epoch_cum_tree_hash, 
+                                              prev_cert_hash = prev_cert_hash if scversion >= 2 else None,
+                                              constant       = self.constant,
+                                              pks            = [node1Addr],
+                                              amounts        = [bwt_amount2])
 
         amount_cert_2 = [{"address": node1Addr, "amount": bwt_amount2}]
 
@@ -140,9 +154,17 @@ class getblockexpanded(BitcoinTestFramework):
         mark_logs("########### Mine a block with a new Certificate 3 with quality = 8 ##################", self.nodes, DEBUG_MODE)
         quality = 8
         bwt_amount3 = Decimal("7")
-        proof = self.mcTest.create_test_proof(
-            sc_name, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-            prev_cert_hash, constant = self.constant, pks = [node1Addr], amounts = [bwt_amount3])
+        proof = self.mcTest.create_test_proof(sc_name,
+                                              scid_swapped,
+                                              epoch_number,
+                                              quality,
+                                              MBTR_SC_FEE,
+                                              FT_SC_FEE,
+                                              epoch_cum_tree_hash, 
+                                              prev_cert_hash = prev_cert_hash if scversion >= 2 else None,
+                                              constant       = self.constant,
+                                              pks            = [node1Addr],
+                                              amounts        = [bwt_amount3])
 
         amount_cert_3 = [{"address": node1Addr, "amount": bwt_amount3}]
 
@@ -164,9 +186,17 @@ class getblockexpanded(BitcoinTestFramework):
 
         quality = 9
         bwt_amount4 = Decimal("9")
-        proof = self.mcTest.create_test_proof(
-            sc_name, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-            prev_cert_hash, constant = self.constant, pks = [node1Addr], amounts = [bwt_amount4])
+        proof = self.mcTest.create_test_proof(sc_name,
+                                              scid_swapped,
+                                              epoch_number,
+                                              quality,
+                                              MBTR_SC_FEE,
+                                              FT_SC_FEE,
+                                              epoch_cum_tree_hash, 
+                                              prev_cert_hash = prev_cert_hash if scversion >= 2 else None,
+                                              constant       = self.constant,
+                                              pks            = [node1Addr],
+                                              amounts        = [bwt_amount4])
 
         amount_cert_4 = [{"address": node1Addr, "amount": bwt_amount4}]
 
@@ -360,9 +390,18 @@ class getblockexpanded(BitcoinTestFramework):
         curr_height = self.nodes[0].getblockcount()
         epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH, is_non_ceasing = True, reference_height = curr_height - 3)
         quality = 0
-        proof = self.mcTest.create_test_proof(
-            sc_name, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-            prev_cert_hash, constant = self.constant, pks = [node1Addr], amounts = [bwt_amount])
+        proof = self.mcTest.create_test_proof(sc_name,
+                                              scid_swapped,
+                                              epoch_number,
+                                              quality,
+                                              MBTR_SC_FEE,
+                                              FT_SC_FEE,
+                                              epoch_cum_tree_hash, 
+                                              prev_cert_hash = prev_cert_hash if scversion >= 2 else None,
+                                              constant       = self.constant,
+                                              pks            = [node1Addr],
+                                              amounts        = [bwt_amount])
+
 
         amount_cert_1 = [{"address": node1Addr, "amount": bwt_amount}]
 
@@ -374,9 +413,17 @@ class getblockexpanded(BitcoinTestFramework):
         mark_logs("########### Add Certificate 2 to mempool ##################", self.nodes, DEBUG_MODE)
         epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH, is_non_ceasing = True, reference_height = curr_height - 2)
         bwt_amount2 = Decimal("7")
-        proof = self.mcTest.create_test_proof(
-            sc_name, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-            prev_cert_hash, constant = self.constant, pks = [node1Addr], amounts = [bwt_amount2])
+        proof = self.mcTest.create_test_proof(sc_name,
+                                              scid_swapped,
+                                              epoch_number,
+                                              quality,
+                                              MBTR_SC_FEE,
+                                              FT_SC_FEE,
+                                              epoch_cum_tree_hash, 
+                                              prev_cert_hash = prev_cert_hash if scversion >= 2 else None,
+                                              constant       = self.constant,
+                                              pks            = [node1Addr],
+                                              amounts        = [bwt_amount2])
 
         amount_cert_2 = [{"address": node1Addr, "amount": bwt_amount2}]
 
@@ -397,9 +444,17 @@ class getblockexpanded(BitcoinTestFramework):
         curr_height = self.nodes[0].getblockcount()
         epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH, is_non_ceasing = True, reference_height = curr_height - 1)
         bwt_amount3 = Decimal("8")
-        proof = self.mcTest.create_test_proof(
-            sc_name, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-            prev_cert_hash, constant = self.constant, pks = [node1Addr], amounts = [bwt_amount3])
+        proof = self.mcTest.create_test_proof(sc_name,
+                                              scid_swapped,
+                                              epoch_number,
+                                              quality,
+                                              MBTR_SC_FEE,
+                                              FT_SC_FEE,
+                                              epoch_cum_tree_hash, 
+                                              prev_cert_hash = prev_cert_hash if scversion >= 2 else None,
+                                              constant       = self.constant,
+                                              pks            = [node1Addr],
+                                              amounts        = [bwt_amount3])
 
         amount_cert_3 = [{"address": node1Addr, "amount": bwt_amount3}]
 
@@ -420,9 +475,17 @@ class getblockexpanded(BitcoinTestFramework):
         curr_height = self.nodes[0].getblockcount()
         epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH, is_non_ceasing = True, reference_height = curr_height - 1)
         bwt_amount4 = Decimal("9")
-        proof = self.mcTest.create_test_proof(
-            sc_name, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-            prev_cert_hash, constant = self.constant, pks = [node1Addr], amounts = [bwt_amount4])
+        proof = self.mcTest.create_test_proof(sc_name,
+                                              scid_swapped,
+                                              epoch_number,
+                                              quality,
+                                              MBTR_SC_FEE,
+                                              FT_SC_FEE,
+                                              epoch_cum_tree_hash, 
+                                              prev_cert_hash = prev_cert_hash if scversion >= 2 else None,
+                                              constant       = self.constant,
+                                              pks            = [node1Addr],
+                                              amounts        = [bwt_amount4])
 
         amount_cert_4 = [{"address": node1Addr, "amount": bwt_amount4}]
 

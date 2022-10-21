@@ -114,9 +114,18 @@ class sc_cert_base(BitcoinTestFramework):
 
         #Create proof for WCert
         quality = 10 if ceasable else 0
-        proof = mcTest.create_test_proof(
-            sc_name, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-            prev_cert_hash = prev_cert_data_hash if scversion >= 2 else None, constant = constant, pks = [addr_node1], amounts = [bwt_amount])
+        proof = mcTest.create_test_proof(sc_name,
+                                         scid_swapped,
+                                         epoch_number,
+                                         quality,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         epoch_cum_tree_hash,
+                                         prev_cert_hash = prev_cert_data_hash if scversion >= 2 else None,
+                                         constant       = constant,
+                                         pks            = [addr_node1],
+                                         amounts        = [bwt_amount])
+
         amount_cert_1 = [{"address": addr_node1, "amount": bwt_amount}]
 
         cur_h = self.nodes[0].getblockcount()
@@ -274,9 +283,17 @@ class sc_cert_base(BitcoinTestFramework):
             if ceasable:
                 quality += 1
 
-            proof = mcTest.create_test_proof(
-                sc_name, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-                prev_cert_hash = prev_cert_data_hash if scversion >= 2 else None, constant = constant, pks = [addr_node1], amounts = [bwt_amount])
+            proof = mcTest.create_test_proof(sc_name,
+                                             scid_swapped,
+                                             epoch_number,
+                                             quality,
+                                             MBTR_SC_FEE,
+                                             FT_SC_FEE,
+                                             epoch_cum_tree_hash,
+                                             prev_cert_hash = prev_cert_data_hash if scversion >= 2 else None,
+                                             constant       = constant,
+                                             pks            = [addr_node1],
+                                             amounts        = [bwt_amount])
 
             try:
                 mark_logs(f"Sending certificate {i + 1} / {num_certificates}...", self.nodes, DEBUG_MODE)
