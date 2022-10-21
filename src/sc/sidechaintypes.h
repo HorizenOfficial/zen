@@ -150,6 +150,7 @@ public:
 
     static CFieldElement ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs);
     static const CFieldElement& GetPhantomHash();
+    static const CFieldElement& GetZeroHash();
 
     // SERIALIZATION SECTION
     ADD_SERIALIZE_METHODS;

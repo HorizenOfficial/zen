@@ -150,8 +150,19 @@ class sc_big_block(BitcoinTestFramework):
         certMcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir, CERT_PROVING_SYSTEM)
         cswMcTest = CSWTestUtils(self.options.tmpdir, self.options.srcdir, CSW_PROVING_SYSTEM)
 
-        certVk = certMcTest.generate_params('scs', 'cert', True, False, CERT_NUM_CONSTRAINTS, SEGMENT_SIZE)
-        cswVk  = cswMcTest.generate_params('scs', 'csw', True, False, CSW_NUM_CONSTRAINTS, SEGMENT_SIZE)
+        certVk = certMcTest.generate_params('scs',
+                                            'cert',
+                                            constant = True,
+                                            keyrot = False,
+                                            num_constraints = CERT_NUM_CONSTRAINTS,
+                                            segment_size = SEGMENT_SIZE)
+
+        cswVk  = cswMcTest.generate_params('scs',
+                                           'csw',
+                                           constant = True,
+                                           keyrot = False,
+                                           num_constraints = CSW_NUM_CONSTRAINTS,
+                                           segment_size = SEGMENT_SIZE)
 
         constant = generate_random_field_element_hex()
 
