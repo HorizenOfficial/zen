@@ -235,16 +235,14 @@ class BlockchainHelper:
         withdrawalEpochLength = sc_info["creation_args"].withdrawalEpochLength
         constant = sc_info["creation_args"].constant
 
-        sc_creation_height = self.nodes[0].getscinfo(scid)['items'][0]['createdAtBlockHeight']
-        current_height = self.nodes[0].getblockcount()
+        if (referenced_height is None):
+            referenced_height = self.nodes[0].getblockcount()
 
         # If this is a ceasing sidechain, compute the epoch, otherwise it's the next after the last one
         version = sc_info["creation_args"].version
         is_non_ceasing_sidechain = version == 2 and sc_info["creation_args"].withdrawalEpochLength == 0
 
         epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[0], withdrawalEpochLength, is_non_ceasing_sidechain, referenced_height)
-        if version < 2:
-            prev_cert_hash = None
 
         scid_swapped = str(swap_bytes(scid))
 
@@ -272,7 +270,7 @@ class BlockchainHelper:
             0,
             0,
             epoch_cum_tree_hash,
-            prev_cert_hash,
+            prev_cert_hash = prev_cert_hash if version >= 2 else None,
             constant = constant,
             pks = [],
             amounts = [],
@@ -300,6 +298,6 @@ class BlockchainHelper:
         sc_info["last_certificate_epoch"] = epoch_number
 
         if is_non_ceasing_sidechain:
-            sc_info["last_referenced_height"] = ref_height
+            sc_info["last_referenced_height"] = referenced_height
 
         return certificate_id

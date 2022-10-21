@@ -107,7 +107,7 @@ static CMutableScCertificate CreateDefaultCert()
     return mcert;
 }
 
-static CCertProofVerifierInput CreateDefaultCertInput(TestCircuitType circuitType = TestCircuitType::Certificate)
+static CCertProofVerifierInput CreateDefaultCertInput(bool keyrot, TestCircuitType circuitType = TestCircuitType::Certificate)
 {
     CCertProofVerifierInput certInput;
 
@@ -128,7 +128,7 @@ static CCertProofVerifierInput CreateDefaultCertInput(TestCircuitType circuitTyp
     certInput.endEpochCumScTxCommTreeRoot = CFieldElement(SAMPLE_FIELD);
     certInput.mainchainBackwardTransferRequestScFee = 1;
     certInput.forwardTransferScFee = 1;
-
+    certInput.lastCertHash = keyrot ? CFieldElement(SAMPLE_FIELD) : CFieldElement();
     return certInput;
 }
 
@@ -1833,44 +1833,58 @@ TEST(CctpLibrary, GetScIdFromNullInputs)
     zendoo_field_free(scid_fe);
 }
 
+void CreateAndVerifyCert(ProvingSystem ps, TestCircuitType tc, bool keyrot)
+{
+    SelectParams(CBaseChainParams::REGTEST);
+    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+    testManager.GenerateSidechainTestParameters(ps, tc, keyrot);
+
+    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
+
+    CCertProofVerifierInput certInput = CreateDefaultCertInput(keyrot, tc);
+    certInput.verificationKey = testManager.GetTestVerificationKey(ps, tc);
+    certInput.proof = testManager.GenerateTestCertificateProof(certInput, ps, tc);
+
+    ASSERT_TRUE(testManager.VerifyCertificateProof(certInput));
+}
+
+void CreateAndVerifyCSW(ProvingSystem ps, TestCircuitType tc)
+{
+    SelectParams(CBaseChainParams::REGTEST);
+    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+    testManager.GenerateSidechainTestParameters(ps, tc, false); // no key_rotation possible for CSW
+
+    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
+
+    CCswProofVerifierInput cswInput = CreateDefaultCswInput(tc);
+    cswInput.verificationKey = testManager.GetTestVerificationKey(ps, tc);
+    cswInput.proof = testManager.GenerateTestCswProof(cswInput, ps, tc);
+
+    ASSERT_TRUE(testManager.VerifyCswProof(cswInput));
+}
+
 /**
  * @brief This test is intended to generate verification parameters,
  * generate a valid certificate proof (Marlin) and verify it through the batch verifier.
  */
 TEST(CctpLibrary, CreateAndVerifyMarlinCertificateProof)
 {
-    const ProvingSystem provingSystem = ProvingSystem::CoboundaryMarlin;
-    const TestCircuitType circuitType = TestCircuitType::Certificate;
-
-    SelectParams(CBaseChainParams::REGTEST);
-    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
-    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
-
-    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
-
-    CCertProofVerifierInput certInput = CreateDefaultCertInput();
-    certInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
-    certInput.proof = testManager.GenerateTestCertificateProof(certInput, provingSystem, circuitType);
-
-    ASSERT_TRUE(testManager.VerifyCertificateProof(certInput));
+    CreateAndVerifyCert(ProvingSystem::CoboundaryMarlin, TestCircuitType::Certificate, false);
 }
 
 TEST(CctpLibrary, CreateAndVerifyMarlinCertificateNoConstantProof)
 {
-    const ProvingSystem provingSystem = ProvingSystem::CoboundaryMarlin;
-    const TestCircuitType circuitType = TestCircuitType::CertificateNoConstant;
+    CreateAndVerifyCert(ProvingSystem::CoboundaryMarlin, TestCircuitType::CertificateNoConstant, false);
+}
 
-    SelectParams(CBaseChainParams::REGTEST);
-    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
-    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
+TEST(CctpLibrary, CreateAndVerifyMarlinCertificateProofKeyrot)
+{
+    CreateAndVerifyCert(ProvingSystem::CoboundaryMarlin, TestCircuitType::Certificate, true);
+}
 
-    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
-
-    CCertProofVerifierInput certInput = CreateDefaultCertInput(circuitType);
-    certInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
-    certInput.proof = testManager.GenerateTestCertificateProof(certInput, provingSystem, circuitType);
-
-    ASSERT_TRUE(testManager.VerifyCertificateProof(certInput));
+TEST(CctpLibrary, CreateAndVerifyMarlinCertificateNoConstantProofKeyrot)
+{
+    CreateAndVerifyCert(ProvingSystem::CoboundaryMarlin, TestCircuitType::CertificateNoConstant, true);
 }
 
 /**
@@ -1879,38 +1893,22 @@ TEST(CctpLibrary, CreateAndVerifyMarlinCertificateNoConstantProof)
  */
 TEST(CctpLibrary, CreateAndVerifyDarlinCertificateProof)
 {
-    const ProvingSystem provingSystem = ProvingSystem::Darlin;
-    const TestCircuitType circuitType = TestCircuitType::Certificate;
-
-    SelectParams(CBaseChainParams::REGTEST);
-    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
-    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
-
-    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
-
-    CCertProofVerifierInput certInput = CreateDefaultCertInput();
-    certInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
-    certInput.proof = testManager.GenerateTestCertificateProof(certInput, provingSystem);
-
-    ASSERT_TRUE(testManager.VerifyCertificateProof(certInput));
+    CreateAndVerifyCert(ProvingSystem::Darlin, TestCircuitType::Certificate, false);
 }
 
 TEST(CctpLibrary, CreateAndVerifyDarlinCertificateNoConstantProof)
 {
-    const ProvingSystem provingSystem = ProvingSystem::Darlin;
-    const TestCircuitType circuitType = TestCircuitType::CertificateNoConstant;
+    CreateAndVerifyCert(ProvingSystem::Darlin, TestCircuitType::CertificateNoConstant, false);
+}
 
-    SelectParams(CBaseChainParams::REGTEST);
-    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
-    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
+TEST(CctpLibrary, CreateAndVerifyDarlinCertificateProofKeyrot)
+{
+    CreateAndVerifyCert(ProvingSystem::Darlin, TestCircuitType::Certificate, true);
+}
 
-    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
-
-    CCertProofVerifierInput certInput = CreateDefaultCertInput(circuitType);
-    certInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
-    certInput.proof = testManager.GenerateTestCertificateProof(certInput, provingSystem, circuitType);
-
-    ASSERT_TRUE(testManager.VerifyCertificateProof(certInput));
+TEST(CctpLibrary, CreateAndVerifyDarlinCertificateNoConstantProofKeyrot)
+{
+    CreateAndVerifyCert(ProvingSystem::Darlin, TestCircuitType::CertificateNoConstant, true);
 }
 
 /**
@@ -1919,78 +1917,26 @@ TEST(CctpLibrary, CreateAndVerifyDarlinCertificateNoConstantProof)
  */
 TEST(CctpLibrary, CreateAndVerifyMarlinCswProof)
 {
-    const ProvingSystem provingSystem = ProvingSystem::CoboundaryMarlin;
-    const TestCircuitType circuitType = TestCircuitType::CSW;
-
-    SelectParams(CBaseChainParams::REGTEST);
-    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
-    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
-
-    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
-
-    CCswProofVerifierInput cswInput = CreateDefaultCswInput();
-    cswInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
-    cswInput.proof = testManager.GenerateTestCswProof(cswInput, provingSystem);
-
-    ASSERT_TRUE(testManager.VerifyCswProof(cswInput));
+    CreateAndVerifyCSW(ProvingSystem::CoboundaryMarlin, TestCircuitType::CSW);
 }
 
 TEST(CctpLibrary, CreateAndVerifyMarlinCswNoConstantProof)
 {
-    const ProvingSystem provingSystem = ProvingSystem::CoboundaryMarlin;
-    const TestCircuitType circuitType = TestCircuitType::CSWNoConstant;
-
-    SelectParams(CBaseChainParams::REGTEST);
-    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
-    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
-
-    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
-
-    CCswProofVerifierInput cswInput = CreateDefaultCswInput(circuitType);
-    cswInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
-    cswInput.proof = testManager.GenerateTestCswProof(cswInput, provingSystem, circuitType);
-
-    ASSERT_TRUE(testManager.VerifyCswProof(cswInput));
+    CreateAndVerifyCSW(ProvingSystem::CoboundaryMarlin, TestCircuitType::CSWNoConstant);
 }
 
 /**
  * @brief This test is intended to generate verification parameters,
- * generate a valid CSW proof (Marlin) and verify it through the batch verifier.
+ * generate a valid CSW proof (Darlin) and verify it through the batch verifier.
  */
 TEST(CctpLibrary, CreateAndVerifyDarlinCswProof)
 {
-    const ProvingSystem provingSystem = ProvingSystem::Darlin;
-    const TestCircuitType circuitType = TestCircuitType::CSW;
-
-    SelectParams(CBaseChainParams::REGTEST);
-    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
-    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
-
-    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
-
-    CCswProofVerifierInput cswInput = CreateDefaultCswInput();
-    cswInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
-    cswInput.proof = testManager.GenerateTestCswProof(cswInput, provingSystem);
-
-    ASSERT_TRUE(testManager.VerifyCswProof(cswInput));
+    CreateAndVerifyCSW(ProvingSystem::Darlin, TestCircuitType::CSW);
 }
 
 TEST(CctpLibrary, CreateAndVerifyDarlinCswNoConstantProof)
 {
-    const ProvingSystem provingSystem = ProvingSystem::Darlin;
-    const TestCircuitType circuitType = TestCircuitType::CSWNoConstant;
-
-    SelectParams(CBaseChainParams::REGTEST);
-    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
-    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
-
-    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
-
-    CCswProofVerifierInput cswInput = CreateDefaultCswInput(circuitType);
-    cswInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
-    cswInput.proof = testManager.GenerateTestCswProof(cswInput, provingSystem, circuitType);
-
-    ASSERT_TRUE(testManager.VerifyCswProof(cswInput));
+    CreateAndVerifyCSW(ProvingSystem::Darlin, TestCircuitType::CSWNoConstant);
 }
 
 TEST(CctpLibrary, ReadWriteCmtObj)
