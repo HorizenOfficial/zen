@@ -45,6 +45,14 @@ using namespace std;
 using namespace libzcash;
 using namespace Sidechain;
 
+namespace{
+
+    int GetJoinSplitSize(int shieldedTxVersion) {
+        return JSDescription::getNewInstance(shieldedTxVersion == GROTH_TX_VERSION).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION, shieldedTxVersion);
+    }
+    
+}
+
 extern void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
 
 int64_t nWalletUnlockTime;
@@ -53,7 +61,6 @@ static CCriticalSection cs_nWalletUnlockTime;
 // transaction.h comment: spending taddr output requires CTxIn >= 148 bytes and typical taddr txout is 34 bytes
 #define CTXIN_SPEND_DUST_SIZE   148
 #define CTXOUT_REGULAR_SIZE     34
-
 
 // Private method:
 UniValue z_getoperationstatus_IMPL(const UniValue&, bool);
@@ -5946,10 +5953,6 @@ UniValue z_shieldcoinbase(const UniValue& params, bool fHelp)
 #define MERGE_TO_ADDRESS_DEFAULT_TRANSPARENT_LIMIT 50
 #define MERGE_TO_ADDRESS_DEFAULT_SHIELDED_LIMIT 10
 
-int GetJoinSplitSize(int shieldedTxVersion) {
-    return JSDescription::getNewInstance(shieldedTxVersion == GROTH_TX_VERSION).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION, shieldedTxVersion);
-}
-
 UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
@@ -6140,7 +6143,10 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
     size_t mempoolLimit = (nUTXOLimit != 0) ? nUTXOLimit : (size_t)GetArg("-mempooltxinputlimit", 0);
 
     size_t estimatedTxSize = 200;  // tx overhead + wiggle room
-    if (isToZaddr) {
+    if (!isToZaddr) {
+        estimatedTxSize += CTXOUT_REGULAR_SIZE;
+    }
+    else {
         estimatedTxSize += GetJoinSplitSize(shieldedTxVersion);
     }
 

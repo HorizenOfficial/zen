@@ -610,7 +610,7 @@ std::string HelpMessage(HelpMessageMode mode)
     }
 
     strUsage += HelpMessageOpt("-maxtipage=<n>",
-        "regtest only - Set the maximum tip age)");
+        "regtest only - Set the maximum tip age used for the relay of chain blocks)");
 
     return strUsage;
 }
