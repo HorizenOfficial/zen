@@ -1117,8 +1117,8 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 
 #ifdef BITCOIN_TX
 int CCoinsViewCache::GetHeight() const {return -1;}
-CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, bool skipTiming, bool* banSenderNode) const {return CValidationState::Code::OK;}
-CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, Sidechain::ScFeeCheckFlag scFeeCheckType, bool* banSenderNode) const { return CValidationState::Code::OK;}
+CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, bool skipTiming) const {return CValidationState::Code::OK;}
+CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, Sidechain::ScFeeCheckFlag scFeeCheckType, const CCoinsViewCache* pcoinsView) const { return CValidationState::Code::OK;}
 
 void CCoinsViewCache::HandleTxIndexSidechainEvents(int height, CBlockTreeDB* pblocktree,
                                                    std::vector<std::pair<uint256, CTxIndexValue>>& txIndex)
@@ -1170,7 +1170,7 @@ int CCoinsViewCache::GetHeight() const
     return pindexPrev != nullptr ? pindexPrev->nHeight : 0;
 }
 
-CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, bool skipTiming, bool* banSenderNode) const
+CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, bool skipTiming) const
 {
     const uint256& certHash = cert.GetHash();
 
@@ -1196,9 +1196,7 @@ CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertifi
     {
         LogPrintf("%s():%d - ERROR: invalid cert[%s], scId[%s] invalid custom data cfg\n",
             __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
-        if (banSenderNode)
-            *banSenderNode = true;
-        return CValidationState::Code::INVALID;
+        return CValidationState::Code::INVALID_AND_BAN;
     }
 
     int referencedHeight = -1;
@@ -1245,9 +1243,7 @@ CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertifi
     {
         LogPrintf("%s():%d - ERROR: Cert [%s]\n proof plus vk size (%d) exceeded the limit %d\n",
             __func__, __LINE__, certHash.ToString(), proof_plus_vk_size, Sidechain::MAX_PROOF_PLUS_VK_SIZE);
-        if (banSenderNode)
-            *banSenderNode = true;
-        return CValidationState::Code::INVALID;
+        return CValidationState::Code::INVALID_AND_BAN;
     }
 
     LogPrint("sc", "%s():%d - ok, balance in scId[%s]: balance[%s], cert amount[%s]\n",
@@ -1312,11 +1308,15 @@ bool CCoinsViewCache::CheckScTxTiming(const uint256& scId) const
  * @brief Checks whether a Forward Transfer output is still valid based on sidechain current FT fee.
  * 
  * @param ftOutput The Forward Transfer output to be checked.
+ * @param pcoinsView (Optional) another view which is checked first in place of *this, if pcoinsView contains
+ * Forward Transfer Fee info for the given sidechain.
  * @return true if ftOutput is still valid, false otherwise.
  */
-bool CCoinsViewCache::IsFtScFeeApplicable(const CTxForwardTransferOut& ftOutput) const
+bool CCoinsViewCache::IsFtScFeeApplicable(const CTxForwardTransferOut& ftOutput, const CCoinsViewCache* pcoinsView) const
 {
-    CScCertificateView certView = GetActiveCertView(ftOutput.scId);
+    CScCertificateView certView = (pcoinsView && pcoinsView->GetSidechainState(ftOutput.scId) == CSidechain::State::ALIVE) ?
+                                    pcoinsView->GetActiveCertView(ftOutput.scId) :
+                                    GetActiveCertView(ftOutput.scId);
     return ftOutput.nValue > certView.forwardTransferScFee;
 }
 
@@ -1372,7 +1372,7 @@ bool CCoinsViewCache::CheckMinimumMbtrScFee(const CBwtRequestOut& mbtrOutput, CA
     return (mbtrOutput.scFee >= minVal);
 }
 
-CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, Sidechain::ScFeeCheckFlag scFeeCheckType, bool* banSenderNode) const
+CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, Sidechain::ScFeeCheckFlag scFeeCheckType, const CCoinsViewCache* pcoinsView) const
 {
     if (tx.IsCoinBase())
     {
@@ -1416,7 +1416,7 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
          * Check that the Forward Transfer amount is strictly greater than the
          * Sidechain Forward Transfer Fee.
          */
-        if (!IsFtScFeeApplicable(ft))
+        if (!IsFtScFeeApplicable(ft, pcoinsView))
         {
             if (scFeeCheckType == Sidechain::ScFeeCheckFlag::MINIMUM_IN_A_RANGE)
             {
@@ -1481,9 +1481,7 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
             LogPrintf("%s():%d - ERROR: Invalid tx[%s] : MBTR request data size [%d] must be equal to the size specified "
                          "during sidechain creation [%d] for scId[%s]\n",
                     __func__, __LINE__, txHash.ToString(), mbtr.vScRequestData.size(), sidechain.fixedParams.mainchainBackwardTransferRequestDataLength, scId.ToString());
-            if (banSenderNode)
-                *banSenderNode = true;
-            return CValidationState::Code::INVALID;
+            return CValidationState::Code::INVALID_AND_BAN;
         }
 
         /**
@@ -1492,9 +1490,7 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
         if (sidechain.fixedParams.mainchainBackwardTransferRequestDataLength == 0)
         {
             LogPrintf("%s():%d - ERROR: mbtr is not allowed for scId[%s]\n",  __func__, __LINE__, scId.ToString());
-            if (banSenderNode)
-                *banSenderNode = true;
-            return CValidationState::Code::INVALID;
+            return CValidationState::Code::INVALID_AND_BAN;
         }
 
         /**
@@ -1555,9 +1551,7 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
         {
             LogPrintf("%s():%d - ERROR: Tx[%s] CSW input [%s]\n refers to SC without CSW support\n",
                 __func__, __LINE__, tx.GetHash().ToString(), csw.ToString());
-            if (banSenderNode)
-                *banSenderNode = true;
-            return CValidationState::Code::INVALID;
+            return CValidationState::Code::INVALID_AND_BAN;
         }
 
         size_t proof_plus_vk_size = sidechain.fixedParams.wCeasedVk.get().GetByteArray().size() + csw.scProof.GetByteArray().size();
@@ -1565,9 +1559,7 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
         {
             LogPrintf("%s():%d - ERROR: Tx[%s] CSW input [%s]\n proof plus vk size (%d) exceeded the limit %d\n",
                 __func__, __LINE__, tx.GetHash().ToString(), csw.ToString(), proof_plus_vk_size, Sidechain::MAX_PROOF_PLUS_VK_SIZE);
-            if (banSenderNode)
-                *banSenderNode = true;
-            return CValidationState::Code::INVALID;
+            return CValidationState::Code::INVALID_AND_BAN;
         }
 
         // add a new balance entry in the map or increment it if already there

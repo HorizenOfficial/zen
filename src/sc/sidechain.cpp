@@ -146,19 +146,17 @@ bool CSidechain::CheckCertTiming(int certEpoch, int referencedHeight, const CCoi
     // The epoch number must be consistent with the sc certificate history (no old epoch allowed)
     if (isNonCeasing())
     {
-        if (certEpoch != lastTopQualityCertReferencedEpoch + 1
-            && certEpoch != lastUnconfirmedReferencedEpoch + 1)
+        if (certEpoch != lastTopQualityCertReferencedEpoch + 1)
         {
-                return error("%s():%d - ERROR: non ceasing sidechain certificate cannot be accepted, wrong epoch. Certificate Epoch %d (expected: %d, or %d)\n",
-                    __func__, __LINE__, certEpoch, lastTopQualityCertReferencedEpoch + 1, lastUnconfirmedReferencedEpoch + 1);
+                return error("%s():%d - ERROR: non ceasing sidechain certificate cannot be accepted, wrong epoch. Certificate Epoch %d (expected: %d)\n",
+                    __func__, __LINE__, certEpoch, lastTopQualityCertReferencedEpoch + 1);
         }
 
         // Check ordering of references
-        if (referencedHeight <= lastReferencedHeight
-            || (lastUnconfirmedReferencedHeight != -1 && referencedHeight <= lastUnconfirmedReferencedHeight))
+        if (referencedHeight <= lastReferencedHeight)
         {
-            return error("%s():%d - ERROR: certificate cannot be accepted, cert height (%d) not greater than last(%d - %d)\n",
-                __func__, __LINE__, referencedHeight, lastReferencedHeight, lastUnconfirmedReferencedHeight);
+            return error("%s():%d - ERROR: certificate cannot be accepted, cert height (%d) not greater than last (%d)\n",
+                __func__, __LINE__, referencedHeight, lastReferencedHeight);
         }
     }
     else
@@ -279,7 +277,7 @@ std::string CSidechain::ToString() const
                       " lastTopQualityCertView=%s\n"
                       " lastTopQualityCertHash=%s\n lastTopQualityCertReferencedEpoch=%d\n"
                       " lastTopQualityCertQuality=%d\n"
-                      " lastReferencedHeight=%d\n lastInclusionHeight=%d lastUnconfirmedReferencedHeight=%d\n"
+                      " lastReferencedHeight=%d\n lastInclusionHeight=%d\n"
                       " lastTopQualityCertBwtAmount=%s\n balance=%s\n"
                       " fixedParams=[NOT PRINTED CURRENTLY]\n mImmatureAmounts=[NOT PRINTED CURRENTLY])",
         fixedParams.version
@@ -292,7 +290,6 @@ std::string CSidechain::ToString() const
         , lastTopQualityCertQuality
         , lastReferencedHeight
         , lastInclusionHeight
-        , lastUnconfirmedReferencedHeight
         , FormatMoney(lastTopQualityCertBwtAmount)
         , FormatMoney(balance)
     );
