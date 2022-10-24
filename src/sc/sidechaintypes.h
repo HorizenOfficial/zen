@@ -461,12 +461,12 @@ enum class ScFeeCheckFlag {
     MINIMUM_IN_A_RANGE
 };
 
-typedef struct sScFeeData_tag
+struct ScFeeData
 {
     CAmount forwardTxScFee;
     CAmount mbtrTxScFee;
-    sScFeeData_tag(): forwardTxScFee(0), mbtrTxScFee(0) {}
-    sScFeeData_tag(CAmount f, CAmount m): forwardTxScFee(f), mbtrTxScFee(m) {}
+    ScFeeData(): forwardTxScFee(0), mbtrTxScFee(0) {}
+    ScFeeData(CAmount f, CAmount m): forwardTxScFee(f), mbtrTxScFee(m) {}
 
     ADD_SERIALIZE_METHODS;
 
@@ -476,12 +476,11 @@ typedef struct sScFeeData_tag
         READWRITE(mbtrTxScFee);
     }
 
-    inline bool operator==(const sScFeeData_tag& rhs) const
+    virtual inline bool operator==(const ScFeeData& rhs) const
     {
         return (forwardTxScFee == rhs.forwardTxScFee && mbtrTxScFee == rhs.mbtrTxScFee);
     }
-
-} ScFeeData;
+};
 
 struct ScFeeData_v2 : public ScFeeData {
     int submissionHeight;
