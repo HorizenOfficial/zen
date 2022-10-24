@@ -1826,7 +1826,6 @@ bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& bl
         if (isFirstCertInBlock) {
             scUndoData.pastEpochTopQualityCertView = currentSc.pastEpochTopQualityCertView;
             scUndoData.scFees                      = currentSc.scFees;
-            scUndoData.scFees_v2                   = currentSc.scFees_v2;
             scUndoData.contentBitMask |= CSidechainUndoData::AvailableSections::CROSS_EPOCH_CERT_DATA;
         }
 
@@ -2084,7 +2083,6 @@ bool CCoinsViewCache::RestoreSidechain(const CScCertificate& certToRevert, const
     {
         assert(sidechainUndo.contentBitMask & CSidechainUndoData::AvailableSections::CROSS_EPOCH_CERT_DATA);
         currentSc.scFees                      = sidechainUndo.scFees;
-        currentSc.scFees_v2                   = sidechainUndo.scFees_v2;
         currentSc.pastEpochTopQualityCertView = sidechainUndo.pastEpochTopQualityCertView;
     }
     else if (!currentSc.isNonCeasing() && certToRevert.epochNumber == sidechainUndo.prevTopCommittedCertReferencedEpoch)
