@@ -148,8 +148,7 @@ struct CSidechainUndoData
 
     // CROSS_EPOCH_CERT_DATA section
     CScCertificateView pastEpochTopQualityCertView;
-    std::list<Sidechain::ScFeeData> scFees;
-    std::list<Sidechain::ScFeeData_v2> scFees_v2;
+    std::list<std::shared_ptr<Sidechain::ScFeeData>> scFees;
 
     // ANY_EPOCH_CERT_DATA section
     uint256 prevTopCommittedCertHash;
@@ -170,7 +169,7 @@ struct CSidechainUndoData
     CAmount deltaBalance;
 
     CSidechainUndoData(): sidechainUndoDataVersion(0), contentBitMask(AvailableSections::UNDEFINED),
-        appliedMaturedAmount(0), pastEpochTopQualityCertView(), scFees(), scFees_v2(),
+        appliedMaturedAmount(0), pastEpochTopQualityCertView(), scFees(),
         prevTopCommittedCertHash(), prevTopCommittedCertReferencedEpoch(CScCertificate::EPOCH_NULL),
         prevTopCommittedCertQuality(CScCertificate::QUALITY_NULL), prevTopCommittedCertBwtAmount(0),
         lastTopQualityCertView(), lowQualityBwts(), ceasedBwts() {}
@@ -186,6 +185,8 @@ struct CSidechainUndoData
         if (contentBitMask & AvailableSections::CROSS_EPOCH_CERT_DATA)
         {
             totalSize += ::GetSerializeSize(pastEpochTopQualityCertView, nType, nVersion);
+            // TODO: fix this condition for counting scFees list size
+            // totalSize += ::GetSerializeSize(scFees, nType, nVersion);
         }
         if (contentBitMask & AvailableSections::ANY_EPOCH_CERT_DATA)
         {
@@ -224,10 +225,36 @@ struct CSidechainUndoData
         if (contentBitMask & AvailableSections::CROSS_EPOCH_CERT_DATA)
         {
             ::Serialize(s, pastEpochTopQualityCertView, nType, nVersion);
-            if (contentBitMask & AvailableSections::NONCEASING_CERT_DATA)
-                ::Serialize(s, scFees_v2,                       nType, nVersion);
-            else
-                ::Serialize(s, scFees,                          nType, nVersion);
+            // Manually serialize scFees list
+/*
+            WriteCompactSize(s, scFees.size());
+            for (const auto& entry : scFees) {
+                Sidechain::ScFeeData_v2 *casted_entry = dynamic_cast<Sidechain::ScFeeData_v2*>(entry.get());
+                if (casted_entry == nullptr) {
+                    ::Serialize(s, (entry.get()->forwardTxScFee), nType, nVersion);
+                    ::Serialize(s, (entry.get()->mbtrTxScFee), nType, nVersion);
+                }
+                else {
+                    ::Serialize(s, (casted_entry->forwardTxScFee), nType, nVersion);
+                    ::Serialize(s, (casted_entry->mbtrTxScFee), nType, nVersion);
+                    ::Serialize(s, (casted_entry->submissionHeight), nType, nVersion);
+                }
+            }
+*/
+            if (contentBitMask & AvailableSections::NONCEASING_CERT_DATA) {
+                std::list<Sidechain::ScFeeData_v2> tempList;
+                for (const auto& entry : scFees) {
+                    Sidechain::ScFeeData_v2 *casted_entry = dynamic_cast<Sidechain::ScFeeData_v2*>(entry.get());
+                    tempList.emplace_back(casted_entry->forwardTxScFee, casted_entry->mbtrTxScFee, casted_entry->submissionHeight);
+                }
+                ::Serialize(s, tempList, nType, nVersion);
+            } else {
+                std::list<Sidechain::ScFeeData> tempList;
+                for (const auto& entry : scFees) {
+                    tempList.emplace_back(entry->forwardTxScFee, entry->mbtrTxScFee);
+                }
+                ::Serialize(s, tempList, nType, nVersion);
+            }
         }
         if (contentBitMask & AvailableSections::ANY_EPOCH_CERT_DATA)
         {
@@ -266,10 +293,46 @@ struct CSidechainUndoData
         if (contentBitMask & AvailableSections::CROSS_EPOCH_CERT_DATA)
         {
             ::Unserialize(s, pastEpochTopQualityCertView, nType, nVersion);
-            if (contentBitMask & AvailableSections::NONCEASING_CERT_DATA)
-                ::Unserialize(s, scFees_v2,                       nType, nVersion);
-            else
-                ::Unserialize(s, scFees,                          nType, nVersion);
+            // Manually deserialize scFees list
+/*
+            scFees.clear();
+            unsigned int nSize = ReadCompactSize(s);
+            for (unsigned int i = 0; i < nSize; i++) {
+                if (contentBitMask & AvailableSections::NONCEASING_CERT_DATA) {
+                    Sidechain::ScFeeData_v2 item;
+                    ::Unserialize(s, item.forwardTxScFee, nType, nVersion);
+                    ::Unserialize(s, item.mbtrTxScFee, nType, nVersion);
+                    ::Unserialize(s, item.submissionHeight, nType, nVersion);
+                    scFees.emplace_back(new Sidechain::ScFeeData_v2(item.forwardTxScFee,
+                                item.mbtrTxScFee, item.submissionHeight));
+                }
+                else {
+                    Sidechain::ScFeeData item;
+                    ::Unserialize(s, item.forwardTxScFee, nType, nVersion);
+                    ::Unserialize(s, item.mbtrTxScFee, nType, nVersion);
+                    scFees.emplace_back(new Sidechain::ScFeeData(item.forwardTxScFee,
+                                item.mbtrTxScFee));
+                }
+            }
+*/
+            if (contentBitMask & AvailableSections::NONCEASING_CERT_DATA) {
+                std::list<Sidechain::ScFeeData_v2> tempList;
+                ::Unserialize(s, tempList, nType, nVersion);
+                scFees.clear();
+                for (const auto& entry : tempList) {
+                    scFees.emplace_back(new Sidechain::ScFeeData_v2(entry.forwardTxScFee,
+                        entry.mbtrTxScFee, entry.submissionHeight));
+                }
+            } else {
+                std::list<Sidechain::ScFeeData> tempList;
+                ::Unserialize(s, tempList, nType, nVersion);
+                scFees.clear();
+                for (const auto& entry : tempList) {
+                    scFees.emplace_back(new Sidechain::ScFeeData(entry.forwardTxScFee,
+                        entry.mbtrTxScFee));
+                }
+            }
+
         }
         if (contentBitMask & AvailableSections::ANY_EPOCH_CERT_DATA)
         {
@@ -305,6 +368,16 @@ struct CSidechainUndoData
 
         if (contentBitMask & AvailableSections::CROSS_EPOCH_CERT_DATA)
             res += strprintf("pastEpochTopQualityCertView=%s\n", pastEpochTopQualityCertView.ToString());
+            res += strprintf("scFees.size()=%u\n", scFees.size());
+            for(const auto& entry: scFees) {
+                res += strprintf("scFtFee=%d.%08d - ", entry->forwardTxScFee / COIN, entry->forwardTxScFee % COIN);
+                res += strprintf("scMbtrFee=%d.%08d\n", entry->mbtrTxScFee / COIN, entry->mbtrTxScFee % COIN);
+                // Only for v2 non-ceasable sidechains
+                Sidechain::ScFeeData_v2 *casted_entry = dynamic_cast<Sidechain::ScFeeData_v2*>(entry.get());
+                if (casted_entry != nullptr) {
+                    res += strprintf("submissionHeight=%d\n", casted_entry->submissionHeight);
+                }
+            }
 
         if (contentBitMask & AvailableSections::ANY_EPOCH_CERT_DATA)
         {
@@ -315,22 +388,6 @@ struct CSidechainUndoData
             res += strprintf("lastTopQualityCertView=%s\n", lastTopQualityCertView.ToString());
             res += strprintf("prevReferencedHeight=%d\n", prevReferencedHeight);
             res += strprintf("prevInclusionHeight=%d\n", prevInclusionHeight);
-        }
-
-        if (contentBitMask & AvailableSections::NONCEASING_CERT_DATA) {
-            res += strprintf("scFees.size()=%u\n", scFees_v2.size());
-            for(const auto& entry: scFees_v2) {
-                res += strprintf("scFtFee=%d.%08d - ", entry.forwardTxScFee / COIN, entry.forwardTxScFee % COIN);
-                res += strprintf("scMbtrFee=%d.%08d\n", entry.mbtrTxScFee / COIN, entry.mbtrTxScFee % COIN);
-                res += strprintf("submissionHeight=%d\n", entry.submissionHeight);
-            }
-        }
-        else {
-            res += strprintf("scFees.size()=%u\n", scFees.size());
-            for(const auto& entry: scFees) {
-                res += strprintf("scFtFee=%d.%08d - ", entry.forwardTxScFee / COIN, entry.forwardTxScFee % COIN);
-                res += strprintf("scMbtrFee=%d.%08d\n", entry.mbtrTxScFee / COIN, entry.mbtrTxScFee % COIN);
-            }
         }
 
         res += strprintf("ceasedBwts.size()=%u\n", ceasedBwts.size());

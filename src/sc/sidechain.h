@@ -77,9 +77,8 @@ public:
              lastTopQualityCertBwtAmount == 0                                 &&
              balance == 0                                                     &&
              fixedParams.IsNull()                                             &&
-             mImmatureAmounts.empty())                                        &&
-             scFees.empty()                                                   &&
-             scFees_v2.empty();
+             mImmatureAmounts.empty()                                         &&
+             scFees.empty());
     }
 
     // We can not serialize a pointer value to block index, but can retrieve it from chainActive if we have height
@@ -118,8 +117,7 @@ public:
     int maxSizeOfScFeesContainers;
     // the last ftScFee and mbtrScFee values, as set by the active certificates
     // it behaves like a circular buffer once the max size is reached
-    std::list<Sidechain::ScFeeData> scFees;
-    std::list<Sidechain::ScFeeData_v2> scFees_v2;
+    std::list<std::shared_ptr<Sidechain::ScFeeData>> scFees;
 
     // compute the max size of the sc fee list
     int getMaxSizeOfScFeesContainers();
@@ -172,14 +170,47 @@ public:
         READWRITE(balance);
         READWRITE(fixedParams);
         READWRITE(mImmatureAmounts);
-        if (isNonCeasing())
-            READWRITE(scFees_v2);
-        else
-            READWRITE(scFees);
+        //READWRITE(scFees);
+        // We must manually manage serialization and deserailization of ScFees list
+        // as each element is a shared pointer to a ScFeeData or ScFeeData_v2
         if (ser_action.ForRead())
         {
+            // Already here...
             maxSizeOfScFeesContainers = getMaxSizeOfScFeesContainers();
+
+            if (isNonCeasing()) {
+                std::list<Sidechain::ScFeeData_v2> tempList;
+                READWRITE(tempList);
+                scFees.clear();
+                for (const auto& entry : tempList) {
+                    scFees.emplace_back(new Sidechain::ScFeeData_v2(entry.forwardTxScFee, entry.mbtrTxScFee, entry.submissionHeight));
+                }
+            } else {
+                std::list<Sidechain::ScFeeData> tempList;
+                READWRITE(tempList);
+                scFees.clear();
+                for (const auto& entry : tempList) {
+                    scFees.emplace_back(new Sidechain::ScFeeData(entry.forwardTxScFee, entry.mbtrTxScFee));
+                }
+            }
         }
+        else {
+            if (isNonCeasing()) {
+                std::list<Sidechain::ScFeeData_v2> tempList;
+                for (const auto& entry : scFees) {
+                    Sidechain::ScFeeData_v2 *casted_entry = dynamic_cast<Sidechain::ScFeeData_v2*>(entry.get());
+                    tempList.emplace_back(casted_entry->forwardTxScFee, casted_entry->mbtrTxScFee, casted_entry->submissionHeight);
+                }
+                READWRITE(tempList);
+            } else {
+                std::list<Sidechain::ScFeeData> tempList;
+                for (const auto& entry : scFees) {
+                    tempList.emplace_back(entry->forwardTxScFee, entry->mbtrTxScFee);
+                }
+                READWRITE(tempList);
+            }
+        }
+
         if (isNonCeasing()) {
             READWRITE(VARINT(lastInclusionHeight));
             READWRITE(VARINT(lastReferencedHeight));
@@ -200,8 +231,7 @@ public:
                (this->balance                                    == rhs.balance)                           &&
                (this->fixedParams                                == rhs.fixedParams)                       &&
                (this->mImmatureAmounts                           == rhs.mImmatureAmounts)                  &&
-               (this->scFees                                     == rhs.scFees)                            &&
-               (this->scFees_v2                                  == rhs.scFees_v2);
+               (this->scFees                                     == rhs.scFees);
     }
     inline bool operator!=(const CSidechain& rhs) const { return !(*this == rhs); }
 
