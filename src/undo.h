@@ -226,25 +226,10 @@ struct CSidechainUndoData
         {
             ::Serialize(s, pastEpochTopQualityCertView, nType, nVersion);
             // Manually serialize scFees list
-/*
-            WriteCompactSize(s, scFees.size());
-            for (const auto& entry : scFees) {
-                Sidechain::ScFeeData_v2 *casted_entry = dynamic_cast<Sidechain::ScFeeData_v2*>(entry.get());
-                if (casted_entry == nullptr) {
-                    ::Serialize(s, (entry.get()->forwardTxScFee), nType, nVersion);
-                    ::Serialize(s, (entry.get()->mbtrTxScFee), nType, nVersion);
-                }
-                else {
-                    ::Serialize(s, (casted_entry->forwardTxScFee), nType, nVersion);
-                    ::Serialize(s, (casted_entry->mbtrTxScFee), nType, nVersion);
-                    ::Serialize(s, (casted_entry->submissionHeight), nType, nVersion);
-                }
-            }
-*/
             if (contentBitMask & AvailableSections::NONCEASING_CERT_DATA) {
                 std::list<Sidechain::ScFeeData_v2> tempList;
                 for (const auto& entry : scFees) {
-                    Sidechain::ScFeeData_v2 *casted_entry = dynamic_cast<Sidechain::ScFeeData_v2*>(entry.get());
+                    std::shared_ptr<Sidechain::ScFeeData_v2> casted_entry = std::dynamic_pointer_cast<Sidechain::ScFeeData_v2>(entry);
                     tempList.emplace_back(casted_entry->forwardTxScFee, casted_entry->mbtrTxScFee, casted_entry->submissionHeight);
                 }
                 ::Serialize(s, tempList, nType, nVersion);
@@ -294,27 +279,6 @@ struct CSidechainUndoData
         {
             ::Unserialize(s, pastEpochTopQualityCertView, nType, nVersion);
             // Manually deserialize scFees list
-/*
-            scFees.clear();
-            unsigned int nSize = ReadCompactSize(s);
-            for (unsigned int i = 0; i < nSize; i++) {
-                if (contentBitMask & AvailableSections::NONCEASING_CERT_DATA) {
-                    Sidechain::ScFeeData_v2 item;
-                    ::Unserialize(s, item.forwardTxScFee, nType, nVersion);
-                    ::Unserialize(s, item.mbtrTxScFee, nType, nVersion);
-                    ::Unserialize(s, item.submissionHeight, nType, nVersion);
-                    scFees.emplace_back(new Sidechain::ScFeeData_v2(item.forwardTxScFee,
-                                item.mbtrTxScFee, item.submissionHeight));
-                }
-                else {
-                    Sidechain::ScFeeData item;
-                    ::Unserialize(s, item.forwardTxScFee, nType, nVersion);
-                    ::Unserialize(s, item.mbtrTxScFee, nType, nVersion);
-                    scFees.emplace_back(new Sidechain::ScFeeData(item.forwardTxScFee,
-                                item.mbtrTxScFee));
-                }
-            }
-*/
             if (contentBitMask & AvailableSections::NONCEASING_CERT_DATA) {
                 std::list<Sidechain::ScFeeData_v2> tempList;
                 ::Unserialize(s, tempList, nType, nVersion);
@@ -373,8 +337,8 @@ struct CSidechainUndoData
                 res += strprintf("scFtFee=%d.%08d - ", entry->forwardTxScFee / COIN, entry->forwardTxScFee % COIN);
                 res += strprintf("scMbtrFee=%d.%08d\n", entry->mbtrTxScFee / COIN, entry->mbtrTxScFee % COIN);
                 // Only for v2 non-ceasable sidechains
-                Sidechain::ScFeeData_v2 *casted_entry = dynamic_cast<Sidechain::ScFeeData_v2*>(entry.get());
-                if (casted_entry != nullptr) {
+                std::shared_ptr<Sidechain::ScFeeData_v2> casted_entry = std::dynamic_pointer_cast<Sidechain::ScFeeData_v2>(entry);
+                if (casted_entry) {
                     res += strprintf("submissionHeight=%d\n", casted_entry->submissionHeight);
                 }
             }

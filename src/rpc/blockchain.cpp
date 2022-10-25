@@ -1660,8 +1660,8 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             UniValue o(UniValue::VOBJ);
             o.pushKV("forwardTxScFee", ValueFromAmount(entry->forwardTxScFee));
             o.pushKV("mbtrTxScFee", ValueFromAmount(entry->mbtrTxScFee));
-            Sidechain::ScFeeData_v2 *casted_entry = dynamic_cast<Sidechain::ScFeeData_v2*>(entry.get());
-            if (casted_entry != nullptr) {
+            std::shared_ptr<Sidechain::ScFeeData_v2> casted_entry = dynamic_pointer_cast<Sidechain::ScFeeData_v2>(entry);
+            if (casted_entry) {
                 o.pushKV("submissionHeight", casted_entry->submissionHeight);
             }
             sf.push_back(std::move(o));

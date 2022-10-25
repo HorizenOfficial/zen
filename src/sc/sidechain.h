@@ -198,7 +198,7 @@ public:
             if (isNonCeasing()) {
                 std::list<Sidechain::ScFeeData_v2> tempList;
                 for (const auto& entry : scFees) {
-                    Sidechain::ScFeeData_v2 *casted_entry = dynamic_cast<Sidechain::ScFeeData_v2*>(entry.get());
+                    std::shared_ptr<Sidechain::ScFeeData_v2> casted_entry = std::dynamic_pointer_cast<Sidechain::ScFeeData_v2>(entry);
                     tempList.emplace_back(casted_entry->forwardTxScFee, casted_entry->mbtrTxScFee, casted_entry->submissionHeight);
                 }
                 READWRITE(tempList);

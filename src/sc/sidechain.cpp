@@ -842,7 +842,7 @@ void CSidechain::DumpScFees() const
         std::cout << "[" << std::setw(2) << entry->forwardTxScFee
                   << "/" << std::setw(2) << entry->mbtrTxScFee;
         const std::shared_ptr<Sidechain::ScFeeData_v2> casted_entry = std::dynamic_pointer_cast<Sidechain::ScFeeData_v2>(entry);
-        if (casted_entry != nullptr) {
+        if (casted_entry) {
             std::cout << "/" << std::setw(2) << casted_entry->submissionHeight;
         }
         std::cout << "]" << std::endl;
