@@ -94,15 +94,18 @@ include funcs.mk
 toolchain_path=$($($(host_arch)_$(host_os)_native_toolchain)_prefixbin)
 final_build_id_long+=$(shell $(build_SHA256SUM) config.site.in)
 final_build_id+=$(shell echo -n $(final_build_id_long) | $(build_SHA256SUM) | cut -c-$(HASH_LENGTH))
-$(host_prefix)/.stamp_$(final_build_id): $(native_packages) $(packages)
+
+$(host_prefix)/.stamp_$(final_build_id): $(all_packages)
 	$(AT)rm -rf $(@D)
 	$(AT)mkdir -p $(@D)
 	$(AT)echo copying packages: $^
 	$(AT)echo to: $(@D)
-	$(AT)cd $(@D); $(foreach package,$^, tar xf $($(package)_cached); )
+
+$(host_prefix)/.stamp-%_$(final_build_id): $(host_prefix)/.stamp_$(final_build_id) $*
+	$(AT)cd $(@D); tar xf $($*_cached)
 	$(AT)touch $@
 
-$(host_prefix)/share/config.site : config.site.in $(host_prefix)/.stamp_$(final_build_id)
+$(host_prefix)/share/config.site : config.site.in $(foreach package,$(all_packages),$(host_prefix)/.stamp-$(package)_$(final_build_id))
 	$(AT)@mkdir -p $(@D)
 	$(AT)sed -e 's|@HOST@|$(host)|' \
             -e 's|@CC@|$(toolchain_path)$(host_CC)|' \
@@ -125,25 +128,28 @@ $(host_prefix)/share/config.site : config.site.in $(host_prefix)/.stamp_$(final_
 
 
 define check_or_remove_cached
-mkdir -p $(BASE_CACHE)/$(host)/$(package) && cd $(BASE_CACHE)/$(host)/$(package); \
-$(build_SHA256SUM) -c $($(package)_cached_checksum) >/dev/null 2>/dev/null || \
-(rm -f $($(package)_cached_checksum); \
-if test -f "$($(package)_cached)"; then rm -f $($(package)_cached_checksum) $($(package)_cached); fi)
+mkdir -p $(BASE_CACHE)/$(host)/$* && cd $(BASE_CACHE)/$(host)/$*; \
+$(build_SHA256SUM) -c $($*_cached_checksum) >/dev/null 2>/dev/null || \
+if test -f "$($*_cached)";  then echo "Checksum mismatch for $*. Forcing rebuild."; \
+rm -f $($*_cached_checksum) $($*_cached); fi;
 endef
 
 define check_or_remove_sources
-mkdir -p $($(package)_source_dir); cd $($(package)_source_dir); \
-$(build_SHA256SUM) -c $($(package)_fetched) >/dev/null 2>/dev/null || \
-(rm -f $($(package)_all_sources) $($(1)_fetched))
+mkdir -p $($*_source_dir); cd $($*_source_dir); \
+$(build_SHA256SUM) -c $($*_fetched) >/dev/null 2>/dev/null || \
+if test -f $($*_all_sources); then echo "Checksum missing or mismatched for $* source. Forcing re-download."; \
+rm -f $($*_all_sources) $($(1)_fetched); fi;
 endef
 
+cache-%:
+	@$(call check_or_remove_cached,$*)
 
-check-packages:
-	@$(foreach package,$(packages),$(call check_or_remove_cached,$(package));)
-	@$(foreach package,$(native_packages),$(call check_or_remove_cached,$(package));)
-check-sources:
-	@$(foreach package,$(packages),$(call check_or_remove_sources,$(package));)
-	@$(foreach package,$(native_packages),$(call check_or_remove_sources,$(package));)
+source-%:
+	@$(call check_or_remove_sources,$*)
+
+check-packages: $(foreach package,$(all_packages),cache-$(package))
+
+check-sources: $(foreach package,$(all_packages),source-$(package))
 
 $(host_prefix)/share/config.site: check-packages
 
