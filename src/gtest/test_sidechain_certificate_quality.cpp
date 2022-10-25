@@ -112,7 +112,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_SidechainI
     EXPECT_TRUE(sidechain.balance == initialScState.balance + initialScState.lastTopQualityCertBwtAmount -highQualityCert_TotalBwtAmount);
 }
 
-TEST_F(SidechainsMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_SidechainIsNOTUpdated) {
+TEST_F(SidechainsMultipleCertsTestSuite, Cert_LowerQuality_SameEpoch_SidechainIsNOTUpdated) {
     uint256 scId = uint256S("aaa");
 
     // setup sidechain initial state...
