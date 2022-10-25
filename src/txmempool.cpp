@@ -2035,7 +2035,7 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
             if (map_it == mapCumtreeHeight.end())
             {
                 LogPrint("mempool", "%s():%d - could not find referenced block for certTopQual %s\n", __func__, __LINE__, certTopQual.GetHash().ToString());
-                info.lastReferencedHeight = -1; // -1 stands for no valid values in mempool
+                assert(false); // could not find the block referenced by certTopQual. Just Panic.
             }
             else
             {
