@@ -113,7 +113,7 @@ class sc_cert_base(BitcoinTestFramework):
         addr_node1 = self.nodes[1].getnewaddress()
 
         #Create proof for WCert
-        quality = 10 if ceasable else 0
+        quality = 10
         proof = mcTest.create_test_proof(sc_name,
                                          scid_swapped,
                                          epoch_number,
@@ -280,8 +280,7 @@ class sc_cert_base(BitcoinTestFramework):
             referenced_height = last_certificate_height + i + 1
             epoch_number, epoch_cum_tree_hash, prev_cert_data_hash = get_epoch_data(scid, self.nodes[0], epoch_length, not ceasable, referenced_height)
 
-            if ceasable:
-                quality += 1
+            quality += 1
 
             proof = mcTest.create_test_proof(sc_name,
                                              scid_swapped,
