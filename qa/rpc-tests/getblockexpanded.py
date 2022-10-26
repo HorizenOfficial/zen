@@ -389,7 +389,7 @@ class getblockexpanded(BitcoinTestFramework):
         mark_logs("########### Add Certificate 1 to mempool ##################", self.nodes, DEBUG_MODE)
         curr_height = self.nodes[0].getblockcount()
         epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH, is_non_ceasing = True, reference_height = curr_height - 3)
-        quality = 0
+        quality = 1
         proof = self.mcTest.create_test_proof(sc_name,
                                               scid_swapped,
                                               epoch_number,
