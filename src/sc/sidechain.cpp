@@ -782,8 +782,8 @@ void CSidechain::UpdateScFees(const CScCertificateView& certView, int blockHeigh
         while (scFees.size() > max_size)
         {
             const auto& entry = scFees.front();
-            LogPrint("sc", "%s():%d - popping f=%d, m=%d from list, as scFees maxsize has been reached\n",
-                __func__, __LINE__, entry->forwardTxScFee, entry->mbtrTxScFee);
+            LogPrint("sc", "%s():%d - popping %s from list, as scFees maxsize has been reached\n",
+                __func__, __LINE__, entry->ToString().c_str());
             scFees.pop_front();
         }
     }
@@ -796,18 +796,17 @@ void CSidechain::UpdateScFees(const CScCertificateView& certView, int blockHeigh
 
         // We have not found a scFeeData for the current height, so we add a new one and perform all the checks
         // on the container size / element age
-        if (scFeeIt->get() == scFees.end()->get()) {
-           scFees.emplace_back(new Sidechain::ScFeeData_v2(ftScFee, mbtrScFee, blockHeight));
+        if (scFeeIt == scFees.end()) {
+            scFees.emplace_back(new Sidechain::ScFeeData_v2(ftScFee, mbtrScFee, blockHeight));
 
             // as for v1 sidechains
             const size_t max_size { static_cast<size_t>(maxSizeOfScFeesContainers) };
 
             while (scFees.size() > max_size)
             {
-                const std::shared_ptr<Sidechain::ScFeeData_v2> entry = std::dynamic_pointer_cast<Sidechain::ScFeeData_v2>(scFees.front());
-
-                LogPrint("sc", "%s():%d - popping f=%d, m=%d, h=%d from list, as scFees maxsize has been reached\n",
-                    __func__, __LINE__, entry->forwardTxScFee, entry->mbtrTxScFee, entry->submissionHeight);
+                const auto& entry = scFees.front();
+                LogPrint("sc", "%s():%d - popping %s from list, as scFees maxsize has been reached\n",
+                    __func__, __LINE__, entry->ToString().c_str());
                 scFees.pop_front();
             }
 
@@ -817,9 +816,8 @@ void CSidechain::UpdateScFees(const CScCertificateView& certView, int blockHeigh
                 const std::shared_ptr<Sidechain::ScFeeData_v2> casted_entry = std::dynamic_pointer_cast<Sidechain::ScFeeData_v2>(entry);
                 const bool testCondition = (casted_entry->submissionHeight <= threshold);
                 if (testCondition)
-                    LogPrint("sc", "%s():%d - popping f=%d, m=%d, h=%d from list, as entry is too old (threshold height was %d)\n",
-                        __func__, __LINE__, casted_entry->forwardTxScFee, casted_entry->mbtrTxScFee,
-                        casted_entry->submissionHeight, threshold);
+                    LogPrint("sc", "%s():%d - popping %s from list, as entry is too old (threshold height was %d)\n",
+                        __func__, __LINE__, casted_entry->ToString().c_str(), threshold);
                 return testCondition;
             });
 
@@ -839,13 +837,7 @@ void CSidechain::DumpScFees() const
 {
 
     for (const auto& entry : scFees) {
-        std::cout << "[" << std::setw(2) << entry->forwardTxScFee
-                  << "/" << std::setw(2) << entry->mbtrTxScFee;
-        const std::shared_ptr<Sidechain::ScFeeData_v2> casted_entry = std::dynamic_pointer_cast<Sidechain::ScFeeData_v2>(entry);
-        if (casted_entry) {
-            std::cout << "/" << std::setw(2) << casted_entry->submissionHeight;
-        }
-        std::cout << "]" << std::endl;
+        std::cout << entry->ToString() << std::endl;
     }
 
 }
