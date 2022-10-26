@@ -126,20 +126,29 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         mark_logs("Node0 confirms sc creation generating 2 blocks", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(3)
 
+        # #------------------------------------------------
+        # mark_logs("## Test nok, wrong quality ##", self.nodes, DEBUG_MODE)
+        # #------------------------------------------------
+        # epoch_number = 0
+        # quality = 10
+        # ref_height = self.nodes[0].getblockcount()-2
+        # amount_cert_1 = {"address": addr_node2, "amount": bwt_amount_1}
+        # self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_1, True, "bad-sc-cert-not-applicable")
+
         #------------------------------------------------
         mark_logs("## Test nok, wrong quality ##", self.nodes, DEBUG_MODE)
         #------------------------------------------------
         epoch_number = 0
-        quality = 10
+        quality = -9
         ref_height = self.nodes[0].getblockcount()-2
         amount_cert_1 = {"address": addr_node2, "amount": bwt_amount_1}
-        self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_1, True, "bad-sc-cert-not-applicable")
+        self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_1, True, "Invalid quality parameter")
 
         #------------------------------------------------
         mark_logs("## Test ok, epoch 0 ##", self.nodes, DEBUG_MODE)
         #------------------------------------------------
         epoch_number = 0
-        quality = 0
+        quality = 2
         ref_height = self.nodes[0].getblockcount()-2
         amount_cert_1 = {"address": addr_node2, "amount": bwt_amount_1}
         cert_1 = self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_1, False)
@@ -187,7 +196,7 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         mark_logs("## Test ok, epoch 1 ##", self.nodes, DEBUG_MODE)
         #------------------------------------------------
         epoch_number = 1
-        quality = 0
+        quality = 5
         ref_height = self.nodes[0].getblockcount()-4
         amount_cert_2 = {"address": addr_node2, "amount": bwt_amount_2}
         cert_2 = self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE + 1, amount_cert_2, False)

@@ -237,7 +237,7 @@ class WalletBackupTest(BitcoinTestFramework):
             mark_logs("Node 0 sends a cert for scid {} with 2 bwd transfers of {} coins to Node1 address".format(scid, bwt_amount1+bwt_amount2, addr_node1), self.nodes, DEBUG_MODE)
             try:
                 #Create proof for WCert
-                quality = 1 if ceasable else 0
+                quality = 1
 
                 proof = mcTest.create_test_proof(sc_name,
                                                  scid_swapped,
@@ -282,7 +282,7 @@ class WalletBackupTest(BitcoinTestFramework):
             mark_logs("Node 0 sends a cert for scid {} with 1 bwd transfers of {} coins to Node1 address".format(scid, bwt_amount3, addr_node1), self.nodes, DEBUG_MODE)
             try:
                 #Create proof for WCert
-                quality = 1 if ceasable else 0
+                quality = 1
                 proof = mcTest.create_test_proof(sc_name,
                                                  scid_swapped,
                                                  epoch_number,
