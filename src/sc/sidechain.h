@@ -170,51 +170,20 @@ public:
         READWRITE(balance);
         READWRITE(fixedParams);
         READWRITE(mImmatureAmounts);
-        //READWRITE(scFees);
-        // We must manually manage serialization and deserailization of ScFees list
-        // as each element is a shared pointer to a ScFeeData or ScFeeData_v2
+
         if (ser_action.ForRead())
         {
-            // Already here...
             maxSizeOfScFeesContainers = getMaxSizeOfScFeesContainers();
-
-            if (isNonCeasing()) {
-                std::list<Sidechain::ScFeeData_v2> tempList;
-                READWRITE(tempList);
-                scFees.clear();
-                for (const auto& entry : tempList) {
-                    scFees.emplace_back(new Sidechain::ScFeeData_v2(entry.forwardTxScFee, entry.mbtrTxScFee, entry.submissionHeight));
-                }
-            } else {
-                std::list<Sidechain::ScFeeData> tempList;
-                READWRITE(tempList);
-                scFees.clear();
-                for (const auto& entry : tempList) {
-                    scFees.emplace_back(new Sidechain::ScFeeData(entry.forwardTxScFee, entry.mbtrTxScFee));
-                }
-            }
-        }
-        else {
-            if (isNonCeasing()) {
-                std::list<Sidechain::ScFeeData_v2> tempList;
-                for (const auto& entry : scFees) {
-                    std::shared_ptr<Sidechain::ScFeeData_v2> casted_entry = std::dynamic_pointer_cast<Sidechain::ScFeeData_v2>(entry);
-                    tempList.emplace_back(casted_entry->forwardTxScFee, casted_entry->mbtrTxScFee, casted_entry->submissionHeight);
-                }
-                READWRITE(tempList);
-            } else {
-                std::list<Sidechain::ScFeeData> tempList;
-                for (const auto& entry : scFees) {
-                    tempList.emplace_back(entry->forwardTxScFee, entry->mbtrTxScFee);
-                }
-                READWRITE(tempList);
-            }
         }
 
         if (isNonCeasing()) {
+            READWRITE_POLYMORPHIC(scFees, Sidechain::ScFeeData, Sidechain::ScFeeData_v2);
             READWRITE(VARINT(lastInclusionHeight));
             READWRITE(VARINT(lastReferencedHeight));
             // no need to write unconfirmed info to storage
+        }
+        else {
+            READWRITE_POLYMORPHIC(scFees, Sidechain::ScFeeData, Sidechain::ScFeeData);
         }
     }
 
