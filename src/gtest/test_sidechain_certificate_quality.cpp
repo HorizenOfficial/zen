@@ -68,7 +68,7 @@ protected:
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////// UpdateSidechain ////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainsMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_SidechainIsUpdated) {
+TEST_F(SidechainsMultipleCertsTestSuite, Cert_SameEpoch_HigherQuality_SidechainIsUpdated) {
     uint256 scId = uint256S("aaa");
 
     // setup sidechain initial state...
@@ -112,7 +112,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_SidechainI
     EXPECT_TRUE(sidechain.balance == initialScState.balance + initialScState.lastTopQualityCertBwtAmount -highQualityCert_TotalBwtAmount);
 }
 
-TEST_F(SidechainsMultipleCertsTestSuite, Cert_LowerQuality_SameEpoch_SidechainIsNOTUpdated) {
+TEST_F(SidechainsMultipleCertsTestSuite, Cert_SameEpoch_LowerQuality_SidechainIsNOTUpdated) {
     uint256 scId = uint256S("aaa");
 
     // setup sidechain initial state...
@@ -155,7 +155,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_LowerQuality_SameEpoch_SidechainIs
     EXPECT_TRUE(sidechain.balance                   == initialScState.balance);
 }
 
-TEST_F(SidechainsMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_SidechainIsUpdated) {
+TEST_F(SidechainsMultipleCertsTestSuite, Cert_DifferentEpoch_LowerQuality_SidechainIsUpdated) {
     uint256 scId = uint256S("aaa");
 
     // setup sidechain initial state...
@@ -199,7 +199,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_Sidech
     EXPECT_TRUE(sidechain.balance == initialScState.balance - nextEpochCert_TotalBwtAmount);
 }
 
-TEST_F(SidechainsMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_UndoDataCheck) {
+TEST_F(SidechainsMultipleCertsTestSuite, Cert_SameEpoch_HigherQuality_UndoDataCheck) {
     uint256 scId = uint256S("aaa");
 
     // setup sidechain initial state...
@@ -243,7 +243,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_UndoDataCh
             initialScState.ToString()<<revertedSidechain.ToString();
 }
 
-TEST_F(SidechainsMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_UndoDataCheck) {
+TEST_F(SidechainsMultipleCertsTestSuite, Cert_DifferentEpoch_LowerQuality_UndoDataCheck) {
     uint256 scId = uint256S("aaa");
 
     // setup sidechain initial state...
@@ -323,7 +323,189 @@ TEST_F(SidechainsMultipleCertsTestSuite, V2Cert_SameEpoch_SidechainIsNotUpdated)
     EXPECT_TRUE(sidechain.balance                     == initialScState.balance);
 }
 
-TEST_F(SidechainsMultipleCertsTestSuite, V2Cert_LowerQuality_DifferentEpoch_SidechainIsUpdated) {
+TEST_F(SidechainsMultipleCertsTestSuite, V2Cert_SameEpoch_LowerQuality_SidechainIsNotUpdated) {
+    uint256 scId = uint256S("aaa");
+
+    // setup sidechain initial state...
+    CSidechain initialScState;
+    initialScState.fixedParams.withdrawalEpochLength = 0;
+    initialScState.fixedParams.version = 2;
+    initialScState.creationBlockHeight = 400;
+    initialScState.lastTopQualityCertHash = uint256S("cccc");
+    initialScState.lastTopQualityCertQuality = 1;
+    initialScState.lastTopQualityCertReferencedEpoch = 1987;
+    initialScState.lastTopQualityCertBwtAmount = 50;
+    initialScState.balance = CAmount(100);
+    initialScState.InitScFees();
+    storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
+
+    //Insert high quality Certificate
+    CMutableScCertificate highQualityCert;
+    highQualityCert.scId        = scId;
+    highQualityCert.epochNumber = initialScState.lastTopQualityCertReferencedEpoch;
+    highQualityCert.quality     = 0;
+    highQualityCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
+    CAmount highQualityCert_TotalBwtAmount = CScCertificate(highQualityCert).GetValueOfBackwardTransfers();
+
+    //test
+    //sidechainsView->UpdateSidechain(highQualityCert, dummyUndo);
+    ASSERT_FALSE(sidechainsView->UpdateSidechain(highQualityCert, dummyUndo, sidechainsView->GetHeight()+1));
+
+    //check
+    CSidechain sidechain;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId,sidechain));
+    EXPECT_TRUE(sidechain.lastTopQualityCertHash      == initialScState.lastTopQualityCertHash);
+    EXPECT_TRUE(sidechain.lastTopQualityCertQuality   == initialScState.lastTopQualityCertQuality);
+    EXPECT_TRUE(sidechain.lastTopQualityCertBwtAmount == initialScState.lastTopQualityCertBwtAmount);
+    EXPECT_TRUE(sidechain.balance                     == initialScState.balance);
+}
+
+TEST_F(SidechainsMultipleCertsTestSuite, V2Cert_SameEpoch_HigherQuality_SidechainIsNotUpdated) {
+    uint256 scId = uint256S("aaa");
+
+    // setup sidechain initial state...
+    CSidechain initialScState;
+    initialScState.fixedParams.withdrawalEpochLength = 0;
+    initialScState.fixedParams.version = 2;
+    initialScState.creationBlockHeight = 400;
+    initialScState.lastTopQualityCertHash = uint256S("cccc");
+    initialScState.lastTopQualityCertQuality = 0;
+    initialScState.lastTopQualityCertReferencedEpoch = 1987;
+    initialScState.lastTopQualityCertBwtAmount = 50;
+    initialScState.balance = CAmount(100);
+    initialScState.InitScFees();
+    storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
+
+    //Insert high quality Certificate
+    CMutableScCertificate highQualityCert;
+    highQualityCert.scId        = scId;
+    highQualityCert.epochNumber = initialScState.lastTopQualityCertReferencedEpoch;
+    highQualityCert.quality     = 5;
+    highQualityCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
+    CAmount highQualityCert_TotalBwtAmount = CScCertificate(highQualityCert).GetValueOfBackwardTransfers();
+
+    //test
+    //sidechainsView->UpdateSidechain(highQualityCert, dummyUndo);
+    ASSERT_FALSE(sidechainsView->UpdateSidechain(highQualityCert, dummyUndo, sidechainsView->GetHeight()+1));
+
+    //check
+    CSidechain sidechain;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId,sidechain));
+    EXPECT_TRUE(sidechain.lastTopQualityCertHash      == initialScState.lastTopQualityCertHash);
+    EXPECT_TRUE(sidechain.lastTopQualityCertQuality   == initialScState.lastTopQualityCertQuality);
+    EXPECT_TRUE(sidechain.lastTopQualityCertBwtAmount == initialScState.lastTopQualityCertBwtAmount);
+    EXPECT_TRUE(sidechain.balance                     == initialScState.balance);
+}
+
+TEST_F(SidechainsMultipleCertsTestSuite, V2Cert_DifferentEpoch_SameQuality_SidechainIsUpdated) {
+    uint256 scId = uint256S("aaa");
+
+    // setup sidechain initial state...
+    CSidechain initialScState;
+    initialScState.fixedParams.withdrawalEpochLength = 0;
+    initialScState.fixedParams.version = 2;
+    initialScState.creationBlockHeight = 400;
+    initialScState.lastTopQualityCertHash = uint256S("cccc");
+    initialScState.lastTopQualityCertQuality = 5;
+    initialScState.lastTopQualityCertReferencedEpoch = 1987;
+    initialScState.lastTopQualityCertBwtAmount = 50;
+    initialScState.balance = CAmount(100);
+    initialScState.InitScFees();
+    storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
+
+    //Insert next epoch Certificate
+    CMutableScCertificate nextEpochCert;
+    nextEpochCert.scId        = scId;
+    nextEpochCert.epochNumber = initialScState.lastTopQualityCertReferencedEpoch + 1;
+    nextEpochCert.quality     = 5;
+    nextEpochCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
+    CAmount nextEpochCert_TotalBwtAmount = CScCertificate(nextEpochCert).GetValueOfBackwardTransfers();
+
+    //test
+    EXPECT_TRUE(sidechainsView->UpdateSidechain(nextEpochCert, dummyUndo, sidechainsView->GetHeight()+1));
+
+    //check
+    CSidechain sidechain;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId,sidechain));
+    EXPECT_TRUE(sidechain.lastTopQualityCertHash      == nextEpochCert.GetHash());
+    EXPECT_TRUE(sidechain.lastTopQualityCertQuality   == nextEpochCert.quality);
+    EXPECT_TRUE(sidechain.lastTopQualityCertBwtAmount == nextEpochCert_TotalBwtAmount);
+    EXPECT_TRUE(sidechain.balance                     == initialScState.balance - nextEpochCert_TotalBwtAmount);
+}
+
+TEST_F(SidechainsMultipleCertsTestSuite, V2Cert_DifferentEpoch_HigherQuality_SidechainIsUpdated) {
+    uint256 scId = uint256S("aaa");
+
+    // setup sidechain initial state...
+    CSidechain initialScState;
+    initialScState.fixedParams.withdrawalEpochLength = 0;
+    initialScState.fixedParams.version = 2;
+    initialScState.creationBlockHeight = 400;
+    initialScState.lastTopQualityCertHash = uint256S("cccc");
+    initialScState.lastTopQualityCertQuality = 5;
+    initialScState.lastTopQualityCertReferencedEpoch = 1987;
+    initialScState.lastTopQualityCertBwtAmount = 50;
+    initialScState.balance = CAmount(100);
+    initialScState.InitScFees();
+    storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
+
+    //Insert next epoch Certificate
+    CMutableScCertificate nextEpochCert;
+    nextEpochCert.scId        = scId;
+    nextEpochCert.epochNumber = initialScState.lastTopQualityCertReferencedEpoch + 1;
+    nextEpochCert.quality     = 7;
+    nextEpochCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
+    CAmount nextEpochCert_TotalBwtAmount = CScCertificate(nextEpochCert).GetValueOfBackwardTransfers();
+
+    //test
+    EXPECT_TRUE(sidechainsView->UpdateSidechain(nextEpochCert, dummyUndo, sidechainsView->GetHeight()+1));
+
+    //check
+    CSidechain sidechain;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId,sidechain));
+    EXPECT_TRUE(sidechain.lastTopQualityCertHash      == nextEpochCert.GetHash());
+    EXPECT_TRUE(sidechain.lastTopQualityCertQuality   == nextEpochCert.quality);
+    EXPECT_TRUE(sidechain.lastTopQualityCertBwtAmount == nextEpochCert_TotalBwtAmount);
+    EXPECT_TRUE(sidechain.balance                     == initialScState.balance - nextEpochCert_TotalBwtAmount);
+}
+
+TEST_F(SidechainsMultipleCertsTestSuite, V2Cert_DifferentEpoch_LowerQuality_SidechainIsUpdated) {
+    uint256 scId = uint256S("aaa");
+
+    // setup sidechain initial state...
+    CSidechain initialScState;
+    initialScState.fixedParams.withdrawalEpochLength = 0;
+    initialScState.fixedParams.version = 2;
+    initialScState.creationBlockHeight = 400;
+    initialScState.lastTopQualityCertHash = uint256S("cccc");
+    initialScState.lastTopQualityCertQuality = 5;
+    initialScState.lastTopQualityCertReferencedEpoch = 1987;
+    initialScState.lastTopQualityCertBwtAmount = 50;
+    initialScState.balance = CAmount(100);
+    initialScState.InitScFees();
+    storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
+
+    //Insert next epoch Certificate
+    CMutableScCertificate nextEpochCert;
+    nextEpochCert.scId        = scId;
+    nextEpochCert.epochNumber = initialScState.lastTopQualityCertReferencedEpoch + 1;
+    nextEpochCert.quality     = 3;
+    nextEpochCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
+    CAmount nextEpochCert_TotalBwtAmount = CScCertificate(nextEpochCert).GetValueOfBackwardTransfers();
+
+    //test
+    EXPECT_TRUE(sidechainsView->UpdateSidechain(nextEpochCert, dummyUndo, sidechainsView->GetHeight()+1));
+
+    //check
+    CSidechain sidechain;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId,sidechain));
+    EXPECT_TRUE(sidechain.lastTopQualityCertHash      == nextEpochCert.GetHash());
+    EXPECT_TRUE(sidechain.lastTopQualityCertQuality   == nextEpochCert.quality);
+    EXPECT_TRUE(sidechain.lastTopQualityCertBwtAmount == nextEpochCert_TotalBwtAmount);
+    EXPECT_TRUE(sidechain.balance                     == initialScState.balance - nextEpochCert_TotalBwtAmount);
+}
+
+TEST_F(SidechainsMultipleCertsTestSuite, V2Cert_DifferentEpoch_ZeroQuality_SidechainIsUpdated) {
     uint256 scId = uint256S("aaa");
 
     // setup sidechain initial state...
@@ -353,10 +535,10 @@ TEST_F(SidechainsMultipleCertsTestSuite, V2Cert_LowerQuality_DifferentEpoch_Side
     //check
     CSidechain sidechain;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId,sidechain));
-    EXPECT_TRUE(sidechain.lastTopQualityCertHash == nextEpochCert.GetHash());
-    EXPECT_TRUE(sidechain.lastTopQualityCertQuality == nextEpochCert.quality);
+    EXPECT_TRUE(sidechain.lastTopQualityCertHash      == nextEpochCert.GetHash());
+    EXPECT_TRUE(sidechain.lastTopQualityCertQuality   == nextEpochCert.quality);
     EXPECT_TRUE(sidechain.lastTopQualityCertBwtAmount == nextEpochCert_TotalBwtAmount);
-    EXPECT_TRUE(sidechain.balance == initialScState.balance - nextEpochCert_TotalBwtAmount);
+    EXPECT_TRUE(sidechain.balance                     == initialScState.balance - nextEpochCert_TotalBwtAmount);
 }
 
 TEST_F(SidechainsMultipleCertsTestSuite, V2Cert_LowerQuality_DifferentEpoch_UndoDataCheck) {
@@ -558,7 +740,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, CertsInMempoolDoNotAffectCheckQuality) 
     EXPECT_TRUE(viewMempool.CheckQuality(trialCert));
 }
 
-TEST_F(SidechainsMultipleCertsTestSuite, V2CertWithNonZeroQualityIsNotAccepted)
+TEST_F(SidechainsMultipleCertsTestSuite, V2CertWithNonZeroQualityIsAccepted)
 {
     CAmount ftFee = CAmount(5);
     CAmount mbtrFee = CAmount(7);
@@ -586,6 +768,38 @@ TEST_F(SidechainsMultipleCertsTestSuite, V2CertWithNonZeroQualityIsNotAccepted)
     CScCertificate cert = txCreationUtils::createCertificate(scId, /*certEpoch*/0,
         dummyCumTree, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/ftFee, /*mbtrScFee*/mbtrFee, /*quality*/ 12);
+
+    ASSERT_TRUE(sidechainsView->CheckQuality(cert));
+}
+
+TEST_F(SidechainsMultipleCertsTestSuite, V2CertWithNegativeQualityIsNotAccepted)
+{
+    CAmount ftFee = CAmount(5);
+    CAmount mbtrFee = CAmount(7);
+    CCoinsViewCache dummyView(nullptr);
+
+    // Forge a sidechain creation transaction
+    Sidechain::ScFixedParameters params;
+    params.version = 2;
+    params.withdrawalEpochLength = 0;
+    params.mainchainBackwardTransferRequestDataLength = 0;
+    CAmount forwardTransferScFee(0);
+    CAmount mainchainBackwardTransferRequestScFee(0);
+
+    CTransaction scCreationTx = createNewSidechainTx(params, forwardTransferScFee, mainchainBackwardTransferRequestScFee, false);
+    uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
+
+    // Update the sidechains view adding the new sidechain
+    int dummyHeight {1};
+    CBlock dummyBlock;
+    ASSERT_TRUE(sidechainsView->UpdateSidechain(scCreationTx, dummyBlock, dummyHeight));
+
+    // Create new certificate
+    CBlockUndo dummyBlockUndo(IncludeScAttributes::ON);
+    CFieldElement dummyCumTree {SAMPLE_FIELD};
+    CScCertificate cert = txCreationUtils::createCertificate(scId, /*certEpoch*/0,
+        dummyCumTree, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
+        /*ftScFee*/ftFee, /*mbtrScFee*/mbtrFee, /*quality*/ -1);
 
     ASSERT_FALSE(sidechainsView->CheckQuality(cert));
 }
