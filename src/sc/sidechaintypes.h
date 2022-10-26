@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <mutex>
+#include <iomanip> // std::setw
 
 #include <boost/unordered_map.hpp>
 #include <boost/variant.hpp>
@@ -480,6 +481,13 @@ struct ScFeeData
     {
         return (forwardTxScFee == rhs.forwardTxScFee && mbtrTxScFee == rhs.mbtrTxScFee);
     }
+
+    virtual std::string ToString() const
+    {
+        std::stringstream res;
+        res << "[" << std::setw(2) << forwardTxScFee << "/" << std::setw(2) << mbtrTxScFee << "]";
+        return res.str();
+    }
 };
 
 struct ScFeeData_v2 : public ScFeeData {
@@ -498,6 +506,15 @@ struct ScFeeData_v2 : public ScFeeData {
     inline bool operator==(const ScFeeData_v2& rhs) const
     {
         return ScFeeData::operator==(rhs) && submissionHeight == rhs.submissionHeight;
+    }
+
+    virtual std::string ToString() const
+    {
+        std::stringstream res;
+        res << ScFeeData::ToString();
+        res.seekp(-1, std::ios_base::end); // overwrite closing ]
+        res << " /" << std::setw(2) << submissionHeight << "]";
+        return res.str();
     }
 };
 

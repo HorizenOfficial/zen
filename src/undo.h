@@ -225,20 +225,11 @@ struct CSidechainUndoData
         if (contentBitMask & AvailableSections::CROSS_EPOCH_CERT_DATA)
         {
             ::Serialize(s, pastEpochTopQualityCertView, nType, nVersion);
-            // Manually serialize scFees list
             if (contentBitMask & AvailableSections::NONCEASING_CERT_DATA) {
-                std::list<Sidechain::ScFeeData_v2> tempList;
-                for (const auto& entry : scFees) {
-                    std::shared_ptr<Sidechain::ScFeeData_v2> casted_entry = std::dynamic_pointer_cast<Sidechain::ScFeeData_v2>(entry);
-                    tempList.emplace_back(casted_entry->forwardTxScFee, casted_entry->mbtrTxScFee, casted_entry->submissionHeight);
-                }
-                ::Serialize(s, tempList, nType, nVersion);
-            } else {
-                std::list<Sidechain::ScFeeData> tempList;
-                for (const auto& entry : scFees) {
-                    tempList.emplace_back(entry->forwardTxScFee, entry->mbtrTxScFee);
-                }
-                ::Serialize(s, tempList, nType, nVersion);
+                ::Serialize<decltype(s), Sidechain::ScFeeData, decltype(scFees), Sidechain::ScFeeData_v2>(s, scFees, nType, nVersion);
+            }
+            else {
+                ::Serialize<decltype(s), Sidechain::ScFeeData, decltype(scFees), Sidechain::ScFeeData>(s, scFees, nType, nVersion);
             }
         }
         if (contentBitMask & AvailableSections::ANY_EPOCH_CERT_DATA)
@@ -278,23 +269,11 @@ struct CSidechainUndoData
         if (contentBitMask & AvailableSections::CROSS_EPOCH_CERT_DATA)
         {
             ::Unserialize(s, pastEpochTopQualityCertView, nType, nVersion);
-            // Manually deserialize scFees list
             if (contentBitMask & AvailableSections::NONCEASING_CERT_DATA) {
-                std::list<Sidechain::ScFeeData_v2> tempList;
-                ::Unserialize(s, tempList, nType, nVersion);
-                scFees.clear();
-                for (const auto& entry : tempList) {
-                    scFees.emplace_back(new Sidechain::ScFeeData_v2(entry.forwardTxScFee,
-                        entry.mbtrTxScFee, entry.submissionHeight));
-                }
-            } else {
-                std::list<Sidechain::ScFeeData> tempList;
-                ::Unserialize(s, tempList, nType, nVersion);
-                scFees.clear();
-                for (const auto& entry : tempList) {
-                    scFees.emplace_back(new Sidechain::ScFeeData(entry.forwardTxScFee,
-                        entry.mbtrTxScFee));
-                }
+                ::Unserialize<decltype(s), Sidechain::ScFeeData, decltype(scFees), Sidechain::ScFeeData_v2>(s, scFees, nType, nVersion);
+            }
+            else {
+                ::Unserialize<decltype(s), Sidechain::ScFeeData, decltype(scFees), Sidechain::ScFeeData>(s, scFees, nType, nVersion);
             }
 
         }
