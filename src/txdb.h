@@ -6,7 +6,6 @@
 #ifndef BITCOIN_TXDB_H
 #define BITCOIN_TXDB_H
 
-#include "addressindex.h"
 #include "chain.h"
 #include "coins.h"
 #include "leveldbwrapper.h"
@@ -23,6 +22,7 @@ struct CMaturityHeightKey;
 struct CMaturityHeightIteratorKey;
 struct CMaturityHeightValue;
 
+enum class AddressType;
 struct CAddressUnspentKey;
 struct CAddressUnspentValue;
 struct CAddressIndexKey;

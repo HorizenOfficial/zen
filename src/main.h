@@ -13,7 +13,6 @@
 #include "spentindex.h"
 #include "timestampindex.h"
 
-#include "addressindex.h"
 #include "amount.h"
 #include "chain.h"
 #include "chainparams.h"
@@ -47,6 +46,9 @@ class CValidationState;
 class CTxUndo;
 struct CNodeStateStats;
 class CTxInUndo;
+#ifdef ENABLE_ADDRESS_INDEXING
+enum class AddressType;
+#endif // ENABLE_ADDRESS_INDEXING
 
 // Enforce 64-bit architecture requirement
 #if defined(__clang__) || defined(__GNUC__)
