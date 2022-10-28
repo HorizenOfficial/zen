@@ -78,7 +78,7 @@ double CCertificateMemPoolEntry::GetPriority(unsigned int currentHeight) const
     return dResult;
 }
 
-const std::map<std::pair<int64_t, int>, uint256>::const_reverse_iterator CSidechainMemPoolEntry::GetTopQualityCert() const
+const std::map<std::pair<int, int64_t>, uint256>::const_reverse_iterator CSidechainMemPoolEntry::GetTopQualityCert() const
 {
     return mBackwardCertificates.crbegin();
 }
@@ -98,11 +98,11 @@ void CSidechainMemPoolEntry::EraseCert(const uint256& hash)
     }
 }
 
-const std::map<std::pair<int64_t, int>, uint256>::const_iterator CSidechainMemPoolEntry::GetCert(const uint256& hash) const
+const std::map<std::pair<int, int64_t>, uint256>::const_iterator CSidechainMemPoolEntry::GetCert(const uint256& hash) const
 {
     // Find certificate with given hash in mapSidechains
     return std::find_if(mBackwardCertificates.begin( ), mBackwardCertificates.end(),
-        [&hash](const std::map<std::pair<int64_t, int>, uint256>::value_type& item) { return hash == item.second; });
+        [&hash](const std::map<std::pair<int, int64_t>, uint256>::value_type& item) { return hash == item.second; });
 }
 
 bool CSidechainMemPoolEntry::HasCert(const uint256& hash) const
@@ -223,9 +223,9 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
 
     if (mapSidechains.count(cert.GetScId())!= 0)
     {
-        assert(mapSidechains.at(cert.GetScId()).mBackwardCertificates.count(std::make_pair(cert.quality, cert.epochNumber)) == 0);
+        assert(mapSidechains.at(cert.GetScId()).mBackwardCertificates.count(std::make_pair(cert.epochNumber, cert.quality)) == 0);
     }
-    mapSidechains[cert.GetScId()].mBackwardCertificates[std::make_pair(cert.quality, cert.epochNumber)] = hash;
+    mapSidechains[cert.GetScId()].mBackwardCertificates[std::make_pair(cert.epochNumber, cert.quality)] = hash;
 
     nCertificatesUpdated++;
     totalCertificateSize += entry.GetCertificateSize();
@@ -1617,8 +1617,10 @@ bool CTxMemPool::checkReferencedHeight(const CScCertificate& incomingCert) const
 {
     // If quality !=0, then for sure isNonCeasing() sidechain is false, so we do not need
     // to perform any check.
-    if (incomingCert.quality != 0)
-        return true;
+    // ////
+    // if (incomingCert.quality != 0)
+    //     return true;
+    // ////
 
     auto const& iheight_it = mapCumtreeHeight.find(incomingCert.endEpochCumScTxCommTreeRoot.GetLegacyHash());
     // if we do not have this info, this must be a pre-v2 sc, hence ceasing
@@ -1647,14 +1649,9 @@ bool CTxMemPool::checkReferencedHeight(const CScCertificate& incomingCert) const
 
         // retrieve referencedHeight
         const CScCertificate& mapCert = mapCertificate.at(cert_it.second).GetCertificate();
-        assert(mapCert.quality == cert_it.first.first);
-        assert(mapCert.epochNumber == cert_it.first.second);
 
-        if (mapCert.quality != 0)
+        if (mapCert.epochNumber == prevEpoch)
             return true; // isNonCeasing() == false
-
-        // if we are here, this is a non ceasing sc.
-        assert(mapCert.epochNumber > prevEpoch);
 
         auto const& height_it = mapCumtreeHeight.find(mapCert.endEpochCumScTxCommTreeRoot.GetLegacyHash());
 
@@ -1683,7 +1680,7 @@ bool CTxMemPool::checkReferencedHeight(const CScCertificate& incomingCert) const
         prevHeight = mcertHeight;
     }
 
-    if (!inserted && prevHeight >= icertHeight)
+    if (!inserted && prevEpoch != incomingCert.epochNumber && prevHeight >= icertHeight)
         return false;
 
     return true;
