@@ -127,13 +127,13 @@ bool VerifyCertificatesDependencies(const CScCertificate& cert)
         return false;
     }
 
-    if (mempool.mapSidechains.at(cert.GetScId()).mBackwardCertificates.count(std::make_pair(cert.quality, cert.epochNumber)) == 0)
+    if (mempool.mapSidechains.at(cert.GetScId()).mBackwardCertificates.count(std::make_pair(cert.epochNumber, cert.quality)) == 0)
     {
         if (fDebug) assert("cert is in mempool but not duly registered  in mapSidechains." == 0);
         return false;
     }
 
-    if (mempool.mapSidechains.at(cert.GetScId()).mBackwardCertificates.at(std::make_pair(cert.quality, cert.epochNumber)) != cert.GetHash())
+    if (mempool.mapSidechains.at(cert.GetScId()).mBackwardCertificates.at(std::make_pair(cert.epochNumber, cert.quality)) != cert.GetHash())
     {
         if (fDebug) assert("a different cert with the same scId and quality is in mempool" == 0);
         return false;
