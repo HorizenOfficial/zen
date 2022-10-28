@@ -7,7 +7,6 @@
 
 #include "sodium.h"
 
-#include "addressindex.h"
 #include "addrman.h"
 #include "alert.h"
 #include "arith_uint256.h"

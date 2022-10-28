@@ -27,14 +27,14 @@ struct CAddressUnspentKey {
     }
     template<typename Stream>
     void Serialize(Stream& s, int nType, int nVersion) const {
-        ser_writedata8(s, (uint8_t)type); //uint8_t is used for backward compatibility
+        ser_writedata8(s, static_cast<uint8_t>(type)); //uint8_t is used for backward compatibility
         hashBytes.Serialize(s, nType, nVersion);
         txhash.Serialize(s, nType, nVersion);
         ser_writedata32(s, index);
     }
     template<typename Stream>
     void Unserialize(Stream& s, int nType, int nVersion) {
-        type = (AddressType)ser_readdata8(s); //uint8_t is used for backward compatibility
+        type = static_cast<AddressType>(ser_readdata8(s)); //uint8_t is used for backward compatibility
         hashBytes.Unserialize(s, nType, nVersion);
         txhash.Unserialize(s, nType, nVersion);
         index = ser_readdata32(s);
@@ -114,7 +114,7 @@ struct CAddressIndexKey {
     }
     template<typename Stream>
     void Serialize(Stream& s, int nType, int nVersion) const {
-        ser_writedata8(s, (uint8_t)type); //uint8_t is used for backward compatibility
+        ser_writedata8(s, static_cast<uint8_t>(type)); //uint8_t is used for backward compatibility
         hashBytes.Serialize(s, nType, nVersion);
         // Heights are stored big-endian for key sorting in LevelDB
         ser_writedata32be(s, blockHeight);
@@ -126,7 +126,7 @@ struct CAddressIndexKey {
     }
     template<typename Stream>
     void Unserialize(Stream& s, int nType, int nVersion) {
-        type = (AddressType)ser_readdata8(s); //uint8_t is used for backward compatibility
+        type = static_cast<AddressType>(ser_readdata8(s)); //uint8_t is used for backward compatibility
         hashBytes.Unserialize(s, nType, nVersion);
         blockHeight = ser_readdata32be(s);
         txindex = ser_readdata32be(s);
@@ -205,12 +205,12 @@ struct CAddressIndexIteratorKey {
     }
     template<typename Stream>
     void Serialize(Stream& s, int nType, int nVersion) const {
-        ser_writedata8(s, (uint8_t)type); //uint8_t is used for backward compatibility
+        ser_writedata8(s, static_cast<uint8_t>(type)); //uint8_t is used for backward compatibility
         hashBytes.Serialize(s, nType, nVersion);
     }
     template<typename Stream>
     void Unserialize(Stream& s, int nType, int nVersion) {
-        type = (AddressType)ser_readdata8(s); //uint8_t is used for backward compatibility
+        type = static_cast<AddressType>(ser_readdata8(s)); //uint8_t is used for backward compatibility
         hashBytes.Unserialize(s, nType, nVersion);
     }
 
@@ -239,13 +239,13 @@ struct CAddressIndexIteratorHeightKey {
     }
     template<typename Stream>
     void Serialize(Stream& s, int nType, int nVersion) const {
-        ser_writedata8(s, (uint8_t)type); //uint8_t is used for backward compatibility
+        ser_writedata8(s, static_cast<uint8_t>(type)); //uint8_t is used for backward compatibility
         hashBytes.Serialize(s, nType, nVersion);
         ser_writedata32be(s, blockHeight);
     }
     template<typename Stream>
     void Unserialize(Stream& s, int nType, int nVersion) {
-        type = (AddressType)ser_readdata8(s); //uint8_t is used for backward compatibility
+        type = static_cast<AddressType>(ser_readdata8(s)); //uint8_t is used for backward compatibility
         hashBytes.Unserialize(s, nType, nVersion);
         blockHeight = ser_readdata32be(s);
     }

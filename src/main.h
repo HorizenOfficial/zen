@@ -15,7 +15,6 @@
 #include "timestampindex.h"
 #endif // ENABLE_ADDRESS_INDEXING
 
-#include "addressindex.h"
 #include "amount.h"
 #include "chain.h"
 #include "chainparams.h"
@@ -49,6 +48,9 @@ class CValidationState;
 class CTxUndo;
 struct CNodeStateStats;
 class CTxInUndo;
+#ifdef ENABLE_ADDRESS_INDEXING
+enum class AddressType;
+#endif // ENABLE_ADDRESS_INDEXING
 
 /** Default for -blockmaxsize and -blockminsize, which control the range of sizes the mining code will create **/
 static const unsigned int DEFAULT_BLOCK_MAX_SIZE = MAX_BLOCK_SIZE;

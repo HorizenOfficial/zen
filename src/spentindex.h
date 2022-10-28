@@ -55,13 +55,10 @@ struct CSpentIndexValue {
         READWRITE(blockHeight);
         READWRITE(satoshis);
 
-        //int is used for backward compatibility
-        int addressTypeInt = 0;
-        if (!ser_action.ForRead()) //serialize
-            addressTypeInt = (int)addressType;
+        // int is used for backward compatibility
+        int addressTypeInt = static_cast<int>(addressType);
         READWRITE(addressTypeInt);
-        if (ser_action.ForRead()) //unserialize
-            addressType = (AddressType)addressTypeInt;
+        addressType = static_cast<AddressType>(addressTypeInt);
 
         READWRITE(addressHash);
     }

@@ -160,13 +160,17 @@ bool CBitcoinAddress::GetIndexKey(uint160& hashBytes, AddressType& type) const
 {
     if (!IsValid()) {
         return false;
-    } else if (vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS)
-               || vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS_OLD)) {
+    }
+    
+    if (vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS) ||
+        vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS_OLD)) {
         memcpy(&hashBytes, &vchData[0], 20);
         type = AddressType::PUBKEY;
         return true;
-    } else if (vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS)
-               || vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS_OLD)) {
+    }
+    
+    if (vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS) ||
+        vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS_OLD)) {
         memcpy(&hashBytes, &vchData[0], 20);
         type = AddressType::SCRIPT;
         return true;

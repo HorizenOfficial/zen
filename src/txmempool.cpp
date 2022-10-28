@@ -5,7 +5,6 @@
 
 #include "txmempool.h"
 
-#include "addressindex.h"
 #include "clientversion.h"
 #include "consensus/consensus.h"
 #include "consensus/validation.h"
@@ -365,9 +364,9 @@ bool CTxMemPool::getAddressIndex(std::vector<std::pair<uint160, AddressType> > &
                                  std::vector<std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> > &results)
 {
     LOCK(cs);
-    for (std::vector<std::pair<uint160, AddressType> >::iterator it = addresses.begin(); it != addresses.end(); it++) {
-        addressDeltaMap::iterator ait = mapAddress.lower_bound(CMempoolAddressDeltaKey((*it).second, (*it).first));
-        while (ait != mapAddress.end() && (*ait).first.addressBytes == (*it).first && (*ait).first.type == (*it).second) {
+    for (const auto& [addressHash, addressType] : addresses) {
+        addressDeltaMap::iterator ait = mapAddress.lower_bound(CMempoolAddressDeltaKey(addressType, addressHash));
+        while (ait != mapAddress.end() && (*ait).first.addressBytes == addressHash && (*ait).first.type == addressType) {
             results.push_back(*ait);
             ait++;
         }
