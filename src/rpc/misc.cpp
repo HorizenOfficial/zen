@@ -3,7 +3,9 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#ifdef ENABLE_ADDRESS_INDEXING
 #include "addressindex.h"
+#endif // ENABLE_ADDRESS_INDEXING
 #include "base58.h"
 #include "clientversion.h"
 #include "init.h"
@@ -485,16 +487,18 @@ UniValue setmocktime(const UniValue& params, bool fHelp)
     return NullUniValue;
 }
 
-bool getAddressFromIndex(const AddressType &type, const uint160 &hash, std::string &address)
+bool getAddressFromIndex(const AddressType type, const uint160 &hash, std::string &address)
 {
-    if (type == AddressType::SCRIPT) {
-        address = CBitcoinAddress(CScriptID(hash)).ToString();
-    } else if (type == AddressType::PUBKEY) {
-        address = CBitcoinAddress(CKeyID(hash)).ToString();
-    } else {
-        return false;
+    switch (type) {
+        case AddressType::SCRIPT:
+            address = CBitcoinAddress(CScriptID(hash)).ToString();
+            return true;
+        case AddressType::PUBKEY:
+            address = CBitcoinAddress(CKeyID(hash)).ToString();
+            return true;
+        default:
+            return false;
     }
-    return true;
 }
 
 bool getAddressesFromParams(const UniValue& params, std::vector<std::pair<uint160, AddressType> > &addresses)
@@ -675,8 +679,8 @@ UniValue getaddressutxos(const UniValue& params, bool fHelp)
 
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
 
-    for (std::vector<std::pair<uint160, AddressType> >::iterator it = addresses.begin(); it != addresses.end(); it++) {
-        if (!GetAddressUnspent((*it).first, (*it).second, unspentOutputs)) {
+    for (const auto& [addressHash, addressType] : addresses) {
+        if (!GetAddressUnspent(addressHash, addressType, unspentOutputs)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for address");
         }
     }
@@ -827,13 +831,13 @@ UniValue getaddressdeltas(const UniValue& params, bool fHelp)
 
     std::vector<std::pair<CAddressIndexKey, CAddressIndexValue> > addressIndex;
 
-    for (std::vector<std::pair<uint160, AddressType> >::iterator it = addresses.begin(); it != addresses.end(); it++) {
+    for (const auto& [addressHash, addressType] : addresses) {
         if (start > 0 && end > 0) {
-            if (!GetAddressIndex((*it).first, (*it).second, addressIndex, start, end)) {
+            if (!GetAddressIndex(addressHash, addressType, addressIndex, start, end)) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for address");
             }
         } else {
-            if (!GetAddressIndex((*it).first, (*it).second, addressIndex)) {
+            if (!GetAddressIndex(addressHash, addressType, addressIndex)) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for address");
             }
         }
@@ -926,8 +930,8 @@ UniValue getaddressbalance(const UniValue& params, bool fHelp)
 
     std::vector<std::pair<CAddressIndexKey, CAddressIndexValue> > addressIndex;
 
-    for (std::vector<std::pair<uint160, AddressType> >::iterator it = addresses.begin(); it != addresses.end(); it++) {
-        if (!GetAddressIndex((*it).first, (*it).second, addressIndex)) {
+    for (const auto& [addressHash, addressType] : addresses) {
+        if (!GetAddressIndex(addressHash, addressType, addressIndex)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for address");
         }
     }
@@ -1015,13 +1019,13 @@ UniValue getaddresstxids(const UniValue& params, bool fHelp)
 
     std::vector<std::pair<CAddressIndexKey, CAddressIndexValue> > addressIndex;
 
-    for (std::vector<std::pair<uint160, AddressType> >::iterator it = addresses.begin(); it != addresses.end(); it++) {
+    for (const auto& [addressHash, addressType] : addresses) {
         if (start > 0 && end > 0) {
-            if (!GetAddressIndex((*it).first, (*it).second, addressIndex, start, end)) {
+            if (!GetAddressIndex(addressHash, addressType, addressIndex, start, end)) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for address");
             }
         } else {
-            if (!GetAddressIndex((*it).first, (*it).second, addressIndex)) {
+            if (!GetAddressIndex(addressHash, addressType, addressIndex)) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for address");
             }
         }
