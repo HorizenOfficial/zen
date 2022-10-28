@@ -498,10 +498,10 @@ TEST(Mempool, testCheckReferencedHeight)
             /*numBwt*/4, /*ftScFee*/0, /*mbtrScFee*/0, /*quality*/0);
     ASSERT_FALSE(aMempool.checkReferencedHeight(cert));
 
-    // ###### SECOND CERTIFICATE, EP 1, REF 2, Q 0 ######
+    // ###### SECOND CERTIFICATE, EP 1, REF 2, Q 5 ######
     cert = txCreationUtils::createCertificate(uint256S("foo2"), /*epochNum*/1,
             CFieldElement(heights[2]), /*changeTotalAmount*/0, /*numChangeOut*/0, /*bwtTotalAmount*/0,
-            /*numBwt*/4, /*ftScFee*/0, /*mbtrScFee*/0, /*quality*/0);
+            /*numBwt*/4, /*ftScFee*/0, /*mbtrScFee*/0, /*quality*/5);
     ASSERT_TRUE(aMempool.checkReferencedHeight(cert));
 
     certPoolEntry = CCertificateMemPoolEntry(cert, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
@@ -514,7 +514,7 @@ TEST(Mempool, testCheckReferencedHeight)
             /*numBwt*/4, /*ftScFee*/0, /*mbtrScFee*/0, /*quality*/0);
     ASSERT_FALSE(aMempool.checkReferencedHeight(cert));
 
-    // ###### THIRD CERTIFICATE, EP 3, REF 4, Q 5 ######
+    // ###### THIRD CERTIFICATE, EP 3, REF 4, Q 0 ######
     cert = txCreationUtils::createCertificate(uint256S("foo3"), /*epochNum*/3,
             CFieldElement(heights[4]), /*changeTotalAmount*/0, /*numChangeOut*/0, /*bwtTotalAmount*/0,
             /*numBwt*/4, /*ftScFee*/0, /*mbtrScFee*/0, /*quality*/0);
@@ -530,7 +530,7 @@ TEST(Mempool, testCheckReferencedHeight)
             /*numBwt*/4, /*ftScFee*/0, /*mbtrScFee*/0, /*quality*/1);
     ASSERT_FALSE(aMempool.checkReferencedHeight(cert));
 
-    // ###### WRONG CERTIFICATE, EP 2, REF 4, Q 0 ###### (ref equals epoch 3)
+    // ###### WRONG CERTIFICATE, EP 2, REF 4, Q 2 ###### (ref equals epoch 3)
     cert = txCreationUtils::createCertificate(uint256S("foo2"), /*epochNum*/2,
             CFieldElement(heights[4]), /*changeTotalAmount*/0, /*numChangeOut*/0, /*bwtTotalAmount*/0,
             /*numBwt*/4, /*ftScFee*/0, /*mbtrScFee*/0, /*quality*/2);
