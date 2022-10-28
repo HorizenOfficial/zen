@@ -148,19 +148,30 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         mark_logs("## Test ok, epoch 0 ##", self.nodes, DEBUG_MODE)
         #------------------------------------------------
         epoch_number = 0
-        quality = 2
+        ref_quality = 2
         ref_height = self.nodes[0].getblockcount()-2
         amount_cert_1 = {"address": addr_node2, "amount": bwt_amount_1}
-        cert_1 = self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_1, False)
+        cert_1 = self.try_send_certificate(0, scid, epoch_number, ref_quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_1, False)
 
         #------------------------------------------------
-        mark_logs("## Test nok, trying to overwrite ##", self.nodes, DEBUG_MODE)
+        mark_logs("## Test nok, trying to overwrite with a cert of same quality##", self.nodes, DEBUG_MODE)
         #------------------------------------------------
-        epoch_number = 0
-        quality = 0
         ref_height = self.nodes[0].getblockcount()-2
         amount_cert_1 = {"address": addr_node2, "amount": bwt_amount_1}
+<<<<<<< HEAD
         self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_1, True, "invalid timing for certificate")
+=======
+        self.try_send_certificate(0, scid, epoch_number, ref_quality, ref_height, MBTR_SC_FEE_HIGH, FT_SC_FEE, amount_cert_1, True, "invalid timing for certificate")
+
+        #------------------------------------------------
+        mark_logs("## Test nok, trying to overwrite with a cert with less quality ##", self.nodes, DEBUG_MODE)
+        #------------------------------------------------
+        epoch_number = 0
+        less_quality = 0
+        ref_height = self.nodes[0].getblockcount()-2
+        amount_cert_1 = {"address": addr_node2, "amount": bwt_amount_1}
+        self.try_send_certificate(0, scid, epoch_number, less_quality, ref_height, MBTR_SC_FEE_HIGH, FT_SC_FEE, amount_cert_1, True, "invalid timing for certificate")
+>>>>>>> 4b87d4fcb (more test updates)
 
         #------------------------------------------------
         mark_logs("## Generating blocks and checking info ##", self.nodes, DEBUG_MODE)
@@ -174,7 +185,7 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         assert_equal(bwt_amount_1, creation_amount - scinfo['items'][0]['balance'])
         assert_equal(bwt_amount_1, scinfo['items'][0]['lastCertificateAmount'])
         assert_equal(cert_1, scinfo['items'][0]['lastCertificateHash'])
-        assert_equal(quality, scinfo['items'][0]['lastCertificateQuality'])
+        assert_equal(ref_quality, scinfo['items'][0]['lastCertificateQuality'])
 
         winfo = self.nodes[2].getwalletinfo()
         assert_equal(bwt_amount_1, winfo['balance'])
@@ -255,7 +266,7 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         assert_equal(bwt_amount_1, creation_amount - scinfo['items'][0]['balance'])
         assert_equal(bwt_amount_1, scinfo['items'][0]['lastCertificateAmount'])
         assert_equal(cert_1, scinfo['items'][0]['lastCertificateHash'])
-        assert_equal(quality, scinfo['items'][0]['lastCertificateQuality'])
+        assert_equal(ref_quality, scinfo['items'][0]['lastCertificateQuality'])
 
         txmem = self.nodes[0].getrawmempool()
         assert_equal(len(txmem), 3)
