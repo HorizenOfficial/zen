@@ -119,7 +119,7 @@ struct CSidechainMemPoolEntry
 {
     uint256 scCreationTxHash;
     std::set<uint256> fwdTxHashes; 
-    std::map<std::pair<int64_t, int>, uint256> mBackwardCertificates; // (quality, epoch) -> certHash
+    std::map<std::pair<int, int64_t>, uint256> mBackwardCertificates; // (epoch, quality) -> certHash
     std::set<uint256> mcBtrsTxHashes;
     std::map<CFieldElement, uint256> cswNullifiers; // csw nullifier -> containing Tx hash
     CAmount cswTotalAmount;
@@ -136,8 +136,8 @@ struct CSidechainMemPoolEntry
                 cswTotalAmount == 0;
     }
 
-    const std::map<std::pair<int64_t, int>, uint256>::const_reverse_iterator GetTopQualityCert() const;
-    const std::map<std::pair<int64_t, int>, uint256>::const_iterator GetCert(const uint256& hash) const;
+    const std::map<std::pair<int, int64_t>, uint256>::const_reverse_iterator GetTopQualityCert() const;
+    const std::map<std::pair<int, int64_t>, uint256>::const_iterator GetCert(const uint256& hash) const;
 
     void EraseCert(const uint256& hash);
     bool HasCert(const uint256& hash) const;
