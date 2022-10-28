@@ -480,10 +480,10 @@ TEST(Mempool, testCheckReferencedHeight)
     mapCumtreeHeight.insert(std::make_pair(heights[3], 4));
     mapCumtreeHeight.insert(std::make_pair(heights[4], 5));
 
-    // ###### FIRST CERTIFICATE, EP 0, REF 0, Q 0 ######
+    // ###### FIRST CERTIFICATE, EP 0, REF 0, Q 1 ######
     CScCertificate cert = txCreationUtils::createCertificate(uint256S("foo1"), /*epochNum*/0,
             CFieldElement(heights[0]), /*changeTotalAmount*/0, /*numChangeOut*/0, /*bwtTotalAmount*/0,
-            /*numBwt*/4, /*ftScFee*/0, /*mbtrScFee*/0, /*quality*/0);
+            /*numBwt*/4, /*ftScFee*/0, /*mbtrScFee*/0, /*quality*/1);
 
     // Mempool is empty, cert must be accepted
     ASSERT_TRUE(aMempool.checkReferencedHeight(cert));
@@ -514,7 +514,7 @@ TEST(Mempool, testCheckReferencedHeight)
             /*numBwt*/4, /*ftScFee*/0, /*mbtrScFee*/0, /*quality*/0);
     ASSERT_FALSE(aMempool.checkReferencedHeight(cert));
 
-    // ###### THIRD CERTIFICATE, EP 3, REF 4, Q 0 ######
+    // ###### THIRD CERTIFICATE, EP 3, REF 4, Q 5 ######
     cert = txCreationUtils::createCertificate(uint256S("foo3"), /*epochNum*/3,
             CFieldElement(heights[4]), /*changeTotalAmount*/0, /*numChangeOut*/0, /*bwtTotalAmount*/0,
             /*numBwt*/4, /*ftScFee*/0, /*mbtrScFee*/0, /*quality*/0);
@@ -524,16 +524,16 @@ TEST(Mempool, testCheckReferencedHeight)
     aMempool.addUnchecked(certPoolEntry.GetCertificate().GetHash(), certPoolEntry);
     ASSERT_TRUE(aMempool.existsCert(cert.GetHash()));
 
-    // ###### WRONG CERTIFICATE, EP 2, REF 2, Q 0 ###### (ref equals epoch 1)
+    // ###### WRONG CERTIFICATE, EP 2, REF 2, Q 1 ###### (ref equals epoch 1)
     cert = txCreationUtils::createCertificate(uint256S("foo2"), /*epochNum*/2,
             CFieldElement(heights[2]), /*changeTotalAmount*/0, /*numChangeOut*/0, /*bwtTotalAmount*/0,
-            /*numBwt*/4, /*ftScFee*/0, /*mbtrScFee*/0, /*quality*/0);
+            /*numBwt*/4, /*ftScFee*/0, /*mbtrScFee*/0, /*quality*/1);
     ASSERT_FALSE(aMempool.checkReferencedHeight(cert));
 
     // ###### WRONG CERTIFICATE, EP 2, REF 4, Q 0 ###### (ref equals epoch 3)
     cert = txCreationUtils::createCertificate(uint256S("foo2"), /*epochNum*/2,
             CFieldElement(heights[4]), /*changeTotalAmount*/0, /*numChangeOut*/0, /*bwtTotalAmount*/0,
-            /*numBwt*/4, /*ftScFee*/0, /*mbtrScFee*/0, /*quality*/0);
+            /*numBwt*/4, /*ftScFee*/0, /*mbtrScFee*/0, /*quality*/2);
     ASSERT_FALSE(aMempool.checkReferencedHeight(cert));
 
     // ###### FOURTH CERTIFICATE, EP 2, REF 3, Q 0 ######

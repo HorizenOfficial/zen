@@ -950,7 +950,7 @@ TEST(SidechainsMultipleCerts, BlocksWithCertsOfSameOrIncreasingEpochsAndDecreasi
     cert_3.epochNumber = cert_1.epochNumber + 1;
     bBlock.vcert = {cert_1, cert_2, cert_3};
 
-    EXPECT_FALSE(CheckCertificatesOrdering(bBlock.vcert, dummyState));
+    EXPECT_TRUE(CheckCertificatesOrdering(bBlock.vcert, dummyState));   // This is now accepted for v2 sc
 }
 
 TEST(SidechainsMultipleCerts, MultScBlocksWithCertsOfEqualOrIncreasingEpochsAreAccepted) {
