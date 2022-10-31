@@ -731,6 +731,8 @@ int CSidechain::getMaxSizeOfScFeesContainers()
             // implementation: by default, nScNumBlocksForScFeeCheck is set to 10, and withdrawal epoch
             // length ranges from 2 to 4032. This allows scFees size to range from 1 to 5, as evaluated by
             // numBlocks / epochLength.
+            LogPrint("sc", "%s():%d - Warning: the value specified with -blocksforscfeecheck was too low; \
+                maxSizeOfScFeesContainers has been set to 5\n", __func__, __LINE__);
             maxSizeOfScFeesContainers = std::max(getNumBlocksForScFeeCheck(), 5);
         }
     }
