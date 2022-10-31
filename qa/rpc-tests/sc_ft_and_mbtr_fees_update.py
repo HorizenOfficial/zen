@@ -5,9 +5,9 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, assert_greater_than, assert_true, initialize_chain_clean, \
-    start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs,\
-    get_epoch_data, assert_false, swap_bytes, disconnect_nodes ##, colorize as cc
+from test_framework.util import assert_equal, assert_greater_than, initialize_chain_clean, \
+    start_nodes, stop_nodes, wait_bitcoinds, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs,\
+    get_epoch_data, swap_bytes, disconnect_nodes ##, colorize as cc
 from test_framework.test_framework import ForkHeights
 from test_framework.mc_test.mc_test import CertTestUtils, generate_random_field_element_hex
 from decimal import Decimal
@@ -320,8 +320,17 @@ class provaFee(BitcoinTestFramework):
         # c.
         assert_greater_than(float(self.nodes[0].getbalance()), float(initial_balances[0]))  # and balance is unaffected
         assert_equal(float(self.nodes[1].getbalance()), float(initial_balances[1]))
-
         ### If so, transactions have been removed
+
+        # Final check for de/serialization of scFees list
+        final_scfeesLen = len(self.nodes[0].getscinfo(scid)['items'][0]['scFees'])
+        mark_logs("Checking persistance stopping and restarting nodes", self.nodes, DEBUG_MODE)
+        stop_nodes(self.nodes)
+        wait_bitcoinds()
+        self.setup_network(False)
+        for i in range(NUMB_OF_NODES):
+            assert_equal(final_scfeesLen, len(self.nodes[i].getscinfo(scid)['items'][0]['scFees']))
+
         return
 
     def run_test_non_ceasable(self, scversion, ceasable = True, old_version = True):
@@ -574,6 +583,15 @@ class provaFee(BitcoinTestFramework):
             self.assert_txs_in_mempool(0)                   # BOOM! Transactions should no longer be in mempool
             assert_greater_than(float(self.nodes[0].getbalance()), float(initial_balances[0]))  # and balance is unaffected
             assert_equal(float(self.nodes[1].getbalance()), float(initial_balances[1]))
+
+            # Final check for de/serialization of scFees list
+            final_scfeesLen = len(scFeesList)
+            mark_logs("Checking persistance stopping and restarting nodes", self.nodes, DEBUG_MODE)
+            stop_nodes(self.nodes)
+            wait_bitcoinds()
+            self.setup_network(False)
+            for i in range(NUMB_OF_NODES):
+                assert_equal(final_scfeesLen, len(self.nodes[i].getscinfo(scid)['items'][0]['scFees']))
 
         return
 
