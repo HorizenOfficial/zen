@@ -714,8 +714,8 @@ int CSidechain::getNumBlocksForScFeeCheck()
 int CSidechain::getMaxSizeOfScFeesContainers()
 {
     if (maxSizeOfScFeesContainers == -1) {
+        const int numBlocks = getNumBlocksForScFeeCheck();
         if (!isNonCeasing()) {
-            const int numBlocks = getNumBlocksForScFeeCheck();
             const int epochLength = fixedParams.withdrawalEpochLength;
             assert(epochLength > 0);
             maxSizeOfScFeesContainers = (numBlocks + epochLength - 1) / epochLength;
@@ -723,17 +723,17 @@ int CSidechain::getMaxSizeOfScFeesContainers()
             // This was managed in the same way in the old version
             maxSizeOfScFeesContainers = std::max(maxSizeOfScFeesContainers, 1);
         } else {
-            // As defined in chainparams.cpp, maxSizeOfScFeesContainers is 200 for mainnet and testnet,
-            // and 10 for regtest. For regtest, this value can be overridden with the command line option
-            // -blocksforscfeecheck=<n>. In this case, we provide a safe guard of five slots for the scFees
-            // size.
+            // maxSizeOfScFeesContainers value is copied from the numBlocksForScFeeCheck variable defined in
+            // chainparams.cpp. Currently is se at 200 for mainnet and testnet, and 10 for regtest. For regtest,
+            // this value can be overridden with the command line option -blocksforscfeecheck=<n>. In this case,
+            // we provide a safe guard of five slots for the scFees size.
             // This value has been chosen as it was the max possible size obtainable by the previous
             // implementation: by default, nScNumBlocksForScFeeCheck is set to 10, and withdrawal epoch
             // length ranges from 2 to 4032. This allows scFees size to range from 1 to 5, as evaluated by
             // numBlocks / epochLength.
             LogPrint("sc", "%s():%d - Warning: the value specified with -blocksforscfeecheck was too low; \
                 maxSizeOfScFeesContainers has been set to 5\n", __func__, __LINE__);
-            maxSizeOfScFeesContainers = std::max(getNumBlocksForScFeeCheck(), 5);
+            maxSizeOfScFeesContainers = std::max(numBlocks, 5);
         }
     }
     return maxSizeOfScFeesContainers;
@@ -813,8 +813,8 @@ void CSidechain::UpdateScFees(const CScCertificateView& certView, int blockHeigh
             scFees_v2.remove_if([threshold](Sidechain::ScFeeData_v2 entry) {
                 const bool testCondition = (entry.submissionHeight <= threshold);
                 if (testCondition)
-                    LogPrint("sc", "%s():%d - popping f=%d, m=%d, h=%d from list, as entry is too old\n",
-                        __func__, __LINE__, entry.forwardTxScFee, entry.mbtrTxScFee, entry.submissionHeight);
+                    LogPrint("sc", "%s():%d - popping f=%d, m=%d, h=%d from list, as entry is too old (threshold height was %d)\n",
+                        __func__, __LINE__, entry.forwardTxScFee, entry.mbtrTxScFee, entry.submissionHeight, threshold);
                 return testCondition;
             });
         }
