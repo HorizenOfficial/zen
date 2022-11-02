@@ -1185,14 +1185,6 @@ CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertifi
         return CValidationState::Code::SCID_NOT_FOUND;
     }
 
-    // REMOVE: 
-    // if (sidechain.isNonCeasing() && cert.quality != 0)
-    // {
-    //     LogPrintf("%s():%d - ERROR: cert %s refers to a non-ceasing sidechain, but has non zero quality (%d)\n",
-    //         __func__, __LINE__, certHash.ToString(), cert.quality);
-    //     return CValidationState::Code::INVALID;
-    // }
-
     if (!Sidechain::checkCertCustomFields(sidechain, cert))
     {
         LogPrintf("%s():%d - ERROR: invalid cert[%s], scId[%s] invalid custom data cfg\n",
