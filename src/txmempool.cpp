@@ -221,11 +221,10 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
     LogPrint("mempool", "%s():%d - adding cert [%s] q=%d in mapSidechain\n", __func__, __LINE__,
         cert.GetHash().ToString(), cert.quality);
 
-    if (mapSidechains.count(cert.GetScId())!= 0)
-    {
-        assert(mapSidechains.at(cert.GetScId()).mBackwardCertificates.count(std::make_pair(cert.epochNumber, cert.quality)) == 0);
-    }
-    mapSidechains[cert.GetScId()].mBackwardCertificates[std::make_pair(cert.epochNumber, cert.quality)] = hash;
+    auto& sideChain = mapSidechains[cert.GetScId()]; // Creates new element if key does not exist
+    const auto certKey = std::make_pair(cert.epochNumber, cert.quality);
+    assert(sideChain.mBackwardCertificates.count(certKey) == 0);
+    sideChain.mBackwardCertificates[certKey] = hash;
 
     nCertificatesUpdated++;
     totalCertificateSize += entry.GetCertificateSize();
@@ -1615,13 +1614,6 @@ bool CTxMemPool::certificateExists(const uint256& scId, int epochNumber) const
 
 bool CTxMemPool::checkReferencedHeight(const CScCertificate& incomingCert) const
 {
-    // If quality !=0, then for sure isNonCeasing() sidechain is false, so we do not need
-    // to perform any check.
-    // ////
-    // if (incomingCert.quality != 0)
-    //     return true;
-    // ////
-
     auto const& iheight_it = mapCumtreeHeight.find(incomingCert.endEpochCumScTxCommTreeRoot.GetLegacyHash());
     // if we do not have this info, this must be a pre-v2 sc, hence ceasing
     if (iheight_it == mapCumtreeHeight.end())

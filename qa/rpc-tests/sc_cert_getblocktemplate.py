@@ -193,8 +193,7 @@ class sc_cert_base(BitcoinTestFramework):
         ### 3: Sending a transaction and a certificate
         # Generate proof before the call of `getblocktemplate`.
         # It is a time consuming operation, so may take more than GET_BLOCK_TEMPLATE_DELAY seconds.
-        if ceasable:
-            quality = quality + 1
+        quality += 1
         epoch_number, epoch_cum_tree_hash, prev_cert_data_hash = get_epoch_data(scid, self.nodes[0], epoch_length, not ceasable)
         proof = mcTest.create_test_proof(
             sc_name, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,

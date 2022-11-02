@@ -1052,14 +1052,15 @@ bool CheckCertificatesOrdering(const std::vector<CScCertificate>& certList, CVal
         const uint256& scid = cert.GetScId();
         if (mBestCertDataByScId.count(scid))
         {
-            if (mBestCertDataByScId.at(scid).first > cert.epochNumber)
+            const auto & bestCertData = mBestCertDataByScId.at(scid); 
+            if (bestCertData.first > cert.epochNumber)
             {
                 LogPrint("cert", "%s():%d - cert %s / q=%d / epoch=%d has an incorrect epoch order in block for scid = %s\n",
                     __func__, __LINE__, cert.GetHash().ToString(), cert.quality, cert.epochNumber, scid.ToString());
                 return state.DoS(100, error("%s: incorrect certificate epoch order in block",
                     __func__), CValidationState::Code::INVALID, "bad-cert-epoch-ordering-in-block");
             }
-            if ((mBestCertDataByScId.at(scid).first == cert.epochNumber) && (mBestCertDataByScId.at(scid).second > cert.quality))
+            if ((bestCertData.first == cert.epochNumber) && (bestCertData.second > cert.quality))
             {
                 LogPrint("cert", "%s():%d - cert %s / q=%d / epoch=%d has an incorrect quality order in block for scid = %s\n",
                     __func__, __LINE__, cert.GetHash().ToString(), cert.quality, cert.epochNumber, scid.ToString());
@@ -1209,7 +1210,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
 
     if(!CheckCertificate(cert, state))
     {
-        error("%s(): CheckCertificate failed\n", __func__);
+        error("%s(): CheckCertificate failed", __func__);
         return MempoolReturnValue::INVALID;
     }
 
