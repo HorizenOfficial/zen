@@ -10,8 +10,14 @@
 #include "amount.h"
 #include "script/script.h"
 
+enum class AddressType {
+    UNKNOWN = 0,
+    PUBKEY = 1,
+    SCRIPT = 2
+};
+
 struct CAddressUnspentKey {
-    unsigned int type;
+    AddressType type;
     uint160 hashBytes;
     uint256 txhash;
     size_t index;
@@ -21,20 +27,20 @@ struct CAddressUnspentKey {
     }
     template<typename Stream>
     void Serialize(Stream& s, int nType, int nVersion) const {
-        ser_writedata8(s, type);
+        ser_writedata8(s, static_cast<uint8_t>(type)); //uint8_t is used for backward compatibility
         hashBytes.Serialize(s, nType, nVersion);
         txhash.Serialize(s, nType, nVersion);
         ser_writedata32(s, index);
     }
     template<typename Stream>
     void Unserialize(Stream& s, int nType, int nVersion) {
-        type = ser_readdata8(s);
+        type = static_cast<AddressType>(ser_readdata8(s)); //uint8_t is used for backward compatibility
         hashBytes.Unserialize(s, nType, nVersion);
         txhash.Unserialize(s, nType, nVersion);
         index = ser_readdata32(s);
     }
 
-    CAddressUnspentKey(unsigned int addressType, uint160 addressHash, uint256 txid, size_t indexValue) {
+    CAddressUnspentKey(AddressType addressType, uint160 addressHash, uint256 txid, size_t indexValue) {
         type = addressType;
         hashBytes = addressHash;
         txhash = txid;
@@ -46,7 +52,7 @@ struct CAddressUnspentKey {
     }
 
     void SetNull() {
-        type = 0;
+        type = AddressType::UNKNOWN;
         hashBytes.SetNull();
         txhash.SetNull();
         index = 0;
@@ -95,7 +101,7 @@ struct CAddressUnspentValue {
 };
 
 struct CAddressIndexKey {
-    unsigned int type;
+    AddressType type;
     uint160 hashBytes;
     int blockHeight;
     unsigned int txindex;
@@ -108,7 +114,7 @@ struct CAddressIndexKey {
     }
     template<typename Stream>
     void Serialize(Stream& s, int nType, int nVersion) const {
-        ser_writedata8(s, type);
+        ser_writedata8(s, static_cast<uint8_t>(type)); //uint8_t is used for backward compatibility
         hashBytes.Serialize(s, nType, nVersion);
         // Heights are stored big-endian for key sorting in LevelDB
         ser_writedata32be(s, blockHeight);
@@ -120,7 +126,7 @@ struct CAddressIndexKey {
     }
     template<typename Stream>
     void Unserialize(Stream& s, int nType, int nVersion) {
-        type = ser_readdata8(s);
+        type = static_cast<AddressType>(ser_readdata8(s)); //uint8_t is used for backward compatibility
         hashBytes.Unserialize(s, nType, nVersion);
         blockHeight = ser_readdata32be(s);
         txindex = ser_readdata32be(s);
@@ -130,7 +136,7 @@ struct CAddressIndexKey {
         spending = f;
     }
 
-    CAddressIndexKey(unsigned int addressType, uint160 addressHash, int height, int blockindex,
+    CAddressIndexKey(AddressType addressType, uint160 addressHash, int height, int blockindex,
                      uint256 txid, size_t indexValue, bool isSpending) {
         type = addressType;
         hashBytes = addressHash;
@@ -146,7 +152,7 @@ struct CAddressIndexKey {
     }
 
     void SetNull() {
-        type = 0;
+        type = AddressType::UNKNOWN;
         hashBytes.SetNull();
         blockHeight = 0;
         txindex = 0;
@@ -191,7 +197,7 @@ struct CAddressIndexValue {
 };
 
 struct CAddressIndexIteratorKey {
-    unsigned int type;
+    AddressType type;
     uint160 hashBytes;
 
     size_t GetSerializeSize(int nType, int nVersion) const {
@@ -199,16 +205,16 @@ struct CAddressIndexIteratorKey {
     }
     template<typename Stream>
     void Serialize(Stream& s, int nType, int nVersion) const {
-        ser_writedata8(s, type);
+        ser_writedata8(s, static_cast<uint8_t>(type)); //uint8_t is used for backward compatibility
         hashBytes.Serialize(s, nType, nVersion);
     }
     template<typename Stream>
     void Unserialize(Stream& s, int nType, int nVersion) {
-        type = ser_readdata8(s);
+        type = static_cast<AddressType>(ser_readdata8(s)); //uint8_t is used for backward compatibility
         hashBytes.Unserialize(s, nType, nVersion);
     }
 
-    CAddressIndexIteratorKey(unsigned int addressType, uint160 addressHash) {
+    CAddressIndexIteratorKey(AddressType addressType, uint160 addressHash) {
         type = addressType;
         hashBytes = addressHash;
     }
@@ -218,13 +224,13 @@ struct CAddressIndexIteratorKey {
     }
 
     void SetNull() {
-        type = 0;
+        type = AddressType::UNKNOWN;
         hashBytes.SetNull();
     }
 };
 
 struct CAddressIndexIteratorHeightKey {
-    unsigned int type;
+    AddressType type;
     uint160 hashBytes;
     int blockHeight;
 
@@ -233,18 +239,18 @@ struct CAddressIndexIteratorHeightKey {
     }
     template<typename Stream>
     void Serialize(Stream& s, int nType, int nVersion) const {
-        ser_writedata8(s, type);
+        ser_writedata8(s, static_cast<uint8_t>(type)); //uint8_t is used for backward compatibility
         hashBytes.Serialize(s, nType, nVersion);
         ser_writedata32be(s, blockHeight);
     }
     template<typename Stream>
     void Unserialize(Stream& s, int nType, int nVersion) {
-        type = ser_readdata8(s);
+        type = static_cast<AddressType>(ser_readdata8(s)); //uint8_t is used for backward compatibility
         hashBytes.Unserialize(s, nType, nVersion);
         blockHeight = ser_readdata32be(s);
     }
 
-    CAddressIndexIteratorHeightKey(unsigned int addressType, uint160 addressHash, int height) {
+    CAddressIndexIteratorHeightKey(AddressType addressType, uint160 addressHash, int height) {
         type = addressType;
         hashBytes = addressHash;
         blockHeight = height;
@@ -255,7 +261,7 @@ struct CAddressIndexIteratorHeightKey {
     }
 
     void SetNull() {
-        type = 0;
+        type = AddressType::UNKNOWN;
         hashBytes.SetNull();
         blockHeight = 0;
     }
@@ -321,13 +327,13 @@ struct CMempoolAddressDelta
 
 struct CMempoolAddressDeltaKey
 {
-    int type;
+    AddressType type;
     uint160 addressBytes;
     uint256 txhash;
     unsigned int index;
     int spending;
 
-    CMempoolAddressDeltaKey(int addressType, uint160 addressHash, uint256 hash, unsigned int i, int s) {
+    CMempoolAddressDeltaKey(AddressType addressType, uint160 addressHash, uint256 hash, unsigned int i, int s) {
         type = addressType;
         addressBytes = addressHash;
         txhash = hash;
@@ -335,7 +341,7 @@ struct CMempoolAddressDeltaKey
         spending = s;
     }
 
-    CMempoolAddressDeltaKey(int addressType, uint160 addressHash) {
+    CMempoolAddressDeltaKey(AddressType addressType, uint160 addressHash) {
         type = addressType;
         addressBytes = addressHash;
         txhash.SetNull();
@@ -366,5 +372,18 @@ struct CMempoolAddressDeltaKeyCompare
         }
     }
 };
+
+//! \brief Retrieves from script type the associated address type
+//! \param [in] scriptType: the script type used to determine address type
+//! \return addressType: the associated address type
+inline AddressType fromScriptTypeToAddressType(CScript::ScriptType scriptType)
+{
+    AddressType addressType = AddressType::UNKNOWN;
+    if (scriptType == CScript::ScriptType::P2PKH || scriptType == CScript::ScriptType::P2PK)
+        addressType = AddressType::PUBKEY;
+    else if (scriptType == CScript::ScriptType::P2SH)
+        addressType = AddressType::SCRIPT;
+    return addressType;
+}
 
 #endif // BITCOIN_ADDRESSINDEX_H

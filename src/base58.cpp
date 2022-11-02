@@ -6,6 +6,7 @@
 
 #include "version.h"
 #include "streams.h"
+#include "addressindex.h"
 
 #include <assert.h>
 #include <stdint.h>
@@ -155,17 +156,23 @@ CTxDestination CBitcoinAddress::Get() const
         return CNoDestination();
 }
 
-bool CBitcoinAddress::GetIndexKey(uint160& hashBytes, int& type) const
+bool CBitcoinAddress::GetIndexKey(uint160& hashBytes, AddressType& type) const
 {
     if (!IsValid()) {
         return false;
-    } else if (vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS)) {
+    }
+    
+    if (vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS) ||
+        vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS_OLD)) {
         memcpy(&hashBytes, &vchData[0], 20);
-        type = 1;
+        type = AddressType::PUBKEY;
         return true;
-    } else if (vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS)) {
+    }
+    
+    if (vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS) ||
+        vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS_OLD)) {
         memcpy(&hashBytes, &vchData[0], 20);
-        type = 2;
+        type = AddressType::SCRIPT;
         return true;
     }
 

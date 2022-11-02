@@ -589,10 +589,13 @@ public:
 
     bool IsPayToScriptHash() const;
 
-    enum ScriptType : int {
+    bool IsPayToPublicKey() const;
+
+    enum class ScriptType {
         UNKNOWN = 0,
         P2PKH = 1,
         P2SH = 2,
+        P2PK = 3
     };
 
     ScriptType GetType() const;
