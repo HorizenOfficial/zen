@@ -146,9 +146,9 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
             if (GetSpentIndex(spentKey, spentInfo)) {
                 in.pushKV("value", ValueFromAmount(spentInfo.satoshis));
                 in.pushKV("valueZat", spentInfo.satoshis);
-                if (spentInfo.addressType == 1) {
+                if (spentInfo.addressType == AddressType::PUBKEY) {
                     in.pushKV("address", CBitcoinAddress(CKeyID(spentInfo.addressHash)).ToString());
-                } else if (spentInfo.addressType == 2)  {
+                } else if (spentInfo.addressType == AddressType::SCRIPT)  {
                     in.pushKV("address", CBitcoinAddress(CScriptID(spentInfo.addressHash)).ToString());
                 }
             }
@@ -243,9 +243,9 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
         if (GetSpentIndex(spentKey, spentInfo)) {
             in.pushKV("value", ValueFromAmount(spentInfo.satoshis));
             in.pushKV("valueZat", spentInfo.satoshis);
-            if (spentInfo.addressType == 1) {
+            if (spentInfo.addressType == AddressType::PUBKEY) {
                 in.pushKV("address", CBitcoinAddress(CKeyID(spentInfo.addressHash)).ToString());
-            } else if (spentInfo.addressType == 2)  {
+            } else if (spentInfo.addressType == AddressType::SCRIPT)  {
                 in.pushKV("address", CBitcoinAddress(CScriptID(spentInfo.addressHash)).ToString());
             }
         }

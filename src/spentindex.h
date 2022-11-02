@@ -6,6 +6,7 @@
 #ifndef BITCOIN_SPENTINDEX_H
 #define BITCOIN_SPENTINDEX_H
 
+#include "addressindex.h"
 #include "uint256.h"
 #include "amount.h"
 
@@ -42,7 +43,7 @@ struct CSpentIndexValue {
     unsigned int inputIndex;
     int blockHeight;
     CAmount satoshis;
-    int addressType;
+    AddressType addressType;
     uint160 addressHash;
 
     ADD_SERIALIZE_METHODS;
@@ -53,11 +54,16 @@ struct CSpentIndexValue {
         READWRITE(inputIndex);
         READWRITE(blockHeight);
         READWRITE(satoshis);
-        READWRITE(addressType);
+
+        // int is used for backward compatibility
+        int addressTypeInt = static_cast<int>(addressType);
+        READWRITE(addressTypeInt);
+        addressType = static_cast<AddressType>(addressTypeInt);
+
         READWRITE(addressHash);
     }
 
-    CSpentIndexValue(uint256 t, unsigned int i, int h, CAmount s, int type, uint160 a) {
+    CSpentIndexValue(uint256 t, unsigned int i, int h, CAmount s, AddressType type, uint160 a) {
         txid = t;
         inputIndex = i;
         blockHeight = h;
@@ -75,7 +81,7 @@ struct CSpentIndexValue {
         inputIndex = 0;
         blockHeight = 0;
         satoshis = 0;
-        addressType = 0;
+        addressType = AddressType::UNKNOWN;
         addressHash.SetNull();
     }
 

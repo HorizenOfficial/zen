@@ -7,6 +7,7 @@
 
 #include "tinyformat.h"
 #include "utilstrencodings.h"
+#include "hash.h"
 
 namespace {
 inline std::string ValueString(const std::vector<unsigned char>& vch)
@@ -17,8 +18,6 @@ inline std::string ValueString(const std::vector<unsigned char>& vch)
         return HexStr(vch);
 }
 } // anon namespace
-
-using namespace std;
 
 const char* GetOpName(opcodetype opcode)
 {
@@ -216,25 +215,25 @@ bool CScript::IsPayToPublicKeyHash() const
 {
     // Extra-fast test for pay-to-pubkey-hash CScripts:
 
-    // Check if this script is P2SH without OP_CHECKBLOCKATHEIGHT
-    bool p2pkh = (this->size() == 25 &&
-                (*this)[0] == OP_DUP &&
-                (*this)[1] == OP_HASH160 &&
-                (*this)[2] == 0x14 &&
-                (*this)[23] == OP_EQUALVERIFY &&
-                (*this)[24] == OP_CHECKSIG);
+    // Check if this script is P2KH without OP_CHECKBLOCKATHEIGHT
+    bool p2pkh = (size() == 25 &&
+                  at(0) == OP_DUP &&
+                  at(1) == OP_HASH160 &&
+                  at(2) == 0x14 &&
+                  at(23) == OP_EQUALVERIFY &&
+                  at(24) == OP_CHECKSIG);
 
      // Check if this script is P2PKH with OP_CHECKBLOCKATHEIGHT
-     // The overall size should not be more then 62:
+     // The overall size should not be more than 64:
      // 25 bytes for common P2PKH + 1 byte size + 32 bytes of block hash + 1 byte size + 4 bytes of block height + 1 byte opcode
-    bool p2pkhWithReplay = (this->size() > 25 &&
-                            this->size() < 65 &&
-                          (*this)[0] == OP_DUP &&
-                          (*this)[1] == OP_HASH160 &&
-                          (*this)[2] == 0x14 &&
-                          (*this)[23] == OP_EQUALVERIFY &&
-                          (*this)[24] == OP_CHECKSIG &&
-                          (*this)[this->size() -1] == OP_CHECKBLOCKATHEIGHT);
+    bool p2pkhWithReplay = (size() > 25 &&
+                            size() < 65 &&
+                            at(0) == OP_DUP &&
+                            at(1) == OP_HASH160 &&
+                            at(2) == 0x14 &&
+                            at(23) == OP_EQUALVERIFY &&
+                            at(24) == OP_CHECKSIG &&
+                            at(size() -1) == OP_CHECKBLOCKATHEIGHT);
 
     return p2pkh || p2pkhWithReplay;
 }
@@ -244,22 +243,43 @@ bool CScript::IsPayToScriptHash() const
     // Extra-fast test for pay-to-script-hash CScripts:
 
     // Check if this script is P2SH without OP_CHECKBLOCKATHEIGHT
-    bool p2sh = (this->size() == 23 &&
-                 this->at(0) == OP_HASH160 &&
-                 this->at(1) == 0x14 &&
-                 this->at(22) == OP_EQUAL);
+    bool p2sh = (size() == 23 &&
+                 at(0) == OP_HASH160 &&
+                 at(1) == 0x14 &&
+                 at(22) == OP_EQUAL);
 
     // Check if this script is P2SH with OP_CHECKBLOCKATHEIGHT
-    // The overall size should not be more then 62:
+    // The overall size should not be more than 62:
     // 23 bytes for common P2SH + 1 byte size + 32 bytes of block hash + 1 byte size + 4 bytes of block height + 1 byte opcode
-    bool p2shWithReplay = (this->size() > 23 &&
-                           this->size() < 63 &&
-                           this->at(0) == OP_HASH160 &&
-                           this->at(1) == 0x14 &&
-                           this->at(22) == OP_EQUAL &&
-                           this->at(this->size() - 1) == OP_CHECKBLOCKATHEIGHT);
+    bool p2shWithReplay = (size() > 23 &&
+                           size() < 63 &&
+                           at(0) == OP_HASH160 &&
+                           at(1) == 0x14 &&
+                           at(22) == OP_EQUAL &&
+                           at(size() - 1) == OP_CHECKBLOCKATHEIGHT);
 
     return p2sh || p2shWithReplay;
+}
+
+bool CScript::IsPayToPublicKey() const
+{
+    // Extra-fast test for pay-to-pubkey CScripts:
+
+    // Check if this script is P2PK without OP_CHECKBLOCKATHEIGHT
+    bool p2pk = (size() == 35 &&
+                 at(0) == 0x21 &&
+                 at(34) == OP_CHECKSIG);
+
+     // Check if this script is P2PK with OP_CHECKBLOCKATHEIGHT
+     // The overall size should not be more than 74:
+     // 35 bytes for common P2PK + 1 byte size + 32 bytes of block hash + 1 byte size + 4 bytes of block height + 1 byte opcode
+    bool p2pkWithReplay = (size() > 35 &&
+                           size() < 75 &&
+                           at(0) == 0x21 &&
+                           at(34) == OP_CHECKSIG &&
+                           at(size() - 1) == OP_CHECKBLOCKATHEIGHT);
+
+    return p2pk || p2pkWithReplay;
 }
 
 bool CScript::IsPushOnly() const
@@ -284,7 +304,7 @@ std::string CScript::ToString() const
 {
     std::string str;
     opcodetype opcode;
-    std::vector<unsigned char> vch;
+    vector<unsigned char> vch;
     const_iterator pc = begin();
     while (pc < end())
     {
@@ -305,28 +325,48 @@ std::string CScript::ToString() const
 
 CScript::ScriptType CScript::GetType() const
 {
-    if (this->IsPayToPublicKeyHash())
-        return CScript::P2PKH;
-    if (this->IsPayToScriptHash())
-        return CScript::P2SH;
+    if (IsPayToPublicKeyHash())
+        return CScript::ScriptType::P2PKH;
+    if (IsPayToScriptHash())
+        return CScript::ScriptType::P2SH;
+    if (IsPayToPublicKey())
+        return CScript::ScriptType::P2PK;
     // We don't know this script type
-    return CScript::UNKNOWN;
+    return CScript::ScriptType::UNKNOWN;
 }
 
 uint160 CScript::AddressHash() const
 {
     // where the address bytes begin depends on the script type
-    int start;
-    if (this->IsPayToPublicKeyHash())
+    int start, size = 20;
+    bool isPayToPublicKey = false;
+    if (IsPayToPublicKeyHash())
+    {
         start = 3;
-    else if (this->IsPayToScriptHash())
+        size = 20;
+    }
+    else if (IsPayToScriptHash())
+    {
         start = 2;
+        size = 20;
+    }
+    else if (IsPayToPublicKey())
+    {
+        start = 1;
+        size = 33;
+        isPayToPublicKey = true;
+    }
     else {
         // unknown script type; return zeros (this can happen)
-        vector<unsigned char> hashBytes;
-        hashBytes.resize(20, 0);
-        return uint160(hashBytes);
+        return uint160(vector<unsigned char>(size));
     }
-    vector<unsigned char> hashBytes(this->begin() + start, this->begin() + start + 20);
+    
+    vector<unsigned char> hashBytes(this->begin() + start, this->begin() + start + size);
+
+    if (isPayToPublicKey) //the public key is not yet hashed and need to be
+    {
+        return Hash160(hashBytes);
+    }
+
     return uint160(hashBytes);
 }
