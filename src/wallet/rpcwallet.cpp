@@ -53,6 +53,7 @@ static CCriticalSection cs_nWalletUnlockTime;
 // transaction.h comment: spending taddr output requires CTxIn >= 148 bytes and typical taddr txout is 34 bytes
 #define CTXIN_SPEND_DUST_SIZE   148
 #define CTXOUT_REGULAR_SIZE     34
+#define CTXIN_SPEND_P2SH_SIZE   400
 
 
 // Private method:
@@ -710,7 +711,7 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
             "                             this is not part of the transaction, just kept in your wallet\n"
             "4. \"comment-to\"         (string, optional) a comment to store the name of the person or organization\n"
             "                             to which you're sending the transaction\n"
-            "                             this is not part of thetransaction, just kept in your wallet\n"
+            "                             this is not part of the transaction, just kept in your wallet\n"
             "5. subtractfeefromamount  (boolean, optional, default=false) the fee will be deducted from the amount being sent\n"
             "                             the recipient will receive less Horizen than you enter in the amount field\n"
             
@@ -5235,9 +5236,30 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
     if (outputs.size()==0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amounts array is empty.");
 
+    // Minimum confirmations
+    int nMinDepth = 1;
+    if (params.size() > 2) {
+        nMinDepth = params[2].get_int();
+    }
+    if (nMinDepth < 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Minimum number of confirmations cannot be less than 0");
+    }
+
+    // Fee in Zatoshis, not currency format)
+    CAmount nFee = ASYNC_RPC_OPERATION_DEFAULT_MINERS_FEE;
+    if (params.size() > 3) {
+        if (params[3].get_real() == 0.0) {
+            nFee = 0;
+        } else {
+            nFee = AmountFromValue( params[3] );
+        }
+    }
+
     // Recipients
     std::vector<SendManyRecipient> taddrRecipients;
     std::vector<SendManyRecipient> zaddrRecipients;
+    std::vector<SendManyRecipient> taddrRecipientsIgnored;
+    std::vector<SendManyRecipient> zaddrRecipientsIgnored;
     CAmount nTotalOut = 0;
 
     bool sendChangeToSource = false;
@@ -5299,7 +5321,10 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
         nTotalOut += nAmount;
     }
 
-
+    // Check that the user specified fee is sane.
+    if (nFee > nTotalOut) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Fee %s is greater than the sum of outputs %s", FormatMoney(nFee), FormatMoney(nTotalOut)));
+    }
 
     // Check the number of zaddr outputs does not exceed the limit.
     if (zaddrRecipients.size() > Z_SENDMANY_MAX_ZADDR_OUTPUTS(shieldedTxVersion))  {
@@ -5308,6 +5333,72 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
 
     // As a sanity check, estimate and verify that the size of the transaction will be valid.
     // Depending on the input notes, the actual tx size may turn out to be larger and perhaps invalid.
+    
+    /* FIX IN PROGRESS */
+    size_t estimatedTxSize = 200;  // tx overhead + wiggle room
+
+    if (fromTaddr)
+    {
+        // Get available utxos
+        vector<COutput> vecOutputs;
+        pwalletMain->AvailableCoins(vecOutputs, true, NULL, false, false);
+        // std::sort(vecOutputs.begin(), vecOutputs.end(), [](COutput a, COutput b) -> bool {
+        // return ( a.tx->getTxBase()->GetVout()[a.pos].nValue < b.tx->getTxBase()->GetVout()[b.pos].nValue);
+        // });
+        bool sizeLimitReached = false;
+
+        CAmount amountSendingCumulative = 0;
+        CAmount amountToSendCumulative = 0;
+        for (int i = 0; i < taddrRecipients.size(); i++)
+        {
+            amountToSendCumulative += std::get<1>(taddrRecipients[i]);
+
+            if (sizeLimitReached)
+            {
+                taddrRecipientsIgnored.push_back(taddrRecipients[i]);
+                continue;
+            }
+            size_t estimatedTxSizeTemp = estimatedTxSize + CTXOUT_REGULAR_SIZE;
+           
+            for (const COutput& out : vecOutputs) {
+                if (!out.fSpendable)
+                    continue;
+
+                if (!out.nDepth < nMinDepth)
+                    continue;
+
+                CTxDestination address;
+                if (!ExtractDestination(out.tx->getTxBase()->GetVout()[out.pos].scriptPubKey, address))
+                    continue;
+
+                bool isCoinbase = out.tx->getTxBase()->IsCoinBase();
+                if (isCoinbase && true) { //handle isSingleZaddrOutput case
+                    continue;
+                }
+
+                CBitcoinAddress ba(address);
+                size_t estimatedTxSizeIncrease = (ba.IsScript()) ? CTXIN_SPEND_P2SH_SIZE : CTXIN_SPEND_DUST_SIZE;
+
+                if (estimatedTxSizeTemp + estimatedTxSizeIncrease >= MAX_TX_SIZE)
+                {
+                    sizeLimitReached = true;
+                    taddrRecipientsIgnored.push_back(taddrRecipients[i]);
+                    amountToSendCumulative -= std::get<1>(taddrRecipients[i]);
+                    break;
+                }
+                else
+                {
+                    amountSendingCumulative += out.tx->getTxBase()->GetVout()[out.pos].nValue;
+                    if (amountSendingCumulative >= amountToSendCumulative)
+                    { 
+                        break;
+                    }
+                }               
+            }
+        }
+    }
+    /* FIX IN PROGRESS */
+
     size_t txsize = 0;
     CMutableTransaction mtx;
     mtx.nVersion = shieldedTxVersion;
@@ -5324,31 +5415,6 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
     if (txsize > MAX_TX_SIZE) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Too many outputs, size of raw transaction would be larger than limit of %d bytes", MAX_TX_SIZE ));
     }
-
-    // Minimum confirmations
-    int nMinDepth = 1;
-    if (params.size() > 2) {
-        nMinDepth = params[2].get_int();
-    }
-    if (nMinDepth < 0) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Minimum number of confirmations cannot be less than 0");
-    }
-
-    // Fee in Zatoshis, not currency format)
-    CAmount nFee = ASYNC_RPC_OPERATION_DEFAULT_MINERS_FEE;
-    if (params.size() > 3) {
-        if (params[3].get_real() == 0.0) {
-            nFee = 0;
-        } else {
-            nFee = AmountFromValue( params[3] );
-        }
-
-        // Check that the user specified fee is sane.
-        if (nFee > nTotalOut) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Fee %s is greater than the sum of outputs %s", FormatMoney(nFee), FormatMoney(nTotalOut)));
-        }
-    }
-
 
     // Use input parameters as the optional context info to be returned by z_getoperationstatus and z_getoperationresult.
     UniValue o(UniValue::VOBJ);
@@ -5751,8 +5817,6 @@ When estimating the number of coinbase utxos we can shield in a single transacti
     (3*(33+1))+3 = 105 byte redeem script
     105 + 1 + 3*(73+1) = 328 bytes of scriptSig, rounded up to 400 based on testnet experiments.
 */
-#define CTXIN_SPEND_P2SH_SIZE 400
-
 #define SHIELD_COINBASE_DEFAULT_LIMIT 50
 
 UniValue z_shieldcoinbase(const UniValue& params, bool fHelp)
@@ -6140,7 +6204,10 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
     size_t mempoolLimit = (nUTXOLimit != 0) ? nUTXOLimit : (size_t)GetArg("-mempooltxinputlimit", 0);
 
     size_t estimatedTxSize = 200;  // tx overhead + wiggle room
-    if (isToZaddr) {
+    if (!isToZaddr) {
+        estimatedTxSize += CTXOUT_REGULAR_SIZE;
+    }
+    else {
         estimatedTxSize += GetJoinSplitSize(shieldedTxVersion);
     }
 
