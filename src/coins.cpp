@@ -2260,6 +2260,8 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
     return true;
 }
 
+static int gino = 0;
+
 CSidechain::State CCoinsViewCache::GetSidechainState(const uint256& scId) const
 {
     CSidechain sidechain;
@@ -2269,7 +2271,17 @@ CSidechain::State CCoinsViewCache::GetSidechainState(const uint256& scId) const
     if (!sidechain.isCreationConfirmed())
         return CSidechain::State::UNCONFIRMED;
 
-    if (this->GetHeight() >= sidechain.GetScheduledCeasingHeight())
+    int temp = 0;
+    if (temp == 1)
+    {
+        gino = 0;
+    }
+    if (temp == 2)
+    {
+        gino = -1;
+    }
+
+    if (this->GetHeight() + gino >= sidechain.GetScheduledCeasingHeight())
         return CSidechain::State::CEASED;
     else
         return CSidechain::State::ALIVE;

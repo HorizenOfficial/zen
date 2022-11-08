@@ -69,7 +69,7 @@ public:
     CScCertificate& operator=(const CScCertificate& tx);
     ~CScCertificate() = default;
 
-    /** Convert a CMutableScCertificate into a CScCertificate.  */
+    /** Convert a CMutableScCertificate into a CScCertificate. */
     CScCertificate(const CMutableScCertificate &tx);
 
     friend bool operator==(const CScCertificate& a, const CScCertificate& b)
