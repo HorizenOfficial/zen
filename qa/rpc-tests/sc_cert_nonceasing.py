@@ -19,7 +19,7 @@ DEBUG_MODE = 1
 NUMB_OF_NODES = 3
 EPOCH_LENGTH = 0 # this test is for non ceasing sc, hence EPOCH_LENGTH must be 0!
 FT_SC_FEE = Decimal('0')
-MBTR_SC_FEE = Decimal('0')
+MBTR_SC_FEE = Decimal('0.5')
 CERT_FEE = Decimal('0.00015')
 PARAMS_NAME = "sc"
 
@@ -126,14 +126,14 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         mark_logs("Node0 confirms sc creation generating 2 blocks", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(3)
 
-        #------------------------------------------------
-        mark_logs("## Test nok, wrong quality ##", self.nodes, DEBUG_MODE)
-        #------------------------------------------------
-        epoch_number = 0
-        quality = -9
-        ref_height = self.nodes[0].getblockcount()-2
-        amount_cert_1 = {"address": addr_node2, "amount": bwt_amount_1}
-        self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_1, True, "Invalid quality parameter")
+        # #------------------------------------------------
+        # mark_logs("## Test nok, wrong quality ##", self.nodes, DEBUG_MODE)
+        # #------------------------------------------------
+        # epoch_number = 0
+        # quality = -9
+        # ref_height = self.nodes[0].getblockcount()-2
+        # amount_cert_1 = {"address": addr_node2, "amount": bwt_amount_1}
+        # self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_1, True, "Invalid quality parameter")
 
         #------------------------------------------------
         mark_logs("## Test ok, epoch 0 ##", self.nodes, DEBUG_MODE)
@@ -147,31 +147,52 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         #------------------------------------------------
         mark_logs("## Test nok, trying to overwrite ##", self.nodes, DEBUG_MODE)
         #------------------------------------------------
-        ref_height = self.nodes[0].getblockcount()-2
+        ref_height = self.nodes[0].getblockcount() - 2
         amount_cert_1 = {"address": addr_node2, "amount": bwt_amount_1}
-<<<<<<< HEAD
-        self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_1, True, "invalid timing for certificate")
-=======
-        self.try_send_certificate(0, scid, epoch_number, ref_quality, ref_height, MBTR_SC_FEE_HIGH, FT_SC_FEE, amount_cert_1, True, "invalid timing for certificate")
+        self.try_send_certificate(0, scid, epoch_number, ref_quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_1, True, "invalid timing for certificate")
 
         #------------------------------------------------
         mark_logs("## Test nok, trying to overwrite with a cert with less quality ##", self.nodes, DEBUG_MODE)
         #------------------------------------------------
         epoch_number = 0
         less_quality = 0
-        ref_height = self.nodes[0].getblockcount()-2
+        ref_height = self.nodes[0].getblockcount() - 2
         amount_cert_1 = {"address": addr_node2, "amount": bwt_amount_1}
-        self.try_send_certificate(0, scid, epoch_number, less_quality, ref_height, MBTR_SC_FEE_HIGH, FT_SC_FEE, amount_cert_1, True, "invalid timing for certificate")
->>>>>>> 4b87d4fcb (more test updates)
+        self.try_send_certificate(0, scid, epoch_number, less_quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_1, True, "invalid timing for certificate")
 
         #------------------------------------------------
         mark_logs("## Test nok, trying to overwrite with a cert with higher quality ##", self.nodes, DEBUG_MODE)
         #------------------------------------------------
         epoch_number = 0
         more_quality = 100
-        ref_height = self.nodes[0].getblockcount()-2
+        ref_height = self.nodes[0].getblockcount() - 2
         amount_cert_1 = {"address": addr_node2, "amount": bwt_amount_1}
-        self.try_send_certificate(0, scid, epoch_number, more_quality, ref_height, MBTR_SC_FEE_HIGH, FT_SC_FEE, amount_cert_1, True, "invalid timing for certificate")
+        self.try_send_certificate(0, scid, epoch_number, more_quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_1, True, "invalid timing for certificate")
+
+        #------------------------------------------------
+        mark_logs("## Test nok, trying to overwrite ##", self.nodes, DEBUG_MODE)
+        #------------------------------------------------
+        ref_height = self.nodes[0].getblockcount() - 1
+        amount_cert_1 = {"address": addr_node2, "amount": bwt_amount_1}
+        self.try_send_certificate(0, scid, epoch_number, ref_quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_1, True, "invalid timing for certificate")
+
+        #------------------------------------------------
+        mark_logs("## Test nok, trying to overwrite with a cert with less quality ##", self.nodes, DEBUG_MODE)
+        #------------------------------------------------
+        epoch_number = 0
+        less_quality = 0
+        ref_height = self.nodes[0].getblockcount() - 1
+        amount_cert_1 = {"address": addr_node2, "amount": bwt_amount_1}
+        self.try_send_certificate(0, scid, epoch_number, less_quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_1, True, "invalid timing for certificate")
+
+        #------------------------------------------------
+        mark_logs("## Test nok, trying to overwrite with a cert with higher quality ##", self.nodes, DEBUG_MODE)
+        #------------------------------------------------
+        epoch_number = 0
+        more_quality = 100
+        ref_height = self.nodes[0].getblockcount() - 1
+        amount_cert_1 = {"address": addr_node2, "amount": bwt_amount_1}
+        self.try_send_certificate(0, scid, epoch_number, more_quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_1, True, "invalid timing for certificate")
 
         #------------------------------------------------
         mark_logs("## Generating blocks and checking info ##", self.nodes, DEBUG_MODE)
