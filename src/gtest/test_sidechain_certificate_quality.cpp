@@ -661,31 +661,6 @@ TEST_F(SidechainsMultipleCertsTestSuite, V2CertWithNonZeroQualityIsAccepted)
     ASSERT_TRUE(sidechainsView->CheckQuality(cert));
 }
 
-TEST_F(SidechainsMultipleCertsTestSuite, V2CheckQualityAlwaysReturnsTrueForCertsInSameEpoch) {
-    CSidechain initialScState;
-    initialScState.fixedParams.withdrawalEpochLength = 0;
-    initialScState.fixedParams.version = 2;
-    initialScState.balance = CAmount(10);
-    initialScState.creationBlockHeight = 1987;
-    initialScState.lastTopQualityCertHash = uint256S("ddd");
-    initialScState.lastTopQualityCertQuality = 0;
-    initialScState.lastTopQualityCertReferencedEpoch = 12;
-    uint256 scId = uint256S("aaa");
-    storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
-
-    CMutableScCertificate cert;
-    cert.scId = scId;
-    // Same epoch
-    cert.epochNumber = initialScState.lastTopQualityCertReferencedEpoch;
-    cert.quality = 0;
-    EXPECT_TRUE(sidechainsView->CheckQuality(cert));
-
-    // Different epoch
-    cert.epochNumber = initialScState.lastTopQualityCertReferencedEpoch + 1;
-    cert.quality = 0;
-    EXPECT_TRUE(sidechainsView->CheckQuality(cert));
-}
-
 /////////////////////////////////////////////////////////////////////////////////
 /////////////////////////// CheckCertificatesOrdering //////////////////////////
 /////////////////////////////////////////////////////////////////////////////////
