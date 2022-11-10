@@ -310,6 +310,7 @@ struct CSidechainUndoData
              res += strprintf("appliedMaturedAmount=%d.%08d\n", appliedMaturedAmount / COIN, appliedMaturedAmount % COIN);
 
         if (contentBitMask & AvailableSections::CROSS_EPOCH_CERT_DATA)
+        {
             res += strprintf("pastEpochTopQualityCertView=%s\n", pastEpochTopQualityCertView.ToString());
             res += strprintf("scFees.size()=%u\n", scFees.size());
             for(const auto& entry: scFees) {
@@ -321,6 +322,7 @@ struct CSidechainUndoData
                     res += strprintf("submissionHeight=%d\n", casted_entry->submissionHeight);
                 }
             }
+        }
 
         if (contentBitMask & AvailableSections::ANY_EPOCH_CERT_DATA)
         {
