@@ -45,6 +45,9 @@ class MCTestUtils(object):
         if keyrot == True:
             args.append("-r")
 
+        args.append("--")   # Any parameter after the double dash is ignored by getopt, allowing to pass
+                            # also negative values.
+
         args.append(str(params_dir))
 
         if proof_path is not None:
