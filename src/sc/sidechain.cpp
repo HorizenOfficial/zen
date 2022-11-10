@@ -770,7 +770,7 @@ void CSidechain::UpdateScFees(const CScCertificateView& certView, int blockHeigh
     LogPrint("sc", "%s():%d - pushing f=%d/m=%d into list with size %d\n",
         __func__, __LINE__, ftScFee, mbtrScFee, scFees.size());
 
-    // v1 sidechains
+    // Ceasable sidechain
     if (!isNonCeasing()) {
         scFees.emplace_back(new Sidechain::ScFeeData(ftScFee, mbtrScFee));
 
@@ -783,11 +783,11 @@ void CSidechain::UpdateScFees(const CScCertificateView& certView, int blockHeigh
         {
             const auto& entry = scFees.front();
             LogPrint("sc", "%s():%d - popping %s from list, as scFees maxsize has been reached\n",
-                __func__, __LINE__, entry->ToString().c_str());
+                __func__, __LINE__, entry->ToString());
             scFees.pop_front();
         }
     }
-    // v2 sidechains
+    // Non-ceasable sidechain
     else {
         auto scFeeIt = std::find_if(scFees.begin(), scFees.end(),
             [&blockHeight](const std::shared_ptr<Sidechain::ScFeeData> & scFeeElem) {
@@ -799,25 +799,17 @@ void CSidechain::UpdateScFees(const CScCertificateView& certView, int blockHeigh
         if (scFeeIt == scFees.end()) {
             scFees.emplace_back(new Sidechain::ScFeeData_v2(ftScFee, mbtrScFee, blockHeight));
 
-            // as for v1 sidechains
+            // As for ceasable sidechains
             const size_t max_size { static_cast<size_t>(maxSizeOfScFeesContainers) };
 
-            while (scFees.size() > max_size)
-            {
-                const auto& entry = scFees.front();
-                LogPrint("sc", "%s():%d - popping %s from list, as scFees maxsize has been reached\n",
-                    __func__, __LINE__, entry->ToString().c_str());
-                scFees.pop_front();
-            }
-
-            // Also purge all elements submitted within a block that now is too old to be considered
+            // Also purge all elements submitted within a block that now are too old to be considered
             const auto threshold{blockHeight - this->maxSizeOfScFeesContainers};
             scFees.remove_if([threshold](std::shared_ptr<Sidechain::ScFeeData> entry) {
                 const std::shared_ptr<Sidechain::ScFeeData_v2> casted_entry = std::dynamic_pointer_cast<Sidechain::ScFeeData_v2>(entry);
                 const bool testCondition = (casted_entry->submissionHeight <= threshold);
                 if (testCondition)
                     LogPrint("sc", "%s():%d - popping %s from list, as entry is too old (threshold height was %d)\n",
-                        __func__, __LINE__, casted_entry->ToString().c_str(), threshold);
+                        __func__, __LINE__, casted_entry->ToString(), threshold);
                 return testCondition;
             });
 
@@ -826,8 +818,9 @@ void CSidechain::UpdateScFees(const CScCertificateView& certView, int blockHeigh
         // ft and/or mbtr fee rates. All the checks on the container size and element age have been performed
         // at the moment of the element insertion, hence their are not required here
         else {
-            scFeeIt->get()->forwardTxScFee = std::min(scFeeIt->get()->forwardTxScFee, ftScFee);
-            scFeeIt->get()->mbtrTxScFee    = std::min(scFeeIt->get()->mbtrTxScFee, mbtrScFee);
+            auto scFeeEntry = scFeeIt->get();
+            scFeeEntry->forwardTxScFee = std::min(scFeeEntry->forwardTxScFee, ftScFee);
+            scFeeEntry->mbtrTxScFee    = std::min(scFeeEntry->mbtrTxScFee, mbtrScFee);
         }
 
     }
