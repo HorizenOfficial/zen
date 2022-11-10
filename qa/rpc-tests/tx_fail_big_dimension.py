@@ -27,13 +27,12 @@ class TxFailBigDimension(BitcoinTestFramework):
         #
         # node1:
         # +] ztgdy7Z2Jp7PMjLcu1DEbRddyeRWdLV6TMJ                                                             -> 0.00000000
-        # +] ztYrdPYew999PYvj5ESTHPuggvnMAaw46Sf                                                             -> 29586.01562500 {11189 utxos} [?11193?]
+        # +] ztYrdPYew999PYvj5ESTHPuggvnMAaw46Sf                                                             -> 29762.03125000 {12000 utxos} [?11193?]
         #
         # node2:
         # +] ztZo6E8FwA3dprgf51pwyPX2xxVwCcYKvwb                                                             -> 0.00000000
-		# +] ztV1ZjusV14v91xDK16F1mb8TTxtoD1BzTJ                                                             -> 365.53713418 (+2.92968800 immature) {4840 utxos (+100 immature)}
+		# +] ztV1ZjusV14v91xDK16F1mb8TTxtoD1BzTJ                                                             -> 0.00000000 (+11.71875000 immature) {100 utxos (+100 immature)}
         #
-        # tot_sc = 175.31250000 + (0.70312500 immature) {creation + 804 fwt (+3 immature)}
 
         resource_file = os.sep.join([os.path.dirname(__file__), 'resources', 'tx_fail_big_dimension', 'test_setup_.zip'])
         with zipfile.ZipFile(resource_file, 'r') as zip_ref:
@@ -163,10 +162,10 @@ class TxFailBigDimension(BitcoinTestFramework):
         nt1b = self.nodes[1].z_getbalance(nt1)
         nt2b = self.nodes[2].z_getbalance(nt2)
 
-        print("N0 -> (" + nt0 + " , " + nt0b + ")")
-        print("N0 -> (" + nz0 + " , " + nz0b + ")")
-        print("N1 -> (" + nt1 + " , " + nt1b + ")")
-        print("N2 -> (" + nt2 + " , " + nt2b + ")")
+        print("N0 -> (" + nt0 + " , " + str(nt0b) + ")")
+        print("N0 -> (" + nz0 + " , " + str(nz0b) + ")")
+        print("N1 -> (" + nt1 + " , " + str(nt1b) + ")")
+        print("N2 -> (" + nt2 + " , " + str(nt2b) + ")")
 
         return
 
