@@ -191,8 +191,8 @@ enum
     SER_GETHASH         = (1 << 2),
 };
 
-#define READWRITE(obj)                      (::SerReadWrite(s, (obj), nType, nVersion, ser_action))
-#define READWRITE_POLYMORPHIC(obj, b, d)    (::SerReadWrite<decltype(s), b, decltype(obj), d>(s, (obj), nType, nVersion, ser_action))
+#define READWRITE(obj)                            (::SerReadWrite(s, (obj), nType, nVersion, ser_action))
+#define READWRITE_POLYMORPHIC(obj, base, derived) (::SerReadWrite<decltype(s), base, decltype(obj), derived>(s, (obj), nType, nVersion, ser_action))
 
 #define READWRITE_VARINT_WITH_SIGN(obj)                                             \
     if (ser_action.ForRead()) {                                                     \
@@ -530,10 +530,10 @@ CVarInt<I> WrapVarInt(I& n) { return CVarInt<I>(n); }
  * Smart pointers, optionally used for polymorphic types
  */
 
-template<typename Stream, typename T, typename D>
-void Unserialize(Stream& os, const std::shared_ptr<T>& p, int nType, int nVersion)
+template<typename Stream, typename Base, typename Derived>
+void Unserialize(Stream& os, const std::shared_ptr<Base>& p, int nType, int nVersion)
 {
-    std::shared_ptr<D> d = std::dynamic_pointer_cast<D>(p);
+    std::shared_ptr<Derived> d = std::dynamic_pointer_cast<Derived>(p);
     if (d) {
         Unserialize(os, *d, nType, nVersion);
     }
@@ -542,10 +542,10 @@ void Unserialize(Stream& os, const std::shared_ptr<T>& p, int nType, int nVersio
     }
 }
 
-template<typename Stream, typename T, typename D>
-void Serialize(Stream& os, const std::shared_ptr<T>& p, int nType, int nVersion)
+template<typename Stream, typename Base, typename Derived>
+void Serialize(Stream& os, const std::shared_ptr<Base>& p, int nType, int nVersion)
 {
-    std::shared_ptr<D> d = std::dynamic_pointer_cast<D>(p);
+    std::shared_ptr<Derived> d = std::dynamic_pointer_cast<Derived>(p);
     if (d) {
         Serialize(os, *d, nType, nVersion);
     }
@@ -1057,26 +1057,24 @@ void Unserialize(Stream& is, std::list<T, A>& l, int nType, int nVersion)
  * For example, this is useful in combination with smart pointers for polymorphism.
  */
 
-template<typename Stream, typename T, typename C, typename D>
-void Serialize(Stream& os, const C& l, int nType, int nVersion)
+template<typename Stream, typename Base, typename Container, typename Derived>
+void Serialize(Stream& os, const Container& l, int nType, int nVersion)
 {
     WriteCompactSize(os, l.size());
-    for (typename C::const_iterator it = l.begin(); it != l.end(); ++it) {
-        Serialize<Stream, T, D>(os, (*it), nType, nVersion);
+    for (typename Container::const_iterator it = l.begin(); it != l.end(); ++it) {
+        Serialize<Stream, Base, Derived>(os, (*it), nType, nVersion);
     }
 }
 
-template<typename Stream, typename T, typename C, typename D>
-std::void_t<typename C::value_type> // enforce that C has member value_type, as it happens for STL collections
-Unserialize(Stream& is, C& l, int nType, int nVersion)
+template<typename Stream, typename Base, typename Container, typename Derived>
+std::void_t<typename Container::value_type> // enforce that C has member value_type, as it happens for STL collections
+Unserialize(Stream& is, Container& l, int nType, int nVersion)
 {
     l.clear();
     unsigned int nSize = ReadCompactSize(is);
-    typename C::iterator it = l.begin();
-    for (unsigned int i = 0; i < nSize; i++)
-    {
-        l.emplace_back(new D());
-        Unserialize<Stream, T, D>(is, l.back(), nType, nVersion);
+    for (unsigned int i = 0; i < nSize; ++i) {
+        l.emplace_back(new Derived());
+        Unserialize<Stream, Base, Derived>(is, l.back(), nType, nVersion);
     }
 }
 
@@ -1106,16 +1104,16 @@ inline void SerReadWrite(Stream& s, T& obj, int nType, int nVersion, CSerActionU
 }
 
 
-template<typename Stream, typename T, typename C, typename D>
-inline void SerReadWrite(Stream& s, const C& obj, int nType, int nVersion, CSerActionSerialize ser_action)
+template<typename Stream, typename Base, typename Container, typename Derived>
+inline void SerReadWrite(Stream& s, const Container& obj, int nType, int nVersion, CSerActionSerialize ser_action)
 {
-    ::Serialize<Stream, T, C, D>(s, obj, nType, nVersion);
+    ::Serialize<Stream, Base, Container, Derived>(s, obj, nType, nVersion);
 }
 
-template<typename Stream, typename T, typename C, typename D>
-inline void SerReadWrite(Stream& s, C& obj, int nType, int nVersion, CSerActionUnserialize ser_action)
+template<typename Stream, typename Base, typename Container, typename Derived>
+inline void SerReadWrite(Stream& s, Container& obj, int nType, int nVersion, CSerActionUnserialize ser_action)
 {
-    ::Unserialize<Stream, T, C, D>(s, obj, nType, nVersion);
+    ::Unserialize<Stream, Base, Container, Derived>(s, obj, nType, nVersion);
 }
 
 
