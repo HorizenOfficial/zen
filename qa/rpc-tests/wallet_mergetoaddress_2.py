@@ -6,10 +6,11 @@
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_node, connect_nodes_bi, wait_and_assert_operationid_status
-import os
 import zipfile
+import requests
+import io
 
-class WalletMergeToAddressTest (BitcoinTestFramework):
+class WalletMergeToAddress2Test (BitcoinTestFramework):
 
     op_result_k = "op_result"
     balance_delta_k = "balance_delta"
@@ -37,9 +38,12 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
         # node2:
         # +] ztZTd1erG3X1me9zyPjjZjRXHSq14dVRwF6                                                             -> 0.00000000
         
-        resource_file = os.sep.join([os.path.dirname(__file__), 'resources', 'wallet_mergetoaddress_2', 'test_setup_wallet_mergetoaddress_2.zip'])
-        with zipfile.ZipFile(resource_file, 'r') as zip_ref:
-            zip_ref.extractall(self.options.tmpdir)
+        r = requests.get("https://downloads.horizen.io/file/depends-sources/test_setup_wallet_mergetoaddress_2.zip", stream=True)
+        if r.ok:
+            z = zipfile.ZipFile(io.BytesIO(r.content))
+            z.extractall(self.options.tmpdir)
+        else:
+            raise Exception("Failed to download zip archive for data dir setup (" + str(r.status_code) + " - " + r.reason + ")")
 
     def get_merged_transaction(self, unspent_transactions_before_merge, unspent_transactions_after_merge):
         unspent_txid_before = [x["txid"] for x in unspent_transactions_before_merge]
@@ -55,7 +59,7 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
             myzaddr2 = self.nodes[2].z_listaddresses()[0]
         listunspent_before_merge = self.nodes[2].z_listunspent(0)
         balance_before_merge = self.nodes[2].z_getbalance(myzaddr2)
-        result = self.nodes[0].z_mergetoaddress(["ANY_ZADDR"], myzaddr2, 0, 0, notes_quantity)        
+        result = self.nodes[0].z_mergetoaddress(["ANY_ZADDR"], myzaddr2, 0, 0, notes_quantity)
         wait_and_assert_operationid_status(self.nodes[0], result['opid'], "success", "", 3600)
         self.sync_all()
         self.nodes[1].generate(1)
@@ -112,4 +116,4 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
         assert_equal(result[self.joinsplit_len_k], 57)
 
 if __name__ == '__main__':
-    WalletMergeToAddressTest().main()
+    WalletMergeToAddress2Test().main()
