@@ -791,7 +791,9 @@ void CSidechain::UpdateScFees(const CScCertificateView& certView, int blockHeigh
     else {
         auto scFeeIt = std::find_if(scFees.begin(), scFees.end(),
             [&blockHeight](const std::shared_ptr<Sidechain::ScFeeData> & scFeeElem) {
-                return std::dynamic_pointer_cast<Sidechain::ScFeeData_v2>(scFeeElem)->submissionHeight == blockHeight;
+                const std::shared_ptr<Sidechain::ScFeeData_v2> casted_entry = std::dynamic_pointer_cast<Sidechain::ScFeeData_v2>(scFeeElem);
+                assert(casted_entry);
+                return casted_entry->submissionHeight == blockHeight;
             });
 
         // We have not found a scFeeData for the current height, so we add a new one and perform all the checks
@@ -806,6 +808,7 @@ void CSidechain::UpdateScFees(const CScCertificateView& certView, int blockHeigh
             const auto threshold{blockHeight - this->maxSizeOfScFeesContainers};
             scFees.remove_if([threshold](std::shared_ptr<Sidechain::ScFeeData> entry) {
                 const std::shared_ptr<Sidechain::ScFeeData_v2> casted_entry = std::dynamic_pointer_cast<Sidechain::ScFeeData_v2>(entry);
+                assert(casted_entry);
                 const bool testCondition = (casted_entry->submissionHeight <= threshold);
                 if (testCondition)
                     LogPrint("sc", "%s():%d - popping %s from list, as entry is too old (threshold height was %d)\n",
@@ -828,11 +831,9 @@ void CSidechain::UpdateScFees(const CScCertificateView& certView, int blockHeigh
 
 void CSidechain::DumpScFees() const
 {
-
     for (const auto& entry : scFees) {
         std::cout << entry->ToString() << std::endl;
     }
-
 }
 
 CAmount CSidechain::GetMinFtScFee() const
