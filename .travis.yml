@@ -298,10 +298,6 @@ os: linux
       - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/travis_stay_alive.sh"
       - bash -c '${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/test/run_test.sh "${TEST_CMD}" "${TEST_ARGS}"'
 
-env:
-  global:
-    - SKIP_OSX=false
-
 before_install:
   - source "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/setup_environment.sh"
 
