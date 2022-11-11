@@ -508,7 +508,7 @@ struct ScFeeData_v2 : public ScFeeData {
         return ScFeeData::operator==(rhs) && submissionHeight == rhs.submissionHeight;
     }
 
-    virtual std::string ToString() const
+    std::string ToString() const override
     {
         std::stringstream res;
         res << ScFeeData::ToString();
