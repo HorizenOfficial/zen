@@ -3554,10 +3554,24 @@ bool CWallet::CreateTransaction(
                     bool signSuccess;
                     const CScript& scriptPubKey = coin.first->getTxBase()->GetVout()[coin.second].scriptPubKey;
                     CScript& scriptSigRes = txNew.vin[nIn].scriptSig;
-                    if (sign)
+
+                    /*
+                    TODO: REMOVE                    
+                    */
+                    size_t sizeScriptBefore = GetSerializeSize(scriptSigRes, SER_NETWORK, PROTOCOL_VERSION);                        
+                    size_t sizeInBefore = GetSerializeSize(txNew.vin[nIn], SER_NETWORK, PROTOCOL_VERSION);
+         
+                    if (sign)                   
                         signSuccess = ProduceSignature(TransactionSignatureCreator(*this, txNewConst, nIn, SIGHASH_ALL), scriptPubKey, scriptSigRes);
                     else
                         signSuccess = ProduceSignature(DummySignatureCreator(*this), scriptPubKey, scriptSigRes);
+
+                    /*
+                    VEDERE COSA VIENE FUORI DI SIZE DOPO LA SIGNATURE
+                    TODO: REMOVE
+                    */
+                    size_t sizeScriptAfter = GetSerializeSize(scriptSigRes, SER_NETWORK, PROTOCOL_VERSION);                        
+                    size_t sizeInAfter = GetSerializeSize(txNew.vin[nIn], SER_NETWORK, PROTOCOL_VERSION);
 
                     if (!signSuccess)
                     {

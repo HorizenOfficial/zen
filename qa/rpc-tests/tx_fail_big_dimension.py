@@ -82,7 +82,9 @@ class TxFailBigDimension(BitcoinTestFramework):
         print("N2 -> (" + nt2 + " , " + str(nt2b) + ")")
 
         if test_flow == 0:
-            self.nodes[1].sendtoaddress(nt0, nt1b)
+            #self.nodes[1].sendtoaddress(nt0, nt1b)
+            self.nodes[1].sendtoaddress(nt0, 100.5)
+            gino = 0
         
         elif test_flow == 1:
             self.nodes[1].sendfrom("", nt0, nt1b)
