@@ -3039,26 +3039,27 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
     vector<pair<CAmount, pair<const CWalletTransactionBase*,unsigned int>>> vValue;
     CAmount nTotalLower = 0;
    
-    BOOST_FOREACH(const COutput &output, vCoins)
-    {
-        if (!output.fSpendable)
-            continue;
-
-        const CWalletTransactionBase *pcoin = output.tx;
-
-        if (output.nDepth < (pcoin->IsFromMe(ISMINE_ALL) ? nConfMine : nConfTheirs))
-            continue;
-
-        CAmount n = pcoin->getTxBase()->GetVout()[output.pos].nValue;
-
-        pair<CAmount,pair<const CWalletTransactionBase*,unsigned int>> coin = make_pair(n,make_pair(pcoin, output.pos));
-
-        vValue.push_back(coin);
-    }
-
     bool newAlgo = false;
 
     if (newAlgo) {
+
+        BOOST_FOREACH(const COutput &output, vCoins)
+        {
+            if (!output.fSpendable)
+                continue;
+
+            const CWalletTransactionBase *pcoin = output.tx;
+
+            if (output.nDepth < (pcoin->IsFromMe(ISMINE_ALL) ? nConfMine : nConfTheirs))
+                continue;
+
+            CAmount n = pcoin->getTxBase()->GetVout()[output.pos].nValue;
+
+            pair<CAmount,pair<const CWalletTransactionBase*,unsigned int>> coin = make_pair(n,make_pair(pcoin, output.pos));
+
+            vValue.push_back(coin);
+        }
+
         std::sort(vValue.begin(), vValue.end(), [](pair<CAmount, pair<const CWalletTransactionBase*,unsigned int>> i, pair<CAmount,pair<const CWalletTransactionBase*,unsigned int>> j) -> bool {
             return ( i.first < j.first);
         });
