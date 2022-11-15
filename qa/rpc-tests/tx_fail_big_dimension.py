@@ -34,7 +34,8 @@ class TxFailBigDimension(BitcoinTestFramework):
 		# +] ztV1ZjusV14v91xDK16F1mb8TTxtoD1BzTJ                                                             -> 0.00000000 (+11.71875000 immature) {100 utxos (+100 immature)}
         #
 
-        resource_file = os.sep.join([os.path.dirname(__file__), 'resources', 'tx_fail_big_dimension', 'test_setup_.zip'])
+        #resource_file = os.sep.join([os.path.dirname(__file__), 'resources', 'tx_fail_big_dimension', 'test_setup_.zip'])
+        resource_file = os.sep.join([os.path.dirname(__file__), 'resources', 'tx_fail_big_dimension_new', 'test_setup_.zip'])
         with zipfile.ZipFile(resource_file, 'r') as zip_ref:
             zip_ref.extractall(self.options.tmpdir)
 
@@ -82,8 +83,16 @@ class TxFailBigDimension(BitcoinTestFramework):
         print("N2 -> (" + nt2 + " , " + str(nt2b) + ")")
 
         if test_flow == 0:
-            #self.nodes[1].sendtoaddress(nt0, nt1b)
-            self.nodes[1].sendtoaddress(nt0, 100.5)
+            self.nodes[1].sendtoaddress(nt0, 0.7)
+            self.sync_all()
+            self.nodes[2].generate(10)
+            self.sync_all()
+            self.nodes[0].sendtoaddress(nt2, 0.699) #fail
+            # self.nodes[0].sendtoaddress(nt2, 0.700) #fail
+            # self.nodes[0].sendtoaddress(nt2, 0.710) #pass
+            self.sync_all()
+            self.nodes[2].generate(10)
+            self.sync_all()
             gino = 0
         
         elif test_flow == 1:
@@ -173,45 +182,3 @@ class TxFailBigDimension(BitcoinTestFramework):
 
 if __name__ == '__main__':
     TxFailBigDimension().main()
-
-#TEMP
-#            creation_amount = Decimal("0.5")
-#            mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
-#            vk = mcTest.generate_params("sc1")
-#            constant = generate_random_field_element_hex()
-#            cmdInput = {
-#                "version": 0,
-#                "withdrawalEpochLength":EPOCH_LENGTH,
-#                "toaddress":"aaaa",
-#                "amount":creation_amount,
-#                "wCertVk":vk,
-#                "constant":constant,
-#                "fee":0
-#            }
-#            ret = self.nodes[1].sc_create(cmdInput)
-#            creating_tx = ret['txid']
-#            scid = ret['scid']
-#            scid_swapped = str(swap_bytes(scid))
-#            self.nodes[2].generate(EPOCH_LENGTH + 1) # node2 used in order to avoid confusion on balance for node1
-#            self.sync_all()
-###            # Send funds to SC (in many iterations, in order to create many utxos)
-#            n1_listunspent = self.nodes[1].listunspent(0)
-#            n1_listunspent_sorted = sorted(n1_listunspent, key=lambda x: x["amount"], reverse=False) #because AsyncRPCOperation_sendmany::find_utxos performs an ascending sorting
-#            tot_to_sc = 0
-#            for i in range(len(n1_listunspent_sorted)):
-#                fwt_amount = n1_listunspent_sorted[i]["amount"]
-#                tot_to_sc += fwt_amount
-#                #print(str(i) + ": " + str(fwt_amount))
-#                cmdInput = [{"toaddress": "bbb", "amount": fwt_amount, "scid": scid, "mcReturnAddress": nt1}]
-#                cmdParam = { "fromaddress": nt1, "changeaddress": nt1, "minconf": 0, "fee": 0 }
-#                fwd_tx = self.nodes[1].sc_send(cmdInput, cmdParam)
-#                self.sync_all()
-#                if (i % 1 == 1 - 1):
-#                    self.nodes[2].generate(1) # node2 used in order to avoid confusion on balance for node1
-#                    self.sync_all()
-#                    #self.nodes[1].getscinfo(scid)['items'][0]['balance']
-#                if (i >= EPOCH_LENGTH / 5 - 1 - 1 - 1):
-#                    break
-#            self.sync_all()
-#            print(tot_to_sc)
-#            #return

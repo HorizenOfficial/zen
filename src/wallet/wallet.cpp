@@ -2952,11 +2952,26 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
     }
 }
 
-static void ApproximateBestSubset(
+void CWallet::ApproximateBestSubset(
     vector<pair<CAmount, pair<const CWalletTransactionBase*,unsigned int> > >vValue, const CAmount& nTotalLower, const CAmount& nTargetValue,
-    vector<char>& vfBest, CAmount& nBest, int iterations = 1000)
+    vector<char>& vfBest, CAmount& nBest, int iterations,
+    size_t availableBytes) const
 {
     vector<char> vfIncluded;
+    
+    //TEMP
+    vector<size_t> vSizesIns;
+    vSizesIns.assign(vValue.size(), 0);
+    for (unsigned int i = 0; i < vValue.size(); i++)
+    {
+        CTxIn in(vValue[i].second.first->getTxBase()->GetHash(), vValue[i].second.second, CScript(), 0);
+        const CScript& scriptPubKey = vValue[i].second.first->getTxBase()->GetVout()[vValue[i].second.second].scriptPubKey;
+        CScript& scriptSigRes = in.scriptSig;
+        ProduceSignature(DummySignatureCreator(*this), scriptPubKey, scriptSigRes); //TODO: check if this is ok
+        size_t sizeIn = in.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+        vSizesIns[i] = sizeIn;
+    }
+    //TEMP
 
     vfBest.assign(vValue.size(), true);
     nBest = nTotalLower;
@@ -2967,6 +2982,7 @@ static void ApproximateBestSubset(
     {
         vfIncluded.assign(vValue.size(), false);
         CAmount nTotal = 0;
+        size_t nTotalBytes = 0;
         bool fReachedTarget = false;
         for (int nPass = 0; nPass < 2 && !fReachedTarget; nPass++)
         {
@@ -2982,16 +2998,27 @@ static void ApproximateBestSubset(
                 {
                     nTotal += vValue[i].first;
                     vfIncluded[i] = true;
+                    //TEMP
+                    nTotalBytes += vSizesIns[i];
+                    //TEMP
+
                     if (nTotal >= nTargetValue)
                     {
                         fReachedTarget = true;
                         if (nTotal < nBest)
                         {
-                            nBest = nTotal;
-                            vfBest = vfIncluded;
+                            //TEMP
+                            if (availableBytes == 0 || nTotalBytes <= availableBytes)
+                            {
+                                nBest = nTotal;
+                                vfBest = vfIncluded;
+                            }
                         }
                         nTotal -= vValue[i].first;
                         vfIncluded[i] = false;
+                        //TEMP
+                        nTotalBytes -= vSizesIns[i];
+                        //TEMP
                     }
                 }
             }
@@ -2999,21 +3026,19 @@ static void ApproximateBestSubset(
     }
 }
 
-bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int nConfTheirs, vector<COutput> vCoins,
-                                 set<pair<const CWalletTransactionBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet) const
+bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int nConfTheirs, vector<COutput> vCoins, set<pair<const CWalletTransactionBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet,
+                                 size_t availableBytes) const
 {
     setCoinsRet.clear();
     nValueRet = 0;
 
     // List of values less than target
-    pair<CAmount, pair<const CWalletTransactionBase*,unsigned int> > coinLowestLarger;
+    pair<CAmount, pair<const CWalletTransactionBase*,unsigned int>> coinLowestLarger;
     coinLowestLarger.first = std::numeric_limits<CAmount>::max();
     coinLowestLarger.second.first = NULL;
-    vector<pair<CAmount, pair<const CWalletTransactionBase*,unsigned int> > > vValue;
+    vector<pair<CAmount, pair<const CWalletTransactionBase*,unsigned int>>> vValue;
     CAmount nTotalLower = 0;
-
-    std::shuffle(vCoins.begin(), vCoins.end(), ZcashRandomEngine());
-
+   
     BOOST_FOREACH(const COutput &output, vCoins)
     {
         if (!output.fSpendable)
@@ -3026,80 +3051,146 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
 
         CAmount n = pcoin->getTxBase()->GetVout()[output.pos].nValue;
 
-        pair<CAmount,pair<const CWalletTransactionBase*,unsigned int> > coin = make_pair(n,make_pair(pcoin, output.pos));
+        pair<CAmount,pair<const CWalletTransactionBase*,unsigned int>> coin = make_pair(n,make_pair(pcoin, output.pos));
 
-        if (n == nTargetValue)
-        {
-            setCoinsRet.insert(coin.second);
-            nValueRet += coin.first;
-            return true;
-        }
-        else if (n < nTargetValue + CENT)
-        {
-            vValue.push_back(coin);
-            nTotalLower += n;
-        }
-        else if (n < coinLowestLarger.first)
-        {
-            coinLowestLarger = coin;
-        }
+        vValue.push_back(coin);
     }
 
-    if (nTotalLower == nTargetValue)
-    {
-        for (unsigned int i = 0; i < vValue.size(); ++i)
-        {
-            setCoinsRet.insert(vValue[i].second);
-            nValueRet += vValue[i].first;
+    bool newAlgo = false;
+
+    if (newAlgo) {
+        std::sort(vValue.begin(), vValue.end(), [](pair<CAmount, pair<const CWalletTransactionBase*,unsigned int>> i, pair<CAmount,pair<const CWalletTransactionBase*,unsigned int>> j) -> bool {
+            return ( i.first < j.first);
+        });
+
+        vector<tuple<CAmount, pair<const CWalletTransactionBase*, unsigned int>, size_t>> vCoinsRet;
+        CAmount totalSelectedAmount = 0;
+        size_t totalSizeIn = 0;
+        int removalIndex = 0;
+        for (int i = 0; i < vValue.size(); i++) {
+            CTxIn in(vValue[i].second.first->getTxBase()->GetHash(), vValue[i].second.second, CScript(), 0);
+            const CScript& scriptPubKey = vValue[i].second.first->getTxBase()->GetVout()[vValue[i].second.second].scriptPubKey;
+            CScript& scriptSigRes = in.scriptSig;
+            ProduceSignature(DummySignatureCreator(*this), scriptPubKey, scriptSigRes); //TODO: check if this is ok
+            size_t sizeIn = in.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+
+            //insert current (biggest)
+            totalSelectedAmount += vValue[i].first;
+            totalSizeIn += sizeIn;
+            vCoinsRet.push_back(make_tuple(vValue[i].first, vValue[i].second, sizeIn));
+
+            if (availableBytes > 0) {
+                while (totalSizeIn > availableBytes) {
+                    //remove from begin (smallest)
+                    tuple<CAmount, pair<const CWalletTransactionBase*, unsigned int>, size_t> coinToRemove = vCoinsRet.front();
+                    totalSelectedAmount -= std::get<0>(coinToRemove);
+                    totalSizeIn -= std::get<2>(coinToRemove);
+                    vCoinsRet.erase(vCoinsRet.begin());
+                }
+            }
+
+            if (totalSelectedAmount >= nTargetValue)
+                break;
+
+            if (i == vValue.size()-1)
+                return false; //unable to satisfy
         }
-        return true;
-    }
 
-    if (nTotalLower < nTargetValue)
-    {
-        if (coinLowestLarger.second.first == NULL)
-            return false;
-        setCoinsRet.insert(coinLowestLarger.second);
-        nValueRet += coinLowestLarger.first;
-        return true;
-    }
-
-    // Solve subset sum by stochastic approximation
-    sort(vValue.rbegin(), vValue.rend(), CompareValueOnly());
-    vector<char> vfBest;
-    CAmount nBest;
-
-    ApproximateBestSubset(vValue, nTotalLower, nTargetValue, vfBest, nBest, 1000);
-    if (nBest != nTargetValue && nTotalLower >= nTargetValue + CENT)
-        ApproximateBestSubset(vValue, nTotalLower, nTargetValue + CENT, vfBest, nBest, 1000);
-
-    // If we have a bigger coin and (either the stochastic approximation didn't find a good solution,
-    //                                   or the next bigger coin is closer), return the bigger coin
-    if (coinLowestLarger.second.first &&
-        ((nBest != nTargetValue && nBest < nTargetValue + CENT) || coinLowestLarger.first <= nBest))
-    {
-        setCoinsRet.insert(coinLowestLarger.second);
-        nValueRet += coinLowestLarger.first;
+        for(vector<tuple<CAmount, pair<const CWalletTransactionBase*, unsigned int>, size_t>>::iterator it = vCoinsRet.begin(); it != vCoinsRet.end(); it++) {
+            setCoinsRet.insert(std::get<1>(*it));
+        }
+        nValueRet = totalSelectedAmount;
     }
     else {
-        for (unsigned int i = 0; i < vValue.size(); i++)
-            if (vfBest[i])
+        std::shuffle(vCoins.begin(), vCoins.end(), ZcashRandomEngine());
+
+        BOOST_FOREACH(const COutput &output, vCoins)
+        {
+            if (!output.fSpendable)
+                continue;
+
+            const CWalletTransactionBase *pcoin = output.tx;
+
+            if (output.nDepth < (pcoin->IsFromMe(ISMINE_ALL) ? nConfMine : nConfTheirs))
+                continue;
+
+            CAmount n = pcoin->getTxBase()->GetVout()[output.pos].nValue;
+
+            pair<CAmount,pair<const CWalletTransactionBase*,unsigned int> > coin = make_pair(n,make_pair(pcoin, output.pos));
+
+            if (n == nTargetValue)
+            {
+                setCoinsRet.insert(coin.second);
+                nValueRet += coin.first;
+                return true;
+            }
+            else if (n < nTargetValue + CENT)
+            {
+                vValue.push_back(coin);
+                nTotalLower += n;
+            }
+            else if (n < coinLowestLarger.first)
+            {
+                coinLowestLarger = coin;
+            }
+        }
+
+        if (nTotalLower == nTargetValue)
+        {
+            for (unsigned int i = 0; i < vValue.size(); ++i)
             {
                 setCoinsRet.insert(vValue[i].second);
                 nValueRet += vValue[i].first;
             }
+            return true;
+        }
 
-        LogPrint("selectcoins", "SelectCoins() best subset: ");
-        for (unsigned int i = 0; i < vValue.size(); i++)
-            if (vfBest[i])
-                LogPrint("selectcoins", "%s ", FormatMoney(vValue[i].first));
-        LogPrint("selectcoins", "total %s\n", FormatMoney(nBest));
+        if (nTotalLower < nTargetValue)
+        {
+            if (coinLowestLarger.second.first == NULL)
+                return false;
+            setCoinsRet.insert(coinLowestLarger.second);
+            nValueRet += coinLowestLarger.first;
+            return true;
+        }
+
+        // Solve subset sum by stochastic approximation
+        sort(vValue.rbegin(), vValue.rend(), CompareValueOnly());
+        vector<char> vfBest;
+        CAmount nBest;
+
+        ApproximateBestSubset(vValue, nTotalLower, nTargetValue, vfBest, nBest, 1000, availableBytes);
+        if (nBest != nTargetValue && nTotalLower >= nTargetValue + CENT)
+            ApproximateBestSubset(vValue, nTotalLower, nTargetValue + CENT, vfBest, nBest, 1000, availableBytes);
+
+        // If we have a bigger coin and (either the stochastic approximation didn't find a good solution,
+        //                                   or the next bigger coin is closer), return the bigger coin
+        if (coinLowestLarger.second.first &&
+            ((nBest != nTargetValue && nBest < nTargetValue + CENT) || coinLowestLarger.first <= nBest))
+        {
+            setCoinsRet.insert(coinLowestLarger.second);
+            nValueRet += coinLowestLarger.first;
+        }
+        else {
+            for (unsigned int i = 0; i < vValue.size(); i++)
+                if (vfBest[i])
+                {
+                    setCoinsRet.insert(vValue[i].second);
+                    nValueRet += vValue[i].first;
+                }
+
+            LogPrint("selectcoins", "SelectCoins() best subset: ");
+            for (unsigned int i = 0; i < vValue.size(); i++)
+                if (vfBest[i])
+                    LogPrint("selectcoins", "%s ", FormatMoney(vValue[i].first));
+            LogPrint("selectcoins", "total %s\n", FormatMoney(nBest));
+        }
     }
 
     return true;
 }
 
-bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletTransactionBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet,  bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet, const CCoinControl* coinControl) const
+bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletTransactionBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet,  bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet, const CCoinControl* coinControl, size_t availableBytes) const
 {
     // If coinbase utxos can only be sent to zaddrs, exclude any coinbase utxos from coin selection.
     bool fProtectCoinbase = Params().GetConsensus().fCoinbaseMustBeProtected;
@@ -3182,9 +3273,9 @@ bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletTra
     }
 
     bool res = nTargetValue <= nValueFromPresetInputs ||
-        SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, 1, 6, vCoins, setCoinsRet, nValueRet) ||
-        SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, 1, 1, vCoins, setCoinsRet, nValueRet) ||
-        (bSpendZeroConfChange && SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, 0, 1, vCoins, setCoinsRet, nValueRet));
+        SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, 1, 6, vCoins, setCoinsRet, nValueRet, availableBytes) ||
+        SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, 1, 1, vCoins, setCoinsRet, nValueRet, availableBytes) ||
+        (bSpendZeroConfChange && SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, 0, 1, vCoins, setCoinsRet, nValueRet, availableBytes));
 
     // because SelectCoinsMinConf clears the setCoinsRet, we now add the possible inputs to the coinset
     setCoinsRet.insert(setPresetCoins.begin(), setPresetCoins.end());
@@ -3315,12 +3406,14 @@ bool CWallet::CreateTransaction(
     wtxNew.fTimeReceivedIsTxTime = true;
     wtxNew.BindWallet(this);
     CMutableTransaction txNew;
+    CTransactionSizeInfo transactionSize;
 
     if (!vecScSend.empty() || !vecFtSend.empty() || !vecBwtRequest.empty() || !vcsw_input.empty())
     {
         // set proper version
         txNew.nVersion = SC_TX_VERSION;
     }
+    transactionSize.overheadSize = txNew.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
 
     // Discourage fee sniping.
     //
@@ -3348,6 +3441,7 @@ bool CWallet::CreateTransaction(
         LOCK2(cs_main, cs_wallet);
         {
             nFeeRet = 0;
+            //this code is looped in order to search for the most appropriate fee for the transaction being created
             while (true)
             {
                 txNew.vin.clear();
@@ -3396,6 +3490,7 @@ bool CWallet::CreateTransaction(
                         return false;
                     }
                     txNew.addOut(txout);
+                    transactionSize.outputsNoChangeSize += txout.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
                 }
 
                 // vccouts to the payees
@@ -3403,29 +3498,51 @@ bool CWallet::CreateTransaction(
                 {
                     CTxScCreationOut txccout(entry.nValue, entry.address, entry.ftScFee, entry.mbtrScFee, entry.fixedParams);
                     txNew.add(txccout);
+                    transactionSize.outputsNoChangeSize += txccout.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
                 }
 
                 for (const auto& entry : vecFtSend)
                 {
                     CTxForwardTransferOut txccout(entry.scId, entry.nValue, entry.address, entry.mcReturnAddress);
                     txNew.add(txccout);
+                    transactionSize.outputsNoChangeSize += txccout.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
                 }
 
                 for (const auto& entry : vecBwtRequest)
                 {
                     CBwtRequestOut txccout(entry.scId, entry.mcDestinationAddress, entry.bwtRequestData);
                     txNew.add(txccout);
+                    transactionSize.outputsNoChangeSize += txccout.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
                 }
 
+                // Compute size of possible change output
+                // TODO: refactor to avoid code duplication
+                // TODO: get good understanding of why this is a while loop (something related to fees and maybe something else)
+                transactionSize.outputChangeOnlySize = 0;
+                {
+                    CScript scriptChange;
+                    if (coinControl && !boost::get<CNoDestination>(&coinControl->destChange))
+                        scriptChange = GetScriptForDestination(coinControl->destChange);
+                    else
+                    {
+                        CPubKey vchPubKey;
+                        bool ret = reservekey.GetReservedKey(vchPubKey);
+                        assert(ret);
+                        scriptChange = GetScriptForDestination(vchPubKey.GetID());
+                    }
+                    CTxOut changeTxOut(0, scriptChange);
+                    transactionSize.outputChangeOnlySize = changeTxOut.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+                }
 
                 // Choose coins to use
-                set<pair<const CWalletTransactionBase*,unsigned int> > setCoins;
+                set<pair<const CWalletTransactionBase*,unsigned int>> setCoins;
                 CAmount nValueIn = 0;
                 bool fOnlyCoinbaseCoins = false;
                 bool fNeedCoinbaseCoins = false;
                 if (nTotalValue > 0)
                 {
-                    if ( !SelectCoins(nTotalValue, setCoins, nValueIn, fOnlyCoinbaseCoins, fNeedCoinbaseCoins, coinControl))
+                    if ( !SelectCoins(nTotalValue, setCoins, nValueIn, fOnlyCoinbaseCoins, fNeedCoinbaseCoins, coinControl,
+                                      MAX_TX_SIZE - (transactionSize.overheadSize + transactionSize.outputsNoChangeSize + transactionSize.outputChangeOnlySize)))
                     {
                         if (fOnlyCoinbaseCoins && Params().GetConsensus().fCoinbaseMustBeProtected) {
                             strFailReason = _("Coinbase funds can only be sent to a zaddr");
@@ -3558,8 +3675,8 @@ bool CWallet::CreateTransaction(
                     /*
                     TODO: REMOVE                    
                     */
-                    size_t sizeScriptBefore = GetSerializeSize(scriptSigRes, SER_NETWORK, PROTOCOL_VERSION);                        
-                    size_t sizeInBefore = GetSerializeSize(txNew.vin[nIn], SER_NETWORK, PROTOCOL_VERSION);
+                    size_t sizeScriptBefore = GetSerializeSize(scriptSigRes, SER_NETWORK, PROTOCOL_VERSION);
+                    size_t sizeInBefore = txNew.vin[nIn].GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
          
                     if (sign)                   
                         signSuccess = ProduceSignature(TransactionSignatureCreator(*this, txNewConst, nIn, SIGHASH_ALL), scriptPubKey, scriptSigRes);
@@ -3570,8 +3687,10 @@ bool CWallet::CreateTransaction(
                     VEDERE COSA VIENE FUORI DI SIZE DOPO LA SIGNATURE
                     TODO: REMOVE
                     */
-                    size_t sizeScriptAfter = GetSerializeSize(scriptSigRes, SER_NETWORK, PROTOCOL_VERSION);                        
-                    size_t sizeInAfter = GetSerializeSize(txNew.vin[nIn], SER_NETWORK, PROTOCOL_VERSION);
+                    size_t sizeScriptAfter = GetSerializeSize(scriptSigRes, SER_NETWORK, PROTOCOL_VERSION);
+                    size_t sizeInAfter = txNew.vin[nIn].GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+
+                    transactionSize.inputsSize += sizeInAfter;
 
                     if (!signSuccess)
                     {
@@ -3602,6 +3721,7 @@ bool CWallet::CreateTransaction(
                 }
 
                 unsigned int nBytes = ::GetSerializeSize(txNew, SER_NETWORK, PROTOCOL_VERSION);
+                size_t check = transactionSize.overheadSize + transactionSize.outputsNoChangeSize + transactionSize.outputChangeOnlySize + transactionSize.inputsSize;
 
                 // Remove scriptSigs if we used dummy signatures for fee calculation
                 if (!sign) {

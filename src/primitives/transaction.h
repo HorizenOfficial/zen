@@ -306,8 +306,6 @@ public:
     std::string ToString() const;
 };
 
-
-
 /** An input of a transaction.  It contains the location of the previous
  * transaction's output that it claims and a signature that matches the
  * output's public key.
@@ -1077,7 +1075,6 @@ public:
     virtual bool addBwt(const CTxOut& out)                        = 0;
 };
 
-
 struct CMutableTransaction : public CMutableTransactionBase
 {
     std::vector<CTxCeasedSidechainWithdrawalInput> vcsw_ccin;
@@ -1145,6 +1142,14 @@ struct CMutableTransaction : public CMutableTransactionBase
     bool add(const CTxForwardTransferOut& out);
     bool add(const CBwtRequestOut& out);
     bool add(const CFieldElement& acd);
+};
+
+struct CTransactionSizeInfo
+{
+    size_t overheadSize = 0;
+    size_t outputsNoChangeSize = 0;
+    size_t outputChangeOnlySize = 0;
+    size_t inputsSize = 0;
 };
 
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H
