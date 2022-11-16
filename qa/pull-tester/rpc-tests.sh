@@ -40,6 +40,7 @@ testScripts=(
   'wallet_protectcoinbase.py'
   'wallet_shieldcoinbase.py'
   'wallet_mergetoaddress.py'
+  'wallet_mergetoaddress_2.py'
   'wallet.py'
   'wallet_nullifiers.py'
   'wallet_1941.py'
