@@ -74,7 +74,7 @@ public:
     int ScMinWithdrawalEpochLength() const { return nScMinWithdrawalEpochLength; }
     int ScMaxWithdrawalEpochLength() const { return nScMaxWithdrawalEpochLength; }
     int ScMaxNumberOfCswInputsInMempool() const { return nScMaxNumberOfCswInputsInMempool; }
-    int64_t MaxTipAge() const { return nMaxTipAge; }
+    int64_t MaxTipAge() const;
     int64_t PruneAfterHeight() const { return nPruneAfterHeight; }
     unsigned int EquihashN() const { return nEquihashN; }
     unsigned int EquihashK() const { return nEquihashK; }
