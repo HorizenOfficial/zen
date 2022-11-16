@@ -45,6 +45,14 @@ using namespace std;
 using namespace libzcash;
 using namespace Sidechain;
 
+namespace{
+
+    int GetJoinSplitSize(int shieldedTxVersion) {
+        return JSDescription::getNewInstance(shieldedTxVersion == GROTH_TX_VERSION).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION, shieldedTxVersion);
+    }
+    
+}
+
 extern void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
 
 int64_t nWalletUnlockTime;
@@ -53,7 +61,6 @@ static CCriticalSection cs_nWalletUnlockTime;
 // transaction.h comment: spending taddr output requires CTxIn >= 148 bytes and typical taddr txout is 34 bytes
 #define CTXIN_SPEND_DUST_SIZE   148
 #define CTXOUT_REGULAR_SIZE     34
-
 
 // Private method:
 UniValue z_getoperationstatus_IMPL(const UniValue&, bool);
@@ -5946,8 +5953,6 @@ UniValue z_shieldcoinbase(const UniValue& params, bool fHelp)
 #define MERGE_TO_ADDRESS_DEFAULT_TRANSPARENT_LIMIT 50
 #define MERGE_TO_ADDRESS_DEFAULT_SHIELDED_LIMIT 10
 
-#define JOINSPLIT_SIZE JSDescription::getNewInstance(GROTH_TX_VERSION).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION, GROTH_TX_VERSION)
-
 UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
@@ -6138,8 +6143,11 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
     size_t mempoolLimit = (nUTXOLimit != 0) ? nUTXOLimit : (size_t)GetArg("-mempooltxinputlimit", 0);
 
     size_t estimatedTxSize = 200;  // tx overhead + wiggle room
-    if (isToZaddr) {
-        estimatedTxSize += JOINSPLIT_SIZE;
+    if (!isToZaddr) {
+        estimatedTxSize += CTXOUT_REGULAR_SIZE;
+    }
+    else {
+        estimatedTxSize += GetJoinSplitSize(shieldedTxVersion);
     }
 
     if (useAny || useAnyUTXO || taddrs.size() > 0) {
@@ -6199,9 +6207,7 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
             if (!maxedOutNotesFlag) {
                 // If we haven't added any notes yet and the merge is to a
                 // z-address, we have already accounted for the first JoinSplit.
-                // TODO size estimation doesn't work correctly leading to oversized tx with 114 JoinSplit when nNoteLimit == 0
-                // TODO max JoinSplit per transaction is 58 since Groth16, with one JS == 1698 bytes, IIRC size estimation is also broken for z_sendmany
-                size_t increase = (noteInputs.empty() && !isToZaddr) || (noteInputs.size() % 2 == 0) ? JOINSPLIT_SIZE : 0;
+                size_t increase = (!noteInputs.empty() || !isToZaddr) ? GetJoinSplitSize(shieldedTxVersion) : 0;
                 if (estimatedTxSize + increase >= MAX_TX_SIZE ||
                     (nNoteLimit > 0 && noteCounter > nNoteLimit))
                 {
