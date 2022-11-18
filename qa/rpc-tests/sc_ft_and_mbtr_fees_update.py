@@ -98,7 +98,7 @@ class provaFee(BitcoinTestFramework):
 
         ### Sidechain creation
         mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
-        vk = mcTest.generate_params(sc_name)
+        vk = mcTest.generate_params(sc_name) if scversion < 2 else mcTest.generate_params(sc_name, keyrot = True)
         constant = generate_random_field_element_hex()
         cmdInput = {
             "version": scversion,
@@ -142,9 +142,19 @@ class provaFee(BitcoinTestFramework):
         malicious_mbtr_fees = Decimal('0.07')
         quality = 10 if ceasable else 0
         addr_node3 = self.nodes[3].getnewaddress()
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[2], epoch_length, not ceasable)
-        proof = mcTest.create_test_proof(sc_name, scid_swapped, epoch_number, quality, malicious_mbtr_fees,
-                malicious_ft_fees, epoch_cum_tree_hash, constant, [addr_node3], [bwt_amount])
+        epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[2], epoch_length, not ceasable)
+        proof = mcTest.create_test_proof(sc_name,
+                                         scid_swapped,
+                                         epoch_number,
+                                         quality,
+                                         malicious_mbtr_fees,
+                                         malicious_ft_fees,
+                                         epoch_cum_tree_hash,
+                                         prev_cert_hash = prev_cert_hash if scversion >= 2 else None,
+                                         constant       = constant,
+                                         pks            = [addr_node3],
+                                         amounts        = [bwt_amount])
+
         amount_cert_3 = [{"address": addr_node3, "amount": bwt_amount}]
 
         mark_logs_temp("Node 2 sends a certificate with increased fees", self.nodes, DEBUG_MODE, color='g')
@@ -220,9 +230,19 @@ class provaFee(BitcoinTestFramework):
         # 7.
         malicious_ft_fees = Decimal('0.07')
         malicious_mbtr_fees = Decimal('0.09')
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[2], epoch_length, not ceasable)
-        proof = mcTest.create_test_proof(sc_name, scid_swapped, epoch_number, quality, malicious_mbtr_fees,
-                malicious_ft_fees, epoch_cum_tree_hash, constant, [addr_node3], [bwt_amount])
+        epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[2], epoch_length, not ceasable)
+        proof = mcTest.create_test_proof(sc_name,
+                                         scid_swapped,
+                                         epoch_number,
+                                         quality,
+                                         malicious_mbtr_fees,
+                                         malicious_ft_fees,
+                                         epoch_cum_tree_hash,
+                                         prev_cert_hash = prev_cert_hash if scversion >= 2 else None,
+                                         constant       = constant,
+                                         pks            = [addr_node3],
+                                         amounts        = [bwt_amount])
+
         amount_cert_3 = [{"address": addr_node3, "amount": bwt_amount}]
 
         mark_logs_temp("Node 2 sends a certificate with increased fees", self.nodes, DEBUG_MODE, color='g')
@@ -282,9 +302,19 @@ class provaFee(BitcoinTestFramework):
         # 11.
         malicious_ft_fees = Decimal('0.1')
         malicious_mbtr_fees = Decimal('0.11')
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[2], epoch_length, not ceasable)
-        proof = mcTest.create_test_proof(sc_name, scid_swapped, epoch_number, quality, malicious_mbtr_fees,
-                malicious_ft_fees, epoch_cum_tree_hash, constant, [addr_node3], [bwt_amount])
+        epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[2], epoch_length, not ceasable)
+        proof = mcTest.create_test_proof(sc_name,
+                                         scid_swapped,
+                                         epoch_number,
+                                         quality,
+                                         malicious_mbtr_fees,
+                                         malicious_ft_fees,
+                                         epoch_cum_tree_hash,
+                                         prev_cert_hash = prev_cert_hash if scversion >= 2 else None,
+                                         constant       = constant,
+                                         pks            = [addr_node3],
+                                         amounts        = [bwt_amount])
+
         amount_cert_3 = [{"address": addr_node3, "amount": bwt_amount}]
 
         mark_logs_temp("Node 2 sends a certificate with increased fees", self.nodes, DEBUG_MODE, color='g')
@@ -324,7 +354,7 @@ class provaFee(BitcoinTestFramework):
 
         # Final check for de/serialization of scFees list
         final_scfeesLen = len(self.nodes[0].getscinfo(scid)['items'][0]['scFees'])
-        mark_logs("Checking persistance stopping and restarting nodes", self.nodes, DEBUG_MODE)
+        mark_logs("Checking persistence stopping and restarting nodes", self.nodes, DEBUG_MODE)
         stop_nodes(self.nodes)
         wait_bitcoinds()
         self.setup_network(False)
@@ -351,7 +381,7 @@ class provaFee(BitcoinTestFramework):
 
         ### Sidechain creation
         mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
-        vk = mcTest.generate_params(sc_name)
+        vk = mcTest.generate_params(sc_name, keyrot = True)
         constant = generate_random_field_element_hex()
         cmdInput = {
             "version": scversion,
@@ -414,9 +444,19 @@ class provaFee(BitcoinTestFramework):
         malicious_mbtr_fees = Decimal('0')
         quality = 0
         addr_node3 = self.nodes[3].getnewaddress()
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[2], epoch_length, True, self.nodes[2].getblockcount() - 4)
-        proof = mcTest.create_test_proof(sc_name, scid_swapped, epoch_number, quality, malicious_mbtr_fees,
-                malicious_ft_fees, epoch_cum_tree_hash, constant, [addr_node3], [bwt_amount])
+        epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[2], epoch_length, True, self.nodes[2].getblockcount() - 4)
+        proof = mcTest.create_test_proof(sc_name,
+                                         scid_swapped,
+                                         epoch_number,
+                                         quality,
+                                         malicious_mbtr_fees,
+                                         malicious_ft_fees,
+                                         epoch_cum_tree_hash,
+                                         prev_cert_hash = prev_cert_hash if scversion >= 2 else None,
+                                         constant       = constant,
+                                         pks            = [addr_node3],
+                                         amounts        = [bwt_amount])
+
         amount_cert_3 = [{"address": addr_node3, "amount": bwt_amount}]
 
         mark_logs_temp("Node 2 sends a certificate with increased fees", self.nodes, DEBUG_MODE, color='g')
@@ -456,9 +496,19 @@ class provaFee(BitcoinTestFramework):
         # this certificate has ftr fee greater than those specified during sc creation
         malicious_ft_fees = Decimal('0.1')
         addr_node3 = self.nodes[3].getnewaddress()
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[2], epoch_length, True, self.nodes[2].getblockcount() - 4)
-        proof = mcTest.create_test_proof(sc_name, scid_swapped, epoch_number, quality, malicious_mbtr_fees,
-                malicious_ft_fees, epoch_cum_tree_hash, constant, [addr_node3], [bwt_amount])
+        epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[2], epoch_length, True, self.nodes[2].getblockcount() - 4)
+        proof = mcTest.create_test_proof(sc_name,
+                                         scid_swapped,
+                                         epoch_number,
+                                         quality,
+                                         malicious_mbtr_fees,
+                                         malicious_ft_fees,
+                                         epoch_cum_tree_hash,
+                                         prev_cert_hash = prev_cert_hash if scversion >= 2 else None,
+                                         constant       = constant,
+                                         pks            = [addr_node3],
+                                         amounts        = [bwt_amount])
+
         amount_cert_3 = [{"address": addr_node3, "amount": bwt_amount}]
 
         mark_logs_temp("Node 2 sends a certificate with increased fees", self.nodes, DEBUG_MODE, color='g')
@@ -504,9 +554,19 @@ class provaFee(BitcoinTestFramework):
                 incremental_fees = incremental_fees + 0.05
                 malicious_ft_fees = Decimal(str(incremental_fees))
                 addr_node3 = self.nodes[3].getnewaddress()
-                epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[2], epoch_length, True, self.nodes[2].getblockcount() - 4)
-                proof = mcTest.create_test_proof(sc_name, scid_swapped, epoch_number, quality, malicious_mbtr_fees,
-                        malicious_ft_fees, epoch_cum_tree_hash, constant, [addr_node3], [bwt_amount])
+                epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[2], epoch_length, True, self.nodes[2].getblockcount() - 4)
+                proof = mcTest.create_test_proof(sc_name,
+                                                 scid_swapped,
+                                                 epoch_number,
+                                                 quality,
+                                                 malicious_mbtr_fees,
+                                                 malicious_ft_fees,
+                                                 epoch_cum_tree_hash,
+                                                 prev_cert_hash = prev_cert_hash if scversion >= 2 else None,
+                                                 constant       = constant,
+                                                 pks            = [addr_node3],
+                                                 amounts        = [bwt_amount])
+
                 amount_cert_3 = [{"address": addr_node3, "amount": bwt_amount}]
 
                 mark_logs_temp("Node 2 sends a certificate with increased fees", self.nodes, DEBUG_MODE, color='g')
@@ -541,9 +601,19 @@ class provaFee(BitcoinTestFramework):
                     incremental_fees = incremental_fees + 0.05
                     malicious_ft_fees = Decimal(str(incremental_fees))
                     addr_node3 = self.nodes[3].getnewaddress()
-                    epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[2], epoch_length, True, self.nodes[2].getblockcount() - 4 + i + j)
-                    proof = mcTest.create_test_proof(sc_name, scid_swapped, epoch_number, quality, malicious_mbtr_fees,
-                            malicious_ft_fees, epoch_cum_tree_hash, constant, [addr_node3], [bwt_amount])
+                    epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[2], epoch_length, True, self.nodes[2].getblockcount() - 4 + i + j)
+                    proof = mcTest.create_test_proof(sc_name,
+                                                     scid_swapped,
+                                                     epoch_number,
+                                                     quality,
+                                                     malicious_mbtr_fees,
+                                                     malicious_ft_fees,
+                                                     epoch_cum_tree_hash,
+                                                     prev_cert_hash = prev_cert_hash if scversion >= 2 else None,
+                                                     constant       = constant,
+                                                     pks            = [addr_node3],
+                                                     amounts        = [bwt_amount])
+
                     amount_cert_3 = [{"address": addr_node3, "amount": bwt_amount}]
 
                     mark_logs_temp("Node 2 sends a certificate with increased fees", self.nodes, DEBUG_MODE, color='g')
@@ -586,7 +656,7 @@ class provaFee(BitcoinTestFramework):
 
             # Final check for de/serialization of scFees list
             final_scfeesLen = len(scFeesList)
-            mark_logs("Checking persistance stopping and restarting nodes", self.nodes, DEBUG_MODE)
+            mark_logs("Checking persistence stopping and restarting nodes", self.nodes, DEBUG_MODE)
             stop_nodes(self.nodes)
             wait_bitcoinds()
             self.setup_network(False)
