@@ -9,7 +9,7 @@ export FILELIST=`git diff-tree --no-commit-id --name-only -r $COMMIT`
 FILTEREDFILELIST=()
 for i in $FILELIST;
 do
-    if [[ $i =~ .*\.cpp$ ]] || [[ $i =~ .*\.h$ ]] || [[ $i =~ .*\.tcc$ ]];
+    if ([[ $i =~ .*\.cpp$ ]] || [[ $i =~ .*\.h$ ]] || [[ $i =~ .*\.tcc$ ]]) && ! ([[ $i =~ .*src\/gtest.*$ ]] || [[ $i =~ .*src\/test.*$ ]]);
     then
         FILTEREDFILELIST+=($i)
     fi
@@ -34,10 +34,11 @@ curl -v -XPOST -L -H "project-token: $CODACY_TOKEN" \
     -H "Content-type: application/json" -d @- \
     "https://api.codacy.com/2.0/commit/$COMMIT/issuesRemoteResults"
 
+### Moved to code-coverage-finalizer-launcher.sh
 # Signal that Codacy can use the sent results and start a new analysis
-curl -v -XPOST -L -H "project-token: $CODACY_TOKEN" \
-	-H "Content-type: application/json" \
-	"https://api.codacy.com/2.0/commit/$COMMIT/resultsFinal"
+# curl -v -XPOST -L -H "project-token: $CODACY_TOKEN" \
+# 	-H "Content-type: application/json" \
+# 	"https://api.codacy.com/2.0/commit/$COMMIT/resultsFinal"
 
 echo
 echo "°°°°°°°°°°°°°°°°°°°°"
