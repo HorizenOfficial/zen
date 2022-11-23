@@ -984,10 +984,6 @@ public:
     bool SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins,
         std::set<std::pair<const CWalletTransactionBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet,
         size_t availableBytes = 0) const;
-    void ApproximateBestSubset(
-        std::vector<std::pair<CAmount, std::pair<const CWalletTransactionBase*,unsigned int> > >vValue, const CAmount& nTotalLower, const CAmount& nTargetValue,
-        std::vector<char>& vfBest, CAmount& nBest, int iterations,
-        size_t availableBytes = 0) const;
     
     bool IsSpent(const uint256& hash, unsigned int n) const;
     bool IsSpent(const uint256& nullifier) const;

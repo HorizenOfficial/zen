@@ -2952,26 +2952,11 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
     }
 }
 
-void CWallet::ApproximateBestSubset(
+static void ApproximateBestSubset(
     vector<pair<CAmount, pair<const CWalletTransactionBase*,unsigned int> > >vValue, const CAmount& nTotalLower, const CAmount& nTargetValue,
-    vector<char>& vfBest, CAmount& nBest, int iterations,
-    size_t availableBytes) const
+    vector<char>& vfBest, CAmount& nBest, int iterations = 1000)
 {
     vector<char> vfIncluded;
-    
-    //TEMP
-    vector<size_t> vSizesIns;
-    vSizesIns.assign(vValue.size(), 0);
-    for (unsigned int i = 0; i < vValue.size(); i++)
-    {
-        CTxIn in(vValue[i].second.first->getTxBase()->GetHash(), vValue[i].second.second, CScript(), 0);
-        const CScript& scriptPubKey = vValue[i].second.first->getTxBase()->GetVout()[vValue[i].second.second].scriptPubKey;
-        CScript& scriptSigRes = in.scriptSig;
-        ProduceSignature(DummySignatureCreator(*this), scriptPubKey, scriptSigRes); //TODO: check if this is ok
-        size_t sizeIn = in.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
-        vSizesIns[i] = sizeIn;
-    }
-    //TEMP
 
     vfBest.assign(vValue.size(), true);
     nBest = nTotalLower;
@@ -2982,7 +2967,6 @@ void CWallet::ApproximateBestSubset(
     {
         vfIncluded.assign(vValue.size(), false);
         CAmount nTotal = 0;
-        size_t nTotalBytes = 0;
         bool fReachedTarget = false;
         for (int nPass = 0; nPass < 2 && !fReachedTarget; nPass++)
         {
@@ -2998,27 +2982,16 @@ void CWallet::ApproximateBestSubset(
                 {
                     nTotal += vValue[i].first;
                     vfIncluded[i] = true;
-                    //TEMP
-                    nTotalBytes += vSizesIns[i];
-                    //TEMP
-
                     if (nTotal >= nTargetValue)
                     {
                         fReachedTarget = true;
                         if (nTotal < nBest)
                         {
-                            //TEMP
-                            if (availableBytes == 0 || nTotalBytes <= availableBytes)
-                            {
-                                nBest = nTotal;
-                                vfBest = vfIncluded;
-                            }
+                            nBest = nTotal;
+                            vfBest = vfIncluded;
                         }
                         nTotal -= vValue[i].first;
                         vfIncluded[i] = false;
-                        //TEMP
-                        nTotalBytes -= vSizesIns[i];
-                        //TEMP
                     }
                 }
             }
@@ -3160,9 +3133,9 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
         vector<char> vfBest;
         CAmount nBest;
 
-        ApproximateBestSubset(vValue, nTotalLower, nTargetValue, vfBest, nBest, 1000, availableBytes);
+        ApproximateBestSubset(vValue, nTotalLower, nTargetValue, vfBest, nBest, 1000);
         if (nBest != nTargetValue && nTotalLower >= nTargetValue + CENT)
-            ApproximateBestSubset(vValue, nTotalLower, nTargetValue + CENT, vfBest, nBest, 1000, availableBytes);
+            ApproximateBestSubset(vValue, nTotalLower, nTargetValue + CENT, vfBest, nBest, 1000);
 
         // If we have a bigger coin and (either the stochastic approximation didn't find a good solution,
         //                                   or the next bigger coin is closer), return the bigger coin
@@ -4941,3 +4914,10 @@ void CWallet::GetUnspentFilteredNotes(
         }
     }
 }
+
+
+/*COINS SELECTION*/
+
+
+
+/*COINS SELECTION*/

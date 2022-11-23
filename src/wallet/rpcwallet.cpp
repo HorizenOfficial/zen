@@ -695,46 +695,6 @@ static void SendMoney(const CTxDestination &address, CAmount nValue, bool fSubtr
 
 UniValue sendtoaddress(const UniValue& params, bool fHelp)
 {
-    for (int i = 0; i < 10; i++)
-    {
-        {
-            CScript scriptChange;
-            CPubKey demoPubkey = pwalletMain->GenerateNewKey();
-            CTxDestination dest(demoPubkey.GetID());
-            scriptChange = GetScriptForDestination(dest);
-            CTxOut change_prototype_txout(0, scriptChange);
-            size_t size = GetSerializeSize(change_prototype_txout, SER_NETWORK, PROTOCOL_VERSION);
-        }
-    
-        {
-            CScript scriptChangeNR; //no replay
-            CPubKey demoPubkeyNR = pwalletMain->GenerateNewKey();
-            CTxDestination destNR(demoPubkeyNR.GetID());
-            scriptChangeNR = GetScriptForDestination(destNR, false);
-            CTxOut change_prototype_txoutNR(0, scriptChangeNR);
-            size_t sizeNR = GetSerializeSize(change_prototype_txoutNR, SER_NETWORK, PROTOCOL_VERSION);
-        }
-    
-        {
-            CScript scriptChangeS; //script
-            CScriptID script;
-            CTxDestination destS(script);
-            scriptChangeS = GetScriptForDestination(destS);
-            CTxOut change_prototype_txoutS(0, scriptChangeS);
-            size_t sizeS = GetSerializeSize(change_prototype_txoutS, SER_NETWORK, PROTOCOL_VERSION);
-        }
-    
-        {
-            CTxIn in;
-            size_t sizeIn = GetSerializeSize(in, SER_NETWORK, PROTOCOL_VERSION);
-        }
-    
-        {
-            CTransaction tx;
-            size_t sizeTx = GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
-        }
-    }
-
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
