@@ -120,7 +120,7 @@ os: linux
       - DOCKER_FROM=ubuntu_jammy
       - DOCKER_IS_DEB=true
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:1"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:1 --coverage"
   - &docker_amd64_linux_ubuntu_jammy_rpc-tests_2
     env:
       - DOCKER_ARCH=amd64
@@ -128,7 +128,7 @@ os: linux
       - DOCKER_FROM=ubuntu_jammy
       - DOCKER_IS_DEB=true
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:2"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:2 --coverage"
   - &docker_amd64_linux_ubuntu_jammy_rpc-tests_3
     env:
       - DOCKER_ARCH=amd64
@@ -136,7 +136,7 @@ os: linux
       - DOCKER_FROM=ubuntu_jammy
       - DOCKER_IS_DEB=true
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:3"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:3 --coverage"
   - &docker_amd64_linux_ubuntu_jammy_rpc-tests_4
     env:
       - DOCKER_ARCH=amd64
@@ -144,7 +144,7 @@ os: linux
       - DOCKER_FROM=ubuntu_jammy
       - DOCKER_IS_DEB=true
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:4"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:4 --coverage"
   - &docker_amd64_linux_ubuntu_jammy_test-fetch-params
     env:
       - DOCKER_ARCH=amd64

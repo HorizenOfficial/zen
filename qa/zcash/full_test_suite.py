@@ -134,7 +134,7 @@ def util_test():
 STAGES = [
     'btest',
     'gtest',
-    'b-gtest_with_coverage'
+    'b-gtest_with_coverage',
     'sec-hard',
     'no-dot-so',
     'util-test',
@@ -198,6 +198,8 @@ def main():
                         action='store_true', help='finetune the workload rebalancer for MacOS builds')
     parser.add_argument('--rpc-runonly', dest='runonly',
                         action='store', help='execute only a specific python test, see qa/rpc-tests/README.md for more')                        
+    parser.add_argument('--coverage', dest='enable_cov',
+                        action='store_true', help='Enables code coverage data collection')
     args = parser.parse_args()
 
     # Check for list
@@ -228,6 +230,8 @@ def main():
                 options.append('-macrebalance')
             if args.runonly:
                 options.append(args.runonly)
+            if args.enable_cov:
+                options.append('-coverage')
             passed &= run_stage(s, options)
         else:
             passed &= run_stage(s)
