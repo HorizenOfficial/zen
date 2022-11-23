@@ -7,37 +7,37 @@
 #include "amount.h"
 
 
+#define COINS_SELECTION_ALGORITHM_DEBUGGING 0
+
+
 enum class CoinsSelectionAlgorithmType {
     UNDEFINED = 0,
     BRANCH_AND_BOUND = 1,
     SLIDING_WINDOW = 2
 };
 
+/* ---------- CCoinsSelectionAlgorithm ---------- */
 
 class CCoinsSelectionAlgorithm
 {
 protected:
-    // temp
+    // auxiliary
     std::vector<bool> tempSelection;    
-    // temp
-    
-    // optimal
-    CAmount optimalTotalAmount;
-    size_t optimalTotalSize;
-    uint optimalTotalSelection;
-    // optimal
-    
-    // profiling and control
-    const uint64_t problemSize;
+    const int problemDimension;
     const int maxIndex;
-    uint64_t recursions;
-    uint64_t reachedLeaves;
+    // auxiliary
+       
+    // profiling and control
     bool stop;
+    #if COINS_SELECTION_ALGORITHM_DEBUGGING
     uint64_t executionMicroseconds;
+    #endif
     // profiling and control
 
 public:
+    // auxiliary
     CoinsSelectionAlgorithmType type;
+    // auxiliary
 
     // input variables
     const std::vector<CAmount> amounts;
@@ -49,6 +49,9 @@ public:
     
     // output variables
     std::vector<bool> optimalSelection;
+    CAmount optimalTotalAmount;
+    size_t optimalTotalSize;
+    uint optimalTotalSelection;
     // output variables
 
 private:
@@ -56,7 +59,7 @@ private:
     std::vector<size_t> PrepareSizes(const std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes);
 
 protected:
-    void Reset();
+    virtual void Reset();
 
 public:
     CCoinsSelectionAlgorithm(CoinsSelectionAlgorithmType _type,
@@ -68,9 +71,22 @@ public:
     virtual void Solve() = 0;
 };
 
+/* ---------- ---------- */
+
+/* ---------- CCoinsSelectionSlidingWindow ---------- */
 
 class CCoinsSelectionSlidingWindow : public CCoinsSelectionAlgorithm
 {
+protected:
+    // profiling
+    #if COINS_SELECTION_ALGORITHM_DEBUGGING
+    uint64_t iterations;
+    #endif
+    // profiling
+
+protected:
+    void Reset() override;
+
 public:
     CCoinsSelectionSlidingWindow(const std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
                                  const CAmount _targetAmount,
@@ -80,17 +96,31 @@ public:
     void Solve() override;
 };
 
+/* ---------- ---------- */
+
+/* ---------- CCoinsSelectionBranchAndBound ---------- */
 
 class CCoinsSelectionBranchAndBound : public CCoinsSelectionAlgorithm
 {
 protected:
+    // auxiliary
     const std::vector<CAmount> cumulativeAmountsForward;
+    // auxiliary
+
+    // profiling
+    #if COINS_SELECTION_ALGORITHM_DEBUGGING
+    uint64_t recursions;
+    uint64_t reachedNodes;
+    uint64_t reachedLeaves;
+    #endif
+    // profiling
 
 private:
     std::vector<CAmount> PrepareCumulativeAmountsForward();
+    void SolveRecursive(int currentIndex, size_t tempTotalSize, CAmount tempTotalAmount, uint tempTotalSelection);
 
 protected:
-    void SolveRecursive(int currentIndex, size_t tempTotalSize, CAmount tempTotalAmount, uint tempTotalSelection);
+    void Reset() override;
 
 public:
     CCoinsSelectionBranchAndBound(const std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
@@ -100,5 +130,7 @@ public:
     ~CCoinsSelectionBranchAndBound();
     void Solve() override;
 };
+
+/* ---------- ---------- */
 
 #endif // _COINS_SELECTION_ALGORITHM_H
