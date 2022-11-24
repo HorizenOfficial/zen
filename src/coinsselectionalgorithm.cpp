@@ -7,10 +7,10 @@
 /* ---------- CCoinsSelectionAlgorithm ---------- */
 
 CCoinsSelectionAlgorithm::CCoinsSelectionAlgorithm(CoinsSelectionAlgorithmType _type,
-                                                   const std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
-                                                   const CAmount _targetAmount,
-                                                   const CAmount _targetAmountPlusOffset,
-                                                   const size_t _availableTotalSize)
+                                                   std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
+                                                   CAmount _targetAmount,
+                                                   CAmount _targetAmountPlusOffset,
+                                                   size_t _availableTotalSize)
                                                    : type {_type},
                                                      problemDimension{(int)_amountsAndSizes.size()},
                                                      maxIndex{problemDimension - 1},
@@ -28,7 +28,8 @@ CCoinsSelectionAlgorithm::CCoinsSelectionAlgorithm(CoinsSelectionAlgorithmType _
     optimalTotalSelection= 0;
 
     stop = false;
-    #if COINS_SELECTION_ALGORITHM_DEBUGGING
+    completed = false;
+    #if COINS_SELECTION_ALGORITHM_PROFILING
     executionMicroseconds = 0;
     #endif
 }
@@ -36,7 +37,7 @@ CCoinsSelectionAlgorithm::CCoinsSelectionAlgorithm(CoinsSelectionAlgorithmType _
 CCoinsSelectionAlgorithm::~CCoinsSelectionAlgorithm() {
 }
 
-std::vector<CAmount> CCoinsSelectionAlgorithm::PrepareAmounts(const std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes)
+std::vector<CAmount> CCoinsSelectionAlgorithm::PrepareAmounts(std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes)
 {
     std::vector<std::pair<CAmount, size_t>> sortedAmountsAndSizes = unsortedAmountsAndSizes;
     std::sort(sortedAmountsAndSizes.begin(), sortedAmountsAndSizes.end(), [](std::pair<CAmount, size_t> left, std::pair<CAmount, size_t> right) -> bool { return ( left.first > right.first); } );
@@ -48,7 +49,7 @@ std::vector<CAmount> CCoinsSelectionAlgorithm::PrepareAmounts(const std::vector<
     return sortedAmounts;
 }
 
-std::vector<size_t> CCoinsSelectionAlgorithm::PrepareSizes(const std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes)
+std::vector<size_t> CCoinsSelectionAlgorithm::PrepareSizes(std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes)
 {
     std::vector<std::pair<CAmount, size_t>> sortedAmountsAndSizes = unsortedAmountsAndSizes;
     std::sort(sortedAmountsAndSizes.begin(), sortedAmountsAndSizes.end(), [](std::pair<CAmount, size_t> left, std::pair<CAmount, size_t> right) -> bool { return ( left.first > right.first); } );
@@ -70,26 +71,52 @@ void CCoinsSelectionAlgorithm::Reset()
     optimalTotalSelection= 0;
 
     stop = false;
-    #if COINS_SELECTION_ALGORITHM_DEBUGGING
+    completed = false;
+    #if COINS_SELECTION_ALGORITHM_PROFILING
     executionMicroseconds = 0;
     #endif
+}
+
+std::string CCoinsSelectionAlgorithm::ToString()
+{
+    return std::string("Input:")
+                                + "{targetAmount=" + std::to_string(targetAmount) +
+                                  ",targetAmountPlusOffset=" + std::to_string(targetAmountPlusOffset) +
+                                  ",availableTotalSize=" + std::to_string(availableTotalSize) + "}\n" +
+                       "Output:"
+                                + "{optimalTotalAmount=" + std::to_string(optimalTotalAmount) +
+                                  ",optimalTotalSize=" + std::to_string(optimalTotalSize) +
+                                  ",optimalTotalSelection=" + std::to_string(optimalTotalSelection) + "}\n";
+}
+
+CCoinsSelectionAlgorithm& CCoinsSelectionAlgorithm::GetBestAlgorithmBySolution(CCoinsSelectionAlgorithm& first, CCoinsSelectionAlgorithm& second)
+{
+    if ((first.optimalTotalSelection > second.optimalTotalSelection) ||
+        (first.optimalTotalSelection == second.optimalTotalSelection && first.optimalTotalAmount <= second.optimalTotalAmount))
+    {
+        return first;
+    }
+    else
+    {
+        return second;
+    }
 }
 
 /* ---------- ---------- */
 
 /* ---------- CCoinsSelectionSlidingWindow ---------- */
 
-CCoinsSelectionSlidingWindow::CCoinsSelectionSlidingWindow(const std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
-                                                           const CAmount _targetAmount,
-                                                           const CAmount _targetAmountPlusOffset,
-                                                           const size_t _availableTotalSize)
+CCoinsSelectionSlidingWindow::CCoinsSelectionSlidingWindow(std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
+                                                           CAmount _targetAmount,
+                                                           CAmount _targetAmountPlusOffset,
+                                                           size_t _availableTotalSize)
                                                            : CCoinsSelectionAlgorithm(CoinsSelectionAlgorithmType::SLIDING_WINDOW,
                                                                                       _amountsAndSizes,
                                                                                       _targetAmount,
                                                                                       _targetAmountPlusOffset,
                                                                                       _availableTotalSize)
 {
-    #if COINS_SELECTION_ALGORITHM_DEBUGGING
+    #if COINS_SELECTION_ALGORITHM_PROFILING
     iterations = 0;
     #endif
 }
@@ -101,14 +128,14 @@ void CCoinsSelectionSlidingWindow::Reset()
 {
     CCoinsSelectionAlgorithm::Reset();
 
-    #if COINS_SELECTION_ALGORITHM_DEBUGGING
+    #if COINS_SELECTION_ALGORITHM_PROFILING
     iterations = 0;
     #endif
 }
 
 void CCoinsSelectionSlidingWindow::Solve()
 {
-    #if COINS_SELECTION_ALGORITHM_DEBUGGING
+    #if COINS_SELECTION_ALGORITHM_PROFILING
     uint64_t microsecondsBefore = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     #endif
     size_t tempTotalSize = 0;
@@ -118,6 +145,10 @@ void CCoinsSelectionSlidingWindow::Solve()
     int inclusionIndex = maxIndex;
     for (; inclusionIndex >= 0; --inclusionIndex)   
     {
+        if (stop)
+        {
+            return;
+        }
         tempSelection[inclusionIndex] = true;
         tempTotalSize += sizes[inclusionIndex];
         tempTotalAmount += amounts[inclusionIndex];
@@ -140,25 +171,26 @@ void CCoinsSelectionSlidingWindow::Solve()
             break;
         }
     }   
-    #if COINS_SELECTION_ALGORITHM_DEBUGGING
+    #if COINS_SELECTION_ALGORITHM_PROFILING
     iterations = (maxIndex + 1 - inclusionIndex) + (maxIndex - exclusionIndex);
     executionMicroseconds = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - microsecondsBefore;
     #endif
-    #if COINS_SELECTION_ALGORITHM_DEBUGGING
-    freopen("CCoinsSelectionSlidingWindow.txt","a",stdout);
-    std::cout << std::to_string(optimalTotalSelection) + " - " + std::to_string(optimalTotalAmount) + " - " + std::to_string(optimalTotalSize) + "\n";
-    std::cout << std::to_string(iterations) + " - " + std::to_string(executionMicroseconds) + "\n\n";
-    #endif
+    completed = true;
+    // #if COINS_SELECTION_ALGORITHM_PROFILING
+    // freopen("CCoinsSelectionSlidingWindow.txt","a",stdout);
+    // std::cout << std::to_string(optimalTotalSelection) + " - " + std::to_string(optimalTotalAmount) + " - " + std::to_string(optimalTotalSize) + "\n";
+    // std::cout << std::to_string(iterations) + " - " + std::to_string(executionMicroseconds) + "\n\n";
+    // #endif
 }
 
 /* ---------- ---------- */
 
 /* ---------- CCoinsSelectionBranchAndBound ---------- */
 
-CCoinsSelectionBranchAndBound::CCoinsSelectionBranchAndBound(const std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
-                                                             const CAmount _targetAmount,
-                                                             const CAmount _targetAmountPlusOffset,
-                                                             const size_t _availableTotalSize)
+CCoinsSelectionBranchAndBound::CCoinsSelectionBranchAndBound(std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
+                                                             CAmount _targetAmount,
+                                                             CAmount _targetAmountPlusOffset,
+                                                             size_t _availableTotalSize)
                                                              : CCoinsSelectionAlgorithm(CoinsSelectionAlgorithmType::BRANCH_AND_BOUND,
                                                                                         _amountsAndSizes,
                                                                                         _targetAmount,
@@ -166,7 +198,7 @@ CCoinsSelectionBranchAndBound::CCoinsSelectionBranchAndBound(const std::vector<s
                                                                                         _availableTotalSize),
                                                                                         cumulativeAmountsForward{PrepareCumulativeAmountsForward()}
 {
-    #if COINS_SELECTION_ALGORITHM_DEBUGGING
+    #if COINS_SELECTION_ALGORITHM_PROFILING
     recursions = 0;
     reachedNodes = 0;
     reachedLeaves = 0;
@@ -188,7 +220,7 @@ std::vector<CAmount> CCoinsSelectionBranchAndBound::PrepareCumulativeAmountsForw
 
 void CCoinsSelectionBranchAndBound::SolveRecursive(int currentIndex, size_t tempTotalSize, CAmount tempTotalAmount, uint tempTotalSelection)
 {
-    #if COINS_SELECTION_ALGORITHM_DEBUGGING
+    #if COINS_SELECTION_ALGORITHM_PROFILING
     ++recursions;
     #endif
     int nextIndex = currentIndex + 1;
@@ -199,7 +231,7 @@ void CCoinsSelectionBranchAndBound::SolveRecursive(int currentIndex, size_t temp
             return;
         }
         tempSelection[currentIndex] = value;
-        #if COINS_SELECTION_ALGORITHM_DEBUGGING
+        #if COINS_SELECTION_ALGORITHM_PROFILING
         ++reachedNodes;
         #endif
         size_t tempTotalSizeNew = tempTotalSize + (value ? sizes[currentIndex] : 0);
@@ -222,7 +254,7 @@ void CCoinsSelectionBranchAndBound::SolveRecursive(int currentIndex, size_t temp
                         }
                         else
                         {
-                            #if COINS_SELECTION_ALGORITHM_DEBUGGING
+                            #if COINS_SELECTION_ALGORITHM_PROFILING
                             ++reachedLeaves;
                             #endif
                             optimalTotalSize = tempTotalSizeNew;
@@ -241,7 +273,7 @@ void CCoinsSelectionBranchAndBound::Reset()
 {
     CCoinsSelectionAlgorithm::Reset();
 
-    #if COINS_SELECTION_ALGORITHM_DEBUGGING
+    #if COINS_SELECTION_ALGORITHM_PROFILING
     recursions = 0;
     reachedNodes = 0;
     reachedLeaves = 0;
@@ -250,18 +282,19 @@ void CCoinsSelectionBranchAndBound::Reset()
 
 void CCoinsSelectionBranchAndBound::Solve()
 {
-    #if COINS_SELECTION_ALGORITHM_DEBUGGING
+    #if COINS_SELECTION_ALGORITHM_PROFILING
     uint64_t microsecondsBefore = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     #endif
     SolveRecursive(0, 0, 0, 0);
-    #if COINS_SELECTION_ALGORITHM_DEBUGGING
+    #if COINS_SELECTION_ALGORITHM_PROFILING
     executionMicroseconds = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - microsecondsBefore;
     #endif
-    #if COINS_SELECTION_ALGORITHM_DEBUGGING
-    freopen("CCoinsSelectionBranchAndBound.txt","a",stdout);
-    std::cout << std::to_string(optimalTotalSelection) + " - " + std::to_string(optimalTotalAmount) + " - " + std::to_string(optimalTotalSize) + "\n";
-    std::cout << std::to_string(recursions) + " - " + std::to_string(reachedNodes) + " - "  + std::to_string(reachedLeaves) + " - " + std::to_string(executionMicroseconds) + "\n\n";
-    #endif
+    completed = true;
+    // #if COINS_SELECTION_ALGORITHM_PROFILING
+    // freopen("CCoinsSelectionBranchAndBound.txt","a",stdout);
+    // std::cout << std::to_string(optimalTotalSelection) + " - " + std::to_string(optimalTotalAmount) + " - " + std::to_string(optimalTotalSize) + "\n";
+    // std::cout << std::to_string(recursions) + " - " + std::to_string(reachedNodes) + " - "  + std::to_string(reachedLeaves) + " - " + std::to_string(executionMicroseconds) + "\n\n";
+    // #endif
 }
 
 /* ---------- ---------- */

@@ -4,16 +4,17 @@
 
 #include <utility>
 #include <vector>
+#include <string>
 #include "amount.h"
 
 
-#define COINS_SELECTION_ALGORITHM_DEBUGGING 0
+#define COINS_SELECTION_ALGORITHM_PROFILING 0
 
 
 enum class CoinsSelectionAlgorithmType {
     UNDEFINED = 0,
-    BRANCH_AND_BOUND = 1,
-    SLIDING_WINDOW = 2
+    SLIDING_WINDOW = 1,
+    BRANCH_AND_BOUND = 2
 };
 
 /* ---------- CCoinsSelectionAlgorithm ---------- */
@@ -26,13 +27,6 @@ protected:
     const int problemDimension;
     const int maxIndex;
     // auxiliary
-       
-    // profiling and control
-    bool stop;
-    #if COINS_SELECTION_ALGORITHM_DEBUGGING
-    uint64_t executionMicroseconds;
-    #endif
-    // profiling and control
 
 public:
     // auxiliary
@@ -54,21 +48,31 @@ public:
     uint optimalTotalSelection;
     // output variables
 
+    // profiling and control
+    bool stop;
+    bool completed;
+    #if COINS_SELECTION_ALGORITHM_PROFILING
+    uint64_t executionMicroseconds;
+    #endif
+    // profiling and control
+
 private:
-    std::vector<CAmount> PrepareAmounts(const std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes);
-    std::vector<size_t> PrepareSizes(const std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes);
+    std::vector<CAmount> PrepareAmounts(std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes);
+    std::vector<size_t> PrepareSizes(std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes);
 
 protected:
     virtual void Reset();
 
 public:
     CCoinsSelectionAlgorithm(CoinsSelectionAlgorithmType _type,
-                             const std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
-                             const CAmount _targetAmount,
-                             const CAmount _targetAmountPlusOffset,
-                             const size_t _availableTotalSize);
+                             std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
+                             CAmount _targetAmount,
+                             CAmount _targetAmountPlusOffset,
+                             size_t _availableTotalSize);
     virtual ~CCoinsSelectionAlgorithm();
     virtual void Solve() = 0;
+    std::string ToString();
+    static CCoinsSelectionAlgorithm& GetBestAlgorithmBySolution(CCoinsSelectionAlgorithm& first, CCoinsSelectionAlgorithm& second);
 };
 
 /* ---------- ---------- */
@@ -79,7 +83,7 @@ class CCoinsSelectionSlidingWindow : public CCoinsSelectionAlgorithm
 {
 protected:
     // profiling
-    #if COINS_SELECTION_ALGORITHM_DEBUGGING
+    #if COINS_SELECTION_ALGORITHM_PROFILING
     uint64_t iterations;
     #endif
     // profiling
@@ -88,10 +92,10 @@ protected:
     void Reset() override;
 
 public:
-    CCoinsSelectionSlidingWindow(const std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
-                                 const CAmount _targetAmount,
-                                 const CAmount _targetAmountPlusOffset,
-                                 const size_t _availableTotalSize);
+    CCoinsSelectionSlidingWindow(std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
+                                 CAmount _targetAmount,
+                                 CAmount _targetAmountPlusOffset,
+                                 size_t _availableTotalSize);
     ~CCoinsSelectionSlidingWindow();
     void Solve() override;
 };
@@ -108,7 +112,7 @@ protected:
     // auxiliary
 
     // profiling
-    #if COINS_SELECTION_ALGORITHM_DEBUGGING
+    #if COINS_SELECTION_ALGORITHM_PROFILING
     uint64_t recursions;
     uint64_t reachedNodes;
     uint64_t reachedLeaves;
@@ -123,10 +127,10 @@ protected:
     void Reset() override;
 
 public:
-    CCoinsSelectionBranchAndBound(const std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
-                                  const CAmount _targetAmount,
-                                  const CAmount _targetAmountPlusOffset,
-                                  const size_t _availableTotalSize);
+    CCoinsSelectionBranchAndBound(std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
+                                  CAmount _targetAmount,
+                                  CAmount _targetAmountPlusOffset,
+                                  size_t _availableTotalSize);
     ~CCoinsSelectionBranchAndBound();
     void Solve() override;
 };

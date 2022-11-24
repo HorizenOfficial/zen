@@ -29,10 +29,12 @@ using namespace zen;
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
+#include <thread>
 
 #include "sc/sidechain.h"
 #include <univalue.h>
 #include "rpc/protocol.h"
+#include "coinsselectionalgorithm.hpp"
 
 using namespace std;
 using namespace libzcash;
@@ -2999,6 +3001,8 @@ static void ApproximateBestSubset(
     }
 }
 
+#define COINS_SELECTION_INTERMEDIATE_CHANGE_LEVELS 2
+
 bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int nConfTheirs, vector<COutput> vCoins, set<pair<const CWalletTransactionBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet,
                                  size_t availableBytes) const
 {
@@ -3012,153 +3016,151 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
     vector<pair<CAmount, pair<const CWalletTransactionBase*,unsigned int>>> vValue;
     CAmount nTotalLower = 0;
    
-    bool newAlgo = false;
+    bool newAlgo = true;
 
-    if (newAlgo) {
-
-        BOOST_FOREACH(const COutput &output, vCoins)
+    std::shuffle(vCoins.begin(), vCoins.end(), ZcashRandomEngine());
+    BOOST_FOREACH(const COutput &output, vCoins)
+    {
+        if (!output.fSpendable)
+            continue;
+        const CWalletTransactionBase *pcoin = output.tx;
+        if (output.nDepth < (pcoin->IsFromMe(ISMINE_ALL) ? nConfMine : nConfTheirs))
+            continue;
+        CAmount n = pcoin->getTxBase()->GetVout()[output.pos].nValue;
+        pair<CAmount,pair<const CWalletTransactionBase*,unsigned int> > coin = make_pair(n,make_pair(pcoin, output.pos));
+        if (n == nTargetValue)
         {
-            if (!output.fSpendable)
-                continue;
-
-            const CWalletTransactionBase *pcoin = output.tx;
-
-            if (output.nDepth < (pcoin->IsFromMe(ISMINE_ALL) ? nConfMine : nConfTheirs))
-                continue;
-
-            CAmount n = pcoin->getTxBase()->GetVout()[output.pos].nValue;
-
-            pair<CAmount,pair<const CWalletTransactionBase*,unsigned int>> coin = make_pair(n,make_pair(pcoin, output.pos));
-
+            setCoinsRet.insert(coin.second);
+            nValueRet += coin.first;
+            return true;
+        }
+        else if (n < nTargetValue + CENT)
+        {
             vValue.push_back(coin);
+            nTotalLower += n;
         }
+        else if (n < coinLowestLarger.first)
+        {
+            coinLowestLarger = coin;
+        }
+    }
+    if (nTotalLower == nTargetValue)
+    {
+        for (unsigned int i = 0; i < vValue.size(); ++i)
+        {
+            setCoinsRet.insert(vValue[i].second);
+            nValueRet += vValue[i].first;
+        }
+        return true;
+    }
+    if (nTotalLower < nTargetValue)
+    {
+        if (coinLowestLarger.second.first == NULL)
+            return false;
+        setCoinsRet.insert(coinLowestLarger.second);
+        nValueRet += coinLowestLarger.first;
+        return true;
+    }
 
-        std::sort(vValue.begin(), vValue.end(), [](pair<CAmount, pair<const CWalletTransactionBase*,unsigned int>> i, pair<CAmount,pair<const CWalletTransactionBase*,unsigned int>> j) -> bool {
-            return ( i.first < j.first);
-        });
-
-        vector<tuple<CAmount, pair<const CWalletTransactionBase*, unsigned int>, size_t>> vCoinsRet;
-        CAmount totalSelectedAmount = 0;
-        size_t totalSizeIn = 0;
-        int removalIndex = 0;
-        for (int i = 0; i < vValue.size(); i++) {
-            CTxIn in(vValue[i].second.first->getTxBase()->GetHash(), vValue[i].second.second, CScript(), 0);
-            const CScript& scriptPubKey = vValue[i].second.first->getTxBase()->GetVout()[vValue[i].second.second].scriptPubKey;
-            CScript& scriptSigRes = in.scriptSig;
-            ProduceSignature(DummySignatureCreator(*this), scriptPubKey, scriptSigRes); //TODO: check if this is ok
-            size_t sizeIn = in.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
-
-            //insert current (biggest)
-            totalSelectedAmount += vValue[i].first;
-            totalSizeIn += sizeIn;
-            vCoinsRet.push_back(make_tuple(vValue[i].first, vValue[i].second, sizeIn));
-
-            if (availableBytes > 0) {
-                while (totalSizeIn > availableBytes) {
-                    //remove from begin (smallest)
-                    tuple<CAmount, pair<const CWalletTransactionBase*, unsigned int>, size_t> coinToRemove = vCoinsRet.front();
-                    totalSelectedAmount -= std::get<0>(coinToRemove);
-                    totalSizeIn -= std::get<2>(coinToRemove);
-                    vCoinsRet.erase(vCoinsRet.begin());
+    std::vector<std::pair<CAmount, size_t>> amountsAndSizes = std::vector<std::pair<CAmount, size_t>>(vValue.size(), std::make_pair(0, 0));
+    for (int i = 0; i < vValue.size(); i++) {
+        CTxIn in(vValue[i].second.first->getTxBase()->GetHash(), vValue[i].second.second, CScript(), 0);
+        const CScript& scriptPubKey = vValue[i].second.first->getTxBase()->GetVout()[vValue[i].second.second].scriptPubKey;
+        CScript& scriptSigRes = in.scriptSig;
+        ProduceSignature(DummySignatureCreator(*this), scriptPubKey, scriptSigRes); //TODO: check if this is ok
+        size_t sizeIn = in.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+        amountsAndSizes[i] = std::make_pair(vValue[i].first, sizeIn);
+    }
+    const CAmount targetAmount = nTargetValue;
+    const CAmount targetAmountPlusOffsetNoChange = nTargetValue; //no change
+    const CAmount targetAmountPlusOffsetMaxChange = coinLowestLarger.second.first != NULL ? coinLowestLarger.first : nTotalLower; //max change
+    const size_t availableTotalSize = availableBytes;
+    CCoinsSelectionAlgorithm* bestAlgorithm = nullptr;
+    std::vector<std::pair<CCoinsSelectionSlidingWindow, CCoinsSelectionBranchAndBound>> algorithms;
+    for (int i = 0; i < COINS_SELECTION_INTERMEDIATE_CHANGE_LEVELS + 2; ++i)
+    {
+        const CAmount targetAmountPlusOffset = targetAmountPlusOffsetNoChange +
+                                               (double)(i) / (COINS_SELECTION_INTERMEDIATE_CHANGE_LEVELS + 1) * (targetAmountPlusOffsetMaxChange - targetAmountPlusOffsetNoChange);
+        algorithms.emplace_back(std::make_pair(CCoinsSelectionSlidingWindow(amountsAndSizes, targetAmount, targetAmountPlusOffset, availableTotalSize),
+                                               CCoinsSelectionBranchAndBound(amountsAndSizes, targetAmount, targetAmountPlusOffset, availableTotalSize)));
+    }
+    std::vector<std::pair<std::thread, std::thread>> threads;
+    for (int i = 0; i < algorithms.size(); ++i)
+    {
+        threads.emplace_back(std::make_pair(std::thread(&CCoinsSelectionSlidingWindow::Solve, &algorithms[i].first),
+                                            std::thread(&CCoinsSelectionBranchAndBound::Solve, &algorithms[i].second)));
+    }
+    int wait;
+    for (wait = 0; wait < 20; ++wait)
+    {
+        freopen("CHECK.txt","a",stdout);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        for (int i = 0; i < algorithms.size(); ++i)
+        {
+            std::cout << std::to_string(wait) + " - " + std::to_string(i) + " - " + algorithms[i].first.ToString() + "\n";
+            std::cout << std::to_string(wait) + " - " + std::to_string(i) + " - " + algorithms[i].second.ToString() + "\n";
+            if (algorithms[i].first.completed && algorithms[i].first.optimalTotalSelection > 0) //this means that an admissible solution has been found at this level
+            {
+                if (algorithms[i].second.completed && algorithms[i].second.optimalTotalSelection > 0)
+                {
+                    std::cout << "break\n";
+                    wait = 20;
+                    break;
                 }
+                break; //waiting for best solution at this level
             }
-
-            if (totalSelectedAmount >= nTargetValue)
+        }
+    }
+    for (int i = 0; i < algorithms.size(); ++i)
+    {
+        algorithms[i].first.stop = true;
+        algorithms[i].second.stop = true;
+    }
+    for (int i = 0; i < threads.size(); ++i)
+    {
+        threads[i].first.join();
+        threads[i].second.join();
+    }
+    if (bestAlgorithm == nullptr)
+    {
+        for (int i = 0; i < algorithms.size(); ++i)
+        {
+            if (algorithms[i].first.optimalTotalSelection > 0 || algorithms[i].second.optimalTotalSelection > 0)
+            {
+                bestAlgorithm = &CCoinsSelectionAlgorithm::GetBestAlgorithmBySolution(algorithms[i].first, algorithms[i].second); //will be BB for sure
                 break;
-
-            if (i == vValue.size()-1)
-                return false; //unable to satisfy
+            }
         }
-
-        for(vector<tuple<CAmount, pair<const CWalletTransactionBase*, unsigned int>, size_t>>::iterator it = vCoinsRet.begin(); it != vCoinsRet.end(); it++) {
-            setCoinsRet.insert(std::get<1>(*it));
-        }
-        nValueRet = totalSelectedAmount;
+    }
+    std::cout << std::to_string((int)bestAlgorithm->type) + " - " + bestAlgorithm->ToString() + "\n";
+    std::cout << "\n";
+    vector<char> vfBest;
+    vfBest.assign(vValue.size(), false);
+    for (int i = 0; i < bestAlgorithm->optimalSelection.size(); i++)
+    {
+        vfBest[i] = bestAlgorithm->optimalSelection[i];
+    }
+    CAmount nBest = bestAlgorithm->optimalTotalAmount;
+    // If we have a bigger coin and (either the stochastic approximation didn't find a good solution,
+    //                                   or the next bigger coin is closer), return the bigger coin
+    if (coinLowestLarger.second.first &&
+        ((nBest != nTargetValue && nBest < nTargetValue + CENT) || coinLowestLarger.first <= nBest))
+    {
+        setCoinsRet.insert(coinLowestLarger.second);
+        nValueRet += coinLowestLarger.first;
     }
     else {
-        std::shuffle(vCoins.begin(), vCoins.end(), ZcashRandomEngine());
-
-        BOOST_FOREACH(const COutput &output, vCoins)
-        {
-            if (!output.fSpendable)
-                continue;
-
-            const CWalletTransactionBase *pcoin = output.tx;
-
-            if (output.nDepth < (pcoin->IsFromMe(ISMINE_ALL) ? nConfMine : nConfTheirs))
-                continue;
-
-            CAmount n = pcoin->getTxBase()->GetVout()[output.pos].nValue;
-
-            pair<CAmount,pair<const CWalletTransactionBase*,unsigned int> > coin = make_pair(n,make_pair(pcoin, output.pos));
-
-            if (n == nTargetValue)
-            {
-                setCoinsRet.insert(coin.second);
-                nValueRet += coin.first;
-                return true;
-            }
-            else if (n < nTargetValue + CENT)
-            {
-                vValue.push_back(coin);
-                nTotalLower += n;
-            }
-            else if (n < coinLowestLarger.first)
-            {
-                coinLowestLarger = coin;
-            }
-        }
-
-        if (nTotalLower == nTargetValue)
-        {
-            for (unsigned int i = 0; i < vValue.size(); ++i)
+        for (unsigned int i = 0; i < vValue.size(); i++)
+            if (vfBest[i])
             {
                 setCoinsRet.insert(vValue[i].second);
                 nValueRet += vValue[i].first;
             }
-            return true;
-        }
-
-        if (nTotalLower < nTargetValue)
-        {
-            if (coinLowestLarger.second.first == NULL)
-                return false;
-            setCoinsRet.insert(coinLowestLarger.second);
-            nValueRet += coinLowestLarger.first;
-            return true;
-        }
-
-        // Solve subset sum by stochastic approximation
-        sort(vValue.rbegin(), vValue.rend(), CompareValueOnly());
-        vector<char> vfBest;
-        CAmount nBest;
-
-        ApproximateBestSubset(vValue, nTotalLower, nTargetValue, vfBest, nBest, 1000);
-        if (nBest != nTargetValue && nTotalLower >= nTargetValue + CENT)
-            ApproximateBestSubset(vValue, nTotalLower, nTargetValue + CENT, vfBest, nBest, 1000);
-
-        // If we have a bigger coin and (either the stochastic approximation didn't find a good solution,
-        //                                   or the next bigger coin is closer), return the bigger coin
-        if (coinLowestLarger.second.first &&
-            ((nBest != nTargetValue && nBest < nTargetValue + CENT) || coinLowestLarger.first <= nBest))
-        {
-            setCoinsRet.insert(coinLowestLarger.second);
-            nValueRet += coinLowestLarger.first;
-        }
-        else {
-            for (unsigned int i = 0; i < vValue.size(); i++)
-                if (vfBest[i])
-                {
-                    setCoinsRet.insert(vValue[i].second);
-                    nValueRet += vValue[i].first;
-                }
-
-            LogPrint("selectcoins", "SelectCoins() best subset: ");
-            for (unsigned int i = 0; i < vValue.size(); i++)
-                if (vfBest[i])
-                    LogPrint("selectcoins", "%s ", FormatMoney(vValue[i].first));
-            LogPrint("selectcoins", "total %s\n", FormatMoney(nBest));
-        }
+        LogPrint("selectcoins", "SelectCoins() best subset: ");
+        for (unsigned int i = 0; i < vValue.size(); i++)
+            if (vfBest[i])
+                LogPrint("selectcoins", "%s ", FormatMoney(vValue[i].first));
+        LogPrint("selectcoins", "total %s\n", FormatMoney(nBest));
     }
 
     return true;
@@ -4914,10 +4916,3 @@ void CWallet::GetUnspentFilteredNotes(
         }
     }
 }
-
-
-/*COINS SELECTION*/
-
-
-
-/*COINS SELECTION*/

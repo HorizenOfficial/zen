@@ -64,7 +64,7 @@ class TxFailBigDimension(BitcoinTestFramework):
         test_flow = 4 # z_sendmany(t->z)
         test_flow = 5 # sc_send_certificate
 
-        test_flow = 0
+        test_flow = -1
         print("test flow: " + str(test_flow))
 
         nt0 = self.nodes[0].listaddresses()[0]
@@ -82,12 +82,27 @@ class TxFailBigDimension(BitcoinTestFramework):
         print("N1 -> (" + nt1 + " , " + str(nt1b) + ")")
         print("N2 -> (" + nt2 + " , " + str(nt2b) + ")")
 
+        if test_flow == -1:
+            #on nt0 we already have 700 coins of size 0.001
+            self.nodes[1].sendtoaddress(nt0, 0.5)
+            self.sync_all()
+            self.nodes[2].generate(10)
+            self.sync_all()
+            self.nodes[0].sendtoaddress(nt2, 0.550) #fail #here we see that old algo selects 51 utxos (with 0 change) while new algo selects 550 utxos (with 0 change)
+            # self.nodes[0].sendtoaddress(nt2, 0.700) #fail
+            # self.nodes[0].sendtoaddress(nt2, 0.710) #pass
+            self.sync_all()
+            self.nodes[2].generate(10)
+            self.sync_all()
+            gino = 0
+
         if test_flow == 0:
+            #on nt0 we already have 700 coins of size 0.001
             self.nodes[1].sendtoaddress(nt0, 0.7)
             self.sync_all()
             self.nodes[2].generate(10)
             self.sync_all()
-            self.nodes[0].sendtoaddress(nt2, 0.699) #fail
+            self.nodes[0].sendtoaddress(nt2, 0.680) #fail
             # self.nodes[0].sendtoaddress(nt2, 0.700) #fail
             # self.nodes[0].sendtoaddress(nt2, 0.710) #pass
             self.sync_all()
