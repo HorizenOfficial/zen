@@ -282,6 +282,8 @@ void CCoinsSelectionBranchAndBound::Reset()
 
 void CCoinsSelectionBranchAndBound::Solve()
 {
+    freopen("CHECK.txt","a",stdout);
+    std::cout << "I have started" << std::flush;
     #if COINS_SELECTION_ALGORITHM_PROFILING
     uint64_t microsecondsBefore = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     #endif
@@ -290,6 +292,8 @@ void CCoinsSelectionBranchAndBound::Solve()
     executionMicroseconds = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - microsecondsBefore;
     #endif
     completed = true;
+    freopen("CHECK.txt","a",stdout);
+    std::cout << "I have completed" << std::flush;
     // #if COINS_SELECTION_ALGORITHM_PROFILING
     // freopen("CCoinsSelectionBranchAndBound.txt","a",stdout);
     // std::cout << std::to_string(optimalTotalSelection) + " - " + std::to_string(optimalTotalAmount) + " - " + std::to_string(optimalTotalSize) + "\n";
