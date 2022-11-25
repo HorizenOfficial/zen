@@ -24,8 +24,7 @@ class CCoinsSelectionAlgorithm
 {
 protected:
     // auxiliary
-    std::vector<bool> tempSelection;    
-    const int problemDimension;
+    bool* tempSelection;
     const int maxIndex;
     // auxiliary
 
@@ -35,15 +34,16 @@ public:
     // auxiliary
 
     // input variables
-    const std::vector<CAmount> amounts;
-    const std::vector<size_t> sizes;
+    const int problemDimension;
+    const CAmount* amounts;
+    const size_t* sizes;
     const CAmount targetAmount;
     const CAmount targetAmountPlusOffset;
     const size_t availableTotalSize;
     // input variables
     
     // output variables
-    std::vector<bool> optimalSelection;
+    bool* optimalSelection;
     CAmount optimalTotalAmount;
     size_t optimalTotalSize;
     uint optimalTotalSelection;
@@ -61,8 +61,8 @@ public:
     // profiling and control
 
 private:
-    std::vector<CAmount> PrepareAmounts(std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes);
-    std::vector<size_t> PrepareSizes(std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes);
+    CAmount* PrepareAmounts(std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes);
+    size_t* PrepareSizes(std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes);
 
 protected:
     virtual void Reset();
@@ -74,9 +74,9 @@ public:
                              CAmount _targetAmountPlusOffset,
                              size_t _availableTotalSize);
     virtual ~CCoinsSelectionAlgorithm();
-    void StartSolving();
+    void StartSolvingAsync();
     virtual void Solve() = 0;
-    void StopSolving();
+    void StopSolvingAsync();
     std::string ToString();
     static CCoinsSelectionAlgorithm& GetBestAlgorithmBySolution(CCoinsSelectionAlgorithm& first, CCoinsSelectionAlgorithm& second);
 };
@@ -114,7 +114,7 @@ class CCoinsSelectionBranchAndBound : public CCoinsSelectionAlgorithm
 {
 protected:
     // auxiliary
-    const std::vector<CAmount> cumulativeAmountsForward;
+    const CAmount* cumulativeAmountsForward;
     // auxiliary
 
     // profiling
@@ -126,7 +126,7 @@ protected:
     // profiling
 
 private:
-    std::vector<CAmount> PrepareCumulativeAmountsForward();
+    CAmount* PrepareCumulativeAmountsForward();
     void SolveRecursive(int currentIndex, size_t tempTotalSize, CAmount tempTotalAmount, uint tempTotalSelection);
 
 protected:

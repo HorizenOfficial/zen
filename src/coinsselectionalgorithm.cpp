@@ -13,16 +13,21 @@ CCoinsSelectionAlgorithm::CCoinsSelectionAlgorithm(CoinsSelectionAlgorithmType _
                                                    size_t _availableTotalSize)
                                                    : type {_type},
                                                      problemDimension{(int)_amountsAndSizes.size()},
-                                                     maxIndex{problemDimension - 1},
+                                                     maxIndex{(int)_amountsAndSizes.size() - 1},
                                                      amounts {PrepareAmounts(_amountsAndSizes)},
                                                      sizes {PrepareSizes(_amountsAndSizes)},
                                                      targetAmount {_targetAmount},
                                                      targetAmountPlusOffset {_targetAmountPlusOffset},
                                                      availableTotalSize {_availableTotalSize}
 {
-    tempSelection = std::vector<bool>(problemDimension, false);
-    
-    optimalSelection = std::vector<bool>(problemDimension, false);
+    tempSelection = new bool[problemDimension];    
+    optimalSelection = new bool[problemDimension];
+    for (int index = 0; index < problemDimension; ++index)
+    {
+        tempSelection[index] = false;
+        optimalSelection[index] = false;
+    }
+
     optimalTotalAmount = 0;
     optimalTotalSize = 0;
     optimalTotalSelection= 0;
@@ -37,13 +42,17 @@ CCoinsSelectionAlgorithm::CCoinsSelectionAlgorithm(CoinsSelectionAlgorithmType _
 }
 
 CCoinsSelectionAlgorithm::~CCoinsSelectionAlgorithm() {
+    delete[] amounts;
+    delete[] sizes;
+    delete[] tempSelection;
+    delete[] optimalSelection;
 }
 
-std::vector<CAmount> CCoinsSelectionAlgorithm::PrepareAmounts(std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes)
+CAmount* CCoinsSelectionAlgorithm::PrepareAmounts(std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes)
 {
     std::vector<std::pair<CAmount, size_t>> sortedAmountsAndSizes = unsortedAmountsAndSizes;
     std::sort(sortedAmountsAndSizes.begin(), sortedAmountsAndSizes.end(), [](std::pair<CAmount, size_t> left, std::pair<CAmount, size_t> right) -> bool { return ( left.first > right.first); } );
-    std::vector<CAmount> sortedAmounts = std::vector<CAmount>(problemDimension, 0);
+    CAmount* sortedAmounts = new CAmount[problemDimension];
     for (int index = 0; index < problemDimension; ++index)
     {
         sortedAmounts[index] = sortedAmountsAndSizes[index].first;
@@ -51,11 +60,11 @@ std::vector<CAmount> CCoinsSelectionAlgorithm::PrepareAmounts(std::vector<std::p
     return sortedAmounts;
 }
 
-std::vector<size_t> CCoinsSelectionAlgorithm::PrepareSizes(std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes)
+size_t* CCoinsSelectionAlgorithm::PrepareSizes(std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes)
 {
     std::vector<std::pair<CAmount, size_t>> sortedAmountsAndSizes = unsortedAmountsAndSizes;
     std::sort(sortedAmountsAndSizes.begin(), sortedAmountsAndSizes.end(), [](std::pair<CAmount, size_t> left, std::pair<CAmount, size_t> right) -> bool { return ( left.first > right.first); } );
-    std::vector<size_t> sortedSizes = std::vector<size_t>(problemDimension, 0);
+    size_t* sortedSizes = new size_t[problemDimension];
     for (int index = 0; index < problemDimension; ++index)
     {
         sortedSizes[index] = sortedAmountsAndSizes[index].second;
@@ -65,9 +74,12 @@ std::vector<size_t> CCoinsSelectionAlgorithm::PrepareSizes(std::vector<std::pair
 
 void CCoinsSelectionAlgorithm::Reset()
 {  
-    std::fill(tempSelection.begin(), tempSelection.end(), false);
-
-    std::fill(optimalSelection.begin(), optimalSelection.end(), false);
+    for (int index = 0; index < problemDimension; ++index)
+    {
+        tempSelection[index] = false;
+        optimalSelection[index] = false;
+    }
+    
     optimalTotalAmount = 0;
     optimalTotalSize = 0;
     optimalTotalSelection= 0;
@@ -93,7 +105,7 @@ std::string CCoinsSelectionAlgorithm::ToString()
                                   ",optimalTotalSelection=" + std::to_string(optimalTotalSelection) + "}\n";
 }
 
-void CCoinsSelectionAlgorithm::StartSolving()
+void CCoinsSelectionAlgorithm::StartSolvingAsync()
 {
     if (!asyncStartRequested)
     {
@@ -102,7 +114,7 @@ void CCoinsSelectionAlgorithm::StartSolving()
     }
 }
 
-void CCoinsSelectionAlgorithm::StopSolving()
+void CCoinsSelectionAlgorithm::StopSolvingAsync()
 {
     if (asyncStartRequested && !asyncStopRequested)
     {
@@ -190,7 +202,10 @@ void CCoinsSelectionSlidingWindow::Solve()
             optimalTotalSize = tempTotalSize;
             optimalTotalAmount = tempTotalAmount;
             optimalTotalSelection = tempTotalSelection;
-            optimalSelection = tempSelection;
+            for (int index = 0; index < problemDimension; ++index)
+            {
+                optimalSelection[index] = tempSelection[index];
+            }
             break;
         }
     }   
@@ -229,11 +244,13 @@ CCoinsSelectionBranchAndBound::CCoinsSelectionBranchAndBound(std::vector<std::pa
 }
 
 CCoinsSelectionBranchAndBound::~CCoinsSelectionBranchAndBound() {
+    delete [] cumulativeAmountsForward;
 }
 
-std::vector<CAmount> CCoinsSelectionBranchAndBound::PrepareCumulativeAmountsForward()
+CAmount* CCoinsSelectionBranchAndBound::PrepareCumulativeAmountsForward()
 {
-    std::vector<CAmount> cumulativeAmountForwardTemp = std::vector<CAmount>(problemDimension + 1, 0);
+    CAmount* cumulativeAmountForwardTemp = new CAmount[problemDimension + 1];
+    cumulativeAmountForwardTemp[problemDimension] = 0;
     for (int index = problemDimension - 1; index >= 0; --index)
     {
         cumulativeAmountForwardTemp[index] = cumulativeAmountForwardTemp[index + 1] + amounts[index];
@@ -283,7 +300,10 @@ void CCoinsSelectionBranchAndBound::SolveRecursive(int currentIndex, size_t temp
                             optimalTotalSize = tempTotalSizeNew;
                             optimalTotalAmount = tempTotalAmountNew;
                             optimalTotalSelection = tempTotalSelectionNew;
-                            optimalSelection = tempSelection;
+                            for (int index = 0; index < problemDimension; ++index)
+                            {
+                                optimalSelection[index] = tempSelection[index];
+                            }
                         }
                     }
                 }
