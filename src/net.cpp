@@ -99,6 +99,7 @@ map<CInv, CDataStream> mapRelay;
 deque<pair<int64_t, CInv> > vRelayExpiration;
 CCriticalSection cs_mapRelay;
 limitedmap<CInv, int64_t> mapAlreadyAskedFor(MAX_INV_SZ);
+limitedmap<CInv, int64_t> mapAlreadyReceived(MAPRECEIVED_MAX_SZ);
 
 static deque<string> vOneShots;
 CCriticalSection cs_vOneShots;
@@ -2452,6 +2453,13 @@ void CNode::AskFor(const CInv& inv)
     // a peer may not have multiple non-responded queue positions for a single inv item
     if (!setAskFor.insert(inv.hash).second)
         return;
+
+    // If we need to ask for this inv again (after it has already been received)
+    // then pretend we never received it before so that the request is actually performed.
+    // Otherwise, this request would be blocked in main::SendMessages.
+    if (mapAlreadyReceived.erase(inv)) {
+        LogPrint("net", "%s():%d - askfor %s even though it was received already in the past\n", __func__, __LINE__, inv.ToString());
+    }
 
     // We're using mapAskFor as a priority queue,
     // the key is the earliest time the request can be sent
