@@ -3018,7 +3018,7 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
    
     bool newAlgo = true;
 
-    std::shuffle(vCoins.begin(), vCoins.end(), ZcashRandomEngine());
+    // std::shuffle(vCoins.begin(), vCoins.end(), ZcashRandomEngine()); //we want coins to be selected "always in the same way given the same input values" (otherwise ordering can be different for coins with equal value)
     BOOST_FOREACH(const COutput &output, vCoins)
     {
         if (!output.fSpendable)
@@ -3412,6 +3412,8 @@ bool CWallet::CreateTransaction(
             //this code is looped in order to search for the most appropriate fee for the transaction being created
             while (true)
             {
+                transactionSize.outputsNoChangeSize = 0;
+                transactionSize.inputsSize = 0;
                 txNew.vin.clear();
                 txNew.vcsw_ccin.clear();
 
@@ -3646,7 +3648,7 @@ bool CWallet::CreateTransaction(
                     size_t sizeScriptBefore = GetSerializeSize(scriptSigRes, SER_NETWORK, PROTOCOL_VERSION);
                     size_t sizeInBefore = txNew.vin[nIn].GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
          
-                    if (sign)                   
+                    if (sign)
                         signSuccess = ProduceSignature(TransactionSignatureCreator(*this, txNewConst, nIn, SIGHASH_ALL), scriptPubKey, scriptSigRes);
                     else
                         signSuccess = ProduceSignature(DummySignatureCreator(*this), scriptPubKey, scriptSigRes);
