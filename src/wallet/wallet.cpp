@@ -3001,7 +3001,7 @@ static void ApproximateBestSubset(
     }
 }
 
-#define COINS_SELECTION_INTERMEDIATE_CHANGE_LEVELS 0
+#define COINS_SELECTION_INTERMEDIATE_CHANGE_LEVELS 3
 
 bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int nConfTheirs, vector<COutput> vCoins, set<pair<const CWalletTransactionBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet,
                                  size_t availableBytes) const
@@ -3078,56 +3078,51 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
     freopen("CHECK.txt","a",stdout);
     CCoinsSelectionAlgorithm* bestAlgorithm = nullptr;
 
-    std::vector<CCoinsSelectionSlidingWindow> fastNotOptimalAlgorithms; //TODO: would be nice to make this CCoinsSelectionAlgorithm
+    std::vector<std::unique_ptr<CCoinsSelectionAlgorithm>> fastNotOptimalAlgorithms;
     for (int i = 0; i < COINS_SELECTION_INTERMEDIATE_CHANGE_LEVELS + 2; ++i)
     {
         const CAmount targetAmountPlusOffset = targetAmountPlusOffsetNoChange +
                                                (double)(i) / (COINS_SELECTION_INTERMEDIATE_CHANGE_LEVELS + 1) * (targetAmountPlusOffsetMaxChange - targetAmountPlusOffsetNoChange);
-        fastNotOptimalAlgorithms.emplace_back(CCoinsSelectionSlidingWindow(amountsAndSizes, targetAmount, targetAmountPlusOffset, availableTotalSize));
+        fastNotOptimalAlgorithms.emplace_back(new CCoinsSelectionSlidingWindow(amountsAndSizes, targetAmount, targetAmountPlusOffset, availableTotalSize));
         // no parallel solving is required for these algorithms
-        fastNotOptimalAlgorithms[i].Solve();
+        fastNotOptimalAlgorithms[i]->Solve();
     }
 
-    std::vector<CCoinsSelectionBranchAndBound> slowOptimalAlgorithms; //TODO: would be nice to make this CCoinsSelectionAlgorithm
+    std::vector<std::unique_ptr<CCoinsSelectionAlgorithm>> slowOptimalAlgorithms;
     for (int i = 0; i < fastNotOptimalAlgorithms.size(); ++i)
     {
-        if (fastNotOptimalAlgorithms[i].completed && fastNotOptimalAlgorithms[i].optimalTotalSelection > 0) //TODO: check (this supposes that fastNotOptimal ALWAYS find a solution if it exists)
+        if (fastNotOptimalAlgorithms[i]->optimalTotalSelection > 0) //TODO: check (this supposes that fastNotOptimal ALWAYS find a solution if it exists)
         {
-            slowOptimalAlgorithms.emplace_back(CCoinsSelectionBranchAndBound(amountsAndSizes, targetAmount, fastNotOptimalAlgorithms[i].targetAmountPlusOffset, availableTotalSize));
+            slowOptimalAlgorithms.emplace_back(new CCoinsSelectionBranchAndBound(amountsAndSizes, targetAmount, fastNotOptimalAlgorithms[i]->targetAmountPlusOffset, availableTotalSize));
         }
+    }
+    for (int i = 0; i < slowOptimalAlgorithms.size(); ++i)
+    {
+        // parallel solving is required for these algorithms
+        slowOptimalAlgorithms[i]->StartSolving();
     }
     if (slowOptimalAlgorithms.size() > 0)
     {
-        std::vector<std::thread> threads;
-        for (int i = 0; i < slowOptimalAlgorithms.size(); ++i)
-        {
-            // parallel solving is required for these algorithms
-            threads.emplace_back(std::thread(&CCoinsSelectionAlgorithm::Solve, &slowOptimalAlgorithms[i]));
-        }
-
         for (int wait = 0; wait < 20; ++wait)
         {
-            if (slowOptimalAlgorithms[0].completed && slowOptimalAlgorithms[0].optimalTotalSelection > 0)
+            if (slowOptimalAlgorithms[0]->completed && slowOptimalAlgorithms[0]->optimalTotalSelection > 0)
             {
                 break;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
-        for (int i = 0; i < slowOptimalAlgorithms.size(); ++i)
-        {
-            slowOptimalAlgorithms[i].stop = true;
-        }
-        for (int i = 0; i < threads.size(); ++i)
-        {
-            threads[i].join();
-        }
+    }
+    for (int i = 0; i < slowOptimalAlgorithms.size(); ++i)
+    {
+        slowOptimalAlgorithms[i]->StopSolving();
     }
     int slowOptimalAlgorithmIndex = 0;
     for (int i = 0; i < fastNotOptimalAlgorithms.size(); ++i)
     {
-        if (fastNotOptimalAlgorithms[i].completed && fastNotOptimalAlgorithms[i].optimalTotalSelection > 0) //TODO: check (this supposes that fastNotOptimal ALWAYS find a solution if it exists)
+        if (fastNotOptimalAlgorithms[i]->optimalTotalSelection > 0) //TODO: check (this supposes that fastNotOptimal ALWAYS find a solution if it exists)
         {
-            bestAlgorithm = &CCoinsSelectionAlgorithm::GetBestAlgorithmBySolution(fastNotOptimalAlgorithms[i], slowOptimalAlgorithms[slowOptimalAlgorithmIndex++]);
+            bestAlgorithm = &CCoinsSelectionAlgorithm::GetBestAlgorithmBySolution(*fastNotOptimalAlgorithms[i], *slowOptimalAlgorithms[slowOptimalAlgorithmIndex++]);
+            break;
         }
     }
     

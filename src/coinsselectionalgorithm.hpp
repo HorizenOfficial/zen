@@ -5,6 +5,7 @@
 #include <utility>
 #include <vector>
 #include <string>
+#include <thread>
 #include "amount.h"
 
 
@@ -49,7 +50,10 @@ public:
     // output variables
 
     // profiling and control
-    bool stop;
+    bool hasStarted;
+    bool asyncStartRequested;
+    bool asyncStopRequested;
+    std::thread* solvingThread;
     bool completed;
     #if COINS_SELECTION_ALGORITHM_PROFILING
     uint64_t executionMicroseconds;
@@ -70,7 +74,9 @@ public:
                              CAmount _targetAmountPlusOffset,
                              size_t _availableTotalSize);
     virtual ~CCoinsSelectionAlgorithm();
+    void StartSolving();
     virtual void Solve() = 0;
+    void StopSolving();
     std::string ToString();
     static CCoinsSelectionAlgorithm& GetBestAlgorithmBySolution(CCoinsSelectionAlgorithm& first, CCoinsSelectionAlgorithm& second);
 };

@@ -27,7 +27,9 @@ CCoinsSelectionAlgorithm::CCoinsSelectionAlgorithm(CoinsSelectionAlgorithmType _
     optimalTotalSize = 0;
     optimalTotalSelection= 0;
 
-    stop = false;
+    hasStarted = false;
+    asyncStartRequested = false;
+    asyncStopRequested = false;
     completed = false;
     #if COINS_SELECTION_ALGORITHM_PROFILING
     executionMicroseconds = 0;
@@ -70,7 +72,9 @@ void CCoinsSelectionAlgorithm::Reset()
     optimalTotalSize = 0;
     optimalTotalSelection= 0;
 
-    stop = false;
+    hasStarted = false;
+    asyncStartRequested = false;
+    asyncStopRequested = false;
     completed = false;
     #if COINS_SELECTION_ALGORITHM_PROFILING
     executionMicroseconds = 0;
@@ -87,6 +91,24 @@ std::string CCoinsSelectionAlgorithm::ToString()
                                 + "{optimalTotalAmount=" + std::to_string(optimalTotalAmount) +
                                   ",optimalTotalSize=" + std::to_string(optimalTotalSize) +
                                   ",optimalTotalSelection=" + std::to_string(optimalTotalSelection) + "}\n";
+}
+
+void CCoinsSelectionAlgorithm::StartSolving()
+{
+    if (!asyncStartRequested)
+    {
+        asyncStartRequested = true;
+        solvingThread = new std::thread(&CCoinsSelectionAlgorithm::Solve, this);
+    }
+}
+
+void CCoinsSelectionAlgorithm::StopSolving()
+{
+    if (asyncStartRequested && !asyncStopRequested)
+    {
+        asyncStopRequested = true;
+        solvingThread->join();
+    }
 }
 
 CCoinsSelectionAlgorithm& CCoinsSelectionAlgorithm::GetBestAlgorithmBySolution(CCoinsSelectionAlgorithm& first, CCoinsSelectionAlgorithm& second)
@@ -135,6 +157,7 @@ void CCoinsSelectionSlidingWindow::Reset()
 
 void CCoinsSelectionSlidingWindow::Solve()
 {
+    hasStarted = true;;
     #if COINS_SELECTION_ALGORITHM_PROFILING
     uint64_t microsecondsBefore = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     #endif
@@ -145,7 +168,7 @@ void CCoinsSelectionSlidingWindow::Solve()
     int inclusionIndex = maxIndex;
     for (; inclusionIndex >= 0; --inclusionIndex)   
     {
-        if (stop)
+        if (asyncStopRequested)
         {
             return;
         }
@@ -226,7 +249,7 @@ void CCoinsSelectionBranchAndBound::SolveRecursive(int currentIndex, size_t temp
     int nextIndex = currentIndex + 1;
     for (bool value : { false, true })
     {
-        if (stop)
+        if (asyncStopRequested)
         {
             return;
         }
@@ -282,8 +305,7 @@ void CCoinsSelectionBranchAndBound::Reset()
 
 void CCoinsSelectionBranchAndBound::Solve()
 {
-    freopen("CHECK.txt","a",stdout);
-    std::cout << "I have started" << std::flush;
+    hasStarted = true;
     #if COINS_SELECTION_ALGORITHM_PROFILING
     uint64_t microsecondsBefore = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     #endif
@@ -292,8 +314,6 @@ void CCoinsSelectionBranchAndBound::Solve()
     executionMicroseconds = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - microsecondsBefore;
     #endif
     completed = true;
-    freopen("CHECK.txt","a",stdout);
-    std::cout << "I have completed" << std::flush;
     // #if COINS_SELECTION_ALGORITHM_PROFILING
     // freopen("CCoinsSelectionBranchAndBound.txt","a",stdout);
     // std::cout << std::to_string(optimalTotalSelection) + " - " + std::to_string(optimalTotalAmount) + " - " + std::to_string(optimalTotalSize) + "\n";
