@@ -3016,8 +3016,6 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
     vector<pair<CAmount, pair<const CWalletTransactionBase*,unsigned int>>> vValue;
     CAmount nTotalLower = 0;
    
-    bool newAlgo = true;
-
     // std::shuffle(vCoins.begin(), vCoins.end(), ZcashRandomEngine()); //we want coins to be selected "always in the same way given the same input values" (otherwise ordering can be different for coins with equal value)
     BOOST_FOREACH(const COutput &output, vCoins)
     {
