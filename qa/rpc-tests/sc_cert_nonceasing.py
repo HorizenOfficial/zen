@@ -225,22 +225,22 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         self.sync_all()
 
         #------------------------------------------------
-        mark_logs("## Test ok, epoch 1 ##", self.nodes, DEBUG_MODE)
+        mark_logs("## Test ko, epoch 1 (epoch 0 is still in mempool) ##", self.nodes, DEBUG_MODE)
         #------------------------------------------------
         epoch_number = 1
         quality = 5
         ref_height = self.nodes[0].getblockcount()-4
         amount_cert_2 = {"address": addr_node2, "amount": bwt_amount_2}
-        cert_2 = self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE + 1, amount_cert_2, False)
+        cert_2 = self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE + 1, amount_cert_2, True, "invalid timing for certificate")
 
         #------------------------------------------------
-        mark_logs("## Test ok, epoch 2 (same mempool) ##", self.nodes, DEBUG_MODE)
+        mark_logs("## Test ko, epoch 2 (epoch 0 is still in mempool) ##", self.nodes, DEBUG_MODE)
         #------------------------------------------------
         epoch_number = 2
         quality = 0
         ref_height = self.nodes[0].getblockcount()-1
         amount_cert_3 = {"address": addr_node2, "amount": bwt_amount_3}
-        cert_3 = self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE + 2, amount_cert_3, False)
+        cert_3 = self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE + 2, amount_cert_3, True, "invalid timing for certificate")
 
         #------------------------------------------------
         mark_logs("## Test ok, send ft with amount lower than FT_SC_FEE in mempool, but ok with blockchain ##", self.nodes, DEBUG_MODE)
@@ -260,13 +260,42 @@ class ncsc_cert_epochs(BitcoinTestFramework):
             epoch_number = 3
             quality = 0
             amount_cert_4 = {"address": addr_node2, "amount": bwt_amount_4}
-            self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_4, True, "invalid timing for certificate")
+            self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_4, True)
 
         #------------------------------------------------
-        mark_logs("## Generating 1 block ##", self.nodes, DEBUG_MODE)
+        mark_logs("## Generating 1 block to include certificate of epoch 0 ##", self.nodes, DEBUG_MODE)
         #------------------------------------------------
         hash = self.nodes[0].generate(1)
+        self.sync_all()
 
+        #------------------------------------------------
+        mark_logs("## Test ok, epoch 1 ##", self.nodes, DEBUG_MODE)
+        #------------------------------------------------
+        epoch_number = 1
+        quality = 5
+        ref_height = self.nodes[0].getblockcount()
+        amount_cert_2 = {"address": addr_node2, "amount": bwt_amount_2}
+        cert_2 = self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE + 1, amount_cert_2, False)
+
+        #------------------------------------------------
+        mark_logs("## Generating 1 block to include certificate of epoch 1 ##", self.nodes, DEBUG_MODE)
+        #------------------------------------------------
+        hash = self.nodes[0].generate(1)
+        self.sync_all()
+
+        #------------------------------------------------
+        mark_logs("## Test ok, epoch 2 ##", self.nodes, DEBUG_MODE)
+        #------------------------------------------------
+        epoch_number = 2
+        quality = 0
+        ref_height = self.nodes[0].getblockcount()
+        amount_cert_3 = {"address": addr_node2, "amount": bwt_amount_3}
+        cert_3 = self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE + 2, amount_cert_3, False)
+
+        #------------------------------------------------
+        mark_logs("## Generating 1 block to include certificate of epoch 2 ##", self.nodes, DEBUG_MODE)
+        #------------------------------------------------
+        hash = self.nodes[0].generate(1)
         self.sync_all()
 
         #------------------------------------------------
@@ -284,13 +313,13 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         self.nodes[0].invalidateblock(hash[0])
 
         scinfo = self.nodes[0].getscinfo(scid, False, False)
-        assert_equal(bwt_amount_1, creation_amount - scinfo['items'][0]['balance'])
-        assert_equal(bwt_amount_1, scinfo['items'][0]['lastCertificateAmount'])
-        assert_equal(cert_1, scinfo['items'][0]['lastCertificateHash'])
-        assert_equal(ref_quality, scinfo['items'][0]['lastCertificateQuality'])
+        assert_equal(bwt_amount_1 + bwt_amount_2 - fwt_amount, creation_amount - scinfo['items'][0]['balance'])
+        assert_equal(bwt_amount_2, scinfo['items'][0]['lastCertificateAmount'])
+        assert_equal(cert_2, scinfo['items'][0]['lastCertificateHash'])
+        assert_equal(5, scinfo['items'][0]['lastCertificateQuality'])
 
         txmem = self.nodes[0].getrawmempool()
-        assert_equal(len(txmem), 3)
+        assert_equal(len(txmem), 1)
 
         #------------------------------------------------
         mark_logs("## Reconsider last block ##", self.nodes, DEBUG_MODE)
@@ -330,9 +359,9 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         #------------------------------------------------
         self.nodes[0].invalidateblock(inv_bl_hash)
         cpool = self.nodes[0].getrawmempool()
-        assert_equal(3, len(cpool)) # the last certificate has no reference anymore, so it's gone
+        print(cpool)
+        assert_equal(1, len(cpool)) # the last certificate has no reference anymore, so it's gone
         assert(cert_1 in cpool)
-        assert(cert_2 in cpool)
         self.nodes[0].reconsiderblock(inv_bl_hash)
         assert_equal(0, len(self.nodes[0].getrawmempool())) # all the certificates and fwt are in the blockchain again
 

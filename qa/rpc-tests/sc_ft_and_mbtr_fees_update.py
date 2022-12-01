@@ -496,7 +496,7 @@ class provaFee(BitcoinTestFramework):
         # this certificate has ftr fee greater than those specified during sc creation
         malicious_ft_fees = Decimal('0.1')
         addr_node3 = self.nodes[3].getnewaddress()
-        epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[2], epoch_length, True, self.nodes[2].getblockcount() - 4)
+        epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[2], epoch_length, True, self.nodes[2].getblockcount())
         proof = mcTest.create_test_proof(sc_name,
                                          scid_swapped,
                                          epoch_number,
@@ -527,6 +527,7 @@ class provaFee(BitcoinTestFramework):
         sync_blocks(self.nodes[2:])
         sync_mempools(self.nodes[2:])
         self.assert_chain_height_difference(1)      # Test that the newly mined block is only on nodes 2 and 3
+
         # 5.
         mark_logs_temp(f"Net join", self.nodes, DEBUG_MODE, color='c')
         self.join_network()
@@ -554,7 +555,7 @@ class provaFee(BitcoinTestFramework):
                 incremental_fees = incremental_fees + 0.05
                 malicious_ft_fees = Decimal(str(incremental_fees))
                 addr_node3 = self.nodes[3].getnewaddress()
-                epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[2], epoch_length, True, self.nodes[2].getblockcount() - 4)
+                epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[2], epoch_length, True, self.nodes[2].getblockcount())
                 proof = mcTest.create_test_proof(sc_name,
                                                  scid_swapped,
                                                  epoch_number,
@@ -590,18 +591,18 @@ class provaFee(BitcoinTestFramework):
                 sync_blocks(self.nodes)
                 self.assert_chain_height_difference(0)      # Make sure that block is propagated to nodes 0 and 1
 
-            # For the last two iterations, we send two certificates per block to ensure that we keep
-            # only the lower fees of each block
+            # TODO: remove this last part altogether, and increase prev loop from 7 to 9?
+            # For the last two iterations, we send one per block
             for j in range(2):
                 self.assert_txs_in_mempool(NUM_TXS)         # Make sure that txs are only in nodes 0 and 1 mempool
                 mark_logs_temp(f"Net split", self.nodes, DEBUG_MODE, color='c')
                 self.split_network()
 
-                for i in range(2):
+                for i in range(1):
                     incremental_fees = incremental_fees + 0.05
                     malicious_ft_fees = Decimal(str(incremental_fees))
                     addr_node3 = self.nodes[3].getnewaddress()
-                    epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[2], epoch_length, True, self.nodes[2].getblockcount() - 4 + i + j)
+                    epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[2], epoch_length, True, self.nodes[2].getblockcount())
                     proof = mcTest.create_test_proof(sc_name,
                                                      scid_swapped,
                                                      epoch_number,
@@ -643,9 +644,9 @@ class provaFee(BitcoinTestFramework):
             # Difference between second to last and third to last should be 0.5
             # i.e. block # | ft fee
             #        496   | 0.40
-            #        497   | 0.45 <- between 0.45 and 0.50 we keep 0.45
-            #        498   | 0.55 <- between 0.55 and 0.60 we keep 0.55
-            assert_equal(float(scFeesList[-1]['forwardTxScFee'] - scFeesList[-2]['forwardTxScFee']), 0.1)
+            #        497   | 0.50
+            #        498   | 0.55
+            assert_equal(float(scFeesList[-1]['forwardTxScFee'] - scFeesList[-2]['forwardTxScFee']), 0.05)
             assert_equal(float(scFeesList[-2]['forwardTxScFee'] - scFeesList[-3]['forwardTxScFee']), 0.05)
 
             # Finally, we are over the minScFeesBlocksUpdate border

@@ -2023,8 +2023,8 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
             const auto map_it = mapCumtreeHeight.find(certTopQual.endEpochCumScTxCommTreeRoot.GetLegacyHash());
             if (map_it == mapCumtreeHeight.end())
             {
-                LogPrint("mempool", "%s():%d - could not find referenced block for certTopQual %s\n", __func__, __LINE__, certTopQual.GetHash().ToString());
-                assert(false); // could not find the block referenced by certTopQual. Just Panic.
+                LogPrint("mempool", "%s():%d - could not find referenced block for certTopQual %s. This certificate will be removed shortly\n", __func__, __LINE__, certTopQual.GetHash().ToString());
+                info.lastReferencedHeight = -1;
             }
             else
             {
@@ -2032,9 +2032,9 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
             }
 
             info.lastTopQualityCertReferencedEpoch = certTopQual.epochNumber;
-            // info.lastInclusionHeight cannot be affected by mempool
+            info.lastInclusionHeight += 1;
         }
-    }
+}
 
     return true;
 }

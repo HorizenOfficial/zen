@@ -409,10 +409,19 @@ class getblockexpanded(BitcoinTestFramework):
             epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
         self.sync_all()
 
-        # Add to mempool cert2 referring to (current block - 2)
+        # Mine 3 blocks, the first one containing cert1
+        mark_logs("########### Mine 3 blocks ##################", self.nodes, DEBUG_MODE)
+        cert1_block = self.nodes[0].generate(1)[0]
+        self.sync_all()
+        cert1_maturityHeight = self.nodes[0].getblockcount()
+        self.nodes[0].generate(2)
+        self.sync_all()
+
+        # Add to mempool cert3 referring to (current block - 1)
         mark_logs("########### Add Certificate 2 to mempool ##################", self.nodes, DEBUG_MODE)
-        epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH, is_non_ceasing = True, reference_height = curr_height - 2)
-        bwt_amount2 = Decimal("7")
+        curr_height = self.nodes[0].getblockcount()
+        epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH, is_non_ceasing = True)
+        bwt_amount2 = Decimal("8")
         proof = self.mcTest.create_test_proof(sc_name,
                                               scid_swapped,
                                               epoch_number,
@@ -431,11 +440,11 @@ class getblockexpanded(BitcoinTestFramework):
             epoch_cum_tree_hash, proof, amount_cert_2, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
         self.sync_all()
 
-        # Mine 3 blocks, the first one containing cert1 and cert2
+        # Mine 3 blocks, the first one containing cert2
         mark_logs("########### Mine 3 blocks ##################", self.nodes, DEBUG_MODE)
-        cert1_2_block = self.nodes[0].generate(1)[0]
+        cert2_block = self.nodes[0].generate(1)[0]
         self.sync_all()
-        cert1_2_maturityHeight = self.nodes[0].getblockcount()
+        cert2_maturityHeight = self.nodes[0].getblockcount()
         self.nodes[0].generate(2)
         self.sync_all()
 
@@ -443,7 +452,7 @@ class getblockexpanded(BitcoinTestFramework):
         mark_logs("########### Add Certificate 3 to mempool ##################", self.nodes, DEBUG_MODE)
         curr_height = self.nodes[0].getblockcount()
         epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH, is_non_ceasing = True, reference_height = curr_height - 1)
-        bwt_amount3 = Decimal("8")
+        bwt_amount3 = Decimal("9")
         proof = self.mcTest.create_test_proof(sc_name,
                                               scid_swapped,
                                               epoch_number,
@@ -462,78 +471,46 @@ class getblockexpanded(BitcoinTestFramework):
             epoch_cum_tree_hash, proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
         self.sync_all()
 
-        # Mine 3 blocks, the first one containing cert3
-        mark_logs("########### Mine 3 blocks ##################", self.nodes, DEBUG_MODE)
+        # Mine 1 block containing cert3
+        mark_logs("########### Mine 2 blocks ##################", self.nodes, DEBUG_MODE)
         cert3_block = self.nodes[0].generate(1)[0]
         self.sync_all()
         cert3_maturityHeight = self.nodes[0].getblockcount()
-        self.nodes[0].generate(2)
-        self.sync_all()
-
-        # Add to mempool cert4 referring to (current block - 1)
-        mark_logs("########### Add Certificate 4 to mempool ##################", self.nodes, DEBUG_MODE)
-        curr_height = self.nodes[0].getblockcount()
-        epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH, is_non_ceasing = True, reference_height = curr_height - 1)
-        bwt_amount4 = Decimal("9")
-        proof = self.mcTest.create_test_proof(sc_name,
-                                              scid_swapped,
-                                              epoch_number,
-                                              quality,
-                                              MBTR_SC_FEE,
-                                              FT_SC_FEE,
-                                              epoch_cum_tree_hash, 
-                                              prev_cert_hash = prev_cert_hash if scversion >= 2 else None,
-                                              constant       = self.constant,
-                                              pks            = [node1Addr],
-                                              amounts        = [bwt_amount4])
-
-        amount_cert_4 = [{"address": node1Addr, "amount": bwt_amount4}]
-
-        cert4 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
-            epoch_cum_tree_hash, proof, amount_cert_4, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
-        self.sync_all()
-
-        # Mine 1 block containing cert4
-        mark_logs("########### Mine 2 blocks ##################", self.nodes, DEBUG_MODE)
-        cert4_block = self.nodes[0].generate(1)[0]
-        self.sync_all()
-        cert4_maturityHeight = self.nodes[0].getblockcount()
         new_epoch_block = self.nodes[0].generate(1)[0]
         self.sync_all()
 
         #### Start tests
+        rpcCertBlock = self.nodes[0].getblock(cert2_block, 2)
+        cert_2_json = {}
+        for cert in rpcCertBlock['cert']:
+            if (cert['txid'] == cert2):
+                cert_2_json = cert
+        assert_true(cert_2_json != {})
+
         rpcCertBlock = self.nodes[0].getblock(cert3_block, 2)
         cert_3_json = {}
         for cert in rpcCertBlock['cert']:
             if (cert['txid'] == cert3):
                 cert_3_json = cert
-        assert_true(cert_3_json != {})
-        rpcCertBlock = self.nodes[0].getblock(cert4_block, 2)
-        cert_4_json = {}
-        for cert in rpcCertBlock['cert']:
-            if (cert['txid'] == cert4):
-                cert_4_json = cert
-        rpcCertBlock = self.nodes[0].getblock(cert1_2_block, 2)
+
+        rpcCertBlock = self.nodes[0].getblock(cert1_block, 2)
         cert_1_json = {}
-        cert_2_json = {}
         for cert in rpcCertBlock['cert']:
-            if (cert['txid'] == cert2):
-                cert_2_json = cert
             if (cert['txid'] == cert1):
                 cert_1_json = cert
 
         tipHeight = self.nodes[0].getblockcount()
 
         # Add infos about certs to the dict
-        self.cert_dict[int(cert1_2_maturityHeight)]             = {"cert": [cert1, cert2], "cert_json": [cert_2_json, cert_1_json], "number": 2}
-        self.cert_dict_non_ceasing[int(cert1_2_maturityHeight)] = {"cert": [cert1, cert2], "cert_json": [cert_2_json, cert_1_json], "number": 2}
-        self.blck_h.append(int(cert1_2_maturityHeight) - 1)
-        self.cert_dict[int(cert3_maturityHeight)]               = {"cert":[cert3], "cert_json": [cert_3_json], "number": 1}
-        self.cert_dict_non_ceasing[int(cert3_maturityHeight)]   = {"cert":[cert3], "cert_json": [cert_3_json], "number": 1}
+        self.cert_dict[int(cert1_maturityHeight)]               = {"cert": [cert1], "cert_json": [cert_1_json], "number": 1}
+        self.cert_dict_non_ceasing[int(cert1_maturityHeight)]   = {"cert": [cert1], "cert_json": [cert_1_json], "number": 1}
+        self.blck_h.append(int(cert1_maturityHeight) - 1)
+        self.cert_dict[int(cert2_maturityHeight)]               = {"cert": [cert2], "cert_json": [cert_2_json], "number": 1}
+        self.cert_dict_non_ceasing[int(cert2_maturityHeight)]   = {"cert": [cert2], "cert_json": [cert_2_json], "number": 1}
+        self.blck_h.append(int(cert2_maturityHeight) - 1)
+        self.cert_dict[int(cert3_maturityHeight)]               = {"cert": [cert3], "cert_json": [cert_3_json], "number": 1}
+        self.cert_dict_non_ceasing[int(cert3_maturityHeight)]   = {"cert": [cert3], "cert_json": [cert_3_json], "number": 1}
         self.blck_h.append(int(cert3_maturityHeight) - 1)
-        self.cert_dict[int(cert4_maturityHeight)]               = {"cert":[cert4], "cert_json": [cert_4_json], "number": 1}
-        self.cert_dict_non_ceasing[int(cert4_maturityHeight)]   = {"cert":[cert4], "cert_json": [cert_4_json], "number": 1}
-        self.blck_h.append(int(cert4_maturityHeight) - 1)
 
         #Test that we require -maturityheightindex=1 to run the getblockexpanded
         try:
@@ -585,9 +562,9 @@ class getblockexpanded(BitcoinTestFramework):
                 assert_false('matureCertificate' in rpcDataByHeightVerbosity)
 
         self.nodes[0].invalidateblock(new_epoch_block)
-        self.nodes[0].invalidateblock(cert4_block)
+        self.nodes[0].invalidateblock(cert3_block)
         self.nodes[1].invalidateblock(new_epoch_block)
-        self.nodes[1].invalidateblock(cert4_block)
+        self.nodes[1].invalidateblock(cert3_block)
         assert_equal(self.nodes[0].getblockcount(), self.blck_h[-1])
         assert_equal(self.nodes[1].getblockcount(), self.blck_h[-1])
 
@@ -615,7 +592,7 @@ class getblockexpanded(BitcoinTestFramework):
         self.nodes[1].invalidateblock(fake_block)
 
         self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
-            epoch_cum_tree_hash, proof, amount_cert_4, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            epoch_cum_tree_hash, proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
         self.nodes[0].generate(2)
         self.sync_all()
 
@@ -627,8 +604,8 @@ class getblockexpanded(BitcoinTestFramework):
         assert_equal(len(rpcDataByHeight['matureCertificate']), 1)
         assert_equal(len(rpcDataByHashVerbosity['matureCertificate']), 1)
         assert_equal(len(rpcDataByHeightVerbosity['matureCertificate']), 1)
-        assert_equal(rpcDataByHashVerbosity['matureCertificate'][0], cert_4_json)
-        assert_equal(rpcDataByHeightVerbosity['matureCertificate'][0], cert_4_json)
+        assert_equal(rpcDataByHashVerbosity['matureCertificate'][0], cert_3_json)
+        assert_equal(rpcDataByHeightVerbosity['matureCertificate'][0], cert_3_json)
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['state'], "ALIVE")
 
         #Verify that SC does not cease
