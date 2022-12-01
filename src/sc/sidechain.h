@@ -176,7 +176,7 @@ public:
 
         if (isNonCeasing()) {
             READWRITE_POLYMORPHIC(scFees, Sidechain::ScFeeData, Sidechain::ScFeeData_v2);
-            READWRITE(VARINT(lastInclusionHeight));
+            READWRITE(VARINT(lastInclusionHeight)); // not really needed for ceasing sc
             READWRITE(VARINT(lastReferencedHeight));
         }
         else {

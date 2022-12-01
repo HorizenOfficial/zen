@@ -148,6 +148,11 @@ bool CSidechain::CheckCertTiming(int certEpoch, int referencedHeight, const CCoi
             return error("%s():%d - ERROR: certificate cannot be accepted, cert height (%d) not greater than last (%d)\n",
                 __func__, __LINE__, referencedHeight, lastReferencedHeight);
         }
+        if (referencedHeight < lastInclusionHeight)
+        {
+            return error("%s():%d - ERROR: certificate cannot be accepted, cert height (%d) not greater than last certificate inclusion height (%d)\n",
+                __func__, __LINE__, referencedHeight, lastInclusionHeight);
+        }
     }
     else
     {
