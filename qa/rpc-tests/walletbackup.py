@@ -76,9 +76,9 @@ class WalletBackupTest(BitcoinTestFramework):
 
         # nodes 1, 2,3 are spenders, let's give them a keypool=100
         extra_args = [
-           ['-debug=zrpc', "-keypool=100", ed0],
-           ['-debug=zrpc', "-keypool=100", ed1],
-           ['-debug=zrpc', "-keypool=100", ed2],
+           ['-debug=1', "-keypool=100", ed0],
+           ['-debug=1', "-keypool=100", ed1],
+           ['-debug=1', "-keypool=100", ed2],
            []]
         self.nodes = start_nodes(4, self.options.tmpdir, extra_args)
         connect_nodes(self.nodes[0], 3)
@@ -266,12 +266,12 @@ class WalletBackupTest(BitcoinTestFramework):
             # get the taddr of Node1 where the bwt is sent to
             bwt_address = self.nodes[0].getrawtransaction(cert_1, 1)['vout'][1]['scriptPubKey']['addresses'][0]
 
-            mark_logs("Node0 generates {} more blocks to achieve end of withdrawal epochs".format(epoch_length), self.nodes, DEBUG_MODE)
-            self.nodes[0].generate(epoch_length)
+            new_blocks = epoch_length if epoch_length > 0 else 1
+            mark_logs("Node0 generates {} more blocks to achieve end of withdrawal epochs".format(new_blocks), self.nodes, DEBUG_MODE)
+            self.nodes[0].generate(new_blocks)
             self.sync_all()
 
-            current_reference_height2 = self.nodes[0].getblockcount() - 1
-            epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[0], epoch_length, not ceasable, current_reference_height2)
+            epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[0], epoch_length, not ceasable)
 
             if not ceasable:
                 epoch_number = 1
@@ -311,14 +311,14 @@ class WalletBackupTest(BitcoinTestFramework):
 
             mark_logs("Check Node1 now has bwts in its balance, and their maturity height is as expected", self.nodes, DEBUG_MODE)
             # The following asserts on bwtMaturityHeight are meaningful only for ceasing sidechains. For non ceasing sc,
-            # we can check that certs have matured by looking at the balance, as we create only four
+            # we can check that certs have matured by looking at the balance, as we create only five
             # blocks since sc creation confirmation. Also, bwt mature immediately, hence balance is affected at once.
             if ceasable:
                 assert_equal(self.nodes[1].getblockcount(), bwtMaturityHeight)
                 assert_equal(self.nodes[1].getbalance(), n1_initial_balance+bwt_amount1 + bwt_amount2) 
                 assert_equal(self.nodes[1].z_getbalance(bwt_address), bwt_amount1 + bwt_amount2)
             else:
-                assert_equal(self.nodes[1].getblockcount(), sc_confirm_height + 4)
+                assert_equal(self.nodes[1].getblockcount(), sc_confirm_height + tempnblocks + new_blocks + safe_guard_size)
                 assert_equal(self.nodes[1].getbalance(), n1_initial_balance + bwt_amount1 + bwt_amount2 + bwt_amount3) 
                 assert_equal(self.nodes[1].z_getbalance(bwt_address), bwt_amount1 + bwt_amount2 + bwt_amount3)
 
