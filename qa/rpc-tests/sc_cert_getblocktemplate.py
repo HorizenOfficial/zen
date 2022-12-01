@@ -246,7 +246,7 @@ class sc_cert_base(BitcoinTestFramework):
 
         ### 4: Check certificates ordering (by epoch number for non-ceasable sidechains, by quality for ceasable ones)
 
-        num_certificates = 10
+        num_certificates = 10 if ceasable else 1
         from_addresses = []
 
         # Send coins to be used as input for the next certificate to a new address.
