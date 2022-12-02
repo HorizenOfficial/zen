@@ -106,7 +106,7 @@ class sbh_rpc_cmds(BitcoinTestFramework):
         constant = generate_random_field_element_hex()
 
         sc_creating_height = self.nodes[0].getblockcount()+1
-        sc_toaddress = "5c1dadd"
+        sc_toaddress = "05c1dadd"
         minconf = 1
         fee = Decimal("0.000025")
         cmdInput = {
