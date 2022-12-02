@@ -158,7 +158,7 @@ bool AddCustomFieldElement(const std::string& inputString, std::vector<unsigned 
     unsigned int nBytes, std::string& errString)
 {
     if(inputString.empty() || inputString.size() % 2) {
-        errString = std::string("Invalid format: not a valid hex");
+        errString = std::string("Invalid format: not an hex");
         return false;
     }
 
@@ -170,7 +170,7 @@ bool AddCustomFieldElement(const std::string& inputString, std::vector<unsigned 
 
     auto vBytes_tmp = ParseHex(inputString); // This implicitly validates a hex (save a double pass on the LUT)
     if(vBytes_tmp.size() != exp_bytes_count) {
-        errString = std::string("Invalid format: invalid hex chars");
+        errString = std::string("Invalid format: not an hex");
         return false;
     }
 
@@ -209,7 +209,7 @@ bool AddScData(
 
     auto vBytes_tmp = ParseHex(inputString); // This implicitly validates a hex (save a double pass on the LUT)
     if(vBytes_tmp.size() != exp_bytes_count) {
-        error = std::string("Invalid format: invalid hex chars");
+        error = std::string("Invalid format: not an hex");
         return false;
     }
 
