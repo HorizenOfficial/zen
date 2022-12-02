@@ -128,7 +128,7 @@ class SCCreateTest(BitcoinTestFramework):
             'customData': "bb" * 1024
         }
 
-        mark_logs("\nNode 1 create SC with duplicate key in input",self.nodes,DEBUG_MODE)
+        mark_logs("\nNode 1 create SC with missing mandatory key in input",self.nodes,DEBUG_MODE)
         try:
             self.nodes[1].sc_create(cmdInput)
             assert_true(False);
