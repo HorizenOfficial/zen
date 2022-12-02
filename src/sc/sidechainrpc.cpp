@@ -184,7 +184,7 @@ bool AddScData(
 { 
 
     if(inputString.empty() || inputString.size() % 2) {
-        error = std::string("Invalid format: not a valid hex");
+        error = std::string("Invalid format: not an hex");
         return false;
     }
 
