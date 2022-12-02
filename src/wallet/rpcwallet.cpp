@@ -898,7 +898,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     {
         string inputString = find_value(inputObject, "toaddress").get_str();
         if (!IsHex(inputString))
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid toaddress format: not an hex");
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid toaddress format: not an hex " + inputString);
 
         toaddress.SetHex(inputString);
     }
@@ -1218,7 +1218,7 @@ UniValue sc_send(const UniValue& params, bool fHelp)
         {
             string inputString = find_value(o, "toaddress").get_str();
             if (!IsHex(inputString))
-                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid toaddress format: not an hex");
+                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid toaddress format: not an hex " + inputString);
   
             toaddress.SetHex(inputString);
         }
