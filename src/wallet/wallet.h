@@ -734,7 +734,22 @@ private:
 class CWallet : public CCryptoKeyStore, public CValidationInterface
 {
 private:
-    bool SelectCoins(const CAmount& nTargetValue, std::set<std::pair<const CWalletTransactionBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet, bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet, const CCoinControl *coinControl = NULL) const;
+    //! Method for selecting coins
+    /*!
+      \param nTargetNetValue the target net value (considered as sum of coins net values) to be satisfied (as a lower-limit)
+      \param setCoinsRet the set of coins returned by section algorithm
+      \param nValueRet the total gross value returned (considered as sum of coins gross values)
+      \param totalInputsBytes the total bytes of selected inputs
+      \param fOnlyCoinbaseCoinsRet variable indicating if returned coins are all coinbase
+      \param fNeedCoinbaseCoinsRet variable indicating if coinbase coins are present in the selction (and not including them would result in failing selection)
+      \param coinControl pre-prepared info for selecting specific coins (default to NULL)
+      \param availableBytes available bytes (considered as an upper-limit on the sum of inputs sizes) for performing coins selection (default to MAX_TX_SIZE)
+      \param subtractFeeFromAmount flag indicating if fee should be subtracted from amount or not (default to false)
+      \return a variable representing if the selection actually found an admissible set of coins (true) or not (false)
+    */
+    bool SelectCoins(const CAmount& nTargetNetValue, std::set<std::pair<const CWalletTransactionBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet, size_t& totalInputsBytes,
+                     bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet,
+                     const CCoinControl *coinControl = NULL, size_t availableBytes = MAX_TX_SIZE, bool subtractFeeFromAmount = false) const;
 
     CWalletDB *pwalletdbEncryption;
 
@@ -977,8 +992,31 @@ public:
     bool CanSupportFeature(enum WalletFeature wf) { AssertLockHeld(cs_wallet); return nWalletMaxVersion >= wf; }
 
     void AvailableCoins(std::vector<COutput>& vCoins, bool fOnlyConfirmed=true, const CCoinControl *coinControl = nullptr, bool fIncludeZeroValue=false, bool fIncludeCoinBase=true, bool fIncludeCommunityFund=true) const;
-    bool SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins,
-        std::set<std::pair<const CWalletTransactionBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet) const;
+
+    //! Method for filtering coins based on confirmation count and then selecting coins based on value and size constarint
+    /*!
+      \param nTargetNetValue the target net value (considered as sum of coins net values) to be satisfied (as a lower-limit)
+      \param nConfMine the minimum number of confirmations from this wallet (filtering)
+      \param nConfTheirs the minimum number of confirmations from other nodes (filtering)
+      \param vCoins the set of coins on which the filtering algorithm and then the selection algorithms have to be executed
+      \param setCoinsRet the set of coins returned by filtering and selection algorithms
+      \param nValueRet the total gross value returned (considered as sum of coins gross values)
+      \param totalInputsBytes the total bytes of selected inputs
+      \param availableBytes available bytes (considered as an upper-limit on the sum of inputs sizes) for performing coins selection (default to MAX_TX_SIZE)
+      \param subtractFeeFromAmount flag indicating if fee should be subtracted from amount or not (default to false)
+      \return a variable representing if the selection actually found an admissible set of coins (true) or not (false)
+    */
+    bool SelectCoinsMinConf(const CAmount& nTargetNetValue, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins,
+                            std::set<std::pair<const CWalletTransactionBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet, size_t& totalInputsBytes,
+                            size_t availableBytes = MAX_TX_SIZE, bool subtractFeeFromAmount = false) const;
+
+    //! Method for estimating input size based on dummy signature
+    /*!
+      \param transaction the transaction the input refers to
+      \param position the position of the output within the transaction
+      \return input size estimation (as number of bytes)
+    */
+    size_t EstimateInputSize(const CWalletTransactionBase* transaction, unsigned int position) const;
 
     bool IsSpent(const uint256& hash, unsigned int n) const;
     bool IsSpent(const uint256& nullifier) const;
@@ -988,7 +1026,6 @@ public:
     void UnlockCoin(COutPoint& output);
     void UnlockAllCoins();
     void ListLockedCoins(std::vector<COutPoint>& vOutpts);
-
 
     bool IsLockedNote(uint256 hash, size_t js, uint8_t n) const;
     void LockNote(JSOutPoint& output);
@@ -1117,7 +1154,7 @@ public:
     bool AddAccountingEntry(const CAccountingEntry&, CWalletDB & pwalletdb);
 
     static CFeeRate minTxFee;
-    static CAmount GetMinimumFee(unsigned int nTxBytes, unsigned int nConfirmTarget, const CTxMemPool& pool);
+    static CAmount GetMinimumFee(unsigned int nTxBytes, unsigned int nConfirmTarget, const CTxMemPool& pool, bool payAtLeastCustomFee = true);
 
     bool NewKeyPool();
     bool TopUpKeyPool(unsigned int kpSize = 0);

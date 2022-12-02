@@ -719,7 +719,7 @@ static void SendMoney(const CTxDestination &address, CAmount nValue, bool fSubtr
 
     // Create and send the transaction
     CReserveKey reservekey(pwalletMain);
-    CAmount nFeeRequired;
+    CAmount nFeeRequired = 0;
     std::string strError;
     vector<CRecipient> vecSend;
     vector<CRecipientScCreation> vecScSend;
