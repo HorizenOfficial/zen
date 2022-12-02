@@ -162,7 +162,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {
             'version': 0,
             'withdrawalEpochLength': 123,
-            'toaddress': "ada",
+            'toaddress': "0ada",
             'amount': "",
             'wCertVk': vk,
             'constant': constant
