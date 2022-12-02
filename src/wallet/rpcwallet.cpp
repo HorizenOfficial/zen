@@ -913,8 +913,6 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     {
         UniValue av = find_value(inputObject, "amount");
         nAmount = AmountFromValue( av );
-        if (!MoneyRange(nAmount))
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount out of range");
         if (nAmount == 0)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount can not be null");
     }
@@ -947,8 +945,6 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             nFee = AmountFromValue(val);
         }
     }
-    if (nFee != SC_RPC_OPERATION_AUTO_MINERS_FEE && !MoneyRange(nFee))
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, fee out of range");
     if (nFee > nAmount)
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Fee %s is greater than output %s",
             FormatMoney(nFee), FormatMoney(nAmount)));
@@ -1064,14 +1060,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         UniValue uniFtScFee = find_value(inputObject, "forwardTransferScFee");
 
         if (!uniFtScFee.isNull())
-        {
             ftScFee = AmountFromValue(uniFtScFee);
-
-            if (!MoneyRange(ftScFee))
-            {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid forwardTransferScFee, amount out of range [%d, %d]", 0, MAX_MONEY));
-            }
-        }
     }
 
     // ---------------------------------------------------------
@@ -1083,11 +1072,6 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         if (!uniMbtrScFee.isNull())
         {
             mbtrScFee = AmountFromValue(uniMbtrScFee);
-
-            if (!MoneyRange(mbtrScFee))
-            {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid mainchainBackwardTransferScFee, amount out of range [%d, %d]", 0, MAX_MONEY));
-            }
         }
     }
 
@@ -1233,8 +1217,6 @@ UniValue sc_send(const UniValue& params, bool fHelp)
         {
             UniValue av = find_value(o, "amount");
             nAmount = AmountFromValue( av );
-            if (!MoneyRange(nAmount))
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount out of range");
             if (nAmount == 0)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount can not be null");
         }
@@ -1347,8 +1329,6 @@ UniValue sc_send(const UniValue& params, bool fHelp)
                 nFee = AmountFromValue(val);
             }
         }
-        if (nFee != SC_RPC_OPERATION_AUTO_MINERS_FEE && !MoneyRange(nFee))
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, fee out of range");
         if (nFee > totalAmount)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Fee %s is greater than output %s",
                 FormatMoney(nFee), FormatMoney(totalAmount)));
@@ -1488,9 +1468,6 @@ UniValue sc_request_transfer(const UniValue& params, bool fHelp)
         {
             UniValue av = find_value(o, "scFee");
             scFee = AmountFromValue( av );
-            // we allow also 0 scFee, check only the amount range
-            if (!MoneyRange(scFee))
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount out of range");
         }
         else
         {
@@ -1613,8 +1590,6 @@ UniValue sc_request_transfer(const UniValue& params, bool fHelp)
                 nFee = AmountFromValue(val);
             }
         }
-        if (nFee != SC_RPC_OPERATION_AUTO_MINERS_FEE && !MoneyRange(nFee))
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, fee out of range");
     }
 
     CMutableTransaction tx_bwt;
@@ -5569,12 +5544,6 @@ UniValue sc_send_certificate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_TYPE_ERROR, ("Invalid FT sidechain fee param:" + errMsg.getValStr() ));
     }
 
-
-    if (!MoneyRange(ftScFee))
-    {
-        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid parameter for FT sidechain fee, amount out of range");
-    }
-
     //--------------------------------------------------------------------------
     CAmount mbtrScFee;
     
@@ -5587,11 +5556,6 @@ UniValue sc_send_certificate(const UniValue& params, bool fHelp)
         UniValue errMsg  = find_value(error, "message");
         throw JSONRPCError(RPC_TYPE_ERROR, ("Invalid MBTR sidechain fee param:" + errMsg.getValStr() ));
     } 
-
-    if (!MoneyRange(mbtrScFee))
-    {
-        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid parameter for MBTR sidechain fee, amount out of range");
-    }
 
     //--------------------------------------------------------------------------
     // fee, default to a negative value, that means automatically computed
