@@ -404,7 +404,7 @@ class SCCreateTest(BitcoinTestFramework):
             'amount': 0.1,
             'fee': fee,
             'wCertVk': vk,
-            'customData': "bb" * 1025
+            'customData': "b" * 1026
         }
 
         try:
@@ -413,7 +413,7 @@ class SCCreateTest(BitcoinTestFramework):
         except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
-            assert_true("bytes" in errorString)
+            assert_true("must be at most" in errorString)
 
         # ---------------------------------------------------------------------------------------
         # Node 1 try create a SC with a bad constant
