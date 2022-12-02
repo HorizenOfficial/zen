@@ -21,10 +21,12 @@ string SanitizeString(const string& str)
      * even possibly remotely dangerous like & or >
      */
     static string safeChars("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890 .,;_/:?@()");
-    string strResult;
-    for (std::string::size_type i = 0; i < str.size(); i++) {
-        if (safeChars.find(str[i]) != std::string::npos)
-            strResult.push_back(str[i]);
+    string strResult{};
+    strResult.reserve(str.size());
+    for (auto c : str) {
+        if (safeChars.find(c) != std::string::npos) {
+            strResult.push_back(c);
+        }
     }
     return strResult;
 }
@@ -36,10 +38,12 @@ string SanitizeFilename(const string& str)
      * http://stackoverflow.com/a/2306003
      */
     static string safeChars("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890");
-    string strResult;
-    for (std::string::size_type i = 0; i < str.size(); i++) {
-        if (safeChars.find(str[i]) != std::string::npos)
-            strResult.push_back(str[i]);
+    string strResult{};
+    strResult.reserve(str.size());
+    for (auto c : str) {
+        if (safeChars.find(c) != std::string::npos) {
+            strResult.push_back(c);
+        }
     }
     return strResult;
 }
