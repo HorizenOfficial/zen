@@ -157,31 +157,24 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
 bool AddCustomFieldElement(const std::string& inputString, std::vector<unsigned char>& vBytes,
     unsigned int nBytes, std::string& errString)
 {
-    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-    {
-        errString = std::string("Invalid format: not an hex");
+    if(inputString.empty() || inputString.size() % 2) {
+        errString = std::string("Invalid format: not a valid hex");
         return false;
     }
 
-    unsigned int dataLen = inputString.length();
-
-    if (dataLen%2)
-    {
-        errString = strprintf("Invalid length %d, must be even (byte string)", dataLen);
+    auto exp_bytes_count{inputString.size() / 2};
+    if(exp_bytes_count > nBytes) {
+        errString = strprintf("Invalid length %d, must be %d bytes at most", exp_bytes_count, nBytes);
         return false;
     }
 
-    unsigned int scDataLen = dataLen/2;
-
-    if(scDataLen > nBytes)
-    {
-        errString = strprintf("Invalid length %d, must be %d bytes at most", scDataLen, nBytes);
+    auto vBytes_tmp = ParseHex(inputString); // This implicitly validates a hex (save a double pass on the LUT)
+    if(vBytes_tmp.size() != exp_bytes_count) {
+        errString = std::string("Invalid format: invalid hex chars");
         return false;
     }
 
-    vBytes = ParseHex(inputString);
-    assert(vBytes.size() == scDataLen);
-
+    vBytes.swap(vBytes_tmp);
     return true;
 }
 
@@ -189,37 +182,38 @@ bool AddScData(
     const std::string& inputString, std::vector<unsigned char>& vBytes, unsigned int vSize,
     CheckSizeMode checkSizeMode, std::string& error)
 { 
-    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-    {
-        error = std::string("Invalid format: not an hex");
+
+    if(inputString.empty() || inputString.size() % 2) {
+        error = std::string("Invalid format: not a valid hex");
         return false;
     }
 
-    unsigned int dataLen = inputString.length();
-
-    if (dataLen%2)
+    auto exp_bytes_count{inputString.size() / 2};
+    switch (checkSizeMode)
     {
-        error = strprintf("Invalid length %d, must be even (byte string)", dataLen);
+    case CheckSizeMode::CHECK_STRICT:
+        if(exp_bytes_count != vSize) {
+            error = strprintf("Invalid length %d, must be %d bytes", exp_bytes_count, vSize);
+            return false;
+        }
+        break;
+    case CheckSizeMode::CHECK_UPPER_LIMIT:
+        if(exp_bytes_count > vSize) {
+            error = strprintf("Invalid length %d, must be at most %d bytes", exp_bytes_count, vSize);
+            return false;
+        }
+        break;
+    default:
+        break;
+    }
+
+    auto vBytes_tmp = ParseHex(inputString); // This implicitly validates a hex (save a double pass on the LUT)
+    if(vBytes_tmp.size() != exp_bytes_count) {
+        error = std::string("Invalid format: invalid hex chars");
         return false;
     }
 
-    unsigned int scDataLen = dataLen/2;
-
-    if (checkSizeMode == CheckSizeMode::CHECK_STRICT && (scDataLen != vSize))
-    {
-        error = strprintf("Invalid length %d, must be %d bytes", scDataLen, vSize);
-        return false;
-    }
-
-    if (checkSizeMode == CheckSizeMode::CHECK_UPPER_LIMIT && (scDataLen > vSize))
-    {
-        error = strprintf("Invalid length %d, must be %d bytes at most", scDataLen, vSize);
-        return false;
-    }
-
-    vBytes = ParseHex(inputString);
-    assert(vBytes.size() == scDataLen);
-
+    vBytes.swap(vBytes_tmp);
     return true;
 }
 
@@ -296,7 +290,7 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
             return false;
         }
         std::string scIdString = scid_v.get_str();
-        if (scIdString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        if (!IsHex(scIdString))
         {
             error = "Invalid ceased sidechain withdrawal input \"scId\" format: not an hex";
             return false;
@@ -471,7 +465,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         }
 
         const std::string& inputString = adv.get_str();
-        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        if (!IsHex(inputString))
         {
             error = "Invalid address format: not an hex";
             return false;
@@ -651,7 +645,7 @@ bool AddSidechainForwardOutputs(UniValue& fwdtr, CMutableTransaction& rawTx, std
         const UniValue& o = input.get_obj();
 
         std::string inputString = find_value(o, "scid").get_str();
-        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        if (!IsHex(inputString))
         {
             error = "Invalid scid format: not an hex";
             return false;
@@ -669,7 +663,7 @@ bool AddSidechainForwardOutputs(UniValue& fwdtr, CMutableTransaction& rawTx, std
         }
 
         inputString = find_value(o, "address").get_str();
-        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        if (!IsHex(inputString))
         {
             error = "Invalid address format: not an hex";
             return false;
@@ -728,7 +722,7 @@ bool AddSidechainBwtRequestOutputs(UniValue& bwtreq, CMutableTransaction& rawTx,
             return false;
         }
         std::string inputString = scidVal.get_str();
-        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        if (!IsHex(inputString))
         {
             error = "Invalid scid format: not an hex";
             return false;

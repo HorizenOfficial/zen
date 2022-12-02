@@ -1951,11 +1951,8 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
     string inputString = params[0].get_str();
     if (!inputString.compare("*"))
         bRetrieveAllSc = true;
-    else
-    {
-        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
-    }
+    else if(!IsHex(inputString))
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
 
     bool bOnlyAlive = false;
     if (params.size() > 1)
@@ -2033,10 +2030,8 @@ UniValue getactivecertdatahash(const UniValue& params, bool fHelp)
         );
 
     string scIdString = params[0].get_str();
-    {
-        if (scIdString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
-    }
+    if(!IsHex(scIdString))
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
 
     UniValue ret(UniValue::VOBJ);
  
@@ -2066,10 +2061,8 @@ UniValue getceasingcumsccommtreehash(const UniValue& params, bool fHelp)
         );
 
     string scIdString = params[0].get_str();
-    {
-        if (scIdString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
-    }
+    if(!IsHex(scIdString))
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
 
     UniValue ret(UniValue::VOBJ);
  
@@ -2100,7 +2093,7 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
 
     // side chain id
     string inputString = params[0].get_str();
-    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+    if (!IsHex(inputString))
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
 
     uint256 scId;
@@ -2230,7 +2223,7 @@ UniValue checkcswnullifier(const UniValue& params, bool fHelp)
 
     string inputString = params[0].get_str();
 
-    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+    if (!IsHex(inputString))
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
 
     uint256 scId;
@@ -2238,7 +2231,7 @@ UniValue checkcswnullifier(const UniValue& params, bool fHelp)
     
     inputString = params[1].get_str();
 
-    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+    if (!IsHex(inputString))
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid nullifier format: not an hex");
 
     std::string nullifierError;
@@ -2561,10 +2554,8 @@ UniValue getcertmaturityinfo(const UniValue& params, bool fHelp)
     uint256 hash;
 
     string hashString = params[0].get_str();
-    {
-        if (hashString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid hash format: not an hex");
-    }
+    if (!IsHex(hashString))
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid hash format: not an hex");
 
     hash.SetHex(hashString);
 

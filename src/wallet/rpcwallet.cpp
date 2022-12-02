@@ -897,7 +897,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     if (setKeyArgs.count("toaddress"))
     {
         string inputString = find_value(inputObject, "toaddress").get_str();
-        if (inputString.length() == 0 || inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        if (!IsHex(inputString))
             throw JSONRPCError(RPC_TYPE_ERROR, "Invalid toaddress format: not an hex");
 
         toaddress.SetHex(inputString);
@@ -1203,7 +1203,7 @@ UniValue sc_send(const UniValue& params, bool fHelp)
         if (setKeyOutputArray.count("scid"))
         {
             string inputString = find_value(o, "scid").get_str();
-            if (inputString.length() == 0 || inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            if (!IsHex(inputString))
                 throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
             scId.SetHex(inputString);
         }
@@ -1217,7 +1217,7 @@ UniValue sc_send(const UniValue& params, bool fHelp)
         if (setKeyOutputArray.count("toaddress"))
         {
             string inputString = find_value(o, "toaddress").get_str();
-            if (inputString.length() == 0 || inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            if (!IsHex(inputString))
                 throw JSONRPCError(RPC_TYPE_ERROR, "Invalid toaddress format: not an hex");
   
             toaddress.SetHex(inputString);
@@ -1438,7 +1438,7 @@ UniValue sc_request_transfer(const UniValue& params, bool fHelp)
         if (setKeyOutputArray.count("scid"))
         {
             string inputString = find_value(o, "scid").get_str();
-            if (inputString.length() == 0 || inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            if (!IsHex(inputString))
                 throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
             scId.SetHex(inputString);
         }
@@ -5427,7 +5427,7 @@ UniValue sc_send_certificate(const UniValue& params, bool fHelp)
     //--------------------------------------------------------------------------
     // side chain id
     const string& scIdString = params[0].get_str();
-    if (scIdString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+    if (!IsHex(scIdString))
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
 
     uint256 scId;
@@ -5473,7 +5473,7 @@ UniValue sc_send_certificate(const UniValue& params, bool fHelp)
     //--------------------------------------------------------------------------
     // end epoch cumulative sc commitment tree root
     const string& endCumCommTreeStr = params[3].get_str();
-    if (endCumCommTreeStr.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+    if (!IsHex(endCumCommTreeStr))
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid end cum commitment tree root format: not an hex");
 
     CFieldElement endCumCommTreeRoot;
