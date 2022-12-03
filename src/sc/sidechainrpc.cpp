@@ -181,9 +181,8 @@ bool AddCustomFieldElement(const std::string& inputString, std::vector<unsigned 
 bool AddScData(
     const std::string& inputString, std::vector<unsigned char>& vBytes, unsigned int vSize,
     CheckSizeMode checkSizeMode, std::string& error)
-{ 
-
-    if(inputString.empty() || inputString.size() % 2) {
+{
+    if (inputString.size() % 2) {
         error = std::string("Invalid format: not an hex");
         return false;
     }
