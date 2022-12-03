@@ -664,10 +664,10 @@ static void SendMoney(const CTxDestination &address, CAmount nValue, bool fSubtr
 
     // Check amount
     if (nValue <= 0)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "SendMoney : Invalid amount");
 
     if (nValue > curBalance)
-        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds");
+        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "SendMoney : Insufficient funds");
 
     // Parse Zcash address
     CScript scriptPubKey = GetScriptForDestination(address);
