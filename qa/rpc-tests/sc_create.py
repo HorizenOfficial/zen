@@ -202,7 +202,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {
             'version': 0,
             'withdrawalEpochLength': 123,
-            'toaddress': "ada",
+            'toaddress': "0ada",
             'amount': Decimal("-1.0"),
             'wCertVk': vk,
             'constant': constant
@@ -222,7 +222,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {
             'version': 0,
             'withdrawalEpochLength': 123,
-            'toaddress': "ada",
+            'toaddress': "0ada",
             'amount': 0.1,
             'wCertVk': "zz" * SC_VK_SIZE,
             'constant': constant
@@ -242,7 +242,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {
             'version': 0,
             'withdrawalEpochLength': 123,
-            'toaddress': "ada",
+            'toaddress': "0ada",
             'amount': 0.1,
             'wCertVk': "a" * (SC_VK_SIZE - 1)
         }
@@ -261,7 +261,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {
             'version': 0,
             'withdrawalEpochLength': 123,
-            'toaddress': "ada",
+            'toaddress': "0ada",
             'amount': 0.1,
             'wCertVk': "aa" * (SC_VK_SIZE - 1)
         }
@@ -280,7 +280,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {
             'version': 0,
             'withdrawalEpochLength': 123,
-            'toaddress': "ada",
+            'toaddress': "0ada",
             'amount': 0.1,
             'wCertVk': "aa" * (SC_VK_SIZE + 1)
         }
@@ -299,7 +299,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {
             'version': 0,
             'withdrawalEpochLength': 123,
-            'toaddress': "ada",
+            'toaddress': "0ada",
             'amount': 0.1,
             'wCertVk': "aa" * SC_VK_SIZE
         }
@@ -319,7 +319,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {
             'version': 0,
             'withdrawalEpochLength': 123,
-            'toaddress': "ada",
+            'toaddress': "0ada",
             'amount': 0.1,
             'wCertVk' : vk,
             'customData': "zz" * 1024
@@ -339,7 +339,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {
             'version': 0,
             'withdrawalEpochLength': 123,
-            'toaddress': "ada",
+            'toaddress': "0ada",
             'amount': 0.1,
             'wCertVk' : vk,
             'customData': "b" * 1023
@@ -359,7 +359,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {
             'version': 0,
             'withdrawalEpochLength': 123,
-            'toaddress': "ada",
+            'toaddress': "0ada",
             'amount': 0.1,
             'wCertVk': vk,
             'customData': "bb" * 1025
@@ -379,7 +379,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {
             'version': 0,
             'withdrawalEpochLength': 123,
-            'toaddress': "ada",
+            'toaddress': "0ada",
             'amount': 0.1,
             'wCertVk': vk,
             'constant': "zz" * SC_FIELD_SIZE
@@ -399,7 +399,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {
             'version': 0,
             'withdrawalEpochLength': 123,
-            'toaddress': "ada",
+            'toaddress': "0ada",
             'amount': 0.1,
             'wCertVk': vk,
             'constant': "b" * (SC_FIELD_SIZE - 1)
@@ -419,7 +419,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {
             'version': 0,
             'withdrawalEpochLength': 123,
-            'toaddress': "ada",
+            'toaddress': "0ada",
             'amount': 0.1,
             'wCertVk': vk,
             'constant': "bb" * (SC_FIELD_SIZE - 1)
@@ -439,7 +439,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {
             'version': 0,
             'withdrawalEpochLength': 123,
-            'toaddress': "ada",
+            'toaddress': "0ada",
             'amount': 0.1,
             'wCertVk': vk,
             'constant': "bb" * (SC_FIELD_SIZE + 1)
@@ -459,7 +459,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {
             'version': 0,
             'withdrawalEpochLength': 123,
-            'toaddress': "ada",
+            'toaddress': "0ada",
             'amount': 0.1,
             'wCertVk': vk,
             'constant': "aa" * SC_FIELD_SIZE
@@ -480,7 +480,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {
             'version': 0,
             'withdrawalEpochLength': 0,
-            'toaddress': "ada",
+            'toaddress': "0ada",
             'amount': 0.1,
             'wCertVk': vk,
             'constant': "aa" * SC_FIELD_SIZE
@@ -501,7 +501,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {
             'version': 0,
             'withdrawalEpochLength': 4033,
-            'toaddress': "ada",
+            'toaddress': "0ada",
             'amount': Decimal("1.0"),
             'wCertVk': vk,
             'customData': "aa" * SC_FIELD_SIZE
