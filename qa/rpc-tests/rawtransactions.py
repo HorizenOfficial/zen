@@ -433,7 +433,7 @@ class RawTransactionsTest(BitcoinTestFramework):
             "version": 0,
             "epoch_length": sc_epoch_len,
             "amount": Decimal("4.0"),
-            "address": "ccc",
+            "address": "cccc",
             "wCertVk": vk2,
             "wCeasedVk": cswVk2,
             "constant": constant2
