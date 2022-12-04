@@ -253,7 +253,7 @@ class SCCreateTest(BitcoinTestFramework):
         except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("must be even" in errorString, True)
+        assert_equal("wCertVk: Invalid format: not an hex" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
         # Node 1 try creating a SC with a wCertVk too short
