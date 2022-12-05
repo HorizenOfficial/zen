@@ -166,7 +166,6 @@ struct CSidechainUndoData
     // NONCEASING_CERT_DATA
     int prevInclusionHeight;
     int prevReferencedHeight;
-    CAmount deltaBalance;
 
     CSidechainUndoData(): sidechainUndoDataVersion(0), contentBitMask(AvailableSections::UNDEFINED),
         appliedMaturedAmount(0), pastEpochTopQualityCertView(), scFees(),
@@ -208,7 +207,6 @@ struct CSidechainUndoData
         {
             totalSize += ::GetSerializeSize(prevInclusionHeight,  nType, nVersion);
             totalSize += ::GetSerializeSize(prevReferencedHeight, nType, nVersion);
-            totalSize += ::GetSerializeSize(deltaBalance,         nType, nVersion);
         }
         return totalSize;
     }
@@ -252,7 +250,6 @@ struct CSidechainUndoData
         {
             ::Serialize(s, prevInclusionHeight,  nType, nVersion);
             ::Serialize(s, prevReferencedHeight, nType, nVersion);
-            ::Serialize(s, deltaBalance,         nType, nVersion);
         }
         return;
     }
@@ -297,7 +294,6 @@ struct CSidechainUndoData
         {
             ::Unserialize(s, prevInclusionHeight, nType, nVersion);
             ::Unserialize(s, prevReferencedHeight, nType, nVersion);
-            ::Unserialize(s, deltaBalance, nType, nVersion);
         }
         return;
     }

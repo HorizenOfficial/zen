@@ -265,7 +265,7 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         #------------------------------------------------
         mark_logs("## Generating 1 block to include certificate of epoch 0 ##", self.nodes, DEBUG_MODE)
         #------------------------------------------------
-        hash = self.nodes[0].generate(1)
+        hash_block_c1 = self.nodes[0].generate(1)[0]
         self.sync_all()
 
         #------------------------------------------------
@@ -273,14 +273,14 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         #------------------------------------------------
         epoch_number = 1
         quality = 5
-        ref_height = self.nodes[0].getblockcount()
+        ref_height = self.nodes[0].getblockcount() - 3
         amount_cert_2 = {"address": addr_node2, "amount": bwt_amount_2}
         cert_2 = self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE + 1, amount_cert_2, False)
 
         #------------------------------------------------
         mark_logs("## Generating 1 block to include certificate of epoch 1 ##", self.nodes, DEBUG_MODE)
         #------------------------------------------------
-        hash = self.nodes[0].generate(1)
+        hash_block_c2 = self.nodes[0].generate(1)[0]
         self.sync_all()
 
         #------------------------------------------------
@@ -295,7 +295,7 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         #------------------------------------------------
         mark_logs("## Generating 1 block to include certificate of epoch 2 ##", self.nodes, DEBUG_MODE)
         #------------------------------------------------
-        hash = self.nodes[0].generate(1)
+        hash_block_c3 = self.nodes[0].generate(1)[0]
         self.sync_all()
 
         #------------------------------------------------
@@ -310,7 +310,7 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         #------------------------------------------------
         mark_logs("## Invalidate last block and check reverted info ##", self.nodes, DEBUG_MODE)
         #------------------------------------------------
-        self.nodes[0].invalidateblock(hash[0])
+        self.nodes[0].invalidateblock(hash_block_c3)
 
         scinfo = self.nodes[0].getscinfo(scid, False, False)
         assert_equal(bwt_amount_1 + bwt_amount_2 - fwt_amount, creation_amount - scinfo['items'][0]['balance'])
@@ -318,13 +318,36 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         assert_equal(cert_2, scinfo['items'][0]['lastCertificateHash'])
         assert_equal(5, scinfo['items'][0]['lastCertificateQuality'])
 
-        txmem = self.nodes[0].getrawmempool()
-        assert_equal(len(txmem), 1)
+        cpool = self.nodes[0].getrawmempool()
+        assert_equal(len(cpool), 1)
+        assert(cert_3 in cpool)
 
         #------------------------------------------------
-        mark_logs("## Reconsider last block ##", self.nodes, DEBUG_MODE)
+        mark_logs("## Invalidate last block and check reverted info ##", self.nodes, DEBUG_MODE)
         #------------------------------------------------
-        self.nodes[0].reconsiderblock(hash[0])
+        self.nodes[0].invalidateblock(hash_block_c2)
+
+        scinfo = self.nodes[0].getscinfo(scid, False, False)
+        assert_equal(bwt_amount_1 - fwt_amount, creation_amount - scinfo['items'][0]['balance'])
+        assert_equal(bwt_amount_1, scinfo['items'][0]['lastCertificateAmount'])
+        assert_equal(cert_1, scinfo['items'][0]['lastCertificateHash'])
+        assert_equal(2, scinfo['items'][0]['lastCertificateQuality'])
+
+        cpool = self.nodes[0].getrawmempool()
+        assert_equal(len(cpool), 1)
+        assert(cert_2 in cpool)
+
+        #------------------------------------------------
+        mark_logs("## Reconsider last 2 blocks ##", self.nodes, DEBUG_MODE)
+        #------------------------------------------------
+        self.nodes[0].reconsiderblock(hash_block_c2)
+
+        scinfo = self.nodes[0].getscinfo(scid, False, False)
+        assert_equal(bwt_amount_1 + bwt_amount_2 + bwt_amount_3 - fwt_amount, creation_amount - scinfo['items'][0]['balance'])
+        assert_equal(bwt_amount_3, scinfo['items'][0]['lastCertificateAmount'])
+        assert_equal(cert_3, scinfo['items'][0]['lastCertificateHash'])
+        assert_equal(0, scinfo['items'][0]['lastCertificateQuality'])
+
 
         #------------------------------------------------
         mark_logs("## Test nok, epoch 3 with old reference height (blockchain) ##", self.nodes, DEBUG_MODE)
@@ -359,7 +382,6 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         #------------------------------------------------
         self.nodes[0].invalidateblock(inv_bl_hash)
         cpool = self.nodes[0].getrawmempool()
-        print(cpool)
         assert_equal(1, len(cpool)) # the last certificate has no reference anymore, so it's gone
         assert(cert_1 in cpool)
         self.nodes[0].reconsiderblock(inv_bl_hash)
