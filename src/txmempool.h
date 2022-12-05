@@ -119,7 +119,7 @@ struct CSidechainMemPoolEntry
 {
     uint256 scCreationTxHash;
     std::set<uint256> fwdTxHashes; 
-    std::map<std::pair<int, int64_t>, uint256> mBackwardCertificates; // (epoch, quality) -> certHash
+    std::map<int64_t, uint256> mBackwardCertificates; // quality -> certHash
     std::set<uint256> mcBtrsTxHashes;
     std::map<CFieldElement, uint256> cswNullifiers; // csw nullifier -> containing Tx hash
     CAmount cswTotalAmount;
@@ -136,8 +136,8 @@ struct CSidechainMemPoolEntry
                 cswTotalAmount == 0;
     }
 
-    const std::map<std::pair<int, int64_t>, uint256>::const_reverse_iterator GetTopQualityCert() const;
-    const std::map<std::pair<int, int64_t>, uint256>::const_iterator GetCert(const uint256& hash) const;
+    const std::map<int64_t, uint256>::const_reverse_iterator GetTopQualityCert() const;
+    const std::map<int64_t, uint256>::const_iterator GetCert(const uint256& hash) const;
 
     void EraseCert(const uint256& hash);
     bool HasCert(const uint256& hash) const;
@@ -212,13 +212,12 @@ public:
 
     bool checkCswInputsPerScLimit(const CTransaction& incomingTx) const;
     bool checkIncomingTxConflicts(const CTransaction& incomingTx) const;
-    bool certificateExists(const uint256& scId, int epochNumber) const;
-    bool checkReferencedHeight(const CScCertificate& incomingCert) const;
+    bool certificateExists(const uint256& scId) const;
     bool checkIncomingCertConflicts(const CScCertificate& incomingCert) const;
 
     void setSanityCheck(bool _fSanityCheck) { fSanityCheck = _fSanityCheck; }
 
-    std::pair<uint256, CAmount> FindCertWithQualityInEpoch(const uint256& scId, int64_t certQuality, int epochNumber);
+    std::pair<uint256, CAmount> FindCertWithQuality(const uint256& scId, int64_t certQuality) const;
     bool RemoveCertAndSync(const uint256& certToRmHash);
 
     bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
