@@ -13,6 +13,8 @@
 #include <main.h>
 #include <init.h>
 
+#define MAX_LOOP 100
+
 extern UniValue ValueFromAmount(const CAmount& amount);
 extern CAmount AmountFromValue(const UniValue& value);
 extern CFeeRate minRelayTxFee;
@@ -871,7 +873,6 @@ ScRpcCmd::ScRpcCmd(
     CScript scriptPubKey = GetScriptForDestination(secret.GetPubKey().GetID());
     CTxOut out(CAmount(1), scriptPubKey);
     _dustThreshold = out.GetDustThreshold(minRelayTxFee);
-
 }
 
 void ScRpcCmd::init()
@@ -879,10 +880,10 @@ void ScRpcCmd::init()
     _totalInputAmount = 0;
 }
 
-void ScRpcCmd::addInputs()
+size_t ScRpcCmd::addInputs(size_t availableBytes)
 {
     std::vector<COutput> vAvailableCoins;
-    std::vector<SelectedUTXO> vInputUtxo;
+    std::vector<COutput> vAvailableCoinsFiltered;
 
     static const bool fOnlyConfirmed = false;
     static const bool fIncludeZeroValue = false;
@@ -890,6 +891,14 @@ void ScRpcCmd::addInputs()
     const bool fIncludeCommunityFund = ForkManager::getInstance().canSendCommunityFundsToTransparentAddress(chainActive.Height() + 1);
 
     pwalletMain->AvailableCoins(vAvailableCoins, fOnlyConfirmed, NULL, fIncludeZeroValue, fIncludeCoinBase, fIncludeCommunityFund);
+
+    CAmount targetAmount = _totalOutputAmount + _fee;
+    CAmount nValueRet = 0;
+    size_t baseInputsSize = 0;
+    std::set<std::pair<const CWalletTransactionBase*,unsigned int>> setCoinsRet;
+    std::pair<const CWalletTransactionBase*,unsigned int> smallestCoin;
+    CAmount smallestValue = std::numeric_limits<CAmount>::max();
+    CAmount totalValue = 0;
 
     for (const auto& out: vAvailableCoins)
     {
@@ -912,78 +921,98 @@ void ScRpcCmd::addInputs()
             }
         }
 
-        CAmount nValue = out.tx->getTxBase()->GetVout()[out.pos].nValue;
-
-        SelectedUTXO utxo(out.tx->getTxBase()->GetHash(), out.pos, nValue);
-        vInputUtxo.push_back(utxo);
-    }
-
-    // sort in ascending order, so smaller utxos appear first
-    std::sort(vInputUtxo.begin(), vInputUtxo.end(), [](SelectedUTXO i, SelectedUTXO j) -> bool {
-        return ( std::get<2>(i) < std::get<2>(j));
-    });
-
-    CAmount targetAmount = _totalOutputAmount + _fee;
-
-    CAmount dustChange = -1;
-
-    std::vector<SelectedUTXO> vSelectedInputUTXO;
-
-    for (const SelectedUTXO & t : vInputUtxo)
-    {
-        _totalInputAmount += std::get<2>(t);
-        vSelectedInputUTXO.push_back(t);
-
-        LogPrint("sc", "---> added tx %s val: %12s, vout.n: %d\n",
-            std::get<0>(t).ToString(), FormatMoney(std::get<2>(t)), std::get<1>(t));
-
-        if (_totalInputAmount >= targetAmount)
+        if (targetAmount != 0)
         {
-            // Select another utxo if there is change less than the dust threshold.
-            dustChange = _totalInputAmount - targetAmount;
-            if (dustChange == 0 || dustChange >= _dustThreshold) {
-                break;
+            vAvailableCoinsFiltered.push_back(out);
+            totalValue += out.tx->getTxBase()->GetVout()[out.pos].nValue;
+        }
+        else
+        {
+            CAmount value = out.tx->getTxBase()->GetVout()[out.pos].nValue;
+            if (value < smallestValue && value >= _dustThreshold)
+            {
+                smallestCoin = std::make_pair(out.tx, out.pos);
+                smallestValue = value;
             }
         }
     }
 
-    if (_totalInputAmount < targetAmount)
+    if (targetAmount != 0)
     {
-        std::string addrDetails;
-        if (_hasFromAddress)
-            addrDetails = strprintf(" for taddr[%s]", _fromMcAddress.ToString());
+        for (int loop = 0; loop < MAX_LOOP; ++loop)
+        {            
+            int conf = 0; // already filtered above
+            bool res = pwalletMain->SelectCoinsMinConf(targetAmount, conf, conf, vAvailableCoinsFiltered, setCoinsRet, nValueRet, baseInputsSize,
+                                                       availableBytes, _automaticFee); // auto fee -> use input net values, manual fee -> fee already explicitly included in target amount
 
-        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS,
-            strprintf("Insufficient transparent funds%s, have %s, need %s (minconf=%d)",
-            addrDetails, FormatMoney(_totalInputAmount), FormatMoney(targetAmount), _minConf));
+            if (!res)
+            {
+                std::string addrDetails;
+                if (_hasFromAddress)
+                    addrDetails = strprintf(" for taddr[%s]", _fromMcAddress.ToString());
+
+                if (loop == 0)
+                {
+                    if (totalValue < targetAmount)
+                    {
+                        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS,
+                            strprintf("Insufficient transparent funds %s, have %s, need %s (minconf=%d)",
+                            addrDetails, FormatMoney(totalValue), FormatMoney(targetAmount), _minConf));
+                    }
+                    else
+                    {
+                        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS,
+                            strprintf("Not selectable transparent funds %s, (probably due to prevented oversized tx/cert, available size %d), have %s, need %s (minconf=%d)",
+                            addrDetails, availableBytes, FormatMoney(totalValue), FormatMoney(targetAmount), _minConf));
+                    }
+                }
+                else
+                {
+                    throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS,
+                        strprintf("Insufficient transparent funds, have %s, need %s more to avoid creating invalid change output %s (dust threshold is %s)",
+                        FormatMoney(totalValue), FormatMoney(_dustThreshold - (totalValue - targetAmount)), FormatMoney((totalValue - targetAmount)), FormatMoney(_dustThreshold)));
+                }
+            }
+            else
+            {
+                if (nValueRet != targetAmount && nValueRet - targetAmount < _dustThreshold)
+                {
+                    // in this case the selection has exceeded target value but the resulting change would be under dust threshold
+                    // another execution is done summing dust threshold to target value
+                    targetAmount += _dustThreshold;
+                    continue;
+                }
+                _totalInputAmount = nValueRet;
+                break;
+            }
+        }
     }
-
-    // If there is transparent change, is it valid or is it dust?
-    if (dustChange < _dustThreshold && dustChange != 0) {
-        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS,
-            strprintf("Insufficient transparent funds, have %s, need %s more to avoid creating invalid change output %s (dust threshold is %s)",
-            FormatMoney(_totalInputAmount), FormatMoney(_dustThreshold - dustChange), FormatMoney(dustChange), FormatMoney(_dustThreshold)));
+    else
+    {
+        // this case allows to handle situation where no coins would be selected
+        // at least one input must be included (resulting in full change output) to avoid tx/cert rejection
+        setCoinsRet.insert(smallestCoin);
+        _totalInputAmount = smallestValue;
     }
 
     // Check mempooltxinputlimit to avoid creating a transaction which the local mempool rejects
     size_t limit = (size_t)GetArg("-mempooltxinputlimit", 0);
     if (limit > 0)
     {
-        size_t n = vSelectedInputUTXO.size();
+        size_t n = setCoinsRet.size();
         if (n > limit) {
             throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Too many transparent inputs %zu > limit %zu", n, limit));
         }
     }
 
     // update the transaction with these inputs
-    for (const auto& t : vSelectedInputUTXO)
+    for (const auto& coin : setCoinsRet)
     {
-        uint256 txid = std::get<0>(t);
-        int vout = std::get<1>(t);
-
-        CTxIn in(COutPoint(txid, vout));
+        CTxIn in(coin.first->getTxBase()->GetHash(),coin.second);
         addInput(in);
     }
+
+    return baseInputsSize;
 }
 
 void ScRpcCmd::addChange()
@@ -1047,12 +1076,52 @@ ScRpcCmdCert::ScRpcCmdCert(
 
 void ScRpcCmdCert::_execute()
 {
+    CCertificateSizeInfo certificateSize;
+
+    // initialize transaction and compute overhead size
     init();
-    addInputs();
-    addChange();
-    addBackwardTransfers();
-    addCustomFields();
     addScFees();
+    certificateSize.overheadSize = _cert.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+
+    // compute size of dummy change output (when estimating certificate size, change output is always included)
+    CScript dummyScriptChange;
+    if (_hasChangeAddress)
+    {
+        dummyScriptChange = GetScriptForDestination(_changeMcAddress.Get());
+    }
+    else if (_hasFromAddress)
+    {
+        dummyScriptChange = GetScriptForDestination(_fromMcAddress.Get());
+    }
+    else
+    {
+        CReserveKey keyChange(pwalletMain);
+        CPubKey vchPubKey;
+        // bitcoin code has also KeepKey() in the CommitTransaction() for preventing the key reuse,
+        // but zcash does not do that.
+        if (!keyChange.GetReservedKey(vchPubKey))
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Could not generate a taddr to use as a change address"); // should never fail, as we just unlocked
+        dummyScriptChange = GetScriptForDestination(vchPubKey.GetID());
+    }
+    CTxOut dummyChangeTxOut(0, dummyScriptChange);
+    certificateSize.baseOutputChangeOnlySize = dummyChangeTxOut.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+
+    // add crosschain outputs and store their sizes
+    certificateSize.baseOutputsNoChangeSize += addBackwardTransfers();
+
+    // add custom fields and store their sizes
+    addCustomFields();
+    if (!_vCfe.empty())
+        certificateSize.certificateVariableFieldsSize += GetSerializeSize(_vCfe, SER_NETWORK, PROTOCOL_VERSION);
+    if (!_vCmt.empty())
+        certificateSize.certificateVariableFieldsSize += GetSerializeSize(_vCmt, SER_NETWORK, PROTOCOL_VERSION);
+
+    // add base inputs based on available size
+    certificateSize.baseInputsSize = addInputs(MAX_CERT_SIZE - (certificateSize.overheadSize + certificateSize.baseOutputChangeOnlySize + certificateSize.baseOutputsNoChangeSize + certificateSize.certificateVariableFieldsSize));
+
+    // add actual change base output
+    addChange();
+
     sign();
 }
 
@@ -1116,7 +1185,7 @@ bool ScRpcCmd::checkFeeRate()
 
     unsigned int nSize = getSignedObjSize();
 
-    // there are 3 main user options handling the fee (plus an estimation algorithm currently broken):
+    // there are 3 main user options handling the fee (plus an estimation algorithm):
     // -------------------------------------------------------------------
     // minRelayTxFee: set via zen option "-minrelaytxfee" defaults to 100 sat per K
     //                Nodes, and expecially miners, consider txes under this thresholds the same as "free" transactions.
@@ -1206,15 +1275,20 @@ bool ScRpcCmd::send()
     return true;
 }
 
-void ScRpcCmdCert::addBackwardTransfers()
+size_t ScRpcCmdCert::addBackwardTransfers()
 {
+    size_t outputsTotalSize = 0;
+
     for (const auto& entry : _bwdParams)
     {
         CTxOut txout(entry._nAmount, entry._scriptPubKey);
         if (txout.IsDust(::minRelayTxFee))
             throw JSONRPCError(RPC_WALLET_ERROR, "backward transfer amount too small");
         _cert.addBwt(txout);
+        outputsTotalSize += txout.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
     }
+
+    return outputsTotalSize;
 }
 
 void ScRpcCmdCert::addCustomFields()
@@ -1298,19 +1372,52 @@ void ScRpcCmdTx::sign()
 
 void ScRpcCmdTx::_execute()
 {
+    CTransactionSizeInfo transactionSize;
+
+    // initialize transaction and compute overhead size
     init();
-    addInputs();
+    transactionSize.overheadSize = _tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+
+    // compute size of dummy change output (when estimating transaction size, change output is always included)
+    CScript dummyScriptChange;
+    if (_hasChangeAddress)
+    {
+        dummyScriptChange = GetScriptForDestination(_changeMcAddress.Get());
+    }
+    else if (_hasFromAddress)
+    {
+        dummyScriptChange = GetScriptForDestination(_fromMcAddress.Get());
+    }
+    else
+    {
+        CReserveKey keyChange(pwalletMain);
+        CPubKey vchPubKey;
+        // bitcoin code has also KeepKey() in the CommitTransaction() for preventing the key reuse,
+        // but zcash does not do that.
+        if (!keyChange.GetReservedKey(vchPubKey))
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Could not generate a taddr to use as a change address"); // should never fail, as we just unlocked
+        dummyScriptChange = GetScriptForDestination(vchPubKey.GetID());
+    }
+    CTxOut dummyChangeTxOut(0, dummyScriptChange);
+    transactionSize.baseOutputChangeOnlySize = dummyChangeTxOut.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+
+    // add crosschain outputs and store their sizes
+    transactionSize.sidechainOutputsSize = addCcOutputs();
+
+    // add base inputs based on available size
+    transactionSize.baseInputsSize = addInputs(MAX_TX_SIZE - (transactionSize.overheadSize + transactionSize.baseOutputChangeOnlySize + transactionSize.sidechainOutputsSize));
+
+    // add actual change base output
     addChange();
-    addCcOutputs();
+
     sign();
 }
 
 void ScRpcCmd::execute()
 {
-    // we need a safety counter for the case when we have a large number of very small inputs that gets added to
-    // the tx increasing its size and the fee needed
-    // An alternative might as well be letting it fail when we do not have utxo's anymore.
-    static const int MAX_LOOP = 100;
+    // theoretically coins selection algorithm should handle correctly the estimation of automatic fee for the
+    // transaction/certificate being created and sent but, in case some errors occurs due to roundings or signature
+    // size fluctuations, everything is wrapped in a loop that iteratively update new fee
 
     int safeCount = MAX_LOOP;
 
@@ -1346,8 +1453,10 @@ ScRpcCreationCmdTx::ScRpcCreationCmdTx(
     }
 } 
 
-void ScRpcCreationCmdTx::addCcOutputs()
+size_t ScRpcCreationCmdTx::addCcOutputs()
 {
+    size_t ccoutputsTotalSize = 0;
+
     if (_outParams.size() != 1)
     {
         // creation has just one output param
@@ -1356,6 +1465,9 @@ void ScRpcCreationCmdTx::addCcOutputs()
 
     CTxScCreationOut txccout(_outParams[0]._nAmount, _outParams[0]._toScAddress, _ftScFee, _mbtrScFee, _fixedParams);
     _tx.add(txccout);
+    ccoutputsTotalSize += txccout.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+
+    return ccoutputsTotalSize;
 }
 
 ScRpcSendCmdTx::ScRpcSendCmdTx(
@@ -1371,8 +1483,10 @@ ScRpcSendCmdTx::ScRpcSendCmdTx(
 } 
 
 
-void ScRpcSendCmdTx::addCcOutputs()
+size_t ScRpcSendCmdTx::addCcOutputs()
 {
+    size_t ccoutputsTotalSize = 0;
+
     if (_outParams.size() == 0)
     {
         // send cmd can not have empty output vector
@@ -1383,7 +1497,10 @@ void ScRpcSendCmdTx::addCcOutputs()
     {
         CTxForwardTransferOut txccout(entry._scid, entry._nAmount, entry._toScAddress, entry._mcReturnAddress);
         _tx.add(txccout);
+        ccoutputsTotalSize += txccout.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
     }
+
+    return ccoutputsTotalSize;
 }
 
 ScRpcRetrieveCmdTx::ScRpcRetrieveCmdTx(
@@ -1399,8 +1516,10 @@ ScRpcRetrieveCmdTx::ScRpcRetrieveCmdTx(
 } 
 
 
-void ScRpcRetrieveCmdTx::addCcOutputs()
+size_t ScRpcRetrieveCmdTx::addCcOutputs()
 {
+    size_t ccoutputsTotalSize = 0;
+
     if (_outParams.size() == 0)
     {
         // send cmd can not have empty output vector
@@ -1411,7 +1530,10 @@ void ScRpcRetrieveCmdTx::addCcOutputs()
     {
         CBwtRequestOut txccout(entry._scid, entry._pkh, entry._params);
         _tx.add(txccout);
+        ccoutputsTotalSize += txccout.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
     }
+
+    return ccoutputsTotalSize;
 }
 
 }  // end of namespace

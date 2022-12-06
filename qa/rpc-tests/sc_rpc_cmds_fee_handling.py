@@ -147,7 +147,7 @@ class ScRpcCmdsFeeHandling(BitcoinTestFramework):
         self.sync_all()
 
         mc_return_address = self.nodes[2].getnewaddress()
-        outputs = [{'toaddress': toaddress, 'amount': Decimal(0.000001), "scid":scid, "mcReturnAddress": mc_return_address}]
+        outputs = [{'toaddress': toaddress, 'amount': Decimal(0.000002), "scid":scid, "mcReturnAddress": mc_return_address}]
         cmdParms = {}
 
         # A similar failure is expected also for SC related commands if the fee is not set by the user
@@ -160,7 +160,20 @@ class ScRpcCmdsFeeHandling(BitcoinTestFramework):
             mark_logs(errorString,self.nodes,DEBUG_MODE)
 
         # set the fee and resend
+        # the fee manually set would be lesser than needed fee, and in particular lesser than minRelayTxFee resulting in an error
         fee = Decimal('0.0000009')
+        cmdParms = {"fee":fee}
+        mark_logs("\nNode 2 sends funds to sc", self.nodes, DEBUG_MODE)
+        try:
+            tx = self.nodes[2].sc_send(outputs, cmdParms)
+            assert_true(False)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+            mark_logs(errorString,self.nodes,DEBUG_MODE)
+
+        # set the fee and resend
+        # the fee manually set would be lesser than needed fee, but in particular greater than minRelayTxFee resulting in a warning
+        fee = Decimal('0.00000135')
         cmdParms = {"fee":fee}
         mark_logs("\nNode 2 sends funds to sc", self.nodes, DEBUG_MODE)
         try:

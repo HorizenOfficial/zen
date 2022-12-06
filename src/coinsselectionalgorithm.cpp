@@ -7,17 +7,17 @@
 /* ---------- CCoinsSelectionAlgorithm ---------- */
 
 CCoinsSelectionAlgorithm::CCoinsSelectionAlgorithm(CoinsSelectionAlgorithmType _type,
-                                                   std::vector<std::pair<CAmount, size_t>> _netAmountsAndSizes,
-                                                   CAmount _targetNetAmount,
-                                                   CAmount _targetNetAmountPlusOffset,
+                                                   std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
+                                                   CAmount _targetAmount,
+                                                   CAmount _targetAmountPlusOffset,
                                                    size_t _availableTotalSize)
                                                    : type {_type},
-                                                     problemDimension{(int)_netAmountsAndSizes.size()},
-                                                     maxIndex{(int)_netAmountsAndSizes.size() - 1},
-                                                     netAmounts {PrepareNetAmounts(_netAmountsAndSizes)},
-                                                     sizes {PrepareSizes(_netAmountsAndSizes)},
-                                                     targetNetAmount {_targetNetAmount},
-                                                     targetNetAmountPlusOffset {_targetNetAmountPlusOffset},
+                                                     problemDimension{(int)_amountsAndSizes.size()},
+                                                     maxIndex{(int)_amountsAndSizes.size() - 1},
+                                                     amounts {PrepareAmounts(_amountsAndSizes)},
+                                                     sizes {PrepareSizes(_amountsAndSizes)},
+                                                     targetAmount {_targetAmount},
+                                                     targetAmountPlusOffset {_targetAmountPlusOffset},
                                                      availableTotalSize {_availableTotalSize}
 {
     tempSelection = new bool[problemDimension];    
@@ -28,7 +28,7 @@ CCoinsSelectionAlgorithm::CCoinsSelectionAlgorithm(CoinsSelectionAlgorithmType _
         optimalSelection[index] = false;
     }
 
-    optimalTotalNetAmount = 0;
+    optimalTotalAmount = 0;
     optimalTotalSize = 0;
     optimalTotalSelection= 0;
 
@@ -42,32 +42,32 @@ CCoinsSelectionAlgorithm::CCoinsSelectionAlgorithm(CoinsSelectionAlgorithmType _
 }
 
 CCoinsSelectionAlgorithm::~CCoinsSelectionAlgorithm() {
-    delete[] netAmounts;
+    delete[] amounts;
     delete[] sizes;
     delete[] tempSelection;
     delete[] optimalSelection;
 }
 
-CAmount* CCoinsSelectionAlgorithm::PrepareNetAmounts(std::vector<std::pair<CAmount, size_t>> unsortedNetAmountsAndSizes)
+CAmount* CCoinsSelectionAlgorithm::PrepareAmounts(std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes)
 {
-    std::vector<std::pair<CAmount, size_t>> sortedNetAmountsAndSizes = unsortedNetAmountsAndSizes;
-    std::sort(sortedNetAmountsAndSizes.begin(), sortedNetAmountsAndSizes.end(), [](std::pair<CAmount, size_t> left, std::pair<CAmount, size_t> right) -> bool { return ( left.first > right.first); } );
-    CAmount* sortedNetAmounts = new CAmount[problemDimension];
+    std::vector<std::pair<CAmount, size_t>> sortedAmountsAndSizes = unsortedAmountsAndSizes;
+    std::sort(sortedAmountsAndSizes.begin(), sortedAmountsAndSizes.end(), [](std::pair<CAmount, size_t> left, std::pair<CAmount, size_t> right) -> bool { return ( left.first > right.first); } );
+    CAmount* sortedAmounts = new CAmount[problemDimension];
     for (int index = 0; index < problemDimension; ++index)
     {
-        sortedNetAmounts[index] = sortedNetAmountsAndSizes[index].first;
+        sortedAmounts[index] = sortedAmountsAndSizes[index].first;
     }
-    return sortedNetAmounts;
+    return sortedAmounts;
 }
 
-size_t* CCoinsSelectionAlgorithm::PrepareSizes(std::vector<std::pair<CAmount, size_t>> unsortedNetAmountsAndSizes)
+size_t* CCoinsSelectionAlgorithm::PrepareSizes(std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes)
 {
-    std::vector<std::pair<CAmount, size_t>> sortedNetAmountsAndSizes = unsortedNetAmountsAndSizes;
-    std::sort(sortedNetAmountsAndSizes.begin(), sortedNetAmountsAndSizes.end(), [](std::pair<CAmount, size_t> left, std::pair<CAmount, size_t> right) -> bool { return ( left.first > right.first); } );
+    std::vector<std::pair<CAmount, size_t>> sortedAmountsAndSizes = unsortedAmountsAndSizes;
+    std::sort(sortedAmountsAndSizes.begin(), sortedAmountsAndSizes.end(), [](std::pair<CAmount, size_t> left, std::pair<CAmount, size_t> right) -> bool { return ( left.first > right.first); } );
     size_t* sortedSizes = new size_t[problemDimension];
     for (int index = 0; index < problemDimension; ++index)
     {
-        sortedSizes[index] = sortedNetAmountsAndSizes[index].second;
+        sortedSizes[index] = sortedAmountsAndSizes[index].second;
     }
     return sortedSizes;
 }
@@ -80,7 +80,7 @@ void CCoinsSelectionAlgorithm::Reset()
         optimalSelection[index] = false;
     }
 
-    optimalTotalNetAmount = 0;
+    optimalTotalAmount = 0;
     optimalTotalSize = 0;
     optimalTotalSelection= 0;
 
@@ -96,11 +96,11 @@ void CCoinsSelectionAlgorithm::Reset()
 std::string CCoinsSelectionAlgorithm::ToString()
 {
     return std::string("Input:")
-                                + "{targetNetAmount=" + std::to_string(targetNetAmount) +
-                                  ",targetNetAmountPlusOffset=" + std::to_string(targetNetAmountPlusOffset) +
+                                + "{targetAmount=" + std::to_string(targetAmount) +
+                                  ",targetAmountPlusOffset=" + std::to_string(targetAmountPlusOffset) +
                                   ",availableTotalSize=" + std::to_string(availableTotalSize) + "}\n" +
                        "Output:"
-                                + "{optimalTotalNetAmount=" + std::to_string(optimalTotalNetAmount) +
+                                + "{optimalTotalAmount=" + std::to_string(optimalTotalAmount) +
                                   ",optimalTotalSize=" + std::to_string(optimalTotalSize) +
                                   ",optimalTotalSelection=" + std::to_string(optimalTotalSelection) + "}\n";
 }
@@ -116,17 +116,22 @@ void CCoinsSelectionAlgorithm::StartSolvingAsync()
 
 void CCoinsSelectionAlgorithm::StopSolving()
 {
-    if (asyncStartRequested && !stopRequested)
+    if (!stopRequested)
     {
         stopRequested = true;
-        solvingThread->join();
+        if (asyncStartRequested)
+        {
+            asyncStartRequested = false;
+            solvingThread->join();
+            delete solvingThread;
+        }
     }
 }
 
 CCoinsSelectionAlgorithm& CCoinsSelectionAlgorithm::GetBestAlgorithmBySolution(CCoinsSelectionAlgorithm& left, CCoinsSelectionAlgorithm& right)
 {
     if ((left.optimalTotalSelection > right.optimalTotalSelection) ||
-        (left.optimalTotalSelection == right.optimalTotalSelection && left.optimalTotalNetAmount <= right.optimalTotalNetAmount))
+        (left.optimalTotalSelection == right.optimalTotalSelection && left.optimalTotalAmount <= right.optimalTotalAmount))
     {
         return left;
     }
@@ -140,14 +145,14 @@ CCoinsSelectionAlgorithm& CCoinsSelectionAlgorithm::GetBestAlgorithmBySolution(C
 
 /* ---------- CCoinsSelectionSlidingWindow ---------- */
 
-CCoinsSelectionSlidingWindow::CCoinsSelectionSlidingWindow(std::vector<std::pair<CAmount, size_t>> _netAmountsAndSizes,
-                                                           CAmount _targetNetAmount,
-                                                           CAmount _targetNetAmountPlusOffset,
+CCoinsSelectionSlidingWindow::CCoinsSelectionSlidingWindow(std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
+                                                           CAmount _targetAmount,
+                                                           CAmount _targetAmountPlusOffset,
                                                            size_t _availableTotalSize)
                                                            : CCoinsSelectionAlgorithm(CoinsSelectionAlgorithmType::SLIDING_WINDOW,
-                                                                                      _netAmountsAndSizes,
-                                                                                      _targetNetAmount,
-                                                                                      _targetNetAmountPlusOffset,
+                                                                                      _amountsAndSizes,
+                                                                                      _targetAmount,
+                                                                                      _targetAmountPlusOffset,
                                                                                       _availableTotalSize)
 {
     #if COINS_SELECTION_ALGORITHM_PROFILING
@@ -174,7 +179,7 @@ void CCoinsSelectionSlidingWindow::Solve()
     uint64_t microsecondsBefore = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     #endif
     size_t tempTotalSize = 0;
-    CAmount tempTotalNetAmount = 0;
+    CAmount tempTotalAmount = 0;
     unsigned int tempTotalSelection = 0;
     int exclusionIndex = maxIndex;
     int inclusionIndex = maxIndex;
@@ -186,21 +191,21 @@ void CCoinsSelectionSlidingWindow::Solve()
         }
         tempSelection[inclusionIndex] = true;
         tempTotalSize += sizes[inclusionIndex];
-        tempTotalNetAmount += netAmounts[inclusionIndex];
+        tempTotalAmount += amounts[inclusionIndex];
         tempTotalSelection += 1;
         while (tempTotalSize > availableTotalSize ||
-               tempTotalNetAmount > targetNetAmountPlusOffset)
+               tempTotalAmount > targetAmountPlusOffset)
         {
             tempSelection[exclusionIndex] = false;
             tempTotalSize -= sizes[exclusionIndex];
-            tempTotalNetAmount -= netAmounts[exclusionIndex];
+            tempTotalAmount -= amounts[exclusionIndex];
             tempTotalSelection -= 1;
             --exclusionIndex;
         }
-        if (tempTotalNetAmount >= targetNetAmount)
+        if (tempTotalAmount >= targetAmount)
         {
             optimalTotalSize = tempTotalSize;
-            optimalTotalNetAmount = tempTotalNetAmount;
+            optimalTotalAmount = tempTotalAmount;
             optimalTotalSelection = tempTotalSelection;
             for (int index = 0; index < problemDimension; ++index)
             {
@@ -220,16 +225,16 @@ void CCoinsSelectionSlidingWindow::Solve()
 
 /* ---------- CCoinsSelectionBranchAndBound ---------- */
 
-CCoinsSelectionBranchAndBound::CCoinsSelectionBranchAndBound(std::vector<std::pair<CAmount, size_t>> _netAmountsAndSizes,
-                                                             CAmount _targetNetAmount,
-                                                             CAmount _targetNetAmountPlusOffset,
+CCoinsSelectionBranchAndBound::CCoinsSelectionBranchAndBound(std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
+                                                             CAmount _targetAmount,
+                                                             CAmount _targetAmountPlusOffset,
                                                              size_t _availableTotalSize)
                                                              : CCoinsSelectionAlgorithm(CoinsSelectionAlgorithmType::BRANCH_AND_BOUND,
-                                                                                        _netAmountsAndSizes,
-                                                                                        _targetNetAmount,
-                                                                                        _targetNetAmountPlusOffset,
+                                                                                        _amountsAndSizes,
+                                                                                        _targetAmount,
+                                                                                        _targetAmountPlusOffset,
                                                                                         _availableTotalSize),
-                                                                                        cumulativeNetAmountsForward{PrepareCumulativeNetAmountsForward()}
+                                                                                        cumulativeAmountsForward{PrepareCumulativeAmountsForward()}
 {
     #if COINS_SELECTION_ALGORITHM_PROFILING
     recursions = 0;
@@ -239,21 +244,21 @@ CCoinsSelectionBranchAndBound::CCoinsSelectionBranchAndBound(std::vector<std::pa
 }
 
 CCoinsSelectionBranchAndBound::~CCoinsSelectionBranchAndBound() {
-    delete [] cumulativeNetAmountsForward;
+    delete [] cumulativeAmountsForward;
 }
 
-CAmount* CCoinsSelectionBranchAndBound::PrepareCumulativeNetAmountsForward()
+CAmount* CCoinsSelectionBranchAndBound::PrepareCumulativeAmountsForward()
 {
-    CAmount* cumulativeNetAmountsForwardTemp = new CAmount[problemDimension + 1];
-    cumulativeNetAmountsForwardTemp[problemDimension] = 0;
+    CAmount* cumulativeAmountsForwardTemp = new CAmount[problemDimension + 1];
+    cumulativeAmountsForwardTemp[problemDimension] = 0;
     for (int index = problemDimension - 1; index >= 0; --index)
     {
-        cumulativeNetAmountsForwardTemp[index] = cumulativeNetAmountsForwardTemp[index + 1] + netAmounts[index];
+        cumulativeAmountsForwardTemp[index] = cumulativeAmountsForwardTemp[index + 1] + amounts[index];
     }
-    return cumulativeNetAmountsForwardTemp;
+    return cumulativeAmountsForwardTemp;
 }
 
-void CCoinsSelectionBranchAndBound::SolveRecursive(int currentIndex, size_t tempTotalSize, CAmount tempTotalNetAmount, unsigned int tempTotalSelection)
+void CCoinsSelectionBranchAndBound::SolveRecursive(int currentIndex, size_t tempTotalSize, CAmount tempTotalAmount, unsigned int tempTotalSelection)
 {
     #if COINS_SELECTION_ALGORITHM_PROFILING
     ++recursions;
@@ -276,20 +281,20 @@ void CCoinsSelectionBranchAndBound::SolveRecursive(int currentIndex, size_t temp
         size_t tempTotalSizeNew = tempTotalSize + (value ? sizes[currentIndex] : 0);
         if (tempTotalSizeNew <= availableTotalSize) // {backtracking}
         {
-            CAmount tempTotalNetAmountNew = tempTotalNetAmount + (value ? netAmounts[currentIndex] : 0);
-            if (tempTotalNetAmountNew <= targetNetAmountPlusOffset) // {backtracking}
+            CAmount tempTotalAmountNew = tempTotalAmount + (value ? amounts[currentIndex] : 0);
+            if (tempTotalAmountNew <= targetAmountPlusOffset) // {backtracking}
             {
-                CAmount tempTotalNetAmountNewBiggestPossible = tempTotalNetAmountNew + cumulativeNetAmountsForward[nextIndex];
-                if (tempTotalNetAmountNewBiggestPossible >= targetNetAmount) // {backtracking}
+                CAmount tempTotalAmountNewBiggestPossible = tempTotalAmountNew + cumulativeAmountsForward[nextIndex];
+                if (tempTotalAmountNewBiggestPossible >= targetAmount) // {backtracking}
                 {
                     unsigned int tempTotalSelectionNew = tempTotalSelection + (value ? 1 : 0);
                     unsigned int maxTotalSelectionForward = tempTotalSelectionNew + (maxIndex - currentIndex);
                     if ((maxTotalSelectionForward > optimalTotalSelection) ||
-                        (maxTotalSelectionForward == optimalTotalSelection && tempTotalNetAmountNewBiggestPossible < optimalTotalNetAmount)) // {bounding}
+                        (maxTotalSelectionForward == optimalTotalSelection && tempTotalAmountNewBiggestPossible < optimalTotalAmount)) // {bounding}
                     {
                         if (currentIndex < maxIndex)
                         {
-                            SolveRecursive(nextIndex, tempTotalSizeNew, tempTotalNetAmountNew, tempTotalSelectionNew);
+                            SolveRecursive(nextIndex, tempTotalSizeNew, tempTotalAmountNew, tempTotalSelectionNew);
                         }
                         else
                         {
@@ -297,7 +302,7 @@ void CCoinsSelectionBranchAndBound::SolveRecursive(int currentIndex, size_t temp
                             ++reachedLeaves;
                             #endif
                             optimalTotalSize = tempTotalSizeNew;
-                            optimalTotalNetAmount = tempTotalNetAmountNew;
+                            optimalTotalAmount = tempTotalAmountNew;
                             optimalTotalSelection = tempTotalSelectionNew;
                             for (int index = 0; index < problemDimension; ++index)
                             {

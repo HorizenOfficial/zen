@@ -10,7 +10,7 @@
 
 //! Flag for profiling/debugging mode
 #define COINS_SELECTION_ALGORITHM_PROFILING 0
-//! This represents the number of intermediate change levels inside the interval [targetNetAmount + 0, targetNetAmount + maxChange]
+//! This represents the number of intermediate change levels inside the interval [targetAmount + 0, targetAmount + maxChange]
 /*!
   Low value -> higher quantity of selected utxos and higher change, high value -> lower quantity of selected utxos and lower change
 */
@@ -47,14 +47,14 @@ public:
     // input variables
     //! Number of elements
     const int problemDimension;
-    //! The array of net amounts (considered as "coinAmount - feeToPayTheCoin")
-    const CAmount* netAmounts;
+    //! The array of amounts
+    const CAmount* amounts;
     //! The array of sizes (in terms of bytes of the associated input)
     const size_t* sizes;
-    //! The target net amount to satisfy (it is a lower-limit constraint)
-    const CAmount targetNetAmount;
-    //! The target net amount plus a positive offset (it is an upper-limit constraint)
-    const CAmount targetNetAmountPlusOffset;
+    //! The target amount to satisfy (it is a lower-limit constraint)
+    const CAmount targetAmount;
+    //! The target amount plus a positive offset (it is an upper-limit constraint)
+    const CAmount targetAmountPlusOffset;
     //! The available total size (in terms of bytes, it is an upper-limit constraint)
     const size_t availableTotalSize;
     // input variables
@@ -62,8 +62,8 @@ public:
     // output variables
     //! The optimal set of selected elements (true->selected, false->unselected)
     bool* optimalSelection;
-    //! The total net amount of optimal selection
-    CAmount optimalTotalNetAmount;
+    //! The total amount of optimal selection
+    CAmount optimalTotalAmount;
     //! The total size of optimal selection
     size_t optimalTotalSize;
     //! The quantity of elements of optimal selection (this is the variable to be maximized)
@@ -88,18 +88,18 @@ public:
     // profiling and control
 
 private:
-    //! Method for preparing array of net amounts sorting them with descending order (with respect to net amounts)
+    //! Method for preparing array of amounts sorting them with descending order (with respect to amounts)
     /*!
-      \param unsortedNetAmountsAndSizes vector of pairs of net amounts and sizes of the elements
-      \return the array of net amounts in descending order
+      \param unsortedAmountsAndSizes vector of pairs of amounts and sizes of the elements
+      \return the array of amounts in descending order
     */
-    CAmount* PrepareNetAmounts(std::vector<std::pair<CAmount, size_t>> unsortedNetAmountsAndSizes);
-    //! Method for preparing array of sizes sorting them with descending order (with respect to net amounts)
+    CAmount* PrepareAmounts(std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes);
+    //! Method for preparing array of sizes sorting them with descending order (with respect to amounts)
     /*!
-      \param unsortedNetAmountsAndSizes vector of pairs of net amounts and sizes of the elements
-      \return the array of sizes (arranged in descending order with respect to input net amounts)
+      \param unsortedAmountsAndSizes vector of pairs of amounts and sizes of the elements
+      \return the array of sizes (arranged in descending order with respect to input amounts)
     */
-    size_t* PrepareSizes(std::vector<std::pair<CAmount, size_t>> unsortedNetAmountsAndSizes);
+    size_t* PrepareSizes(std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes);
 
 protected:
     //! Method for resetting internal variables (must be called before restarting the algorithm)
@@ -109,15 +109,15 @@ public:
     //! Constructor
     /*!
       \param _type algorithm type
-      \param _netAmountsAndSizes vector of pairs of net amounts and sizes of the elements
-      \param _targetNetAmount target net amount to satisfy (it is a lower-limit constraint)
-      \param _targetNetAmountPlusOffset target net amount plus a positive offset (it is an upper-limit constraint)
+      \param _amountsAndSizes vector of pairs of amounts and sizes of the elements
+      \param _targetAmount target amount to satisfy (it is a lower-limit constraint)
+      \param _targetAmountPlusOffset target amount plus a positive offset (it is an upper-limit constraint)
       \param _availableTotalSize available total size (in terms of bytes, it is an upper-limit constraint)
     */
     CCoinsSelectionAlgorithm(CoinsSelectionAlgorithmType _type,
-                             std::vector<std::pair<CAmount, size_t>> _netAmountsAndSizes,
-                             CAmount _targetNetAmount,
-                             CAmount _targetNetAmountPlusOffset,
+                             std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
+                             CAmount _targetAmount,
+                             CAmount _targetAmountPlusOffset,
                              size_t _availableTotalSize);
     //! Destructor
     ~CCoinsSelectionAlgorithm();
@@ -149,11 +149,11 @@ public:
 /*!
   This class provides a specific implementation of the solving routine.
   In this implementation coins are iteratively added to (or removed from) current selection set starting from lowest
-  net amount coin and proceeding towards highest amount coin (FIFO queue).
-  At each iteration the algorithm pushes in the next coin; if the target net amount plus offset and available total
-  size constraints (upper-limit) are not met, the algorithm starts popping out the smallest coins until the two constraints
-  above are met; then the algorithm checks if the target net amount constraint (lower-limit) is met, if so it returns
-  the current selection set without further optimization, otherwise it continues
+  amount coin and proceeding towards highest amount coin (FIFO queue).
+  At each iteration the algorithm pushes in the next coin; if the target amount plus offset and available total size
+  constraints (upper-limit) are not met, the algorithm starts popping out the smallest coins until the two constraints
+  above are met; then the algorithm checks if the target amount constraint (lower-limit) is met, if so it returns the
+  current selection set without further optimization, otherwise it continues
 */
 class CCoinsSelectionSlidingWindow : public CCoinsSelectionAlgorithm
 {
@@ -172,14 +172,14 @@ protected:
 public:
     //! Constructor
     /*!
-      \param _netAmountsAndSizes vector of pairs of net amounts and sizes of the elements
-      \param _targetNetAmount target net amount to satisfy (it is a lower-limit constraint)
-      \param _targetNetAmountPlusOffset target net amount plus a positive offset (it is an upper-limit constraint)
+      \param _amountsAndSizes vector of pairs of amounts and sizes of the elements
+      \param _targetAmount target amount to satisfy (it is a lower-limit constraint)
+      \param _targetAmountPlusOffset target amount plus a positive offset (it is an upper-limit constraint)
       \param _availableTotalSize available total size (in terms of bytes, it is an upper-limit constraint)
     */
-    CCoinsSelectionSlidingWindow(std::vector<std::pair<CAmount, size_t>> _netAmountsAndSizes,
-                                 CAmount _targetNetAmount,
-                                 CAmount _targetNetAmountPlusOffset,
+    CCoinsSelectionSlidingWindow(std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
+                                 CAmount _targetAmount,
+                                 CAmount _targetAmountPlusOffset,
                                  size_t _availableTotalSize);
     //! Destructor
     ~CCoinsSelectionSlidingWindow();
@@ -205,18 +205,16 @@ public:
   one) is found and eventually marked as the new temporary optimal solution.
   The tree actual exploration differs very significantly from the tree full exploration thanks to:
   +] backtracking (1): given that at a certain recursion, including a new coin would automatically increase both the temporary
-     total net amount as well as the temporary total size, if during the tree exploration the two upper-limit constraints
-     associated to target net amount plus offset and to total size are broken then all the branches from the current recursion
-     on are cut; this is done in order to avoid reaching leaves that would certainly be not admissible with respect to these two
-     constraints.
-  +] backtracking (2): given that at a certain recursion, the highest total net amount reachable is computed as the sum of
-     current total net amount and of all the net amounts of coins from the current recursion on, if during the tree exploration
-     this sum does not exceed the lower-limit associated to target net amount then all the branches from the current recursion
-     on are cut; this is done in order to avoid reaching leaves that would certainly be not admissible with respect to this
-     constraint.
+     total amount as well as the temporary total size, if during the tree exploration the two upper-limit constraints associated
+     to target amount plus offset and to total size are broken then all the branches from the current recursion on are cut;
+     this is done in order to avoid reaching leaves that would certainly be not admissible with respect to these two constraints.
+  +] backtracking (2): given that at a certain recursion, the highest total amount reachable is computed as the sum of current
+     total amount and of all the amounts of coins from the current recursion on, if during the tree exploration this sum does not
+     exceed the lower-limit associated to target amount then all the branches from the current recursion on are cut; this is done
+     in order to avoid reaching leaves that would certainly be not admissible with respect to this constraint.
   +] bounding: given that at a certain recursion, the highest total selection reachable is computed as the sum of current total
      selection and of the quantity of coins from the current recrusion on, if during tree exploration this sum does not exceed
-     the temporary optimal solution (ties are handled prioritizing low total net amount) then all the branches from the current
+     the temporary optimal solution (ties are handled prioritizing low total amount) then all the branches from the current
      recursion on are cut; this is done in order to avoid reaching leaves that would certainly not improve the temporary optimal
      solution.
 */
@@ -224,8 +222,8 @@ class CCoinsSelectionBranchAndBound : public CCoinsSelectionAlgorithm
 {
 protected:
     // auxiliary
-    //! The array of cumulative net amounts (considered summing net amounts from index to end of net amounts array)
-    const CAmount* cumulativeNetAmountsForward;
+    //! The array of cumulative amounts (considered summing amounts from index to end of amounts array)
+    const CAmount* cumulativeAmountsForward;
     // auxiliary
 
     // profiling
@@ -240,19 +238,19 @@ protected:
     // profiling
 
 private:
-    //! Method for preparing array of cumulative net amounts
+    //! Method for preparing array of cumulative amounts
     /*!
-      \return the array of cumulative net amounts
+      \return the array of cumulative amounts
     */
-    CAmount* PrepareCumulativeNetAmountsForward();
+    CAmount* PrepareCumulativeAmountsForward();
     //! Method for synchronously running the solving routine recursion with "Branch & Bound" strategy
     /*!
       \param currentIndex the current index the tree exploration is at
       \param tempTotalSize the temporary total size of tree exploration
-      \param tempTotalNetAmount the temporary total net amount of tree exploration
+      \param tempTotalAmount the temporary total amount of tree exploration
       \param tempTotalSelection the temporary total selection of tree exploration
     */
-    void SolveRecursive(int currentIndex, size_t tempTotalSize, CAmount tempTotalNetAmount, unsigned int tempTotalSelection);
+    void SolveRecursive(int currentIndex, size_t tempTotalSize, CAmount tempTotalAmount, unsigned int tempTotalSelection);
 
 protected:
     //! Method for resetting internal variables (must be called before restarting the algorithm)
@@ -261,14 +259,14 @@ protected:
 public:
     //! Constructor
     /*!
-      \param _netAmountsAndSizes vector of pairs of net amounts and sizes of the elements
-      \param _targetNetAmount target net amount to satisfy (it is a lower-limit constraint)
-      \param _targetNetAmountPlusOffset target net amount plus a positive offset (it is an upper-limit constraint)
+      \param _amountsAndSizes vector of pairs of amounts and sizes of the elements
+      \param _targetAmount target amount to satisfy (it is a lower-limit constraint)
+      \param _targetAmountPlusOffset target amount plus a positive offset (it is an upper-limit constraint)
       \param _availableTotalSize available total size (in terms of bytes, it is an upper-limit constraint)
     */
-    CCoinsSelectionBranchAndBound(std::vector<std::pair<CAmount, size_t>> _netAmountsAndSizes,
-                                  CAmount _targetNetAmount,
-                                  CAmount _targetNetAmountPlusOffset,
+    CCoinsSelectionBranchAndBound(std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
+                                  CAmount _targetAmount,
+                                  CAmount _targetAmountPlusOffset,
                                   size_t _availableTotalSize);
     //! Destructor
     ~CCoinsSelectionBranchAndBound();

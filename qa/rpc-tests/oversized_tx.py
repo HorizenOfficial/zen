@@ -63,10 +63,6 @@ class OversizedTx(BitcoinTestFramework):
         nt1b = self.nodes[1].z_getbalance(nt1)
         nt2b = self.nodes[2].z_getbalance(nt2)
 
-        print("N0 -> (" + nt0 + " , " + str(nt0b) + ")")
-        print("N1 -> (" + nt1 + " , " + str(nt1b) + ")")
-        print("N2 -> (" + nt2 + " , " + str(nt2b) + ")")
-
 
         # ---------- testing sendto (sendfrom is analogous) ----------
         # a middle value coin is sent which will be later used in next transaction (together with other coins)
@@ -110,7 +106,7 @@ class OversizedTx(BitcoinTestFramework):
 
 
         # ---------- testing sendmany ----------
-        # three middle value coins are sent which will be later used in next transaction (together with other coins)
+        # two middle value coins are sent which will be later used in next transaction (together with other coins)
         # no oversized transaction error is expected ("JSONRPC error: Transaction too large")
         self.nodes[2].sendtoaddress(nt0, 0.5)
         self.nodes[2].sendtoaddress(nt0, 0.5)
@@ -135,6 +131,84 @@ class OversizedTx(BitcoinTestFramework):
         except JSONRPCException as e:
             errorString = e.error['message']
             print("Impossible to create transaction (as expected): {}".format(errorString))
+
+        
+        # ---------- testing sc_create and sc_send_certificate ----------
+        # emptying node1 wallet
+        iter = 0
+        while (iter < 1000): # just for putting a higher limit 
+            iter += 1
+            partialBalance1 = 0
+            listunspent1 = self.nodes[1].listunspent(0)
+            if (len(listunspent1) == 0):
+                break
+            for i in range(len(listunspent1)):
+                partialBalance1 += listunspent1[i]["amount"]
+                if ((i + 1) % 600 == 0 or i == len(listunspent1) - 1):
+                    self.nodes[1].sendtoaddress(nt0, partialBalance1, "", "", True)               
+                    self.sync_all()
+                    self.nodes[2].generate(1)
+                    self.sync_all()
+                    partialBalance1 = 0
+                    listunspent1 = self.nodes[1].listunspent(0)
+                    break
+
+        # sending a lot of small coins to node1 wallet
+        for i in range(1100):
+            self.nodes[0].sendtoaddress(nt1, 0.000005)
+            if ((i + 1) % 600 == 0 or i == 1100 - 1):
+                self.sync_all()
+                self.nodes[2].generate(1)
+                self.sync_all()
+
+        EPOCH_LENGTH = 10
+        FT_SC_FEE = Decimal('0')
+        MBTR_SC_FEE = Decimal('0')
+        CERT_FEE = Decimal('0.005450')
+        creation_amount = Decimal("0.00005")
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
+        vk = mcTest.generate_params("sc1")
+        constant = generate_random_field_element_hex()
+        cmdInput = {
+            "version": 0,
+            "withdrawalEpochLength":EPOCH_LENGTH,
+            "toaddress":"aaaa",
+            "amount":creation_amount,
+            "wCertVk":vk,
+            "constant":constant,
+            "fee":0
+        }
+        # only the small coins will be selected for satisfying sc creation amount
+        ret = self.nodes[1].sc_create(cmdInput)
+        creating_tx = ret['txid']
+        scid = ret['scid']
+        scid_swapped = str(swap_bytes(scid))
+        self.sync_all()
+        self.nodes[2].generate(EPOCH_LENGTH)
+        self.sync_all()
+        scid = self.nodes[1].getscinfo("*")["items"][0]["scid"]
+        scid_swapped = str(swap_bytes(scid))
+        constant = self.nodes[1].getscinfo("*")["items"][0]["constant"]
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[1], EPOCH_LENGTH)
+        quality = 1
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
+        amount_cert = []
+        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [], [])
+        try:
+            # using only small coins results in an oversized certificate
+            cert = self.nodes[1].sc_send_certificate(scid, epoch_number, quality, epoch_cum_tree_hash, proof, amount_cert, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            assert(False) # impossibile to create certificate (as expected)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+            print("Impossible to create certificate (as expected): {}".format(errorString))
+        # sending one big coin to node1 wallet
+        self.nodes[0].sendtoaddress(nt1, 0.005445)
+        self.sync_all()
+        self.nodes[2].generate(1)
+        self.sync_all()
+        # the big coin together with small coins will be selected for satisfying certificate fee
+        cert = self.nodes[1].sc_send_certificate(scid, epoch_number, quality, epoch_cum_tree_hash, proof, amount_cert, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+
 
 if __name__ == '__main__':
         OversizedTx().main()

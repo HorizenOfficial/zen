@@ -736,20 +736,21 @@ class CWallet : public CCryptoKeyStore, public CValidationInterface
 private:
     //! Method for selecting coins
     /*!
-      \param nTargetNetValue the target net value (considered as sum of coins net values) to be satisfied (as a lower-limit)
-      \param setCoinsRet the set of coins returned by section algorithm
-      \param nValueRet the total gross value returned (considered as sum of coins gross values)
+      \param nTargetValue the target value (as sum of coins values) to be satisfied (lower-limit), can be considered as gross or net value based on useInputsNetValues param
+      \param setCoinsRet the set of coins returned by selection algorithm
+      \param nValueRet the actual total value of coins returned (as sum of returned coins values), to be considered always as gross value
       \param totalInputsBytes the total bytes of selected inputs
       \param fOnlyCoinbaseCoinsRet variable indicating if returned coins are all coinbase
       \param fNeedCoinbaseCoinsRet variable indicating if coinbase coins are present in the selction (and not including them would result in failing selection)
       \param coinControl pre-prepared info for selecting specific coins (default to NULL)
       \param availableBytes available bytes (considered as an upper-limit on the sum of inputs sizes) for performing coins selection (default to MAX_TX_SIZE)
-      \param subtractFeeFromAmount flag indicating if fee should be subtracted from amount or not (default to false)
-      \return a variable representing if the selection actually found an admissible set of coins (true) or not (false)
+      \param useInputsNetValues flag indicating if the net value (equals to gross value minus fee to pay for including the input) of inputs must be used instead
+                                of gross value; if true nTargetValue inValueRet will represent a sum of gross values, if false nValueRet will represent a sum of net values
+      \return a flag representing wether the selection actually found (true) an admissible set of coins or not (false)
     */
-    bool SelectCoins(const CAmount& nTargetNetValue, std::set<std::pair<const CWalletTransactionBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet, size_t& totalInputsBytes,
+    bool SelectCoins(const CAmount& nTargetValue, std::set<std::pair<const CWalletTransactionBase*,unsigned int>>& setCoinsRet, CAmount& nValueRet, size_t& totalInputsBytes,
                      bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet,
-                     const CCoinControl *coinControl = NULL, size_t availableBytes = MAX_TX_SIZE, bool subtractFeeFromAmount = false) const;
+                     const CCoinControl *coinControl = NULL, size_t availableBytes = MAX_TX_SIZE, bool useInputsNetValues = true) const;
 
     CWalletDB *pwalletdbEncryption;
 
@@ -995,20 +996,21 @@ public:
 
     //! Method for filtering coins based on confirmation count and then selecting coins based on value and size constarint
     /*!
-      \param nTargetNetValue the target net value (considered as sum of coins net values) to be satisfied (as a lower-limit)
+      \param nTargetValue the target value (as sum of coins values) to be satisfied (lower-limit), can be considered as gross or net value based on useInputsNetValues param
       \param nConfMine the minimum number of confirmations from this wallet (filtering)
       \param nConfTheirs the minimum number of confirmations from other nodes (filtering)
       \param vCoins the set of coins on which the filtering algorithm and then the selection algorithms have to be executed
       \param setCoinsRet the set of coins returned by filtering and selection algorithms
-      \param nValueRet the total gross value returned (considered as sum of coins gross values)
+      \param nValueRet the actual total value of coins returned (as sum of returned coins values), to be considered always as gross value
       \param totalInputsBytes the total bytes of selected inputs
       \param availableBytes available bytes (considered as an upper-limit on the sum of inputs sizes) for performing coins selection (default to MAX_TX_SIZE)
-      \param subtractFeeFromAmount flag indicating if fee should be subtracted from amount or not (default to false)
-      \return a variable representing if the selection actually found an admissible set of coins (true) or not (false)
+      \param useInputsNetValues flag indicating if the net value (equals to gross value minus fee to pay for including the input) of inputs must be used instead
+                                of gross value; if true nTargetValue inValueRet will represent a sum of gross values, if false nValueRet will represent a sum of net values
+      \return a flag representing wether the selection actually found (true) an admissible set of coins or not (false)
     */
-    bool SelectCoinsMinConf(const CAmount& nTargetNetValue, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins,
+    bool SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins,
                             std::set<std::pair<const CWalletTransactionBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet, size_t& totalInputsBytes,
-                            size_t availableBytes = MAX_TX_SIZE, bool subtractFeeFromAmount = false) const;
+                            size_t availableBytes = MAX_TX_SIZE, bool useInputsNetValues = true) const;
 
     //! Method for estimating input size based on dummy signature
     /*!

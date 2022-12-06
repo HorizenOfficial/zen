@@ -1150,12 +1150,19 @@ struct CMutableTransaction : public CMutableTransactionBase
 };
 
 //! Struct for storing transaction subsections size info
-struct CTransactionSizeInfo
+struct CBaseTransactionSizeInfo
 {
     size_t overheadSize = 0;
-    size_t outputsNoChangeSize = 0;
-    size_t outputChangeOnlySize = 0;
-    size_t inputsSize = 0;
+    size_t baseInputsSize = 0;
+    size_t baseOutputsNoChangeSize = 0;
+    size_t baseOutputChangeOnlySize = 0;
+};
+
+struct CTransactionSizeInfo : CBaseTransactionSizeInfo
+{
+    size_t joinsplitsSize = 0;
+    size_t sidechainInputsSize = 0;
+    size_t sidechainOutputsSize = 0;
 };
 
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H
