@@ -836,6 +836,36 @@ inline bool CTxMemPool::checkCertImmatureExpenditures(const CScCertificate& cert
     return true;
 }
 
+void CTxMemPool::removeCertificatesWithoutRef(const CCoinsViewCache * const pCoinsView,
+                                         std::list<CScCertificate>& outdatedCerts)
+{
+    LOCK(cs);
+    std::vector<uint256> certsToRemove;
+    // Remove certificates referring to this block as end epoch
+    for (const auto& [hash, certEntry]: mapCertificate)
+    {
+        const CScCertificate& cert = certEntry.GetCertificate();
+        if (mapCumtreeHeight.find(cert.endEpochCumScTxCommTreeRoot.GetLegacyHash()) == mapCumtreeHeight.end()) {
+            LogPrintf("%s():%d: cannot find reference block for cert %s, removing\n", __func__, __LINE__, cert.GetHash().ToString());
+            certsToRemove.emplace_back(cert.GetHash());
+        }
+    }
+
+    std::list<CTransaction> dummyTxs;
+    for (const auto& hash: certsToRemove)
+    {
+        // there can be dependencies also between certs, so check that a cert is still in map during the loop
+        const auto& cert_it = mapCertificate.find(hash);
+        if (cert_it != mapCertificate.end())
+        {
+            const CScCertificate& cert = cert_it->second.GetCertificate();
+            remove(cert, dummyTxs, outdatedCerts, true);
+        }
+    }
+    LogPrint("mempool", "%s():%d - removed %zu certs and %zu txes\n", __func__, __LINE__, outdatedCerts.size(), dummyTxs.size());
+
+}
+
 void CTxMemPool::removeStaleCertificates(const CCoinsViewCache * const pCoinsView,
                                          std::list<CScCertificate>& outdatedCerts)
 {
@@ -1944,16 +1974,13 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
             const auto map_it = mapCumtreeHeight.find(certTopQual.endEpochCumScTxCommTreeRoot.GetLegacyHash());
             if (map_it == mapCumtreeHeight.end())
             {
-                LogPrint("mempool", "%s():%d - could not find referenced block for certTopQual %s. This certificate will be removed shortly\n", __func__, __LINE__, certTopQual.GetHash().ToString());
-                // info.lastReferencedHeight = -1;
-                // do not update epoch and referenced height, keep what the blockchain has
+                LogPrint("mempool", "%s():%d - could not find referenced block for certTopQual %s. This is a problem.\n", __func__, __LINE__, certTopQual.GetHash().ToString());
+                assert(false);
             }
-            else
-            {
-                info.lastReferencedHeight = map_it->second;
-                info.lastTopQualityCertReferencedEpoch = certTopQual.epochNumber;
-                info.lastInclusionHeight += 1; // assume this certificate would be included in the next block
-            }
+
+            info.lastReferencedHeight = map_it->second;
+            info.lastTopQualityCertReferencedEpoch = certTopQual.epochNumber;
+            info.lastInclusionHeight += 1; // assume this certificate would be included in the next block
         }
     }
 

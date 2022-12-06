@@ -1291,24 +1291,21 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
             nFees = cert.GetFeeAmount(view.GetValueIn(cert));
 
             CSidechain sc;
-
             if (!view.GetSidechain(cert.GetScId(), sc))
             {
                 LogPrint("mempool", "%s():%d - ERROR: cert[%s] refers to a non existing sidechain[%s]\n", __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
                 return MempoolReturnValue::INVALID;
             }
 
-            // TODO(dr): should we keep this explicit check?
-            //if (sc.isNonCeasing() && pool.certificateExists(cert.GetScId()))
-            //{
-            //    state.Invalid(
-            //        error("%s():%d - Dropping cert %s : conflicting with another cert in mempool for non ceasing SC\n",
-            //            __func__, __LINE__, certHash.ToString()),
-            //        CValidationState::Code::INVALID, "bad-sc-cert-quality");
-            //    return MempoolReturnValue::INVALID;
-            //}
-            //else
-            if (!sc.isNonCeasing())
+            if (sc.isNonCeasing() && pool.certificateExists(cert.GetScId()))
+            {
+                state.Invalid(
+                    error("%s():%d - Dropping cert %s : conflicting with another cert in mempool for non ceasing SC\n",
+                        __func__, __LINE__, certHash.ToString()),
+                    CValidationState::Code::INVALID, "bad-sc-cert-conflict"); // TODO(dr): is this msg ok?
+                return MempoolReturnValue::INVALID;
+            }
+            else if (!sc.isNonCeasing())
             {
                 if (!conflictingCertData.first.IsNull() && conflictingCertData.second >= nFees)
                 {
@@ -4158,17 +4155,25 @@ bool static DisconnectTip(CValidationState &state) {
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         assert(view.Flush());
     }
-    size_t erased = mapCumtreeHeight.erase(pindexDelete->scCumTreeHash.GetLegacyHash());
-    LogPrint("sc", "- Removed %lu entries from mapCumtreeHeight\n", erased);
     LogPrint("bench", "- Disconnect block: %.2fms\n", (GetTimeMicros() - nStart) * 0.001);
+
+    std::list<CTransaction> dummyTxs;
+    std::list<CScCertificate> dummyCerts;
+
+    size_t erased = mapCumtreeHeight.erase(pindexDelete->scCumTreeHash.GetLegacyHash());
+    if (erased) {
+        LogPrint("sc", "- Removed %zu entries from mapCumtreeHeight\n", erased);
+        mempool.removeCertificatesWithoutRef(pcoinsTip, dummyCerts);
+    }
+    dummyTxs.clear();
+    dummyCerts.clear();
+
     uint256 anchorAfterDisconnect = pcoinsTip->GetBestAnchor();
     // Write the chain state to disk, if necessary.
     if (!FlushStateToDisk(state, FLUSH_STATE_IF_NEEDED))
         return false;
 
     // Resurrect mempool transactions and certificates from the disconnected block.
-    std::list<CTransaction> dummyTxs;
-    std::list<CScCertificate> dummyCerts;
     for(const CTransaction &tx: block.vtx) {
         // ignore validation errors in resurrected transactions
         CValidationState stateDummy;

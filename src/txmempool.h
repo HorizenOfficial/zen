@@ -263,6 +263,8 @@ public:
                          std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
     void removeStaleCertificates(const CCoinsViewCache * const pCoinsView,
                                  std::list<CScCertificate>& outdatedCerts);
+    void removeCertificatesWithoutRef(const CCoinsViewCache * const pCoinsView,
+                                 std::list<CScCertificate>& outdatedCerts);
     // END OF UNCONFIRMED CERTIFICATES CLEANUP METHODS
 
     void clear();
