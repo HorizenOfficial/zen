@@ -789,7 +789,7 @@ bool CCoinsViewCache::UpdateSidechain(const CTransaction& tx, const CBlock& bloc
         scIt->second.sidechain.lastTopQualityCertQuality = CScCertificate::QUALITY_NULL;
         scIt->second.sidechain.lastTopQualityCertBwtAmount = 0;
         scIt->second.sidechain.lastInclusionHeight = blockHeight;
-        scIt->second.sidechain.lastReferencedHeight = blockHeight;
+        scIt->second.sidechain.lastReferencedHeight = blockHeight - 1; // -1 to make it possible for the first cert. to reference the creation block
 
         scIt->second.sidechain.lastTopQualityCertView.forwardTransferScFee = cr.forwardTransferScFee;
         scIt->second.sidechain.lastTopQualityCertView.mainchainBackwardTransferRequestScFee = cr.mainchainBackwardTransferRequestScFee;
