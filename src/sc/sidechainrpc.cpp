@@ -939,8 +939,8 @@ size_t ScRpcCmd::addInputs(size_t availableBytes)
 
     if (targetAmount != 0)
     {
-        for (int loop = 0; loop < MAX_LOOP; ++loop)
-        {            
+        for (int loop = 0; loop < MAX_LOOP; ++loop) // loop provided for handling possible dust threshold
+        {
             int conf = 0; // already filtered above
             bool res = pwalletMain->SelectCoinsMinConf(targetAmount, conf, conf, vAvailableCoinsFiltered, setCoinsRet, nValueRet, baseInputsSize,
                                                        availableBytes, _automaticFee); // auto fee -> use input net values, manual fee -> fee already explicitly included in target amount
@@ -969,8 +969,8 @@ size_t ScRpcCmd::addInputs(size_t availableBytes)
                 else
                 {
                     throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS,
-                        strprintf("Insufficient transparent funds, have %s, need %s more to avoid creating invalid change output %s (dust threshold is %s)",
-                        FormatMoney(totalValue), FormatMoney(_dustThreshold - (totalValue - targetAmount)), FormatMoney((totalValue - targetAmount)), FormatMoney(_dustThreshold)));
+                        strprintf("Insufficient transparent funds %s, have %s, need %s more to avoid creating invalid change output %s (dust threshold is %s)",
+                        addrDetails, FormatMoney(totalValue), FormatMoney(_dustThreshold - (totalValue - targetAmount)), FormatMoney((totalValue - targetAmount)), FormatMoney(_dustThreshold)));
                 }
             }
             else
