@@ -404,7 +404,7 @@ class SCCreateTest(BitcoinTestFramework):
             'amount': 0.1,
             'fee': fee,
             'wCertVk': vk,
-            'customData': "b" * 1026
+            'customData': "bb" * 1026
         }
 
         try:
