@@ -453,7 +453,7 @@ class SCCreateTest(BitcoinTestFramework):
         except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
-            assert_true("must be even" in errorString)
+            assert_true("constant: Invalid format: not an hex" in errorString)
 
         # ---------------------------------------------------------------------------------------
         # Node 1 try create a SC with a constant too short
