@@ -3037,7 +3037,10 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
-        slowOptimalAlgorithm->StopSolving();
+        if (!slowOptimalAlgorithm->hasCompleted)
+        {
+            slowOptimalAlgorithm->StopSolving();
+        }
         bestAlgorithm = &CCoinsSelectionAlgorithm::GetBestAlgorithmBySolution(*slowOptimalAlgorithm, *fastNotOptimalAlgorithm);
         LogPrint("selectcoins", "Best algorithm: %s - %s", std::to_string((int)bestAlgorithm->type).c_str(), bestAlgorithm->ToString().c_str());
 

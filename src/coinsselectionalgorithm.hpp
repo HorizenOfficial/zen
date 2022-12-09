@@ -40,6 +40,15 @@ protected:
     const int maxIndex;
     // auxiliary
 
+    // profiling and control
+    //! Flag identifying if the solving routine is running
+    bool isRunning;
+    //! Flag identifying if a stop of the solving routine has been requested
+    bool stopRequested;
+    //! The thread associated to the solving routine
+    std::thread* solvingThread;
+    // profiling and control
+
 public:
     //! The algorithm type
     CoinsSelectionAlgorithmType type;
@@ -71,14 +80,6 @@ public:
     // output variables
 
     // profiling and control
-    //! Flag identifying if the solving routine has started
-    bool hasStarted;
-    //! Flag identifying if an asynchronous start of the solving routine has been requested
-    bool asyncStartRequested;
-    //! Flag identifying if a stop of the solving routine has been requested
-    bool stopRequested;
-    //! The thread associated to the solving routine
-    std::thread* solvingThread;
     //! Flag identifying if the solving routine has completed
     bool hasCompleted;
     #if COINS_SELECTION_ALGORITHM_PROFILING
@@ -125,7 +126,7 @@ public:
     void StartSolvingAsync();
     //! Abstract method for synchronously running the solving routine
     virtual void Solve() = 0;
-    //! Method for synchronously stopping the solving routine (which was started asynchronously)
+    //! Method for synchronously stopping the solving routine
     void StopSolving();
     //! Method for providing a string representation of the algorithm input and output variables
     /*!
@@ -191,7 +192,7 @@ public:
 
 /* ---------- CCoinsSelectionBranchAndBound ---------- */
 
-//! "Branch & BOund" implementation of algorithm of coins selection
+//! "Branch & Bound" implementation of algorithm of coins selection
 /*!
   This class provides a specific implementation of the solving routine.
   In this implementation, a binary tree is considered as the combination of excluding/including each coin.
