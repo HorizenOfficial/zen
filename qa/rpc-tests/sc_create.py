@@ -264,19 +264,6 @@ class SCCreateTest(BitcoinTestFramework):
                 }
             },
             {
-                "title"    : "Node 1 tries to create a SC with non hex constant",
-                "node"     : 1,
-                "expected" : "constant: Invalid format: not an hex",
-                "input"    : {
-                    'version': 0,
-                    'withdrawalEpochLength': 123,
-                    'toaddress': "0ada",
-                    'amount': 0.1,
-                    'wCertVk': vk,
-                    'constant': "abcdefghijklmnop"
-                }
-            },
-            {
                 "title"    : "Node 1 tries to create a SC with non hex constant (odd chars)",
                 "node"     : 1,
                 "expected" : "constant: Invalid format: not an hex",
@@ -300,6 +287,19 @@ class SCCreateTest(BitcoinTestFramework):
                     'amount': 0.1,
                     'wCertVk': vk,
                     'constant': "bb" * (SC_FIELD_SIZE - 1)
+                }
+            },
+            {
+                "title"    : "Node 1 tries to create a SC with non hex char in constant",
+                "node"     : 1,
+                "expected" : "constant: Invalid format: not an hex",
+                "input"    : {
+                    'version': 0,
+                    'withdrawalEpochLength': 123,
+                    'toaddress': "0ada",
+                    'amount': 0.1,
+                    'wCertVk': vk,
+                    'constant': "bz" * SC_FIELD_SIZE
                 }
             },
             {
