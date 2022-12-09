@@ -278,6 +278,20 @@ if [ "x${ENABLE_BITCOIND}${ENABLE_UTILS}${ENABLE_WALLET}" = "x111" ]; then
   then
     lcov --directory "${BUILDDIR}"/src --zerocounters
     lcov -c -i -d "${BUILDDIR}/src" -o py_test_coverage_base.info -rc lcov_branch_coverage=1
+    lcov -r py_test_coverage_base.info "/usr/include/*" \
+                      "*/depends/x86_64-unknown-linux-gnu/include/*.h" \
+                      "*/depends/x86_64-unknown-linux-gnu/include/boost/*" \
+                      "*/depends/x86_64-unknown-linux-gnu/include/gmock/*" \
+                      "*/depends/x86_64-unknown-linux-gnu/include/gtest/*" \
+                      "*/depends/x86_64-linux-gnu/include/*.h" \
+                      "*/depends/x86_64-linux-gnu/include/boost/*" \
+                      "*/depends/x86_64-linux-gnu/include/gmock/*" \
+                      "*/depends/x86_64-linux-gnu/include/gtest/*" \
+                      "*/src/gtest/*" \
+                      "*/src/test/*" \
+                      "*/src/wallet/gtest/*" \
+                      "*/src/wallet/test/*" \
+                      -o py_test_coverage_base_filtered.info
   fi
 
   for (( i = 0; i < ${#testScripts[@]}; i++ )); do
@@ -295,13 +309,29 @@ if [ "x${ENABLE_BITCOIND}${ENABLE_UTILS}${ENABLE_WALLET}" = "x111" ]; then
   if [ ! -z "$COVERAGE" ] && [ "${COVERAGE}" = "true" ];
   then
     lcov -c -d "${BUILDDIR}/src" -o py_test_coverage_after.info -rc lcov_branch_coverage=1
-    lcov -a py_test_coverage_base.info -a py_test_coverage_after.info -o py_test_coverage_"${chunk}".info
+    lcov -r py_test_coverage_after.info "/usr/include/*" \
+        "*/depends/x86_64-unknown-linux-gnu/include/*.h" \
+        "*/depends/x86_64-unknown-linux-gnu/include/boost/*" \
+        "*/depends/x86_64-unknown-linux-gnu/include/gmock/*" \
+        "*/depends/x86_64-unknown-linux-gnu/include/gtest/*" \
+        "*/depends/x86_64-linux-gnu/include/*.h" \
+        "*/depends/x86_64-linux-gnu/include/boost/*" \
+        "*/depends/x86_64-linux-gnu/include/gmock/*" \
+        "*/depends/x86_64-linux-gnu/include/gtest/*" \
+        "*/src/gtest/*" \
+        "*/src/test/*" \
+        "*/src/wallet/gtest/*" \
+        "*/src/wallet/test/*" \
+        -o py_test_coverage_after_filtered.info
+    lcov -a py_test_coverage_base_filtered.info -a py_test_coverage_after_filtered.info -o py_test_coverage_"${chunk}".info
     export CODACY_API_TOKEN="${CODACY_API_TOKEN_COVERAGE}"
     export CODACY_ORGANIZATION_PROVIDER="gh"
     export CODACY_USERNAME="HorizenOfficial"
     export CODACY_PROJECT_NAME="zen"
-    COMMIT=`git log -1 --format="%H"`
+    COMMIT=$(git log -1 --format="%H")
     bash <(curl -Ls https://coverage.codacy.com/get.sh) report --partial -l CPP \
+        --commit-uuid "${COMMIT}" -r py_test_coverage_"${chunk}".info
+    bash <(curl -Ls https://coverage.codacy.com/get.sh) report --partial -l C \
         --commit-uuid "${COMMIT}" -r py_test_coverage_"${chunk}".info
   fi
 

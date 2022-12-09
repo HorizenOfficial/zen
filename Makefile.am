@@ -161,6 +161,10 @@ baseline_filtered.info: baseline.info
                       "$(abs_builddir)/depends/x86_64-unknown-linux-gnu/include/boost/*" \
                       "$(abs_builddir)/depends/x86_64-unknown-linux-gnu/include/gmock/*" \
                       "$(abs_builddir)/depends/x86_64-unknown-linux-gnu/include/gtest/*" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/*.h" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/boost/*" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/gmock/*" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/gtest/*" \
                       "$(abs_builddir)/src/gtest/*" \
                       "$(abs_builddir)/src/test/*" \
                       "$(abs_builddir)/src/wallet/gtest/*" \
@@ -176,6 +180,10 @@ leveldb_baseline_filtered.info: leveldb_baseline.info
                       "$(abs_builddir)/depends/x86_64-unknown-linux-gnu/include/boost/*" \
                       "$(abs_builddir)/depends/x86_64-unknown-linux-gnu/include/gmock/*" \
                       "$(abs_builddir)/depends/x86_64-unknown-linux-gnu/include/gtest/*" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/*.h" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/boost/*" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/gmock/*" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/gtest/*" \
                       "$(abs_builddir)/src/gtest/*" \
                       "$(abs_builddir)/src/test/*" \
                       "$(abs_builddir)/src/wallet/gtest/*" \
@@ -197,6 +205,10 @@ test_bitcoin_filtered.info: test_bitcoin.info
                       "$(abs_builddir)/depends/x86_64-unknown-linux-gnu/include/boost/*" \
                       "$(abs_builddir)/depends/x86_64-unknown-linux-gnu/include/gmock/*" \
                       "$(abs_builddir)/depends/x86_64-unknown-linux-gnu/include/gtest/*" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/*.h" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/boost/*" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/gmock/*" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/gtest/*" \
                       "$(abs_builddir)/src/gtest/*" \
                       "$(abs_builddir)/src/test/*" \
                       "$(abs_builddir)/src/wallet/gtest/*" \
@@ -215,6 +227,10 @@ zen-gtest_filtered.info: zen-gtest.info
                       "$(abs_builddir)/depends/x86_64-unknown-linux-gnu/include/boost/*" \
                       "$(abs_builddir)/depends/x86_64-unknown-linux-gnu/include/gmock/*" \
                       "$(abs_builddir)/depends/x86_64-unknown-linux-gnu/include/gtest/*" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/*.h" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/boost/*" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/gmock/*" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/gtest/*" \
                       "$(abs_builddir)/src/gtest/*" \
                       "$(abs_builddir)/src/test/*" \
                       "$(abs_builddir)/src/wallet/gtest/*" \
@@ -252,7 +268,9 @@ cov_ci: test_bitcoin.coverage/.dirstamp cov-zen total.coverage/.dirstamp
 	bash <(curl -Ls https://coverage.codacy.com/get.sh) report --partial -l CPP --commit-uuid ${COMMIT} \
     --api-token ${CODACY_API_TOKEN_COVERAGE} --organization-provider "gh" \
     --username "HorizenOfficial" --project-name "zen" -r total_coverage.info 
-
+	bash <(curl -Ls https://coverage.codacy.com/get.sh) report --partial -l C   --commit-uuid ${COMMIT} \
+    --api-token ${CODACY_API_TOKEN_COVERAGE} --organization-provider "gh" \
+    --username "HorizenOfficial" --project-name "zen" -r total_coverage.info
 
 endif
 
