@@ -354,7 +354,6 @@ void PruneAndFlush();
 // Accept Tx/Cert ToMempool parameters types and signature
 enum class LimitFreeFlag       { ON, OFF };
 enum class RejectAbsurdFeeFlag { ON, OFF };
-enum class SkipTimingCheckFlag { ON, OFF };
 enum class MempoolReturnValue  { INVALID, MISSING_INPUT, VALID, PARTIALLY_VALIDATED };
 
 /**
@@ -388,7 +387,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
     LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, CNode* pfrom = nullptr);
 
 MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
-    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, SkipTimingCheckFlag fSkipTiming, CNode* pfrom = nullptr);
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, CNode* pfrom = nullptr);
 
 struct CNodeStateStats {
     int nMisbehavior;

@@ -1887,7 +1887,7 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp)
                 flag = MempoolProofVerificationFlag::DISABLED;
             }
 
-            MempoolReturnValue res = AcceptCertificateToMemoryPool(mempool, state, cert, LimitFreeFlag::OFF, fRejectAbsurdFee, flag, SkipTimingCheckFlag::OFF);
+            MempoolReturnValue res = AcceptCertificateToMemoryPool(mempool, state, cert, LimitFreeFlag::OFF, fRejectAbsurdFee, flag);
 
             if (res == MempoolReturnValue::MISSING_INPUT)
                 throw JSONRPCError(RPC_TRANSACTION_ERROR, "Missing inputs");
