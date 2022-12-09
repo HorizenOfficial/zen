@@ -1015,10 +1015,16 @@ size_t ScRpcCmd::addInputs(size_t availableBytes)
     return baseInputsSize;
 }
 
-void ScRpcCmd::addChange()
+size_t ScRpcCmd::addChange(bool onlyComputeDummyChangeSize)
 {
+    size_t baseOutputChangeOnlySize = 0;
+
     // fee must start from 0 when automatically calculated, and then its updated. It might also be set explicitly to 0
     CAmount change = _totalInputAmount - ( _totalOutputAmount + _fee);
+    if (onlyComputeDummyChangeSize)
+    {
+        change = std::numeric_limits<CAmount>::max(); //in this way the change output size is voluntarily slightly overestimated
+    }
 
     if (change > 0)
     {
@@ -1051,6 +1057,7 @@ void ScRpcCmd::addChange()
 
         // Never create dust outputs; if we would, just add the dust to the fee.
         CTxOut newTxOut(change, scriptPubKey);
+        baseOutputChangeOnlySize = newTxOut.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
         if (newTxOut.IsDust(::minRelayTxFee))
         {
             LogPrint("sc", "%s():%d - adding dust change=%lld to fee\n", __func__, __LINE__, change);
@@ -1058,9 +1065,14 @@ void ScRpcCmd::addChange()
         }
         else
         {
-            addOutput(CTxOut(change, scriptPubKey));
+            if (!onlyComputeDummyChangeSize)
+            {
+                addOutput(newTxOut);
+            }
         }
     }
+
+    return baseOutputChangeOnlySize;
 }
 
 ScRpcCmdCert::ScRpcCmdCert(
@@ -1084,27 +1096,7 @@ void ScRpcCmdCert::_execute()
     certificateSize.overheadSize = _cert.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
 
     // compute size of dummy change output (when estimating certificate size, change output is always included)
-    CScript dummyScriptChange;
-    if (_hasChangeAddress)
-    {
-        dummyScriptChange = GetScriptForDestination(_changeMcAddress.Get());
-    }
-    else if (_hasFromAddress)
-    {
-        dummyScriptChange = GetScriptForDestination(_fromMcAddress.Get());
-    }
-    else
-    {
-        CReserveKey keyChange(pwalletMain);
-        CPubKey vchPubKey;
-        // bitcoin code has also KeepKey() in the CommitTransaction() for preventing the key reuse,
-        // but zcash does not do that.
-        if (!keyChange.GetReservedKey(vchPubKey))
-            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Could not generate a taddr to use as a change address"); // should never fail, as we just unlocked
-        dummyScriptChange = GetScriptForDestination(vchPubKey.GetID());
-    }
-    CTxOut dummyChangeTxOut(0, dummyScriptChange);
-    certificateSize.baseOutputChangeOnlySize = dummyChangeTxOut.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+    certificateSize.baseOutputChangeOnlySize = addChange(true);
 
     // add crosschain outputs and store their sizes
     certificateSize.baseOutputsNoChangeSize += addBackwardTransfers();
@@ -1120,7 +1112,7 @@ void ScRpcCmdCert::_execute()
     certificateSize.baseInputsSize = addInputs(MAX_CERT_SIZE - (certificateSize.overheadSize + certificateSize.baseOutputChangeOnlySize + certificateSize.baseOutputsNoChangeSize + certificateSize.certificateVariableFieldsSize));
 
     // add actual change base output
-    addChange();
+    certificateSize.baseOutputChangeOnlySize = addChange();
 
     sign();
 }
@@ -1379,27 +1371,7 @@ void ScRpcCmdTx::_execute()
     transactionSize.overheadSize = _tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
 
     // compute size of dummy change output (when estimating transaction size, change output is always included)
-    CScript dummyScriptChange;
-    if (_hasChangeAddress)
-    {
-        dummyScriptChange = GetScriptForDestination(_changeMcAddress.Get());
-    }
-    else if (_hasFromAddress)
-    {
-        dummyScriptChange = GetScriptForDestination(_fromMcAddress.Get());
-    }
-    else
-    {
-        CReserveKey keyChange(pwalletMain);
-        CPubKey vchPubKey;
-        // bitcoin code has also KeepKey() in the CommitTransaction() for preventing the key reuse,
-        // but zcash does not do that.
-        if (!keyChange.GetReservedKey(vchPubKey))
-            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Could not generate a taddr to use as a change address"); // should never fail, as we just unlocked
-        dummyScriptChange = GetScriptForDestination(vchPubKey.GetID());
-    }
-    CTxOut dummyChangeTxOut(0, dummyScriptChange);
-    transactionSize.baseOutputChangeOnlySize = dummyChangeTxOut.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+    transactionSize.baseOutputChangeOnlySize = addChange(true);
 
     // add crosschain outputs and store their sizes
     transactionSize.sidechainOutputsSize = addCcOutputs();
@@ -1408,7 +1380,7 @@ void ScRpcCmdTx::_execute()
     transactionSize.baseInputsSize = addInputs(MAX_TX_SIZE - (transactionSize.overheadSize + transactionSize.baseOutputChangeOnlySize + transactionSize.sidechainOutputsSize));
 
     // add actual change base output
-    addChange();
+    transactionSize.baseOutputChangeOnlySize = addChange();
 
     sign();
 }

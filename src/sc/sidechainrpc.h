@@ -75,7 +75,7 @@ class ScRpcCmd
     virtual void init();
 
     size_t addInputs(size_t availableBytes);
-    void addChange();
+    size_t addChange(bool onlyComputeDummyChangeSize = false);
     virtual void addOutput(const CTxOut& out) = 0;
     virtual void addInput(const CTxIn& out) = 0;
     virtual void sign() = 0;
