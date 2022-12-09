@@ -1189,7 +1189,7 @@ void RejectMemoryPoolTxBase(const CValidationState& state, const CTransactionBas
 }
 
 MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
-    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, SkipTimingCheckFlag fSkipTimingCheck, CNode* pfrom)
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, CNode* pfrom)
 {
     AssertLockHeld(cs_main);
 
@@ -1795,7 +1795,7 @@ MempoolReturnValue AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &
         if (txBase.IsCertificate())
         {
             return AcceptCertificateToMemoryPool(pool, state, dynamic_cast<const CScCertificate&>(txBase), fLimitFree,
-                                                 fRejectAbsurdFee, fProofVerification, SkipTimingCheckFlag::OFF, pfrom);
+                                                 fRejectAbsurdFee, fProofVerification, pfrom);
         }
         else
         {
@@ -4200,7 +4200,7 @@ bool static DisconnectTip(CValidationState &state) {
         LogPrint("sc", "%s():%d - resurrecting certificate [%s] to mempool\n", __func__, __LINE__, cert.GetHash().ToString());
         CValidationState stateDummy;
         if (MempoolReturnValue::VALID != AcceptCertificateToMemoryPool(mempool, stateDummy, cert,
-                LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, MempoolProofVerificationFlag::DISABLED, SkipTimingCheckFlag::ON, nullptr))
+                LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, MempoolProofVerificationFlag::DISABLED, nullptr))
         {
             LogPrint("sc", "%s():%d - removing certificate [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, cert.GetHash().ToString(), cert.ToString());
