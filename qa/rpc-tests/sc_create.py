@@ -71,449 +71,300 @@ class SCCreateTest(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        # ---------------------------------------------------------------------------------------
-        # Node 2 tries to create a SC without version
-        mark_logs("\nNode 2 tries to create a SC without specifying the version", self.nodes, DEBUG_MODE)
+        # Set of invalid data to test sc_create parsing
+        parserTests = [
+            {
+                "title"    : "Node 2 tries to create a SC with missing version member",
+                "node"     : 2
+                "expected" : "Missing mandatory parameter in input: \"version\"",
+                "input"    : {
+                    'withdrawalEpochLength': 123,
+                    'toaddress': "dada",
+                    'amount': Decimal("1.0"),
+                    'wCertVk': vk,
+                    'constant': constant
+                }
+            },
+            {
+                "title"    : "Node 2 tries to create a SC with insufficient funds",
+                "node"     : 2
+                "expected" : "Insufficient transparent funds",
+                "input"    : {
+                    'version': 0,
+                    'withdrawalEpochLength': 123,
+                    'toaddress': "dada",
+                    'amount': Decimal("1.0"),
+                    'wCertVk': vk,
+                    'constant': constant
+                }
+            },
+            {
+                "title"    : "Node 2 tries to create a SC with immature funds",
+                "node"     : 2
+                "expected" : "Insufficient transparent funds",
+                "input"    : {
+                    'version': 0,
+                    'withdrawalEpochLength': 123,
+                    'toaddress': "dada",
+                    'amount': Decimal("1.0"),
+                    'wCertVk': vk,
+                    'constant': constant
+                }
+            },
+            {
+                "title"    : "Node 1 tries to create a SC with empty toaddress",
+                "node"     : 1
+                "expected" : "Invalid toaddress format: not an hex",
+                "input"    : {
+                    'version': 0,
+                    'withdrawalEpochLength': 123,
+                    'toaddress': "",
+                    'amount': creation_amount,
+                    'wCertVk': vk,
+                    'constant': constant
+                }
+            },
+            {
+                "title"    : "Node 1 tries to create a SC with empty amount",
+                "node"     : 1
+                "expected" : "Invalid amount",
+                "input"    : {
+                    'version': 0,
+                    'withdrawalEpochLength': 123,
+                    'toaddress': "0ada",
+                    'amount': "",
+                    'wCertVk': vk,
+                    'constant': constant
+                }
+            },
+            {
+                "title"    : "Node 1 tries to create a SC with zero amount",
+                "node"     : 1
+                "expected" : "amount can not be null",
+                "input"    : {
+                    'version': 0,
+                    'withdrawalEpochLength': 123,
+                    'toaddress': "0ada",
+                    'amount': Decimal("0.0"),
+                    'wCertVk': vk,
+                    'constant': constant
+                }
+            },
+            {
+                "title"    : "Node 1 tries to create a SC with negative amount",
+                "node"     : 1
+                "expected" : "Amount out of range",
+                "input"    : {
+                    'version': 0,
+                    'withdrawalEpochLength': 123,
+                    'toaddress': "0ada",
+                    'amount': Decimal("-1.0"),
+                    'wCertVk': vk,
+                    'constant': constant
+                }
+            },
+            {
+                "title"    : "Node 1 tries to create a SC with non hex wCertVk",
+                "node"     : 1
+                "expected" : "wCertVk: Invalid format: not an hex",
+                "input"    : {
+                    'version': 0,
+                    'withdrawalEpochLength': 123,
+                    'toaddress': "0ada",
+                    'amount': 0.1,
+                    'wCertVk': "0abcdefghijklmno",
+                    'constant': constant
+                }
+            },
+            {
+                "title"    : "Node 1 tries to create a SC with non hex wCertVk (odd chars)",
+                "node"     : 1
+                "expected" : "wCertVk: Invalid format: not an hex",
+                "input"    : {
+                    'version': 0,
+                    'withdrawalEpochLength': 123,
+                    'toaddress': "0ada",
+                    'amount': 0.1,
+                    'wCertVk': "abc"
+                }
+            },
+            {
+                "title"    : "Node 1 tries to create a SC with too short wCertVk",
+                "node"     : 1
+                "expected" : "Invalid wCertVk",
+                "input"    : {
+                    'version': 0,
+                    'withdrawalEpochLength': 123,
+                    'toaddress': "0ada",
+                    'amount': 0.1,
+                    'wCertVk': "aa" * (SC_VK_SIZE - 1)
+                }
+            },
+            {
+                "title"    : "Node 1 tries to create a SC with too long wCertVk",
+                "node"     : 1
+                "expected" : "Invalid wCertVk",
+                "input"    : {
+                    'version': 0,
+                    'withdrawalEpochLength': 123,
+                    'toaddress': "0ada",
+                    'amount': 0.1,
+                    'wCertVk': "aa" * (SC_VK_SIZE + 1)
+                }
+            },
+            {
+                "title"    : "Node 1 tries to create a SC with invalid wCertVk",
+                "node"     : 1
+                "expected" : "Invalid wCertVk",
+                "input"    : {
+                    'version': 0,
+                    'withdrawalEpochLength': 123,
+                    'toaddress': "0ada",
+                    'amount': 0.1,
+                    'wCertVk': "aa" * SC_VK_SIZE # Why should this be invalid ?
+                }
+            },
+            {
+                "title"    : "Node 1 tries to create a SC with non hex customData",
+                "node"     : 1
+                "expected" : "customData: Invalid format: not an hex",
+                "input"    : {
+                    'version': 0,
+                    'withdrawalEpochLength': 123,
+                    'toaddress': "0ada",
+                    'amount': 0.1,
+                    'wCertVk' : vk,
+                    'customData': "abcdefghijklmnop"
+                }
+            },
+            {
+                "title"    : "Node 1 tries to create a SC with non hex customData (odd chars)",
+                "node"     : 1
+                "expected" : "customData: Invalid format: not an hex",
+                "input"    : {
+                    'version': 0,
+                    'withdrawalEpochLength': 123,
+                    'toaddress': "0ada",
+                    'amount': 0.1,
+                    'wCertVk' : vk,
+                    'customData': "012"
+                }
+            },
+            {
+                "title"    : "Node 1 tries to create a SC with too long customData",
+                "node"     : 1
+                "expected" : "bytes",
+                "input"    : {
+                    'version': 0,
+                    'withdrawalEpochLength': 123,
+                    'toaddress': "0ada",
+                    'amount': 0.1,
+                    'wCertVk': vk,
+                    'customData': "bb" * 1025
+                }
+            },
+            {
+                "title"    : "Node 1 tries to create a SC with non hex constant",
+                "node"     : 1
+                "expected" : "constant: Invalid format: not an hex",
+                "input"    : {
+                    'version': 0,
+                    'withdrawalEpochLength': 123,
+                    'toaddress': "0ada",
+                    'amount': 0.1,
+                    'wCertVk': vk,
+                    'constant': "abcdefghijklmnop"
+                }
+            },
+            {
+                "title"    : "Node 1 tries to create a SC with non hex constant (odd chars)",
+                "node"     : 1
+                "expected" : "constant: Invalid format: not an hex",
+                "input"    : {
+                    'version': 0,
+                    'withdrawalEpochLength': 123,
+                    'toaddress': "0ada",
+                    'amount': 0.1,
+                    'wCertVk': vk,
+                    'constant': "abc"
+                }
+            },
+            {
+                "title"    : "Node 1 tries to create a SC with too short constant (below field size)",
+                "node"     : 1
+                "expected" : "bytes",
+                "input"    : {
+                    'version': 0,
+                    'withdrawalEpochLength': 123,
+                    'toaddress': "0ada",
+                    'amount': 0.1,
+                    'wCertVk': vk,
+                    'constant': "bb" * (SC_FIELD_SIZE - 1)
+                }
+            },
+            {
+                "title"    : "Node 1 tries to create a SC with too long constant (above field size)",
+                "node"     : 1
+                "expected" : "bytes",
+                "input"    : {
+                    'version': 0,
+                    'withdrawalEpochLength': 123,
+                    'toaddress': "0ada",
+                    'amount': 0.1,
+                    'wCertVk': vk,
+                    'constant': "bb" * (SC_FIELD_SIZE + 1)
+                }
+            },
+            {
+                "title"    : "Node 1 tries to create a SC with invalid constant",
+                "node"     : 1
+                "expected" : "invalid constant",
+                "input"    : {
+                    'version': 0,
+                    'withdrawalEpochLength': 123,
+                    'toaddress': "0ada",
+                    'amount': 0.1,
+                    'wCertVk': vk,
+                    'constant': "aa" * SC_FIELD_SIZE
+                }
+            },
+            {
+                "title"    : "Node 1 tries to create a SC with epoch length == 0",
+                "node"     : 1
+                "expected" : "Invalid withdrawalEpochLength",
+                "input"    : {
+                    'version': 0,
+                    'withdrawalEpochLength': 0,
+                    'toaddress': "0ada",
+                    'amount': 0.1,
+                    'wCertVk': vk,
+                    'constant': "aa" * SC_FIELD_SIZE
+                }
+            },
+            {
+                "title"    : "Node 1 tries to create a SC with epoch length >= 4033",
+                "node"     : 1
+                "expected" : "Invalid withdrawalEpochLength",
+                "input"    : {
+                    'version': 0,
+                    'withdrawalEpochLength': 4033,
+                    'toaddress': "0ada",
+                    'amount': Decimal("1.0"),
+                    'wCertVk': vk,
+                    'customData': "aa" * SC_FIELD_SIZE
+                }
+            },
+        ]
 
-        amounts = [{"address": "dada", "amount": creation_amount}]
-        errorString = ""
-        cmdInput = {
-            'withdrawalEpochLength': 123,
-            'toaddress': "dada",
-            'amount': Decimal("1.0"),
-            'wCertVk': vk,
-            'constant': constant
-        }
-
-        try:
-            self.nodes[2].sc_create(cmdInput)
-            assert(False)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal(True, "Missing mandatory parameter in input: \"version\"" in errorString)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 2 try creating a SC with insufficient funds
-        mark_logs("\nNode 2 try creating a SC with insufficient funds", self.nodes, DEBUG_MODE)
-
-        cmdInput = {
-            'version': 0,
-            'withdrawalEpochLength': 123,
-            'toaddress': "dada",
-            'amount': Decimal("1.0"),
-            'wCertVk': vk,
-            'constant': constant
-        }
-
-        try:
-            self.nodes[2].sc_create(cmdInput)
-            assert(False)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal(True, "Insufficient transparent funds" in errorString)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 2 try creating a SC with immature funds
-        mark_logs("\nNode 2 try creating a SC with immature funds", self.nodes, DEBUG_MODE)
-
-        self.nodes[2].generate(1)
-        self.sync_all()
-        cmdInput = {
-            'version': 0,
-            'withdrawalEpochLength': 123,
-            'toaddress': "dada",
-            'amount': Decimal("1.0"),
-            'wCertVk': vk,
-            'constant': constant
-        }
-
-        try:
-            self.nodes[2].sc_create(cmdInput)
-            assert(True)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal(True, "Insufficient transparent funds" in errorString)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try creating a SC with null address
-        mark_logs("\nNode 1 try creating a SC with null address", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'withdrawalEpochLength': 123,
-            'toaddress': "",
-            'amount': creation_amount,
-            'wCertVk': vk,
-            'constant': constant
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert(True)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try creating a SC with null amount
-        mark_logs("\nNode 1 try creating a SC with null amount", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'withdrawalEpochLength': 123,
-            'toaddress': "0ada",
-            'amount': "",
-            'wCertVk': vk,
-            'constant': constant
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert(True)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("Invalid amount" in errorString, True)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try creating a SC with 0 amount
-        mark_logs("\nNode 1 try creating a SC with 0 amount", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'withdrawalEpochLength': 123,
-            'toaddress': "0ada",
-            'amount': Decimal("0.0"),
-            'wCertVk': vk,
-            'constant': constant
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert(True)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("amount can not be null" in errorString, True)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try creating a SC with negative amount
-        mark_logs("\nNode 1 try creating a SC with 0 amount", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'withdrawalEpochLength': 123,
-            'toaddress': "0ada",
-            'amount': Decimal("-1.0"),
-            'wCertVk': vk,
-            'constant': constant
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert(True)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("Amount out of range" in errorString, True)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try creating a SC with a bad wCertVk
-        mark_logs("\nNode 1 try creating a SC with a non hex wCertVk", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'withdrawalEpochLength': 123,
-            'toaddress': "0ada",
-            'amount': 0.1,
-            'wCertVk': "zz" * SC_VK_SIZE,
-            'constant': constant
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert(True)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("wCertVk: Invalid format: not an hex" in errorString, True)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try creating a SC with a bad wCertVk
-        mark_logs("\nNode 1 try creating a SC with a odd number of char in wCertVk", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'withdrawalEpochLength': 123,
-            'toaddress': "0ada",
-            'amount': 0.1,
-            'wCertVk': "a" * (SC_VK_SIZE - 1)
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert(True)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("wCertVk: Invalid format: not an hex" in errorString, True)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try creating a SC with a wCertVk too short
-        mark_logs("\nNode 1 try creating a SC with too short wCertVk byte string", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'withdrawalEpochLength': 123,
-            'toaddress': "0ada",
-            'amount': 0.1,
-            'wCertVk': "aa" * (SC_VK_SIZE - 1)
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert(True)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("Invalid wCertVk" in errorString, True)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try creating a SC with a wCertVk too long
-        mark_logs("\nNode 1 try creating a SC with too long wCertVk byte string", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'withdrawalEpochLength': 123,
-            'toaddress': "0ada",
-            'amount': 0.1,
-            'wCertVk': "aa" * (SC_VK_SIZE + 1)
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert(True)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("Invalid wCertVk" in errorString, True)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try creating a SC with an invalid wCertVk
-        mark_logs("\nNode 1 try creating a SC with an invalid wCertVk", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'withdrawalEpochLength': 123,
-            'toaddress': "0ada",
-            'amount': 0.1,
-            'wCertVk': "aa" * SC_VK_SIZE
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert(True)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("Invalid wCertVk" in errorString, True)
-
-        # ---------------------------------------------------------------------------------------
-
-        # Node 1 try creating a SC with a bad customData
-        mark_logs("\nNode 1 try creating a SC with a bad customData", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'withdrawalEpochLength': 123,
-            'toaddress': "0ada",
-            'amount': 0.1,
-            'wCertVk' : vk,
-            'customData': "zz" * 1024
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert(True)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("customData: Invalid format: not an hex" in errorString, True)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try creating a SC with a bad customData
-        mark_logs("\nNode 1 try creating a SC with a odd number of char in customData", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'withdrawalEpochLength': 123,
-            'toaddress': "0ada",
-            'amount': 0.1,
-            'wCertVk' : vk,
-            'customData': "b" * 1023
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert(True)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("customData: Invalid format: not an hex" in errorString, True)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try creating a SC with customData too long
-        mark_logs("\nNode 1 try creating a SC with too long customData byte string", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'withdrawalEpochLength': 123,
-            'toaddress': "0ada",
-            'amount': 0.1,
-            'wCertVk': vk,
-            'customData': "bb" * 1025
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert(True)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("bytes" in errorString, True)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try creating a SC with a bad constant
-        mark_logs("\nNode 1 try creating a SC with a non hex constant", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'withdrawalEpochLength': 123,
-            'toaddress': "0ada",
-            'amount': 0.1,
-            'wCertVk': vk,
-            'constant': "zz" * SC_FIELD_SIZE
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert(True)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("constant: Invalid format: not an hex" in errorString, True)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try creating a SC with a bad constant
-        mark_logs("\nNode 1 try creating a SC with a odd number of char in constant", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'withdrawalEpochLength': 123,
-            'toaddress': "0ada",
-            'amount': 0.1,
-            'wCertVk': vk,
-            'constant': "b" * (SC_FIELD_SIZE - 1)
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert(True)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("constant: Invalid format: not an hex" in errorString, True)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try creating a SC with a constant too short
-        mark_logs("\nNode 1 try creating a SC with too short constant byte string", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'withdrawalEpochLength': 123,
-            'toaddress': "0ada",
-            'amount': 0.1,
-            'wCertVk': vk,
-            'constant': "bb" * (SC_FIELD_SIZE - 1)
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert(True)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("bytes" in errorString, True)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try creating a SC with a constant too long
-        mark_logs("\nNode 1 try creating a SC with too long constant byte string", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'withdrawalEpochLength': 123,
-            'toaddress': "0ada",
-            'amount': 0.1,
-            'wCertVk': vk,
-            'constant': "bb" * (SC_FIELD_SIZE + 1)
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert(True)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("bytes" in errorString, True)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try creating a SC with a bad constant
-        mark_logs("\nNode 1 try creating a SC with an invalid constant", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'withdrawalEpochLength': 123,
-            'toaddress': "0ada",
-            'amount': 0.1,
-            'wCertVk': vk,
-            'constant': "aa" * SC_FIELD_SIZE
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert(True)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("invalid constant" in errorString, True)
-
-        # ---------------------------------------------------------------------------------------
-        
-        # Node 1 try creating a SC with negative epocLength
-        mark_logs("\nNode 1 try creating a SC with 0 epochLength", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'withdrawalEpochLength': 0,
-            'toaddress': "0ada",
-            'amount': 0.1,
-            'wCertVk': vk,
-            'constant': "aa" * SC_FIELD_SIZE
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert(True)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("Invalid withdrawalEpochLength" in errorString, True)
-
-        # ---------------------------------------------------------------------------------------
-        
-        # Node 1 try creating a SC with too long an epocLength
-        mark_logs("\nNode 1 try creating a SC with epochLength that is over the max limit", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'withdrawalEpochLength': 4033,
-            'toaddress': "0ada",
-            'amount': Decimal("1.0"),
-            'wCertVk': vk,
-            'customData': "aa" * SC_FIELD_SIZE
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert(True)
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("Invalid withdrawalEpochLength" in errorString, True)
+        for test in parserTests:
+            mark_logs(test['title'], self.nodes, DEBUG_MODE)
+            try:
+                self.nodes[test['node']].sc_create(test['input'])
+                assert_true(False) # We should not get here
+            except JSONRPCException as ex:
+                errorString = ex.error['message']
+                mark_logs(errorString, self.nodes, DEBUG_MODE)
+                assert_true(test['expected'] in errorString)
 
         # ---------------------------------------------------------------------------------------
         
