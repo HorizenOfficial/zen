@@ -75,7 +75,7 @@ class SCCreateTest(BitcoinTestFramework):
         parserTests = [
             {
                 "title"    : "Node 2 tries to create a SC with missing version member",
-                "node"     : 2
+                "node"     : 2,
                 "expected" : "Missing mandatory parameter in input: \"version\"",
                 "input"    : {
                     'withdrawalEpochLength': 123,
@@ -87,7 +87,7 @@ class SCCreateTest(BitcoinTestFramework):
             },
             {
                 "title"    : "Node 2 tries to create a SC with insufficient funds",
-                "node"     : 2
+                "node"     : 2,
                 "expected" : "Insufficient transparent funds",
                 "input"    : {
                     'version': 0,
@@ -100,7 +100,7 @@ class SCCreateTest(BitcoinTestFramework):
             },
             {
                 "title"    : "Node 2 tries to create a SC with immature funds",
-                "node"     : 2
+                "node"     : 2,
                 "expected" : "Insufficient transparent funds",
                 "input"    : {
                     'version': 0,
@@ -113,7 +113,7 @@ class SCCreateTest(BitcoinTestFramework):
             },
             {
                 "title"    : "Node 1 tries to create a SC with empty toaddress",
-                "node"     : 1
+                "node"     : 1,
                 "expected" : "Invalid toaddress format: not an hex",
                 "input"    : {
                     'version': 0,
@@ -126,7 +126,7 @@ class SCCreateTest(BitcoinTestFramework):
             },
             {
                 "title"    : "Node 1 tries to create a SC with empty amount",
-                "node"     : 1
+                "node"     : 1,
                 "expected" : "Invalid amount",
                 "input"    : {
                     'version': 0,
@@ -139,7 +139,7 @@ class SCCreateTest(BitcoinTestFramework):
             },
             {
                 "title"    : "Node 1 tries to create a SC with zero amount",
-                "node"     : 1
+                "node"     : 1,
                 "expected" : "amount can not be null",
                 "input"    : {
                     'version': 0,
@@ -152,7 +152,7 @@ class SCCreateTest(BitcoinTestFramework):
             },
             {
                 "title"    : "Node 1 tries to create a SC with negative amount",
-                "node"     : 1
+                "node"     : 1,
                 "expected" : "Amount out of range",
                 "input"    : {
                     'version': 0,
@@ -165,7 +165,7 @@ class SCCreateTest(BitcoinTestFramework):
             },
             {
                 "title"    : "Node 1 tries to create a SC with non hex wCertVk",
-                "node"     : 1
+                "node"     : 1,
                 "expected" : "wCertVk: Invalid format: not an hex",
                 "input"    : {
                     'version': 0,
@@ -178,7 +178,7 @@ class SCCreateTest(BitcoinTestFramework):
             },
             {
                 "title"    : "Node 1 tries to create a SC with non hex wCertVk (odd chars)",
-                "node"     : 1
+                "node"     : 1,
                 "expected" : "wCertVk: Invalid format: not an hex",
                 "input"    : {
                     'version': 0,
@@ -190,7 +190,7 @@ class SCCreateTest(BitcoinTestFramework):
             },
             {
                 "title"    : "Node 1 tries to create a SC with too short wCertVk",
-                "node"     : 1
+                "node"     : 1,
                 "expected" : "Invalid wCertVk",
                 "input"    : {
                     'version': 0,
@@ -202,7 +202,7 @@ class SCCreateTest(BitcoinTestFramework):
             },
             {
                 "title"    : "Node 1 tries to create a SC with too long wCertVk",
-                "node"     : 1
+                "node"     : 1,
                 "expected" : "Invalid wCertVk",
                 "input"    : {
                     'version': 0,
@@ -214,7 +214,7 @@ class SCCreateTest(BitcoinTestFramework):
             },
             {
                 "title"    : "Node 1 tries to create a SC with invalid wCertVk",
-                "node"     : 1
+                "node"     : 1,
                 "expected" : "Invalid wCertVk",
                 "input"    : {
                     'version': 0,
@@ -226,7 +226,7 @@ class SCCreateTest(BitcoinTestFramework):
             },
             {
                 "title"    : "Node 1 tries to create a SC with non hex customData",
-                "node"     : 1
+                "node"     : 1,
                 "expected" : "customData: Invalid format: not an hex",
                 "input"    : {
                     'version': 0,
@@ -239,7 +239,7 @@ class SCCreateTest(BitcoinTestFramework):
             },
             {
                 "title"    : "Node 1 tries to create a SC with non hex customData (odd chars)",
-                "node"     : 1
+                "node"     : 1,
                 "expected" : "customData: Invalid format: not an hex",
                 "input"    : {
                     'version': 0,
@@ -252,7 +252,7 @@ class SCCreateTest(BitcoinTestFramework):
             },
             {
                 "title"    : "Node 1 tries to create a SC with too long customData",
-                "node"     : 1
+                "node"     : 1,
                 "expected" : "bytes",
                 "input"    : {
                     'version': 0,
@@ -265,7 +265,7 @@ class SCCreateTest(BitcoinTestFramework):
             },
             {
                 "title"    : "Node 1 tries to create a SC with non hex constant",
-                "node"     : 1
+                "node"     : 1,
                 "expected" : "constant: Invalid format: not an hex",
                 "input"    : {
                     'version': 0,
@@ -278,7 +278,7 @@ class SCCreateTest(BitcoinTestFramework):
             },
             {
                 "title"    : "Node 1 tries to create a SC with non hex constant (odd chars)",
-                "node"     : 1
+                "node"     : 1,
                 "expected" : "constant: Invalid format: not an hex",
                 "input"    : {
                     'version': 0,
@@ -291,7 +291,7 @@ class SCCreateTest(BitcoinTestFramework):
             },
             {
                 "title"    : "Node 1 tries to create a SC with too short constant (below field size)",
-                "node"     : 1
+                "node"     : 1,
                 "expected" : "bytes",
                 "input"    : {
                     'version': 0,
@@ -304,7 +304,7 @@ class SCCreateTest(BitcoinTestFramework):
             },
             {
                 "title"    : "Node 1 tries to create a SC with too long constant (above field size)",
-                "node"     : 1
+                "node"     : 1,
                 "expected" : "bytes",
                 "input"    : {
                     'version': 0,
@@ -317,7 +317,7 @@ class SCCreateTest(BitcoinTestFramework):
             },
             {
                 "title"    : "Node 1 tries to create a SC with invalid constant",
-                "node"     : 1
+                "node"     : 1,
                 "expected" : "invalid constant",
                 "input"    : {
                     'version': 0,
@@ -330,7 +330,7 @@ class SCCreateTest(BitcoinTestFramework):
             },
             {
                 "title"    : "Node 1 tries to create a SC with epoch length == 0",
-                "node"     : 1
+                "node"     : 1,
                 "expected" : "Invalid withdrawalEpochLength",
                 "input"    : {
                     'version': 0,
@@ -343,7 +343,7 @@ class SCCreateTest(BitcoinTestFramework):
             },
             {
                 "title"    : "Node 1 tries to create a SC with epoch length >= 4033",
-                "node"     : 1
+                "node"     : 1,
                 "expected" : "Invalid withdrawalEpochLength",
                 "input"    : {
                     'version': 0,
