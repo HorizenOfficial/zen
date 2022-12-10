@@ -74,99 +74,205 @@ class SCCreateTest(BitcoinTestFramework):
         # Set of invalid data to test sc_create parsing
         parserTests = [
             {
-                "title"    : "Node 2 tries to create a SC with missing version member",
+                "title"    : "Node 2 tries to create a SC with empty params",
                 "node"     : 2,
-                "expected" : "Missing mandatory parameter in input: \"version\"",
+                "expected" : "Expected params as object",
+                "input"    : {}
+            },
+            {
+                "title"    : "Node 2 tries to create a SC with unexpected member",
+                "node"     : 2,
+                "expected" : "Invalid parameter \"unknown\": unexpected",
                 "input"    : {
-                    'withdrawalEpochLength': 123,
-                    'toaddress': "dada",
-                    'amount': Decimal("1.0"),
-                    'wCertVk': vk,
-                    'constant': constant
+                    "unknown" : None
                 }
             },
+            {
+                "title"    : "Node 2 tries to create a SC with missing mandatory version",
+                "node"     : 2,
+                "expected" : "Invalid parameter \"version\": missing",
+                "input"    : {
+                    "withdrawalEpochLength" : 123
+                }
+            },
+            {
+                "title"    : "Node 2 tries to create a SC with mandatory version set to null",
+                "node"     : 2,
+                "expected" : "Invalid parameter \"version\": can not be null",
+                "input"    : {
+                    "version" : None,
+                    "withdrawalEpochLength" : 123
+                }
+            },
+            {
+                "title"    : "Node 2 tries to create a SC with mandatory toaddress missing",
+                "node"     : 2,
+                "expected" : "Invalid parameter \"toaddress\": missing",
+                "input"    : {
+                    "version" : 0,
+                    "withdrawalEpochLength" : 123
+                }
+            },
+            {
+                "title"    : "Node 2 tries to create a SC with mandatory toaddress set to null",
+                "node"     : 2,
+                "expected" : "Invalid parameter \"toaddress\": can not be null",
+                "input"    : {
+                    "version" : 0,
+                    "withdrawalEpochLength" : 123,
+                    "toaddress" : None
+                }
+            },
+            {
+                "title"    : "Node 2 tries to create a SC with mandatory amount missing",
+                "node"     : 2,
+                "expected" : "Invalid parameter \"amount\": missing",
+                "input"    : {
+                    "version" : 0,
+                    "withdrawalEpochLength" : 123,
+                    "toaddress" : "abba"
+                }
+            },
+            {
+                "title"    : "Node 2 tries to create a SC with mandatory amount set to null",
+                "node"     : 2,
+                "expected" : "Invalid parameter \"amount\": can not be null",
+                "input"    : {
+                    "version" : 0,
+                    "withdrawalEpochLength" : 123,
+                    "toaddress" : "abba",
+                    "amount" : None
+                }
+            },
+            {
+                "title"    : "Node 2 tries to create a SC with mandatory wCertVk missing",
+                "node"     : 2,
+                "expected" : "Invalid parameter \"wCertVk\": missing",
+                "input"    : {
+                    "version" : 0,
+                    "withdrawalEpochLength" : 123,
+                    "toaddress" : "abba",
+                    "amount" : "1.0"
+                }
+            },
+            {
+                "title"    : "Node 2 tries to create a SC with mandatory wCertVk set to null",
+                "node"     : 2,
+                "expected" : "Invalid parameter \"wCertVk\": can not be null",
+                "input"    : {
+                    "version" : 0,
+                    "withdrawalEpochLength" : 123,
+                    "toaddress" : "abba",
+                    "amount" : "1.0",
+                    "wCertVk" : None
+                }
+            },
+            {
+                "title"    : "Node 2 tries to create a SC with mandatory non parseable version",
+                "node"     : 2,
+                "expected" : "Invalid parameter \"version\": JSON value",
+                "input"    : {
+                    "version" : [],
+                    "withdrawalEpochLength" : 123,
+                    "toaddress" : "abba",
+                    "amount" : "1.0",
+                    "wCertVk" : vk
+                }
+            },
+            {
+                "title"    : "Node 2 tries to create a SC with mandatory non parseable withdrawalEpochLength",
+                "node"     : 2,
+                "expected" : "Invalid parameter \"withdrawalEpochLength\": JSON value",
+                "input"    : {
+                    "version" : 0,
+                    "withdrawalEpochLength" : "qwerty",
+                    "toaddress" : "abba",
+                    "amount" : "1.0",
+                    "wCertVk" : vk
+                }
+            },
+            {
+                "title"    : "Node 2 tries to create a SC with mandatory invalid withdrawalEpochLength",
+                "node"     : 2,
+                "expected" : "Invalid parameter \"withdrawalEpochLength\":",
+                "input"    : {
+                    "version" : 0,
+                    "withdrawalEpochLength" : -1,
+                    "toaddress" : "abba",
+                    "amount" : "1.0",
+                    "wCertVk" : vk
+                }
+            },
+
             {
                 "title"    : "Node 2 tries to create a SC with insufficient funds",
                 "node"     : 2,
                 "expected" : "Insufficient transparent funds",
                 "input"    : {
-                    'version': 0,
-                    'withdrawalEpochLength': 123,
-                    'toaddress': "dada",
-                    'amount': Decimal("1.0"),
-                    'wCertVk': vk,
-                    'constant': constant
-                }
-            },
-            {
-                "title"    : "Node 2 tries to create a SC with immature funds",
-                "node"     : 2,
-                "expected" : "Insufficient transparent funds",
-                "input"    : {
-                    'version': 0,
-                    'withdrawalEpochLength': 123,
-                    'toaddress': "dada",
-                    'amount': Decimal("1.0"),
-                    'wCertVk': vk,
-                    'constant': constant
+                    "version" : 0,
+                    "withdrawalEpochLength" : 123,
+                    "toaddress" : "abba",
+                    "amount" : "1.0",
+                    "wCertVk" : vk,
+                    "constant" : constant
                 }
             },
             {
                 "title"    : "Node 1 tries to create a SC with empty toaddress",
                 "node"     : 1,
-                "expected" : "Invalid toaddress format: not an hex",
+                "expected" : "Invalid parameter \"toaddress\": not a valid hex",
                 "input"    : {
-                    'version': 0,
-                    'withdrawalEpochLength': 123,
-                    'toaddress': "",
-                    'amount': creation_amount,
-                    'wCertVk': vk,
-                    'constant': constant
+                    "version" : 0,
+                    "withdrawalEpochLength" : 123,
+                    "toaddress" : "",
+                    "amount" : "1.0",
+                    "wCertVk" : vk,
+                    "constant" : constant
                 }
             },
             {
                 "title"    : "Node 1 tries to create a SC with empty amount",
                 "node"     : 1,
-                "expected" : "Invalid amount",
+                "expected" : "Invalid parameter \"amount\":",
                 "input"    : {
-                    'version': 0,
-                    'withdrawalEpochLength': 123,
-                    'toaddress': "0ada",
-                    'amount': "",
-                    'wCertVk': vk,
-                    'constant': constant
+                    "version" : 0,
+                    "withdrawalEpochLength" : 123,
+                    "toaddress" : "abba",
+                    "amount" : "",
+                    "wCertVk" : vk,
+                    "constant" : constant
                 }
             },
             {
                 "title"    : "Node 1 tries to create a SC with zero amount",
                 "node"     : 1,
-                "expected" : "amount can not be null",
+                "expected" : "Invalid parameter \"amount\": can not be zero",
                 "input"    : {
-                    'version': 0,
-                    'withdrawalEpochLength': 123,
-                    'toaddress': "0ada",
-                    'amount': Decimal("0.0"),
-                    'wCertVk': vk,
-                    'constant': constant
+                    "version" : 0,
+                    "withdrawalEpochLength" : 123,
+                    "toaddress" : "abba",
+                    "amount" : "0",
+                    "wCertVk" : vk,
+                    "constant" : constant
                 }
             },
             {
                 "title"    : "Node 1 tries to create a SC with negative amount",
                 "node"     : 1,
-                "expected" : "Amount out of range",
+                "expected" : "Invalid parameter \"amount\": Amount out of range",
                 "input"    : {
-                    'version': 0,
-                    'withdrawalEpochLength': 123,
-                    'toaddress': "0ada",
-                    'amount': Decimal("-1.0"),
-                    'wCertVk': vk,
-                    'constant': constant
+                    "version" : 0,
+                    "withdrawalEpochLength" : 123,
+                    "toaddress" : "abba",
+                    "amount" : "-1",
+                    "wCertVk" : vk,
+                    "constant" : constant
                 }
             },
             {
                 "title"    : "Node 1 tries to create a SC with non hex wCertVk",
                 "node"     : 1,
-                "expected" : "wCertVk: Invalid format: not an hex",
+                "expected" : "Invalid parameter \"wCertVk\":",
                 "input"    : {
                     'version': 0,
                     'withdrawalEpochLength': 123,
@@ -179,7 +285,7 @@ class SCCreateTest(BitcoinTestFramework):
             {
                 "title"    : "Node 1 tries to create a SC with non hex wCertVk (odd chars)",
                 "node"     : 1,
-                "expected" : "wCertVk: Invalid format: not an hex",
+                "expected" : "Invalid parameter \"wCertVk\":",
                 "input"    : {
                     'version': 0,
                     'withdrawalEpochLength': 123,
@@ -191,7 +297,7 @@ class SCCreateTest(BitcoinTestFramework):
             {
                 "title"    : "Node 1 tries to create a SC with too short wCertVk",
                 "node"     : 1,
-                "expected" : "Invalid wCertVk",
+                "expected" : "Invalid parameter \"wCertVk\":",
                 "input"    : {
                     'version': 0,
                     'withdrawalEpochLength': 123,
@@ -203,7 +309,7 @@ class SCCreateTest(BitcoinTestFramework):
             {
                 "title"    : "Node 1 tries to create a SC with too long wCertVk",
                 "node"     : 1,
-                "expected" : "Invalid wCertVk",
+                "expected" : "Invalid parameter \"wCertVk\":",
                 "input"    : {
                     'version': 0,
                     'withdrawalEpochLength': 123,
@@ -215,7 +321,7 @@ class SCCreateTest(BitcoinTestFramework):
             {
                 "title"    : "Node 1 tries to create a SC with invalid wCertVk",
                 "node"     : 1,
-                "expected" : "Invalid wCertVk",
+                "expected" : "Invalid parameter \"wCertVk\":",
                 "input"    : {
                     'version': 0,
                     'withdrawalEpochLength': 123,
@@ -227,7 +333,7 @@ class SCCreateTest(BitcoinTestFramework):
             {
                 "title"    : "Node 1 tries to create a SC with non hex customData",
                 "node"     : 1,
-                "expected" : "customData: Invalid format: not an hex",
+                "expected" : "Invalid parameter \"customData\": Invalid format: not an hex",
                 "input"    : {
                     'version': 0,
                     'withdrawalEpochLength': 123,
@@ -240,7 +346,7 @@ class SCCreateTest(BitcoinTestFramework):
             {
                 "title"    : "Node 1 tries to create a SC with non hex customData (odd chars)",
                 "node"     : 1,
-                "expected" : "customData: Invalid format: not an hex",
+                "expected" : "Invalid parameter \"customData\": Invalid format: not an hex",
                 "input"    : {
                     'version': 0,
                     'withdrawalEpochLength': 123,
@@ -253,7 +359,7 @@ class SCCreateTest(BitcoinTestFramework):
             {
                 "title"    : "Node 1 tries to create a SC with too long customData",
                 "node"     : 1,
-                "expected" : "bytes",
+                "expected" : "Invalid parameter \"customData\": Invalid length",
                 "input"    : {
                     'version': 0,
                     'withdrawalEpochLength': 123,
@@ -266,7 +372,7 @@ class SCCreateTest(BitcoinTestFramework):
             {
                 "title"    : "Node 1 tries to create a SC with non hex constant (odd chars)",
                 "node"     : 1,
-                "expected" : "constant: Invalid format: not an hex",
+                "expected" : "Invalid parameter \"constant\": Invalid format: not an hex",
                 "input"    : {
                     'version': 0,
                     'withdrawalEpochLength': 123,
@@ -279,7 +385,7 @@ class SCCreateTest(BitcoinTestFramework):
             {
                 "title"    : "Node 1 tries to create a SC with too short constant (below field size)",
                 "node"     : 1,
-                "expected" : "bytes",
+                "expected" : "Invalid parameter \"constant\": Invalid length",
                 "input"    : {
                     'version': 0,
                     'withdrawalEpochLength': 123,
@@ -292,7 +398,7 @@ class SCCreateTest(BitcoinTestFramework):
             {
                 "title"    : "Node 1 tries to create a SC with non hex char in constant",
                 "node"     : 1,
-                "expected" : "constant: Invalid format: not an hex",
+                "expected" : "Invalid parameter \"constant\": Invalid format",
                 "input"    : {
                     'version': 0,
                     'withdrawalEpochLength': 123,
@@ -305,7 +411,7 @@ class SCCreateTest(BitcoinTestFramework):
             {
                 "title"    : "Node 1 tries to create a SC with too long constant (above field size)",
                 "node"     : 1,
-                "expected" : "bytes",
+                "expected" : "Invalid parameter \"constant\": Invalid length",
                 "input"    : {
                     'version': 0,
                     'withdrawalEpochLength': 123,
@@ -318,7 +424,7 @@ class SCCreateTest(BitcoinTestFramework):
             {
                 "title"    : "Node 1 tries to create a SC with invalid constant",
                 "node"     : 1,
-                "expected" : "invalid constant",
+                "expected" : "Invalid parameter \"constant\":",
                 "input"    : {
                     'version': 0,
                     'withdrawalEpochLength': 123,
@@ -331,7 +437,7 @@ class SCCreateTest(BitcoinTestFramework):
             {
                 "title"    : "Node 1 tries to create a SC with epoch length == 0",
                 "node"     : 1,
-                "expected" : "Invalid withdrawalEpochLength",
+                "expected" : "Invalid parameter \"withdrawalEpochLength\": not in range",
                 "input"    : {
                     'version': 0,
                     'withdrawalEpochLength': 0,
@@ -342,9 +448,9 @@ class SCCreateTest(BitcoinTestFramework):
                 }
             },
             {
-                "title"    : "Node 1 tries to create a SC with epoch length >= 4033",
+                "title"    : "Node 1 tries to create a SC with epoch length > 4032",
                 "node"     : 1,
-                "expected" : "Invalid withdrawalEpochLength",
+                "expected" : "Invalid parameter \"withdrawalEpochLength\": not in range",
                 "input"    : {
                     'version': 0,
                     'withdrawalEpochLength': 4033,
@@ -363,7 +469,7 @@ class SCCreateTest(BitcoinTestFramework):
                 assert_true(False) # We should not get here
             except JSONRPCException as ex:
                 errorString = ex.error['message']
-                mark_logs(errorString, self.nodes, DEBUG_MODE)
+                mark_logs(" ... " + errorString, self.nodes, DEBUG_MODE)
                 assert_true(test['expected'] in errorString)
 
         # ---------------------------------------------------------------------------------------
@@ -377,8 +483,7 @@ class SCCreateTest(BitcoinTestFramework):
             'amount': creation_amount,
             'wCertVk': vk,
             'customData': "bb" * 1024,
-            'constant': constant,
-            'minconf': 0
+            'constant': constant
         }
 
         ret = self.nodes[1].sc_create(cmdInput)

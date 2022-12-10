@@ -882,6 +882,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
 
         // Signal missing mandatory member keys
         for(const auto [k, mandatory] : methodKeys) {
+            key = k; // For exception message
             if (mandatory) {
                 if (!inputItems.count(k)) {
                     throw std::runtime_error("missing");
@@ -935,7 +936,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         key = "amount"; // Mandatory
         nAmount = AmountFromValue(inputItems[key]); // Might throw Univalue
         if (!nAmount)
-            throw std::runtime_error("cannot be zero");
+            throw std::runtime_error("can not be zero");
 
         key = "minconf"; // Optional
         if (inputItems.count(key)) {
