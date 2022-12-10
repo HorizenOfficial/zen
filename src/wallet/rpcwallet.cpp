@@ -36,6 +36,7 @@
 #include <univalue.h>
 
 #include <numeric>
+#include <map>
 
 #include "sc/sidechainrpc.h"
 #include "consensus/validation.h"
@@ -806,219 +807,224 @@ UniValue sc_create(const UniValue& params, bool fHelp)
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
-    // valid input keywords
-    static const std::set<std::string> validKeyArgs =
-        {"version", "withdrawalEpochLength", "fromaddress", "changeaddress", "toaddress", "amount", "minconf", "fee",
-         "wCertVk", "customData", "constant","wCeasedVk", "vFieldElementCertificateFieldConfig", "vBitVectorCertificateFieldConfig",
-         "forwardTransferScFee", "mainchainBackwardTransferScFee", "mainchainBackwardTransferRequestDataLength" };
+    // Define a map of valid input keys. The value defines whether the member name is mandatory
+    static std::map<std::string, bool> methodKeys{
+        {"version", true},
+        {"withdrawalEpochLength", false},
+        {"fromaddress", false},
+        {"changeaddress", false},
+        {"toaddress", true},
+        {"amount", true},
+        {"minconf", false},
+        {"fee", false},
+        {"wCertVk", true},
+        {"customData", false},
+        {"constant", false},
+        {"wCeasedVk", false},
+        {"vFieldElementCertificateFieldConfig", false},
+        {"vBitVectorCertificateFieldConfig", false},
+        {"forwardTransferScFee", false},
+        {"mainchainBackwardTransferScFee", false},
+        {"mainchainBackwardTransferRequestDataLength", false}};
 
+
+    // Test nonObject or empty input
     UniValue inputObject = params[0].get_obj();
+    if (!inputObject.isObject() || inputObject.empty())
+        throw JSONRPCError(RPC_INVALID_PARAMS, "Expected params as object");
 
-    if (!inputObject.isObject())
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected object");
-
-    // keywords set in cmd
-    std::set<std::string> setKeyArgs;
-
-    // sanity check, report error if unknown/duplicate key-value pairs
-    for (const string& s : inputObject.getKeys())
-    {
-        if (!validKeyArgs.count(s))
-            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown key: ") + s);
-
-        if (!setKeyArgs.insert(s).second)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Duplicate key in input: ") + s);
-    }
-
-    // ---------------------------------------------------------
-    int sidechainVersion;
-    if (setKeyArgs.count("version"))
-    {
-        sidechainVersion = find_value(inputObject, "version").get_int();
-
-        if (sidechainVersion < 0 || sidechainVersion > ForkManager::getInstance().getMaxSidechainVersion(chainActive.Height() + 1))
-            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid sidechain version"));
-    }
-    else
-    {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"version\"" );
-    }
-
-    // ---------------------------------------------------------
-    char errBuf[256] = {};
-    int withdrawalEpochLength = SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH;
-    if (setKeyArgs.count("withdrawalEpochLength"))
-    {
-        withdrawalEpochLength = find_value(inputObject, "withdrawalEpochLength").get_int();
-        if (withdrawalEpochLength < getScMinWithdrawalEpochLength())
-        {
-            sprintf(errBuf, "Invalid withdrawalEpochLength: minimum value allowed=%d\n", getScMinWithdrawalEpochLength());
-            throw JSONRPCError(RPC_TYPE_ERROR, errBuf);
-        }
-        if (withdrawalEpochLength > getScMaxWithdrawalEpochLength())
-        {
-            sprintf(errBuf, "Invalid withdrawalEpochLength: maximum value allowed=%d\n", getScMaxWithdrawalEpochLength());
-            throw JSONRPCError(RPC_TYPE_ERROR, errBuf);
-        }
-    }
-
+    
+    // Initialize target fields
     ScFixedParameters fixedParams;
-    fixedParams.version = sidechainVersion;
-    fixedParams.withdrawalEpochLength = withdrawalEpochLength;
-
-    // ---------------------------------------------------------
-    CBitcoinAddress fromaddress;
-    if (setKeyArgs.count("fromaddress"))
-    {
-        string inputString = find_value(inputObject, "fromaddress").get_str();
-        fromaddress = CBitcoinAddress(inputString);
-        if(!fromaddress.IsValid())
-        {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown fromaddress format: ")+inputString );
-        }
-    }
-
-    // ---------------------------------------------------------
-    CBitcoinAddress changeaddress;
-    if (setKeyArgs.count("changeaddress"))
-    {
-        string inputString = find_value(inputObject, "changeaddress").get_str();
-        changeaddress = CBitcoinAddress(inputString);
-        if(!changeaddress.IsValid())
-        {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown changeaddress format: ")+inputString );
-        }
-        if (!IsMine(*pwalletMain, GetScriptForDestination(changeaddress.Get())))
-            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, changeaddress is not mine: ")+inputString );
-    }
-
-    // ---------------------------------------------------------
-    uint256 toaddress;
-    if (setKeyArgs.count("toaddress"))
-    {
-        string inputString = find_value(inputObject, "toaddress").get_str();
-        if (!IsHex(inputString))
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid toaddress format: not an hex " + inputString);
-
-        toaddress.SetHex(inputString);
-    }
-    else
-    {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"toaddress\"" );
-    }
-
-    // ---------------------------------------------------------
-    CAmount nAmount = 0;
-    if (setKeyArgs.count("amount"))
-    {
-        UniValue av = find_value(inputObject, "amount");
-        nAmount = AmountFromValue( av );
-        if (nAmount == 0)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount can not be null");
-    }
-    else
-    {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"amount\"" );
-    }
-
-    // ---------------------------------------------------------
+    fixedParams.version = 0;
+    fixedParams.withdrawalEpochLength = SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH;
+    CBitcoinAddress fromaddress{};
+    CBitcoinAddress changeaddress{};
+    uint256 toaddress{};
+    CAmount nAmount{0};
     int nMinDepth = 1;
-    if (setKeyArgs.count("minconf"))
-    {
-        nMinDepth = find_value(inputObject, "minconf").get_int();
-        if (nMinDepth < 0)
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid minconf: must be greater that 0");
-    }
+    CAmount nFee{SC_RPC_OPERATION_AUTO_MINERS_FEE};
 
-    // ---------------------------------------------------------
-    CAmount nFee = SC_RPC_OPERATION_AUTO_MINERS_FEE;
-    if (setKeyArgs.count("fee"))
-    {
-        UniValue val = find_value(inputObject, "fee");
-        if (val.get_real() == 0.0)
-        {
-            nFee = 0;
-        }
-        else
-        {
-            // throws exception for negative values
-            nFee = AmountFromValue(val);
-        }
-    }
-    if (nFee > nAmount)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Fee %s is greater than output %s",
-            FormatMoney(nFee), FormatMoney(nAmount)));
+    // Ancillary fields for traversing
+    std::string key;
+    auto keys = inputObject.getKeys();
+    auto values = inputObject.getValues();
+    std::map<std::string, UniValue> inputItems{};
+    UniValue inputItem;
 
-    // ---------------------------------------------------------
-    std::string error;
+    // Enclose parsing in try block as single JSON methods might throw
+    try {
 
-    if (setKeyArgs.count("wCertVk"))
-    {
-        string inputString = find_value(inputObject, "wCertVk").get_str();
-        std::vector<unsigned char> wCertVkVec;
-        if (!Sidechain::AddScData(inputString, wCertVkVec, CScVKey::MaxByteSize(), Sidechain::CheckSizeMode::CHECK_UPPER_LIMIT, error))
-        {
-            throw JSONRPCError(RPC_TYPE_ERROR, string("wCertVk: ") + error);
-        }
-
-		fixedParams.wCertVk = CScVKey(wCertVkVec);
-        if (!fixedParams.wCertVk.IsValid())
-        {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wCertVk");
-        }
-    }
-    else
-    {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"wCertVk\"" );
-    }
-
-    // ---------------------------------------------------------
-    if (setKeyArgs.count("customData"))
-    {
-        string inputString = find_value(inputObject, "customData").get_str();
-        if (!Sidechain::AddScData(inputString, fixedParams.customData, MAX_SC_CUSTOM_DATA_LEN, Sidechain::CheckSizeMode::CHECK_UPPER_LIMIT, error))
-        {
-            throw JSONRPCError(RPC_TYPE_ERROR, string("customData: ") + error);
-        }
-    }
-
-    // ---------------------------------------------------------
-    if (setKeyArgs.count("constant"))
-    {
-        string inputString = find_value(inputObject, "constant").get_str();
-        std::vector<unsigned char> scConstantByteArray {};
-        if (!Sidechain::AddScData(inputString, scConstantByteArray, CFieldElement::ByteSize(), Sidechain::CheckSizeMode::CHECK_STRICT, error))
-        {
-            throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + error);
-        }
-
-        fixedParams.constant = CFieldElement{scConstantByteArray};
-        if (!fixedParams.constant->IsValid())
-        {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "invalid constant");
-        }
-    }
-
-    // ---------------------------------------------------------
-    if (setKeyArgs.count("wCeasedVk"))
-    {
-        string inputString = find_value(inputObject, "wCeasedVk").get_str();
-
-        if (!inputString.empty())
-        {
-            std::vector<unsigned char> wCeasedVkVec;
-            if (!Sidechain::AddScData(inputString, wCeasedVkVec, CScVKey::MaxByteSize(), Sidechain::CheckSizeMode::CHECK_UPPER_LIMIT, error))
-            {
-                throw JSONRPCError(RPC_TYPE_ERROR, string("wCeasedVk: ") + error);
+        // Traverse input data in search of unexpected or duplicate members
+        for (size_t i = 0, e = keys.size(); i < e; ++i) {
+            key = keys[i];
+            if (!methodKeys.count(key)) {
+                throw std::runtime_error("unexpected");
             }
 
-            fixedParams.wCeasedVk = CScVKey(wCeasedVkVec);
-            if (!fixedParams.wCeasedVk.get().IsValid())
-            {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wCeasedVk");
+            const bool mandatory{methodKeys[key]};
+            inputItem = values[i];
+            if (inputItem.isNull()) {
+                if (mandatory) {
+                    throw std::runtime_error("can not be null");
+                }
+                continue;
+            }
+
+            if (inputItems.insert_or_assign(key, values[i]).second == false) {
+                throw std::runtime_error("duplicated");
             }
         }
+
+        // Signal missing mandatory member keys
+        for(const auto [k, mandatory] : methodKeys) {
+            if (mandatory) {
+                if (!inputItems.count(k)) {
+                    throw std::runtime_error("missing");
+                }
+            }
+        }
+
+        key = "version"; // Mandatory
+        int max_version = static_cast<int>(ForkManager::getInstance().getMaxSidechainVersion(chainActive.Height() + 1));
+        fixedParams.version = static_cast<uint8_t>(inputItems[key].get_int()); // Might throw on non numeric values
+        if (fixedParams.version < 0 || fixedParams.version > max_version) {
+            throw std::runtime_error("not in range [0..." + std::to_string(max_version) + "]");
+        }
+
+        key = "withdrawalEpochLength"; // Optional
+        if(inputItems.count(key)) {
+            static const auto min_val = getScMinWithdrawalEpochLength();
+            static const auto max_val = getScMaxWithdrawalEpochLength();
+            fixedParams.withdrawalEpochLength = inputItems[key].get_int();
+            if (fixedParams.withdrawalEpochLength < min_val || fixedParams.withdrawalEpochLength > max_val) {
+                throw std::runtime_error("not in range [" + std::to_string(min_val) + "..." + std::to_string(max_val) + "]");
+            }
+        }
+
+        key = "fromaddress"; // Optional
+        if(inputItems.count(key)) {
+            fromaddress.SetString(inputItems[key].get_str());
+            if(!fromaddress.IsValid()) {
+                throw std::runtime_error("not a valid taddr");
+            }
+        }
+
+        key = "changeaddress"; // Optional
+        if (inputItems.count(key)) {
+            changeaddress.SetString(inputItems[key].get_str());
+            if (!changeaddress.IsValid()) {
+                throw std::runtime_error("not a valid taddr");
+            }
+            if (!IsMine(*pwalletMain, GetScriptForDestination(changeaddress.Get()))) {
+                throw std::runtime_error("not my address");
+            }
+        }
+
+        key = "toaddress"; // Mandatory
+        std::string value = inputItems[key].get_str();
+        if (!IsHex(value)) {
+            throw std::runtime_error("not a valid hex");
+        }
+        toaddress.SetHex(value);
+
+        key = "amount"; // Mandatory
+        nAmount = AmountFromValue(inputItems[key]); // Might throw Univalue
+        if (!nAmount)
+            throw std::runtime_error("cannot be zero");
+
+        key = "minconf"; // Optional
+        if (inputItems.count(key)) {
+            nMinDepth = inputItems[key].get_int();
+            if (nMinDepth <= 0) {
+                throw std::runtime_error("must be greater than 0");
+            }
+        }
+
+        key = "fee"; // Optional
+        if (inputItems.count(key)) {
+            nFee = AmountFromValue(inputItems[key]); // Might throw Univalue
+            if (nFee > nAmount) {
+                throw std::runtime_error("greater than amount");
+            }
+        }
+
+        key = "wCertVk"; // Mandatory
+        value = inputItems[key].get_str();
+        std::string error;
+        {
+            std::vector<unsigned char> wCertVkVec{};
+            if (!AddScData(value, wCertVkVec, CScVKey::MaxByteSize(), Sidechain::CheckSizeMode::CHECK_UPPER_LIMIT, error)) {
+                throw std::runtime_error(error);
+            }
+            fixedParams.wCertVk = CScVKey(wCertVkVec);
+            if (!fixedParams.wCertVk.IsValid()) {
+                throw std::runtime_error("invalid");
+            }
+        }
+
+        key = "customData"; // Optional
+        if (inputItems.count(key)) {
+            value = inputItems[key].get_str();
+            if (!Sidechain::AddScData(value, fixedParams.customData, MAX_SC_CUSTOM_DATA_LEN, Sidechain::CheckSizeMode::CHECK_UPPER_LIMIT, error)) {
+                throw std::runtime_error(error);
+            }
+        }
+
+        key = "constant"; // Optional
+        if (inputItems.count(key)) {
+            value = inputItems[key].get_str();
+            std::vector<unsigned char> scConstantByteArray{};
+            if (!Sidechain::AddScData(value, scConstantByteArray, CFieldElement::ByteSize(), Sidechain::CheckSizeMode::CHECK_STRICT, error)) {
+                throw std::runtime_error(error);
+            }
+            fixedParams.constant = CFieldElement{scConstantByteArray};
+            if (!fixedParams.constant->IsValid()) {
+                throw std::runtime_error("invalid");
+            }
+        }
+
+        key = "wCeasedVk"; // Optional
+        if (inputItems.count(key)) {
+            value = inputItems[key].get_str();
+            if (!value.empty()) {
+                std::vector<unsigned char> wCeasedVkVec;
+                if (!Sidechain::AddScData(value, wCeasedVkVec, CScVKey::MaxByteSize(), Sidechain::CheckSizeMode::CHECK_UPPER_LIMIT, error)) {
+                    throw std::runtime_error(error);
+                }
+                fixedParams.wCeasedVk = CScVKey(wCeasedVkVec);
+                if (!fixedParams.wCeasedVk.get().IsValid()) {
+                    throw std::runtime_error("invalid");
+                }
+            }
+        }
+
+        key = "vFieldElementCertificateFieldConfig"; // Optional
+        if (inputItems.count(key)) {
+            inputItem = inputItems[key].get_array();
+            if (!Sidechain::AddScData(intArray, fixedParams.vFieldElementCertificateFieldConfig)) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected positive integer in the range [1,..,255]");
+            }
+            // TODO as soon as CSW are supported, check against wCeasedVk presence: in that case must be size() > 0
+        }
+
+    } catch (const /*JSONRPCError*/ UniValue& ex) {
+        
+        std::string what;
+        if (!key.empty())
+            what = "Invalid parameter \"" + key + "\": ";
+        what += ex['message'].get_str();
+        throw JSONRPCError(key.empty() ? RPC_INVALID_PARAMS : RPC_INVALID_PARAMETER, what);
+
+    } catch (const std::exception& ex) {
+        
+        std::string what;
+        if(!key.empty())
+            what = "Invalid parameter \"" + key + "\": ";
+        what += ex.what();
+        throw JSONRPCError(key.empty() ? RPC_INVALID_PARAMS : RPC_INVALID_PARAMETER, what);
     }
+
 
     // ---------------------------------------------------------
     if (setKeyArgs.count("vFieldElementCertificateFieldConfig"))
