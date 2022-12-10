@@ -73,447 +73,64 @@ class SCCreateTest(BitcoinTestFramework):
         mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
         vk = mcTest.generate_params('sc1')
         constant = generate_random_field_element_hex()
-
-        # create with wrong key in input
-        #------------------------------------
         amount = 12.0
         fee = 0.000025
-
-        cmdInput = {
-            'version': 0,
-            'wrong_key': 123,
-            'toaddress': toaddress,
-            'amount': amount,
-            'fee': fee,
-            'wCertVk': vk
-        }
-
-        mark_logs("\nNode 1 create SC with wrong key in input", self.nodes, DEBUG_MODE)
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert_true(False);
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString,self.nodes,DEBUG_MODE)
-            assert_true("wrong_key" in errorString)
-
-        # create with duplicate key in input
-        #------------------------------------
-        cmdInput = FakeDict([
-            ('version', 0),
-            ('fee', fee),
-            ('amount', amount),
-            ('amount', 6.0),
-            ('toaddress', str(toaddress)),
-            ('wCertVk', vk)
-        ])
-
-        mark_logs("\nNode 1 create SC with duplicate key in input",self.nodes,DEBUG_MODE)
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert_true(False);
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString,self.nodes,DEBUG_MODE)
-            assert_true("amount" in errorString)
-
-        # create with a missing mandatory key in input
-        #------------------------------------------------
-        cmdInput = {
-            'version': 0,
-            'withdrawalEpochLength': 10,
-            'toaddress': toaddress,
-            'fee': fee,
-            'wCertVk': vk,
-            'customData': "bb" * 1024
-        }
-
-        mark_logs("\nNode 1 create SC with missing mandatory key in input",self.nodes,DEBUG_MODE)
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert_true(False);
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString,self.nodes,DEBUG_MODE)
-            assert_true("amount" in errorString)
-
-        # create with a bad value for amount
-        #------------------------------------------------
-        cmdInput = {
-            'version': 0,
-            'withdrawalEpochLength': 10,
-            'toaddress': toaddress,
-            'amount': -0.1,
-            'fee': fee,
-            'wCertVk': vk,
-            'constant': constant
-        }
-
-        mark_logs("\nNode 1 create SC with an invalid amount in input", self.nodes, DEBUG_MODE)
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert_true(False);
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString,self.nodes,DEBUG_MODE)
-            assert_true("range" in errorString)
-
-        # create with a null withdrawal epoch length 
-        #------------------------------------------------
-        cmdInput = {
-            'version': 0,
-            'withdrawalEpochLength': 0,
-            'toaddress': toaddress,
-            'amount': 0.1,
-            'fee': fee,
-            'wCertVk': vk
-        }
-
-        mark_logs("\nNode 1 create SC with a null epoch length in input", self.nodes, DEBUG_MODE)
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert_true(False);
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString,self.nodes,DEBUG_MODE)
-            assert_true("withdrawal" in errorString)
-
-        # create with a withdrawal epoch length too big
-        #------------------------------------------------
-        cmdInput = {
-            'version': 0,
-            'withdrawalEpochLength': 4033,
-            'toaddress': toaddress,
-            'amount': 0.1,
-            'fee': fee,
-            'wCertVk': vk
-        }
-
-        mark_logs("\nNode 1 create SC with an epoch length too big in input", self.nodes, DEBUG_MODE)
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert_true(False);
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString,self.nodes,DEBUG_MODE)
-            assert_true("withdrawal" in errorString)
-
-        # create with a fromaddress expressed in a wrong format
-        #----------------------------------------------------------------
-        cmdInput = {
-            'version': 0,
-            'fromaddress': "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2",
-            'toaddress': toaddress,
-            'amount': 0.1,
-            'fee': fee,
-            'wCertVk': vk
-        }
-
-        mark_logs("\nNode 1 create SC with a fromaddress expressed in a wrong format", self.nodes, DEBUG_MODE)
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert_true(False);
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString,self.nodes,DEBUG_MODE)
-            assert_true("format" in errorString)
-
-        # create with a changeaddress that does not belong to the node
-        #----------------------------------------------------------------
-        cmdInput = {
-            'version': 0,
-            'changeaddress': "zthWZsNRTykixeceqgifx18hMMLNrNCzCzj",
-            'toaddress': toaddress,
-            'amount': 0.1,
-            'fee': fee,
-            'wCertVk': vk
-        }
-
-        mark_logs("\nNode 1 create SC with a changeaddress that does not belong to the node", self.nodes, DEBUG_MODE)
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert_true(False);
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString,self.nodes,DEBUG_MODE)
-            assert_true("not mine" in errorString)
-
-        # create with an amount that prevents a change above the dust threshold
-        #----------------------------------------------------------------
         amount_below_dust_threshold = 0.00000001
-        bad_amount = float(self.nodes[1].getbalance()) -  fee - amount_below_dust_threshold
+        bad_amount = float(self.nodes[1].getbalance()) - fee - amount_below_dust_threshold
 
-        cmdInput = {
-            'version': 0,
-            'toaddress': toaddress,
-            'amount': bad_amount,
-            'fee': fee,
-            'wCertVk': vk
-        }
+        # Set of invalid data to test sc_create parsing
+        # NOTE !! Most test for syntactic validity of arguments
+        # are already enforced in sc_create.py No need to repeat them here
+        parserTests = [
+            {
+                "title"    : "Node 1 tries to create a SC with wrong from address",
+                "node"     : 1,
+                "expected" : "Invalid parameter \"fromaddress\": not a valid taddr",
+                "input"    : {
+                    "version": 0,
+                    "fromaddress": "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2",
+                    "toaddress": toaddress,
+                    "amount": 0.1,
+                    "fee": fee,
+                    "wCertVk": vk
+                }
+            },
+            {
+                "title"    : "Node 1 tries to create a SC with changeaddress not belonging to bound wallet",
+                "node"     : 1,
+                "expected" : "Invalid parameter \"changeaddress\": not my address",
+                "input"    : {
+                    "version": 0,
+                    "changeaddress": "zthWZsNRTykixeceqgifx18hMMLNrNCzCzj",
+                    "toaddress": toaddress,
+                    "amount": 0.1,
+                    "fee": fee,
+                    "wCertVk": vk
+                }
+            },
+            {
+                "title"    : "Node 1 tries to create a SC with an amount that prevents a change above the dust threshold",
+                "node"     : 1,
+                "expected" : "Insufficient transparent funds",
+                "input"    : {
+                    "version": 0,
+                    "toaddress": toaddress,
+                    "amount": bad_amount,
+                    "fee": fee,
+                    "wCertVk": vk
+                }
+            },
+        ]
 
-        mark_logs("\nNode 1 create SC with an amount that prevents a change above the dust threshold", self.nodes, DEBUG_MODE)
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert_true(False);
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(("bad amount: %f" % bad_amount), self.nodes, DEBUG_MODE)
-            mark_logs(errorString,self.nodes,DEBUG_MODE)
-            assert_true("dust threshold" in errorString)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with a bad wCertVk
-        mark_logs("\nNode 1 try creates a SC with a non hex wCertVk", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'toaddress': toaddress,
-            'amount': 0.1,
-            'fee': fee,
-            'wCertVk': "zz" * MAX_SC_VK_SIZE_IN_BYTES
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert_true(False);
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-            assert_true("wCertVk: Invalid format: not an hex" in errorString)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with a bad wCertVk
-        mark_logs("\nNode 1 try creates a SC with a odd number of char in wCertVk", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'toaddress': toaddress,
-            'amount': 0.1,
-            'fee': fee,
-            'wCertVk': "a" * (MAX_SC_VK_SIZE_IN_BYTES - 1)
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert_true(False);
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-            assert_true("wCertVk: Invalid format: not an hex" in errorString)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with a wCertVk too long
-        mark_logs("\nNode 1 try creates a SC with too long wCertVk byte string", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'toaddress': toaddress,
-            'amount': 0.1,
-            'fee': fee,
-            'wCertVk': "aa" * (MAX_SC_VK_SIZE_IN_BYTES + 1)
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert_true(False);
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-            assert_true("wCertVk: Invalid length" in errorString)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with an invalid wCertVk
-        mark_logs("\nNode 1 try creates a SC with an invalid wCertVk", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'toaddress': toaddress,
-            'amount': 0.1,
-            'fee': fee,
-            'wCertVk': "aa" * MAX_SC_VK_SIZE_IN_BYTES
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert_true(False);
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-            assert_true("Invalid wCertVk" in errorString)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC without wCertVk
-        mark_logs("\nNode 1 try creates a SC without wCertVk", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'toaddress': toaddress,
-            'amount': 0.1,
-            'fee': fee
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert_true(False);
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-            assert_true("Missing mandatory parameter in input: \"wCertVk\"" in errorString)
-        
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with a bad customData
-        mark_logs("\nNode 1 try creates a SC with non hex customData", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'toaddress': toaddress,
-            'amount': 0.1,
-            'fee': fee,
-            'wCertVk': vk,
-            'customData': "zz" * 1024
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert_true(False);
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-            assert_true("customData: Invalid format: not an hex" in errorString)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with a bad customData
-        mark_logs("\nNode 1 try creates a SC with a odd number of char in customData", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'toaddress': toaddress,
-            'amount': 0.1,
-            'fee': fee,
-            'wCertVk': vk,
-            'customData': "b" * 1023
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert_true(False);
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-            assert_true("customData: Invalid format: not an hex" in errorString)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with customData too long
-        mark_logs("\nNode 1 try creates a SC with too long customData byte string", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'toaddress': toaddress,
-            'amount': 0.1,
-            'fee': fee,
-            'wCertVk': vk,
-            'customData': "bb" * 1026
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert_true(False);
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-            assert_true("must be at most" in errorString)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with a bad constant
-        mark_logs("\nNode 1 try creates a SC with a non hex constant", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'toaddress': toaddress,
-            'amount': 0.1,
-            'fee': fee,
-            'wCertVk': vk,
-            'constant': "zz" * SC_FIELD_SIZE
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert_true(False);
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-            assert_true("constant: Invalid format: not an hex" in errorString)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with a bad constant
-        mark_logs("\nNode 1 try creates a SC with a odd number of char in constant", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'toaddress': toaddress,
-            'amount': 0.1,
-            'fee': fee,
-            'wCertVk': vk,
-            'constant': "b" * (SC_FIELD_SIZE - 1)
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert_true(False);
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-            assert_true("constant: Invalid format: not an hex" in errorString)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with a constant too short
-        mark_logs("\nNode 1 try creates a SC with too short constant byte string", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'toaddress': toaddress,
-            'amount': 0.1,
-            'fee': fee,
-            'wCertVk': vk,
-            'constant': "bb" * (SC_FIELD_SIZE - 1)
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert_true(False);
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-            assert_true("bytes" in errorString)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with a constant too long
-        mark_logs("\nNode 1 try creates a SC with too long constant byte string", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'toaddress': toaddress,
-            'amount': 0.1,
-            'fee': fee,
-            'wCertVk': vk,
-            'constant': "bb" * (SC_FIELD_SIZE + 1)
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert_true(False);
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-            assert_true("bytes" in errorString)
-
-        # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with a bad constant
-        mark_logs("\nNode 1 try creates a SC with an invalid constant", self.nodes, DEBUG_MODE)
-        cmdInput = {
-            'version': 0,
-            'toaddress': toaddress,
-            'amount': 0.1,
-            'fee': fee,
-            'wCertVk': vk,
-            'constant': "aa" * SC_FIELD_SIZE
-        }
-
-        try:
-            self.nodes[1].sc_create(cmdInput)
-            assert_true(False);
-        except JSONRPCException as e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-            assert_true("invalid constant" in errorString)
+        for test in parserTests:
+            mark_logs(test['title'], self.nodes, DEBUG_MODE)
+            try:
+                self.nodes[test['node']].sc_create(test['input'])
+                assert_true(False) # We should not get here
+            except JSONRPCException as ex:
+                errorString = ex.error['message']
+                mark_logs(" ... " + errorString, self.nodes, DEBUG_MODE)
+                assert_true(test['expected'] in errorString)
 
         # Node 1 create the SC using a valid input and a fromaddress+changeaddress key/value
         #------------------------------------------------------------------------------------------
