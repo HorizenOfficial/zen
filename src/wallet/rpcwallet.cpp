@@ -36,7 +36,7 @@
 #include <univalue.h>
 
 #include <numeric>
-#include <map>
+#include <unordered_map>
 
 #include "sc/sidechainrpc.h"
 #include "consensus/validation.h"
@@ -808,7 +808,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     // Define a map of valid input keys. The value defines whether the member name is mandatory
-    static std::map<std::string, bool> methodKeys{
+    static std::unordered_map<std::string, bool> methodKeys{
         {"version", true},
         {"withdrawalEpochLength", false},
         {"fromaddress", false},
@@ -838,12 +838,16 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     ScFixedParameters fixedParams;
     fixedParams.version = 0;
     fixedParams.withdrawalEpochLength = SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH;
+    fixedParams.mainchainBackwardTransferRequestDataLength = 0;
     CBitcoinAddress fromaddress{};
     CBitcoinAddress changeaddress{};
     uint256 toaddress{};
     CAmount nAmount{0};
     int nMinDepth = 1;
     CAmount nFee{SC_RPC_OPERATION_AUTO_MINERS_FEE};
+    CAmount ftScFee{0};
+    CAmount mbtrScFee{0};
+    int mbtrDataLength{0};
 
     // Ancillary fields for traversing
     std::string key;
@@ -1002,10 +1006,42 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         key = "vFieldElementCertificateFieldConfig"; // Optional
         if (inputItems.count(key)) {
             inputItem = inputItems[key].get_array();
-            if (!Sidechain::AddScData(intArray, fixedParams.vFieldElementCertificateFieldConfig)) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected positive integer in the range [1,..,255]");
+            if (!Sidechain::AddScData(inputItem, fixedParams.vFieldElementCertificateFieldConfig)) {
+                throw std::runtime_error("invalid element(s) not in range [1...255]");
             }
             // TODO as soon as CSW are supported, check against wCeasedVk presence: in that case must be size() > 0
+        }
+
+        key = "vBitVectorCertificateFieldConfig"; // Optional
+        if (inputItems.count(key)) {
+            inputItem = inputItems[key].get_array();
+            for (const auto& entry : inputItem.getValues()) {
+                if (!entry.size() == 2 || !entry[0].isNum() || !entry[1].isNum()) {
+                    throw std::runtime_error("invalid/not integer elements");
+                }
+                fixedParams.vBitVectorCertificateFieldConfig.push_back(
+                    BitVectorCertificateFieldConfig{entry[0].get_int(), entry[1].get_int()});
+            }
+            // TODO as soon as CSW are supported, check against wCeasedVk presence: in that case must be size() > 0
+        }
+
+        key = "forwardTransferScFee"; // Optional
+        if (inputItems.count(key)) {
+            ftScFee = AmountFromValue(inputItems[key]);
+        }
+
+        key = "mainchainBackwardTransferScFee"; // Optional
+        if (inputItems.count(key)) {
+            mbtrScFee = AmountFromValue(inputItems[key]);
+        }
+
+        key = "mainchainBackwardTransferRequestDataLength"; // Optional
+        if (inputItems.count(key)) {
+            mbtrDataLength = inputItems[key].get_int();
+            if (mbtrDataLength < 0 || mbtrDataLength > MAX_SC_MBTR_DATA_LEN) {
+                throw std::runtime_error("not in range [0..." + std::to_string(MAX_SC_MBTR_DATA_LEN) + "]");
+            }
+            fixedParams.mainchainBackwardTransferRequestDataLength = static_cast<uint8_t>(mbtrDataLength);
         }
 
     } catch (const /*JSONRPCError*/ UniValue& ex) {
@@ -1013,7 +1049,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         std::string what;
         if (!key.empty())
             what = "Invalid parameter \"" + key + "\": ";
-        what += ex['message'].get_str();
+        what += ex["message"].get_str();
         throw JSONRPCError(key.empty() ? RPC_INVALID_PARAMS : RPC_INVALID_PARAMETER, what);
 
     } catch (const std::exception& ex) {
@@ -1025,91 +1061,13 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         throw JSONRPCError(key.empty() ? RPC_INVALID_PARAMS : RPC_INVALID_PARAMETER, what);
     }
 
-
-    // ---------------------------------------------------------
-    if (setKeyArgs.count("vFieldElementCertificateFieldConfig"))
-    {
-        UniValue intArray = find_value(inputObject, "vFieldElementCertificateFieldConfig").get_array();
-        if (!Sidechain::AddScData(intArray, fixedParams.vFieldElementCertificateFieldConfig))
-        {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected positive integer in the range [1,..,255]");
-        }
-        // TODO as soon as CSW are supported, check against wCeasedVk presence: in that case must be size() > 0
-    }
-
-    // ---------------------------------------------------------
-    if (setKeyArgs.count("vBitVectorCertificateFieldConfig"))
-    {
-        // TODO as soon as CSW are supported, check against wCeasedVk presence: in that case must be size() > 0
-        UniValue PairsArray = find_value(inputObject, "vBitVectorCertificateFieldConfig").get_array();
-        if (!PairsArray.isNull())
-        {
-            for(auto& pairEntry: PairsArray.getValues())
-            {
-                if (pairEntry.size() != 2) {
-                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid vBitVectorCertificateFieldConfig");
-                }
-                if (!pairEntry[0].isNum() || !pairEntry[1].isNum())
-                {
-                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid vBitVectorCertificateFieldConfig, expected integers");
-                }
-
-                fixedParams.vBitVectorCertificateFieldConfig.push_back(BitVectorCertificateFieldConfig{pairEntry[0].get_int(), pairEntry[1].get_int()});
-            }
-        }
-    }
-
-    // ---------------------------------------------------------
-    CAmount ftScFee(0);
-    if (setKeyArgs.count("forwardTransferScFee"))
-    {
-        UniValue uniFtScFee = find_value(inputObject, "forwardTransferScFee");
-
-        if (!uniFtScFee.isNull())
-            ftScFee = AmountFromValue(uniFtScFee);
-    }
-
-    // ---------------------------------------------------------
-    CAmount mbtrScFee(0);
-    if (setKeyArgs.count("mainchainBackwardTransferScFee"))
-    {
-        UniValue uniMbtrScFee = find_value(inputObject, "mainchainBackwardTransferScFee");
-
-        if (!uniMbtrScFee.isNull())
-        {
-            mbtrScFee = AmountFromValue(uniMbtrScFee);
-        }
-    }
-
-    // ---------------------------------------------------------
-    int32_t mbtrDataLength = 0;
-    if (setKeyArgs.count("mainchainBackwardTransferRequestDataLength"))
-    {
-        UniValue uniMbtrDataLength = find_value(inputObject, "mainchainBackwardTransferRequestDataLength");
-
-        if (!uniMbtrDataLength.isNull())
-        {
-            if (!uniMbtrDataLength.isNum())
-            {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid mainchainBackwardTransferRequestDataLength, expected integer");
-            }
-
-            mbtrDataLength = uniMbtrDataLength.get_int();
-
-            if (mbtrDataLength < 0 || mbtrDataLength > MAX_SC_MBTR_DATA_LEN)
-            {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid mainchainBackwardTransferRequestDataLength: out of range [%d, %d]", 0, MAX_SC_MBTR_DATA_LEN));
-            }
-        }
-    }
-    fixedParams.mainchainBackwardTransferRequestDataLength = mbtrDataLength;
+    // Parsing is done. Any exception thrown from now onwards is not related
+    // to param validity and gets handled by higher level calls
 
     CMutableTransaction tx_create;
     tx_create.nVersion = SC_TX_VERSION;
 
-    std::vector<ScRpcCreationCmdTx::sCrOutParams> vOutputs;
-    vOutputs.push_back(ScRpcCreationCmdTx::sCrOutParams(toaddress, nAmount));
-
+    std::vector<ScRpcCreationCmdTx::sCrOutParams> vOutputs{ScRpcCreationCmdTx::sCrOutParams(toaddress, nAmount)};
     Sidechain::ScRpcCreationCmdTx cmd(tx_create, vOutputs, fromaddress, changeaddress, nMinDepth, nFee, ftScFee, mbtrScFee, fixedParams);
 
     cmd.execute();
