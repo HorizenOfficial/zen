@@ -103,9 +103,9 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         CHECKLIST:
         v0 with key rotation                   -> expect failure, since v0 does not support key rotation
         v0 without key rotation                -> expect success
-        v2 without key rotation                -> expect failure, since key rotation is enforced for v2 nd above
+        v2 without key rotation                -> expect failure, since key rotation is enforced for v2 and above
         v2 with key rotation, wrong first hash -> expect failure, since the first hash must be phantom_hash by definition
-        v0 with key rotation, phantom_hash     -> expect success
+        v2 with key rotation, phantom_hash     -> expect success
         '''
 
         #------------------------------------------------
