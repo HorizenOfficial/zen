@@ -65,7 +65,7 @@ class ncsc_cert_epochs(BitcoinTestFramework):
 
     def try_send_certificate(self, node_idx, scid, epoch_number, quality, ref_height, mbtr_fee, ft_fee, bt, expect_failure, failure_reason=None):
         scid_swapped = str(swap_bytes(scid))
-        ep, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[node_idx], 0, True, ref_height)
+        _, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[node_idx], 0, True, ref_height)
         proof = self.mcTest.create_test_proof(PARAMS_NAME,
                                               scid_swapped,
                                               epoch_number,
