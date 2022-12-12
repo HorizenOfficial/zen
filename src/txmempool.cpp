@@ -268,7 +268,7 @@ void CTxMemPool::addAddressIndex(const CTransactionBase &txBase, int64_t nTime, 
         CSidechain sidechain;
         // At this point we have a view that is NOT backed by the mempool, but we must find the sidechain
         // in the normal chain view as no certificate can be published until the sidechain creation is
-        // included in a block (also for non-ceasing sidechains, due to the lastReferencedHeightcset at creation).
+        // included in a block (also for non-ceasing sidechains, due to the lastInclusionHeight set at creation).
         assert(view.GetSidechain(cert->GetScId(), sidechain));
 
         const uint256& topQualHash = mapSidechains.at(cert->GetScId()).GetTopQualityCert()->second;
@@ -1941,7 +1941,6 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
                 info.lastTopQualityCertView.mainchainBackwardTransferRequestScFee = scCreation.mainchainBackwardTransferRequestScFee;
                 info.fixedParams.mainchainBackwardTransferRequestDataLength = scCreation.mainchainBackwardTransferRequestDataLength;
                 // This sidechain does not appear in a block yet, use default null values
-                info.lastReferencedHeight              = -1;
                 info.lastInclusionHeight               = -1;
                 info.lastTopQualityCertReferencedEpoch = -1;
                 break;
@@ -1978,7 +1977,6 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
                 assert(false);
             }
 
-            info.lastReferencedHeight = map_it->second;
             info.lastTopQualityCertReferencedEpoch = certTopQual.epochNumber;
             info.lastInclusionHeight += 1; // assume this certificate would be included in the next block
         }
