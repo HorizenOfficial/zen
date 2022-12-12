@@ -62,7 +62,7 @@ public:
         lastTopQualityCertReferencedEpoch(CScCertificate::EPOCH_NULL),
         lastTopQualityCertQuality(CScCertificate::QUALITY_NULL), lastTopQualityCertBwtAmount(0),
         balance(0), maxSizeOfScFeesContainers(-1),
-        lastReferencedHeight(-1), lastInclusionHeight(-1) {}
+        lastInclusionHeight(-1) {}
 
     bool IsNull() const
     {
@@ -97,7 +97,6 @@ public:
     int64_t lastTopQualityCertQuality;
     CAmount lastTopQualityCertBwtAmount;
 
-    int lastReferencedHeight;
     int lastInclusionHeight;
 
     // total amount given by sum(fw transfer)-sum(bkw transfer)
@@ -176,8 +175,7 @@ public:
 
         if (isNonCeasing()) {
             READWRITE_POLYMORPHIC(scFees, Sidechain::ScFeeData, Sidechain::ScFeeData_v2);
-            READWRITE(VARINT(lastInclusionHeight)); // not really needed for ceasing sc
-            READWRITE(VARINT(lastReferencedHeight));
+            READWRITE(VARINT(lastInclusionHeight));
         }
         else {
             READWRITE_POLYMORPHIC(scFees, Sidechain::ScFeeData, Sidechain::ScFeeData);
