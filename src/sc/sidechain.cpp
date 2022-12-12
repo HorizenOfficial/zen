@@ -128,7 +128,7 @@ bool CSidechain::CheckQuality(const CScCertificate& cert) const
 bool CSidechain::CheckCertTiming(int certEpoch, int referencedHeight, const CCoinsViewCache& view) const {
     if (GetState(view) != State::ALIVE)
     {
-        return error("%s():%d - ERROR: certificate cannot be accepted, sidechain already ceased\n",
+        return error("%s():%d - ERROR: certificate cannot be accepted, sidechain not alive\n",
             __func__, __LINE__);
     }
 

@@ -5474,8 +5474,8 @@ UniValue sc_send_certificate(const UniValue& params, bool fHelp)
     }
     cert.scId = scId;
 
-    if (sidechain.GetState(&scView)!= CSidechain::State::ALIVE) {
-        LogPrintf("ERROR: certificate cannot be accepted, sidechain [%s] already ceased at active height = %d\n",
+    if (sidechain.GetState(&scView) != CSidechain::State::ALIVE) {
+        LogPrintf("ERROR: certificate cannot be accepted, sidechain [%s] is not alive at active height = %d\n",
             scId.ToString(), chainActive.Height());
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert height"));
     }
