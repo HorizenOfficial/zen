@@ -142,12 +142,8 @@ bool CSidechain::CheckCertTiming(int certEpoch, int referencedHeight, const CCoi
                     __func__, __LINE__, certEpoch, lastTopQualityCertReferencedEpoch + 1);
         }
 
-        // Check ordering of references
-        if (referencedHeight <= lastReferencedHeight)
-        {
-            return error("%s():%d - ERROR: certificate cannot be accepted, cert height (%d) not greater than last (%d)\n",
-                __func__, __LINE__, referencedHeight, lastReferencedHeight);
-        }
+        // Check that every certificate references a block whose commitment tree includes the previous certificate.
+        // This also implies referencedHeight > lastReferencedHeight.
         if (referencedHeight < lastInclusionHeight)
         {
             return error("%s():%d - ERROR: certificate cannot be accepted, cert height (%d) not greater than last certificate inclusion height (%d)\n",
@@ -272,7 +268,7 @@ std::string CSidechain::ToString() const
                       " lastTopQualityCertView=%s\n"
                       " lastTopQualityCertHash=%s\n lastTopQualityCertReferencedEpoch=%d\n"
                       " lastTopQualityCertQuality=%d\n"
-                      " lastReferencedHeight=%d\n lastInclusionHeight=%d\n"
+                      " lastInclusionHeight=%d\n"
                       " lastTopQualityCertBwtAmount=%s\n balance=%s\n"
                       " fixedParams=[NOT PRINTED CURRENTLY]\n mImmatureAmounts=[NOT PRINTED CURRENTLY])",
         fixedParams.version
@@ -283,7 +279,6 @@ std::string CSidechain::ToString() const
         , lastTopQualityCertHash.ToString()
         , lastTopQualityCertReferencedEpoch
         , lastTopQualityCertQuality
-        , lastReferencedHeight
         , lastInclusionHeight
         , FormatMoney(lastTopQualityCertBwtAmount)
         , FormatMoney(balance)
@@ -747,7 +742,7 @@ void CSidechain::InitScFees()
                                 lastTopQualityCertView.mainchainBackwardTransferRequestScFee));
         } else {
             scFees.emplace_back(new Sidechain::ScFeeData_v2(lastTopQualityCertView.forwardTransferScFee,
-                                lastTopQualityCertView.mainchainBackwardTransferRequestScFee, lastReferencedHeight));
+                                lastTopQualityCertView.mainchainBackwardTransferRequestScFee, lastInclusionHeight));
         }
     }
 }

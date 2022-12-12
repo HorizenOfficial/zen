@@ -789,7 +789,6 @@ bool CCoinsViewCache::UpdateSidechain(const CTransaction& tx, const CBlock& bloc
         scIt->second.sidechain.lastTopQualityCertQuality = CScCertificate::QUALITY_NULL;
         scIt->second.sidechain.lastTopQualityCertBwtAmount = 0;
         scIt->second.sidechain.lastInclusionHeight = blockHeight;
-        scIt->second.sidechain.lastReferencedHeight = blockHeight - 1; // -1 to make it possible for the first cert. to reference the creation block
 
         scIt->second.sidechain.lastTopQualityCertView.forwardTransferScFee = cr.forwardTransferScFee;
         scIt->second.sidechain.lastTopQualityCertView.mainchainBackwardTransferRequestScFee = cr.mainchainBackwardTransferRequestScFee;
@@ -1846,7 +1845,6 @@ bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& bl
     {
         assert(scUndoData.prevTopCommittedCertReferencedEpoch != cert.epochNumber);
         scUndoData.prevInclusionHeight = currentSc.lastInclusionHeight;
-        scUndoData.prevReferencedHeight = currentSc.lastReferencedHeight;
         scUndoData.contentBitMask |= CSidechainUndoData::AvailableSections::NONCEASING_CERT_DATA;
     }
 
@@ -1858,8 +1856,6 @@ bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& bl
 
     if (currentSc.isNonCeasing()) {
         currentSc.lastInclusionHeight = blockHeight;
-        // We might just assert that this key in mapCumtreeHeight is available, so let it throw if not.
-        currentSc.lastReferencedHeight = mapCumtreeHeight.at(cert.endEpochCumScTxCommTreeRoot.GetLegacyHash());
     }
 
     LogPrint("cert", "%s():%d - updated sc state %s\n", __func__, __LINE__, currentSc.ToString());
@@ -2081,7 +2077,6 @@ bool CCoinsViewCache::RestoreSidechain(const CScCertificate& certToRevert, const
 
     if (currentSc.isNonCeasing()) {
         currentSc.lastInclusionHeight = sidechainUndo.prevInclusionHeight;
-        currentSc.lastReferencedHeight = sidechainUndo.prevReferencedHeight;
     }
 
     scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
