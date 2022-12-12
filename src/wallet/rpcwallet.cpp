@@ -941,8 +941,8 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         key = "minconf"; // Optional
         if (inputItems.count(key)) {
             nMinDepth = inputItems[key].get_int();
-            if (nMinDepth <= 0) {
-                throw std::runtime_error("must be greater than 0");
+            if (nMinDepth < 0) {
+                throw std::runtime_error("must be positive integer or zero");
             }
         }
 
