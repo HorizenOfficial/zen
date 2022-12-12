@@ -36,7 +36,6 @@
 #include <univalue.h>
 
 #include <numeric>
-#include <unordered_map>
 
 #include "sc/sidechainrpc.h"
 #include "consensus/validation.h"
@@ -808,7 +807,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     // Define a map of valid input keys. The value defines whether the member name is mandatory
-    static std::unordered_map<std::string, bool> methodKeys{
+    static const std::vector<std::pair<std::string, bool>> methodKeys{
         {"version", true},
         {"withdrawalEpochLength", false},
         {"fromaddress", false},
@@ -863,7 +862,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         for (size_t i = 0, e = keys.size(); i < e; ++i) {
             key = keys[i];
 
-            auto methodKey_it = methodKeys.find(key);
+            auto methodKey_it = std::find_if(methodKeys.begin(), methodKeys.end(), [&key](const std::pair<std::string, bool>& item) { return item.first == key; });
             if (methodKey_it == methodKeys.end()) {
                 throw std::runtime_error("unexpected");
             }
