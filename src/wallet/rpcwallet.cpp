@@ -862,20 +862,21 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         // Traverse input data in search of unexpected or duplicate members
         for (size_t i = 0, e = keys.size(); i < e; ++i) {
             key = keys[i];
-            if (!methodKeys.count(key)) {
+
+            auto methodKey_it = methodKeys.find(key);
+            if (methodKey_it == methodKeys.end()) {
                 throw std::runtime_error("unexpected");
             }
 
-            const bool mandatory{methodKeys[key]};
             inputItem = values[i];
             if (inputItem.isNull()) {
-                if (mandatory) {
+                if (methodKey_it->second == true) {
                     throw std::runtime_error("can not be null");
                 }
                 continue;
             }
 
-            if (inputItems.insert_or_assign(key, values[i]).second == false) {
+            if (inputItems.insert_or_assign(key, inputItem).second == false) {
                 throw std::runtime_error("duplicated");
             }
         }
