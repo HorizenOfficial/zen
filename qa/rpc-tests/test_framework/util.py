@@ -568,7 +568,7 @@ def get_epoch_data(scid, node, epochLen, is_non_ceasing = False, reference_heigh
     sc_info = node.getscinfo(scid)['items'][0]
     last_cert_data_hash = 'PHANTOM_PREV_CERT_HASH'
     if sc_info['state'] == 'UNCONFIRMED':
-        return 0, '', last_cert_data_hash
+        return None
 
     if is_non_ceasing:
         # For non-ceasing sidechains
