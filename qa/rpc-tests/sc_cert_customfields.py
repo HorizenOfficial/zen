@@ -118,7 +118,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
-            assert_true("Invalid vBitVectorCertificateFieldConfig" in errorString)
+            assert_true("invalid/not integer elements" in errorString)
 
         #-------------------------------------------------------
         too_large_array_values = [[1000761, 31]] # [1000192, 1000192/8] at most
@@ -158,7 +158,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
-            assert_true("Invalid parameter, expected positive integer in the range [1,..,255]" in errorString)
+            assert_true("not in range" in errorString)
 
         #-------------------------------------------------------
         not_power_of_two_size = len(bz2.BZ2Decompressor().decompress(hex_str_to_bytes(BIT_VECTOR_BUF_NOT_POW2[2:]))) # Skip the first byte that is used internally to get the compression algorithm (BZip2).
