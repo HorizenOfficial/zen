@@ -264,6 +264,11 @@ os: linux
     cache:
       directories:
         - "$HOME/.ccache"
+        - depends/built
+        - depends/sources
+        - depends/work
+        - depends/x86_64-linux-gnu
+        - depends/x86_64-unknown-linux.gnu
     script:
       - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/build/build_${TRAVIS_CPU_ARCH}_${DOCKER_TARGET_OS}_${DOCKER_FROM}.sh"
       - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/push_archive.sh ${B2_UL_COMPRESS_FOLDER} ${B2_UL_FILENAME}"
