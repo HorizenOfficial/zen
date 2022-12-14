@@ -4,16 +4,16 @@
 #include <iostream>
 #include <string>
 
-/* ---------- CCoinsSelectionAlgorithm ---------- */
+/* ---------- CCoinsSelectionAlgorithmBase ---------- */
 
-CCoinsSelectionAlgorithm::CCoinsSelectionAlgorithm(CoinsSelectionAlgorithmType _type,
+CCoinsSelectionAlgorithmBase::CCoinsSelectionAlgorithmBase(CoinsSelectionAlgorithmType _type,
                                                    std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
                                                    CAmount _targetAmount,
                                                    CAmount _targetAmountPlusOffset,
                                                    size_t _availableTotalSize)
                                                    : type {_type},
-                                                     problemDimension{(int)_amountsAndSizes.size()},
-                                                     maxIndex{(int)_amountsAndSizes.size() - 1},
+                                                     problemDimension {(unsigned int)_amountsAndSizes.size()},
+                                                     maxIndex {(unsigned int)_amountsAndSizes.size() - 1},
                                                      amounts {PrepareAmounts(_amountsAndSizes)},
                                                      sizes {PrepareSizes(_amountsAndSizes)},
                                                      targetAmount {_targetAmount},
@@ -41,7 +41,7 @@ CCoinsSelectionAlgorithm::CCoinsSelectionAlgorithm(CoinsSelectionAlgorithmType _
     #endif
 }
 
-CCoinsSelectionAlgorithm::~CCoinsSelectionAlgorithm()
+CCoinsSelectionAlgorithmBase::~CCoinsSelectionAlgorithmBase()
 {
     // solvingThread stopping must be performed before data destruction
     StopSolving();
@@ -51,7 +51,7 @@ CCoinsSelectionAlgorithm::~CCoinsSelectionAlgorithm()
     delete[] optimalSelection;
 }
 
-CAmount* CCoinsSelectionAlgorithm::PrepareAmounts(std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes)
+CAmount* CCoinsSelectionAlgorithmBase::PrepareAmounts(std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes)
 {
     std::vector<std::pair<CAmount, size_t>> sortedAmountsAndSizes = unsortedAmountsAndSizes;
     std::sort(sortedAmountsAndSizes.begin(), sortedAmountsAndSizes.end(), [](std::pair<CAmount, size_t> left, std::pair<CAmount, size_t> right) -> bool { return ( left.first > right.first); } );
@@ -63,7 +63,7 @@ CAmount* CCoinsSelectionAlgorithm::PrepareAmounts(std::vector<std::pair<CAmount,
     return sortedAmounts;
 }
 
-size_t* CCoinsSelectionAlgorithm::PrepareSizes(std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes)
+size_t* CCoinsSelectionAlgorithmBase::PrepareSizes(std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes)
 {
     std::vector<std::pair<CAmount, size_t>> sortedAmountsAndSizes = unsortedAmountsAndSizes;
     std::sort(sortedAmountsAndSizes.begin(), sortedAmountsAndSizes.end(), [](std::pair<CAmount, size_t> left, std::pair<CAmount, size_t> right) -> bool { return ( left.first > right.first); } );
@@ -75,7 +75,7 @@ size_t* CCoinsSelectionAlgorithm::PrepareSizes(std::vector<std::pair<CAmount, si
     return sortedSizes;
 }
 
-void CCoinsSelectionAlgorithm::Reset()
+void CCoinsSelectionAlgorithmBase::Reset()
 {  
     for (int index = 0; index < problemDimension; ++index)
     {
@@ -96,7 +96,7 @@ void CCoinsSelectionAlgorithm::Reset()
     #endif
 }
 
-std::string CCoinsSelectionAlgorithm::ToString()
+std::string CCoinsSelectionAlgorithmBase::ToString()
 {
     return std::string("Input:")
                                 + "{targetAmount=" + std::to_string(targetAmount) +
@@ -108,7 +108,7 @@ std::string CCoinsSelectionAlgorithm::ToString()
                                   ",optimalTotalSelection=" + std::to_string(optimalTotalSelection) + "}\n";
 }
 
-void CCoinsSelectionAlgorithm::StartSolvingAsync()
+void CCoinsSelectionAlgorithmBase::StartSolvingAsync()
 {
     if (!isRunning)
     {
@@ -118,11 +118,11 @@ void CCoinsSelectionAlgorithm::StartSolvingAsync()
             // hence a deletion of previous pointer is performed before reallocation
             delete solvingThread;
         }
-        solvingThread = new std::thread(&CCoinsSelectionAlgorithm::Solve, this);
+        solvingThread = new std::thread(&CCoinsSelectionAlgorithmBase::Solve, this);
     }
 }
 
-void CCoinsSelectionAlgorithm::StopSolving()
+void CCoinsSelectionAlgorithmBase::StopSolving()
 {
     if (!stopRequested)
     {
@@ -136,16 +136,16 @@ void CCoinsSelectionAlgorithm::StopSolving()
     }
 }
 
-CCoinsSelectionAlgorithm& CCoinsSelectionAlgorithm::GetBestAlgorithmBySolution(CCoinsSelectionAlgorithm& left, CCoinsSelectionAlgorithm& right)
+void CCoinsSelectionAlgorithmBase::GetBestAlgorithmBySolution(std::unique_ptr<CCoinsSelectionAlgorithmBase> &left, std::unique_ptr<CCoinsSelectionAlgorithmBase> &right, std::unique_ptr<CCoinsSelectionAlgorithmBase> &best)
 {
-    if ((left.optimalTotalSelection > right.optimalTotalSelection) ||
-        (left.optimalTotalSelection == right.optimalTotalSelection && left.optimalTotalAmount <= right.optimalTotalAmount))
+    if ((left->optimalTotalSelection > right->optimalTotalSelection) ||
+        (left->optimalTotalSelection == right->optimalTotalSelection && left->optimalTotalAmount <= right->optimalTotalAmount))
     {
-        return left;
+        best.swap(left);
     }
     else
     {
-        return right;
+        best.swap(right);
     }
 }
 
@@ -157,11 +157,11 @@ CCoinsSelectionSlidingWindow::CCoinsSelectionSlidingWindow(std::vector<std::pair
                                                            CAmount _targetAmount,
                                                            CAmount _targetAmountPlusOffset,
                                                            size_t _availableTotalSize)
-                                                           : CCoinsSelectionAlgorithm(CoinsSelectionAlgorithmType::SLIDING_WINDOW,
-                                                                                      _amountsAndSizes,
-                                                                                      _targetAmount,
-                                                                                      _targetAmountPlusOffset,
-                                                                                      _availableTotalSize)
+                                                           : CCoinsSelectionAlgorithmBase(CoinsSelectionAlgorithmType::SLIDING_WINDOW,
+                                                                                          _amountsAndSizes,
+                                                                                          _targetAmount,
+                                                                                          _targetAmountPlusOffset,
+                                                                                          _availableTotalSize)
 {
     #if COINS_SELECTION_ALGORITHM_PROFILING
     iterations = 0;
@@ -173,7 +173,7 @@ CCoinsSelectionSlidingWindow::~CCoinsSelectionSlidingWindow() {
 
 void CCoinsSelectionSlidingWindow::Reset()
 {
-    CCoinsSelectionAlgorithm::Reset();
+    CCoinsSelectionAlgorithmBase::Reset();
 
     #if COINS_SELECTION_ALGORITHM_PROFILING
     iterations = 0;
@@ -242,12 +242,12 @@ CCoinsSelectionBranchAndBound::CCoinsSelectionBranchAndBound(std::vector<std::pa
                                                              CAmount _targetAmount,
                                                              CAmount _targetAmountPlusOffset,
                                                              size_t _availableTotalSize)
-                                                             : CCoinsSelectionAlgorithm(CoinsSelectionAlgorithmType::BRANCH_AND_BOUND,
-                                                                                        _amountsAndSizes,
-                                                                                        _targetAmount,
-                                                                                        _targetAmountPlusOffset,
-                                                                                        _availableTotalSize),
-                                                                                        cumulativeAmountsForward{PrepareCumulativeAmountsForward()}
+                                                             : CCoinsSelectionAlgorithmBase(CoinsSelectionAlgorithmType::BRANCH_AND_BOUND,
+                                                                                            _amountsAndSizes,
+                                                                                            _targetAmount,
+                                                                                            _targetAmountPlusOffset,
+                                                                                            _availableTotalSize),
+                                                                                            cumulativeAmountsForward {PrepareCumulativeAmountsForward()}
 {
     #if COINS_SELECTION_ALGORITHM_PROFILING
     recursions = 0;
@@ -331,7 +331,7 @@ void CCoinsSelectionBranchAndBound::SolveRecursive(int currentIndex, size_t temp
 
 void CCoinsSelectionBranchAndBound::Reset()
 {
-    CCoinsSelectionAlgorithm::Reset();
+    CCoinsSelectionAlgorithmBase::Reset();
 
     #if COINS_SELECTION_ALGORITHM_PROFILING
     recursions = 0;
@@ -359,3 +359,107 @@ void CCoinsSelectionBranchAndBound::Solve()
 }
 
 /* ---------- ---------- */
+
+/* ---------- CCoinsSelectionForNotes ---------- */
+
+CCoinsSelectionForNotes::CCoinsSelectionForNotes(std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
+                                                 CAmount _targetAmount,
+                                                 CAmount _targetAmountPlusOffset,
+                                                 size_t _availableTotalSize,
+                                                 std::vector<CAmount> _joinsplitsOutputsAmounts)
+                                                 : CCoinsSelectionAlgorithmBase(CoinsSelectionAlgorithmType::FOR_NOTES,
+                                                                                _amountsAndSizes,
+                                                                                _targetAmount,
+                                                                                _targetAmountPlusOffset,
+                                                                                _availableTotalSize),
+                                                                                numberOfJoinsplitsOutputsAmounts {_joinsplitsOutputsAmounts.size()},
+                                                                                joinsplitsOutputsAmounts {PrepareJoinsplitsOutputsAmounts(_joinsplitsOutputsAmounts)}
+{
+    #if COINS_SELECTION_ALGORITHM_PROFILING
+    iterations = 0;
+    #endif
+}
+
+CCoinsSelectionForNotes::~CCoinsSelectionForNotes() {
+    delete [] joinsplitsOutputsAmounts;
+}
+
+CAmount* CCoinsSelectionForNotes::PrepareJoinsplitsOutputsAmounts(std::vector<CAmount> joinsplitsOutputsAmounts)
+{
+    CAmount* joinsplitsOutputsAmountsTemp = new CAmount[numberOfJoinsplitsOutputsAmounts];
+    for (int index = 0; index < numberOfJoinsplitsOutputsAmounts; ++index)
+    {
+        joinsplitsOutputsAmountsTemp[index] = joinsplitsOutputsAmounts[index];
+    }
+    return joinsplitsOutputsAmountsTemp;
+}
+
+void CCoinsSelectionForNotes::Reset()
+{
+    CCoinsSelectionAlgorithmBase::Reset();
+
+    #if COINS_SELECTION_ALGORITHM_PROFILING
+    iterations = 0;
+    #endif
+}
+
+void CCoinsSelectionForNotes::Solve()
+{
+    if (!isRunning)
+    {
+        isRunning = true;
+        #if COINS_SELECTION_ALGORITHM_PROFILING
+        uint64_t microsecondsBefore = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+        #endif
+        size_t tempTotalSize = 0;
+        CAmount tempTotalAmount = 0;
+        unsigned int tempTotalSelection = 0;
+        int exclusionIndex = maxIndex;
+        int inclusionIndex = maxIndex;
+        for (; inclusionIndex >= 0; --inclusionIndex)   
+        {
+            if (stopRequested)
+            {
+                break;
+            }
+            tempSelection[inclusionIndex] = true;
+            //if (tempTotalSelection >= joinSplitsAlreadyIncluded)
+            QUI C'E' DA FINIRE (CAPIRE SE E' MEGLIO TOGLIERE COMUNQUE DA AVAILABLE BYTES OPPURE GESTIRE LA SIZE DIRETTAMENTE QUA)
+            {
+                tempTotalSize += sizes[inclusionIndex];
+            }
+            tempTotalAmount += amounts[inclusionIndex];
+            tempTotalSelection += 1;
+            while (tempTotalSize > availableTotalSize ||
+                   tempTotalAmount > targetAmountPlusOffset)
+            {
+                tempSelection[exclusionIndex] = false;
+                //if (tempTotalSelection > joinSplitsAlreadyIncluded)
+                {
+                    tempTotalSize -= sizes[exclusionIndex];
+                }
+                tempTotalAmount -= amounts[exclusionIndex];
+                tempTotalSelection -= 1;
+                --exclusionIndex;
+            }
+            if (tempTotalAmount >= targetAmount)
+            {
+                optimalTotalSize = tempTotalSize;
+                optimalTotalAmount = tempTotalAmount;
+                optimalTotalSelection = tempTotalSelection;
+                for (int index = 0; index < problemDimension; ++index)
+                {
+                    optimalSelection[index] = tempSelection[index];
+                }
+                break;
+            }
+        }
+        #if COINS_SELECTION_ALGORITHM_PROFILING
+        iterations = (maxIndex + 1 - inclusionIndex) + (maxIndex - exclusionIndex);
+        executionMicroseconds = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - microsecondsBefore;
+        #endif
+        if (stopRequested == false)
+            hasCompleted = true;
+        isRunning = false;
+    }
+}

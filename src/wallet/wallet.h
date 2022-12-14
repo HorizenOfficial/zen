@@ -748,7 +748,7 @@ private:
                                 of gross value; if true nTargetValue inValueRet will represent a sum of gross values, if false nValueRet will represent a sum of net values
       \return a flag representing wether the selection actually found (true) an admissible set of coins or not (false)
     */
-    bool SelectCoins(const CAmount& nTargetValue, std::set<std::pair<const CWalletTransactionBase*,unsigned int>>& setCoinsRet, CAmount& nValueRet, size_t& totalInputsBytes,
+    bool SelectCoins(const CAmount& nTargetValue, std::vector<COutput>& vCoinsRet, CAmount& nValueRet, size_t& totalInputsBytes,
                      bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet,
                      const CCoinControl *coinControl = NULL, size_t availableBytes = MAX_TX_SIZE, bool useInputsNetValues = true) const;
 
@@ -1009,7 +1009,7 @@ public:
       \return a flag representing wether the selection actually found (true) an admissible set of coins or not (false)
     */
     bool SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins,
-                            std::set<std::pair<const CWalletTransactionBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet, size_t& totalInputsBytes,
+                            std::vector<COutput>& vCoinsRet, CAmount& nValueRet, size_t& totalInputsBytes,
                             size_t availableBytes = MAX_TX_SIZE, bool useInputsNetValues = true) const;
 
     //! Method for estimating input size based on dummy signature
@@ -1279,6 +1279,10 @@ public:
                           int minDepth=1,
                           bool ignoreSpent=true,
                           bool ignoreUnspendable=true);
+
+    bool SelectNotes(const CAmount& nTargetValue, std::vector<CNotePlaintextEntry> vNotes,
+                     std::vector<CNotePlaintextEntry>& vNotesRet, CAmount& nValueRet, size_t &totalInputsBytes,
+                     size_t availableBytes = MAX_TX_SIZE, bool useInputsNetValues = true, const std::vector<CAmount>& joinsplitsOutputsAmounts = std::vector<CAmount>()) const;
     
     /* Find unspent notes filtered by payment address, min depth and max depth */
     void GetUnspentFilteredNotes(std::vector<CUnspentNotePlaintextEntry>& outEntries,

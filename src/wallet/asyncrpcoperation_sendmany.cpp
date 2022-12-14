@@ -206,38 +206,33 @@ bool AsyncRPCOperation_sendmany::main_impl() {
     bool isPureTaddrOnlyTx = (isfromtaddr_ && z_outputs_.size() == 0);
     CAmount minersFee = fee_;
 
-    // When spending coinbase utxos, you can only specify a single zaddr as the change must go somewhere
-    // and if there are multiple zaddrs, we don't know where to send it.
-    if (isfromtaddr_) {
-        if (isSingleZaddrOutput) {
-            bool b = find_utxos(true);
-            if (!b) {
-                throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds, no UTXOs found for taddr from address.");
-            }
-        } else {
-            bool b = find_utxos(false);
-            if (!b) {
-                if (isMultipleZaddrOutput) {
-                    throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Could not find any non-coinbase UTXOs to spend. Coinbase UTXOs can only be sent to a single zaddr recipient.");
-                } else {
-                    throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Could not find any non-coinbase UTXOs to spend.");
+    bool useNewSelectionAlgo = true;
+
+    if (!useNewSelectionAlgo)
+    {
+        // When spending coinbase utxos, you can only specify a single zaddr as the change must go somewhere
+        // and if there are multiple zaddrs, we don't know where to send it.
+        if (isfromtaddr_) {
+            if (isSingleZaddrOutput) {
+                bool b = find_utxos(true);
+                if (!b) {
+                    throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds, no UTXOs found for taddr from address.");
+                }
+            } else {
+                bool b = find_utxos(false);
+                if (!b) {
+                    if (isMultipleZaddrOutput) {
+                        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Could not find any non-coinbase UTXOs to spend. Coinbase UTXOs can only be sent to a single zaddr recipient.");
+                    } else {
+                        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Could not find any non-coinbase UTXOs to spend.");
+                    }
                 }
             }
         }
-    }
 
-    if (isfromzaddr_ && !find_unspent_notes()) {
-        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds, no unspent notes found for zaddr from address.");
-    }
-
-    CAmount t_inputs_total = 0;
-    for (SendManyInputUTXO & t : t_inputs_) {
-        t_inputs_total += std::get<2>(t);
-    }
-
-    CAmount z_inputs_total = 0;
-    for (SendManyInputJSOP & t : z_inputs_) {
-        z_inputs_total += std::get<2>(t);
+        if (isfromzaddr_ && !find_unspent_notes()) {
+            throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds, no unspent notes found for zaddr from address.");
+        }
     }
 
     CAmount t_outputs_total = 0;
@@ -252,6 +247,91 @@ bool AsyncRPCOperation_sendmany::main_impl() {
 
     CAmount sendAmount = z_outputs_total + t_outputs_total;
     CAmount targetAmount = sendAmount + minersFee;
+
+    if (useNewSelectionAlgo)
+    {
+        CTransactionSizeInfo transactionSize;
+
+        // compute overhead size
+        transactionSize.overheadSize = tx_.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+
+        // TODO: check and clean code redundancy/duplication
+        if (isfromtaddr_)
+        {
+            // compute size of dummy change output (when estimating transaction size, change output is always included)
+            transactionSize.baseOutputChangeOnlySize = add_taddr_change_output_to_tx(std::numeric_limits<CAmount>::max(), sendChangeToSource_, true);
+
+            transactionSize.baseOutputsNoChangeSize = add_taddr_outputs_to_tx(true);
+
+            transactionSize.joinsplitsSize = 0;
+            const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(chainActive.Height() + 1);
+            transactionSize.joinsplitsSize = (z_outputs_.size() / 2 + z_outputs_.size() % 2) * JSDescription::getNewInstance(shieldedTxVersion == GROTH_TX_VERSION).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION, shieldedTxVersion);
+
+            bool fAcceptCoinbase = false;
+            if (isSingleZaddrOutput)
+            {
+                fAcceptCoinbase = true;
+            }
+            std::vector<COutput> vecOutputs;
+            LOCK2(cs_main, pwalletMain->cs_wallet);
+            pwalletMain->AvailableCoins(vecOutputs, false, NULL, true, fAcceptCoinbase, fAcceptCoinbase);
+            std::vector<COutput> vCoinsRet;
+            CAmount nValueRet = 0;
+            size_t totalInputBytes = 0;
+            pwalletMain->SelectCoinsMinConf(targetAmount, mindepth_, mindepth_, vecOutputs, vCoinsRet, nValueRet, totalInputBytes,
+                                            MAX_TX_SIZE - (transactionSize.overheadSize + transactionSize.baseOutputsNoChangeSize + transactionSize.baseOutputChangeOnlySize + transactionSize.joinsplitsSize),
+                                            false); // because fee is manually set
+            for (auto& pcoin : vCoinsRet)
+            {
+                CAmount nValue = pcoin.tx->getTxBase()->GetVout()[pcoin.pos].nValue;
+                SendManyInputUTXO utxo(pcoin.tx->getTxBase()->GetHash(), pcoin.pos, nValue, pcoin.tx->getTxBase()->IsCoinBase());
+                t_inputs_.push_back(utxo);
+            }
+        }
+        else
+        {
+            // compute size of dummy change output (when estimating transaction size, change output is always included)
+            transactionSize.baseOutputChangeOnlySize = add_taddr_change_output_to_tx(std::numeric_limits<CAmount>::max(), sendChangeToSource_, true);
+
+            transactionSize.baseOutputsNoChangeSize = add_taddr_outputs_to_tx(true);
+
+            transactionSize.joinsplitsSize = 0;
+            const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(chainActive.Height() + 1);
+            transactionSize.joinsplitsSize = (z_outputs_.size()) * JSDescription::getNewInstance(shieldedTxVersion == GROTH_TX_VERSION).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION, shieldedTxVersion);
+
+            std::vector<CNotePlaintextEntry> vecEntries;
+            LOCK2(cs_main, pwalletMain->cs_wallet);
+            pwalletMain->GetFilteredNotes(vecEntries, fromaddress_, mindepth_);
+            std::vector<CNotePlaintextEntry> vNotesRet;
+            CAmount nValueRet = 0;
+            size_t totalInputBytes = 0;
+            std::vector<CAmount> joinsplitsOutputsAmounts(z_outputs_.size(), 0);
+            for (int i = 0; i < z_outputs_.size(); i++)
+            {
+                joinsplitsOutputsAmounts[i] = std::get<1>(z_outputs_[i]);
+            }
+            pwalletMain->SelectNotes(targetAmount, vecEntries, vNotesRet, nValueRet, totalInputBytes,
+                                     MAX_TX_SIZE - (transactionSize.overheadSize + transactionSize.baseOutputsNoChangeSize + transactionSize.baseOutputChangeOnlySize + transactionSize.joinsplitsSize),
+                                     false, // because fee is manually set
+                                     joinsplitsOutputsAmounts);
+            for (auto& note : vNotesRet)
+            {
+                z_inputs_.push_back(SendManyInputJSOP(note.jsop,
+                                                      note.plaintext.note(boost::get<libzcash::PaymentAddress>(frompaymentaddress_)),
+                                                      CAmount(note.plaintext.value())));
+            }
+        }
+    }
+
+    CAmount t_inputs_total = 0;
+    for (SendManyInputUTXO & t : t_inputs_) {
+        t_inputs_total += std::get<2>(t);
+    }
+
+    CAmount z_inputs_total = 0;
+    for (SendManyInputJSOP & t : z_inputs_) {
+        z_inputs_total += std::get<2>(t);
+    }
 
     assert(!isfromtaddr_ || z_inputs_total == 0);
     assert(!isfromzaddr_ || t_inputs_total == 0);
@@ -698,7 +778,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
             if (jsInputValue > outAmount) {
                 jsChange = jsInputValue - outAmount;
             } else if (outAmount > jsInputValue) {
-                // Any amount due is owed to the recipient.  Let the miners fee get paid first.
+                // Any amount due is owed to the recipient. Let the miners fee get paid first.
                 CAmount due = outAmount - jsInputValue;
                 SendManyRecipient r = SendManyRecipient(address, due, hexMemo);
                 zOutputsDeque.push_front(r);
@@ -1086,7 +1166,9 @@ UniValue AsyncRPCOperation_sendmany::perform_joinsplit(
     return obj;
 }
 
-void AsyncRPCOperation_sendmany::add_taddr_outputs_to_tx() {
+size_t AsyncRPCOperation_sendmany::add_taddr_outputs_to_tx(bool onlyComputeOutputsSizes) // TODO: onlyComputeOutputsSizes SHOULD BE REMOVED!
+{
+    size_t baseOutputsNoChangeSize = 0;
 
     CMutableTransaction rawTx(tx_);
 
@@ -1100,13 +1182,26 @@ void AsyncRPCOperation_sendmany::add_taddr_outputs_to_tx() {
         }
 
         CScript scriptPubKey = GetScriptForDestination(address.Get());
-        rawTx.addOut(CTxOut(nAmount, scriptPubKey));
+        CTxOut txout(nAmount, scriptPubKey);
+        rawTx.addOut(txout);
+        baseOutputsNoChangeSize += txout.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
     }
 
-    tx_ = CTransaction(rawTx);
+    if (!onlyComputeOutputsSizes)
+    {
+        tx_ = CTransaction(rawTx);
+    }
+
+    return baseOutputsNoChangeSize;
 }
 
-void AsyncRPCOperation_sendmany::add_taddr_change_output_to_tx(CAmount amount, bool sendChangeToSource) {
+size_t AsyncRPCOperation_sendmany::add_taddr_change_output_to_tx(CAmount amount, bool sendChangeToSource, bool onlyComputeDummyChangeSize)
+{
+    size_t baseOutputChangeOnlySize = 0;
+    if (onlyComputeDummyChangeSize)
+    {
+        amount = std::numeric_limits<CAmount>::max(); //in this way the change output size is voluntarily slightly overestimated
+    }
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -1115,6 +1210,7 @@ void AsyncRPCOperation_sendmany::add_taddr_change_output_to_tx(CAmount amount, b
     if (sendChangeToSource) {
         CScript scriptPubKey = GetScriptForDestination(fromtaddr_.Get());
         out = CTxOut(amount, scriptPubKey);
+        baseOutputChangeOnlySize = out.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
     }
     else {
         CReserveKey keyChange(pwalletMain);
@@ -1124,12 +1220,18 @@ void AsyncRPCOperation_sendmany::add_taddr_change_output_to_tx(CAmount amount, b
             throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Could not generate a taddr to use as a change address"); // should never fail, as we just unlocked
         }
         CScript scriptPubKey = GetScriptForDestination(vchPubKey.GetID());
-        out =  CTxOut(amount, scriptPubKey);
+        out = CTxOut(amount, scriptPubKey);
+        baseOutputChangeOnlySize = out.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
     }
 
-    CMutableTransaction rawTx(tx_);
-    rawTx.addOut(out);
-    tx_ = CTransaction(rawTx);
+    if (!onlyComputeDummyChangeSize)
+    {
+        CMutableTransaction rawTx(tx_);
+        rawTx.addOut(out);
+        tx_ = CTransaction(rawTx);
+    }
+
+    return baseOutputChangeOnlySize;
 }
 
 std::array<unsigned char, ZC_MEMO_SIZE> AsyncRPCOperation_sendmany::get_memo_from_hex_string(const std::string& s) {

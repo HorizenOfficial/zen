@@ -17,27 +17,28 @@
 #define COINS_SELECTION_INTERMEDIATE_CHANGE_LEVELS 9
 
 
-//! Types of CCoinsSelectionAlgorithm
+//! Types of coins selection algorithm
 enum class CoinsSelectionAlgorithmType {
     UNDEFINED = 0,
     SLIDING_WINDOW = 1,
-    BRANCH_AND_BOUND = 2
+    BRANCH_AND_BOUND = 2,
+    FOR_NOTES = 3
 };
 
-/* ---------- CCoinsSelectionAlgorithm ---------- */
+/* ---------- CCoinsSelectionAlgorithmBase ---------- */
 
 //! Abstract class for algorithm of coins selection
 /*!
   This class provides common fields required by each implementation and utility methods
 */
-class CCoinsSelectionAlgorithm
+class CCoinsSelectionAlgorithmBase
 {    
 protected:
     // auxiliary
     //! The temporary set of selected elements (true->selected, false->unselected)
     bool* tempSelection;
     //! Max index of elements (equal to "problemDimension - 1")
-    const int maxIndex;
+    const unsigned int maxIndex;
     // auxiliary
 
     // profiling and control
@@ -55,7 +56,7 @@ public:
 
     // input variables
     //! Number of elements
-    const int problemDimension;
+    const unsigned int problemDimension;
     //! The array of amounts
     const CAmount* amounts;
     //! The array of sizes (in terms of bytes of the associated input)
@@ -115,13 +116,13 @@ public:
       \param _targetAmountPlusOffset target amount plus a positive offset (it is an upper-limit constraint)
       \param _availableTotalSize available total size (in terms of bytes, it is an upper-limit constraint)
     */
-    CCoinsSelectionAlgorithm(CoinsSelectionAlgorithmType _type,
+    CCoinsSelectionAlgorithmBase(CoinsSelectionAlgorithmType _type,
                              std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
                              CAmount _targetAmount,
                              CAmount _targetAmountPlusOffset,
                              size_t _availableTotalSize);
     //! Destructor
-    ~CCoinsSelectionAlgorithm();
+    ~CCoinsSelectionAlgorithmBase();
     //! Method for asynchronously starting the solving routine
     void StartSolvingAsync();
     //! Abstract method for synchronously running the solving routine
@@ -139,7 +140,7 @@ public:
       \param right the other algorithm for comparison (position does not matter)
       \return the best algorithm
     */
-    static CCoinsSelectionAlgorithm& GetBestAlgorithmBySolution(CCoinsSelectionAlgorithm& left, CCoinsSelectionAlgorithm& right);
+    static void GetBestAlgorithmBySolution(std::unique_ptr<CCoinsSelectionAlgorithmBase> &left, std::unique_ptr<CCoinsSelectionAlgorithmBase> &right, std::unique_ptr<CCoinsSelectionAlgorithmBase> &best);
 };
 
 /* ---------- ---------- */
@@ -156,7 +157,7 @@ public:
   above are met; then the algorithm checks if the target amount constraint (lower-limit) is met, if so it returns the
   current selection set without further optimization, otherwise it continues
 */
-class CCoinsSelectionSlidingWindow : public CCoinsSelectionAlgorithm
+class CCoinsSelectionSlidingWindow : public CCoinsSelectionAlgorithmBase
 {
 protected:
     // profiling
@@ -219,7 +220,7 @@ public:
      recursion on are cut; this is done in order to avoid reaching leaves that would certainly not improve the temporary optimal
      solution.
 */
-class CCoinsSelectionBranchAndBound : public CCoinsSelectionAlgorithm
+class CCoinsSelectionBranchAndBound : public CCoinsSelectionAlgorithmBase
 {
 protected:
     // auxiliary
@@ -272,6 +273,63 @@ public:
     //! Destructor
     ~CCoinsSelectionBranchAndBound();
     //! Method for synchronously running the solving routine with "Branch & Bound" strategy
+    void Solve() override;
+};
+
+/* ---------- ---------- */
+
+/* ---------- CCoinsSelectionForNotes ---------- */
+
+//! "For Notes" implementation of algorithm of coins selection
+/*!
+  This class provides a specific implementation of the solving routine.
+*/
+class CCoinsSelectionForNotes : public CCoinsSelectionAlgorithmBase
+{
+protected:
+    // profiling
+    #if COINS_SELECTION_ALGORITHM_PROFILING
+    //! Counter for keeping track of the number of iterations the solving routine has performed
+    uint64_t iterations;
+    #endif
+    // profiling
+
+public:
+    // input variables
+    //! Number of joinsplits outputs amounts
+    const unsigned int numberOfJoinsplitsOutputsAmounts;
+    //! Joinsplits outputs amounts
+    const CAmount* joinsplitsOutputsAmounts;
+    // input variables
+
+private:
+    //! Method for preparing array of joinsplits outputs amounts
+    /*!
+      \return the array of cumulative amounts
+    */
+    CAmount* PrepareJoinsplitsOutputsAmounts(std::vector<CAmount> joinsplitsOutputsAmounts);
+
+protected:
+    //! Method for resetting internal variables (must be called before restarting the algorithm)
+    void Reset() override;
+
+public:
+    //! Constructor
+    /*!
+      \param _amountsAndSizes vector of pairs of amounts and sizes of the elements
+      \param _targetAmount target amount to satisfy (it is a lower-limit constraint)
+      \param _targetAmountPlusOffset target amount plus a positive offset (it is an upper-limit constraint)
+      \param _availableTotalSize available total size (in terms of bytes, it is an upper-limit constraint)
+      \param _joinsplitsOutputsAmount amounts of joinsplits outputs (order matters)
+    */
+    CCoinsSelectionForNotes(std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
+                            CAmount _targetAmount,
+                            CAmount _targetAmountPlusOffset,
+                            size_t _availableTotalSize,
+                            std::vector<CAmount> _joinsplitsOutputsAmounts);
+    //! Destructor
+    ~CCoinsSelectionForNotes();
+    //! Method for synchronously running the solving routine with "Sliding Window" strategy
     void Solve() override;
 };
 

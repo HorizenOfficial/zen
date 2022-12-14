@@ -895,8 +895,8 @@ size_t ScRpcCmd::addInputs(size_t availableBytes)
     CAmount targetAmount = _totalOutputAmount + _fee;
     CAmount nValueRet = 0;
     size_t baseInputsSize = 0;
-    std::set<std::pair<const CWalletTransactionBase*,unsigned int>> setCoinsRet;
-    std::pair<const CWalletTransactionBase*,unsigned int> smallestCoin;
+    std::vector<COutput> vCoinsRet;
+    COutput smallestCoin(NULL, 0, 0, false);
     CAmount smallestValue = std::numeric_limits<CAmount>::max();
     CAmount totalValue = 0;
 
@@ -931,7 +931,7 @@ size_t ScRpcCmd::addInputs(size_t availableBytes)
             CAmount value = out.tx->getTxBase()->GetVout()[out.pos].nValue;
             if (value < smallestValue && value >= _dustThreshold)
             {
-                smallestCoin = std::make_pair(out.tx, out.pos);
+                smallestCoin = out;
                 smallestValue = value;
             }
         }
@@ -942,7 +942,7 @@ size_t ScRpcCmd::addInputs(size_t availableBytes)
         for (int loop = 0; loop < MAX_LOOP; ++loop) // loop provided for handling possible dust threshold
         {
             int conf = 0; // already filtered above
-            bool res = pwalletMain->SelectCoinsMinConf(targetAmount, conf, conf, vAvailableCoinsFiltered, setCoinsRet, nValueRet, baseInputsSize,
+            bool res = pwalletMain->SelectCoinsMinConf(targetAmount, conf, conf, vAvailableCoinsFiltered, vCoinsRet, nValueRet, baseInputsSize,
                                                        availableBytes, _automaticFee); // auto fee -> use input net values, manual fee -> fee already explicitly included in target amount
 
             if (!res)
@@ -991,7 +991,7 @@ size_t ScRpcCmd::addInputs(size_t availableBytes)
     {
         // this case allows to handle situation where no coins would be selected
         // at least one input must be included (resulting in full change output) to avoid tx/cert rejection
-        setCoinsRet.insert(smallestCoin);
+        vCoinsRet.push_back(smallestCoin);
         _totalInputAmount = smallestValue;
     }
 
@@ -999,16 +999,16 @@ size_t ScRpcCmd::addInputs(size_t availableBytes)
     size_t limit = (size_t)GetArg("-mempooltxinputlimit", 0);
     if (limit > 0)
     {
-        size_t n = setCoinsRet.size();
+        size_t n = vCoinsRet.size();
         if (n > limit) {
             throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Too many transparent inputs %zu > limit %zu", n, limit));
         }
     }
 
     // update the transaction with these inputs
-    for (const auto& coin : setCoinsRet)
+    for (const auto& coin : vCoinsRet)
     {
-        CTxIn in(coin.first->getTxBase()->GetHash(),coin.second);
+        CTxIn in(coin.tx->getTxBase()->GetHash(),coin.pos);
         addInput(in);
     }
 

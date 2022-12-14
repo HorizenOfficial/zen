@@ -96,8 +96,8 @@ private:
     
     CTransaction tx_;
    
-    void add_taddr_change_output_to_tx(CAmount amount, bool sendChangeToSource = false);
-    void add_taddr_outputs_to_tx();
+    size_t add_taddr_change_output_to_tx(CAmount amount, bool sendChangeToSource = false, bool onlyComputeDummyChangeSize = false);
+    size_t add_taddr_outputs_to_tx(bool onlyComputeOutputsSizes = false); // TODO: onlyComputeOutputsSizes SHOULD BE REMOVED!
     bool find_unspent_notes();
     bool find_utxos(bool fAcceptCoinbase);
     std::array<unsigned char, ZC_MEMO_SIZE> get_memo_from_hex_string(const std::string& s);
@@ -139,12 +139,12 @@ public:
     
     // Delegated methods
     
-    void add_taddr_change_output_to_tx(CAmount amount, bool sendCangeToSource = false) {
-        delegate->add_taddr_change_output_to_tx(amount, sendCangeToSource);
+    size_t add_taddr_change_output_to_tx(CAmount amount, bool sendChangeToSource = false, bool onlyComputeDummyChangeSize = false) {
+        return delegate->add_taddr_change_output_to_tx(amount, sendChangeToSource, onlyComputeDummyChangeSize);
     }
     
-    void add_taddr_outputs_to_tx() {
-        delegate->add_taddr_outputs_to_tx();
+    size_t add_taddr_outputs_to_tx(bool onlyComputeOutputsSizes = false) {
+        return delegate->add_taddr_outputs_to_tx(onlyComputeOutputsSizes);
     }
     
     bool find_unspent_notes() {

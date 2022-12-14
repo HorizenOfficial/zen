@@ -2910,25 +2910,25 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
 }
 
 bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int nConfTheirs, vector<COutput> vCoins,
-                                 set<pair<const CWalletTransactionBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet, size_t &totalInputsBytes,
+                                 vector<COutput>& vCoinsRet, CAmount& nValueRet, size_t &totalInputsBytes,
                                  size_t availableBytes, bool useInputsNetValues) const
 {
-    setCoinsRet.clear();
+    vCoinsRet.clear();
     nValueRet = 0;
     totalInputsBytes = 0;
 
     // List of values less than target
-    // <gross value, value, <transaction, position>, size>
-    vector<tuple<CAmount, CAmount, pair<const CWalletTransactionBase*,unsigned int>, size_t>> vValue;
+    // <gross value, value, output, size>
+    vector<tuple<CAmount, CAmount, COutput, size_t>> vValue;
     CAmount nTotalLower = 0;
     size_t totalInputsBytesLower = 0;
 
     // Lowest larger (than target value) coin
-    // <gross value, value, <transaction, position>, size>
-    tuple<CAmount, CAmount, pair<const CWalletTransactionBase*,unsigned int>, size_t> coinLowestLarger;
-    std::get<0>(coinLowestLarger) = std::numeric_limits<CAmount>::max();
-    std::get<1>(coinLowestLarger) = std::numeric_limits<CAmount>::max();
-    std::get<2>(coinLowestLarger).first = NULL;
+    // <gross value, value, output, size>
+    tuple<CAmount, CAmount, COutput, size_t> coinLowestLarger(std::numeric_limits<CAmount>::max(),
+                                                              std::numeric_limits<CAmount>::max(),
+                                                              COutput(NULL, 0, 0 , false),
+                                                              0);
 
     BOOST_FOREACH(const COutput &output, vCoins)
     {
@@ -2946,13 +2946,13 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
         CAmount netValue = grossValue - minimumFeePerInput;
         CAmount value = useInputsNetValues ? netValue : grossValue;
 
-        // <gross value, value, <transaction, position>, size>
-        tuple<CAmount, CAmount, pair<const CWalletTransactionBase*,unsigned int>, size_t> coin = make_tuple(grossValue, value, make_pair(pcoin, output.pos), estimatedInputSize);
+        // <gross value, value, output, size>
+        tuple<CAmount, CAmount, COutput, size_t> coin = make_tuple(grossValue, value, output, estimatedInputSize);
 
         if (value == nTargetValue &&
             estimatedInputSize <= availableBytes) // if a single coin with exact match (and the single size is admissible) is found then return
         {
-            setCoinsRet.insert(std::get<2>(coin));
+            vCoinsRet.push_back(std::get<2>(coin));
             nValueRet = grossValue;
             totalInputsBytes = estimatedInputSize;
             return true;
@@ -2974,7 +2974,7 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
     {
         for (unsigned int i = 0; i < vValue.size(); ++i)
         {
-            setCoinsRet.insert(std::get<2>(vValue[i]));
+            vCoinsRet.push_back(std::get<2>(vValue[i]));
             nValueRet += std::get<0>(vValue[i]);
         }
         totalInputsBytes = totalInputsBytesLower;
@@ -2984,17 +2984,17 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
     if ((nTotalLower < nTargetValue) ||
         (nTotalLower == nTargetValue && totalInputsBytesLower > availableBytes)) // if the sum of lower coins is lower than target (or equal but with not admissible size)...
     {
-        if (std::get<2>(coinLowestLarger).first == NULL ||
+        if (std::get<3>(coinLowestLarger) == 0 ||
             std::get<3>(coinLowestLarger) > availableBytes) // ...and there is no larger coin (or its single size is not admissible) then the problem is unsolvable
             return false;
-        setCoinsRet.insert(std::get<2>(coinLowestLarger)); // ...otherwise return the larger coin
+        vCoinsRet.push_back(std::get<2>(coinLowestLarger)); // ...otherwise return the larger coin
         nValueRet = std::get<0>(coinLowestLarger);
         totalInputsBytes = std::get<3>(coinLowestLarger);
         return true;
     }
 
-    std::sort(vValue.begin(), vValue.end(), [](tuple<CAmount, CAmount, pair<const CWalletTransactionBase*,unsigned int>, size_t> left,
-                                               tuple<CAmount, CAmount, pair<const CWalletTransactionBase*,unsigned int>, size_t> right)
+    std::sort(vValue.begin(), vValue.end(), [](tuple<CAmount, CAmount, COutput, size_t> left,
+                                               tuple<CAmount, CAmount, COutput, size_t> right)
                                                -> bool { return ( std::get<1>(left) > std::get<1>(right)); } );
 
     std::vector<std::pair<CAmount, size_t>> amountsAndSizes = std::vector<std::pair<CAmount, size_t>>(vValue.size(), std::make_pair(0, 0));
@@ -3004,17 +3004,17 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
     
     const CAmount targetAmount = nTargetValue;
     const CAmount targetAmountPlusOffsetNoChange = nTargetValue; //no change
-    const CAmount targetAmountPlusOffsetMaxChange = std::get<2>(coinLowestLarger).first != NULL ?
+    const CAmount targetAmountPlusOffsetMaxChange = std::get<2>(coinLowestLarger).tx != NULL ?
                                                     std::min(std::get<1>(coinLowestLarger), nTotalLower) : nTotalLower; //max change
     const size_t availableTotalSize = availableBytes;
-    CCoinsSelectionAlgorithm* bestAlgorithm = nullptr;
+    std::unique_ptr<CCoinsSelectionAlgorithmBase> bestAlgorithm = nullptr;
 
-    std::unique_ptr<CCoinsSelectionAlgorithm> fastNotOptimalAlgorithm;
+    std::unique_ptr<CCoinsSelectionAlgorithmBase> fastNotOptimalAlgorithm;
     for (int i = 0; i < COINS_SELECTION_INTERMEDIATE_CHANGE_LEVELS + 2; ++i)
     {
         const CAmount targetAmountPlusOffset = targetAmountPlusOffsetNoChange +
                                                (double)(i) / (COINS_SELECTION_INTERMEDIATE_CHANGE_LEVELS + 1) * (targetAmountPlusOffsetMaxChange - targetAmountPlusOffsetNoChange);
-        fastNotOptimalAlgorithm = std::unique_ptr<CCoinsSelectionAlgorithm>(new CCoinsSelectionSlidingWindow(amountsAndSizes, targetAmount, targetAmountPlusOffset, availableTotalSize));
+        fastNotOptimalAlgorithm = std::unique_ptr<CCoinsSelectionAlgorithmBase>(new CCoinsSelectionSlidingWindow(amountsAndSizes, targetAmount, targetAmountPlusOffset, availableTotalSize));
         // no async solving is required for these algorithms
         fastNotOptimalAlgorithm->Solve();
         if (fastNotOptimalAlgorithm->optimalTotalSelection > 0)
@@ -3023,11 +3023,11 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
         }
     }
 
-    std::unique_ptr<CCoinsSelectionAlgorithm> slowOptimalAlgorithm = nullptr;
+    std::unique_ptr<CCoinsSelectionAlgorithmBase> slowOptimalAlgorithm = nullptr;
     if (fastNotOptimalAlgorithm->optimalTotalSelection > 0)
     {
-        slowOptimalAlgorithm = std::unique_ptr<CCoinsSelectionAlgorithm>(new CCoinsSelectionBranchAndBound(amountsAndSizes, targetAmount, fastNotOptimalAlgorithm->targetAmountPlusOffset, availableTotalSize));
-        // async solving is required for this algorithms
+        slowOptimalAlgorithm = std::unique_ptr<CCoinsSelectionAlgorithmBase>(new CCoinsSelectionBranchAndBound(amountsAndSizes, targetAmount, fastNotOptimalAlgorithm->targetAmountPlusOffset, availableTotalSize));
+        // async solving is required for this algorithm
         slowOptimalAlgorithm->StartSolvingAsync();
         for (int wait = 0; wait < GetArg("-coinsselectiontimeout", 4) * 10; ++wait)
         {
@@ -3041,7 +3041,7 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
         {
             slowOptimalAlgorithm->StopSolving();
         }
-        bestAlgorithm = &CCoinsSelectionAlgorithm::GetBestAlgorithmBySolution(*slowOptimalAlgorithm, *fastNotOptimalAlgorithm);
+        CCoinsSelectionAlgorithmBase::GetBestAlgorithmBySolution(slowOptimalAlgorithm, fastNotOptimalAlgorithm, bestAlgorithm);
         LogPrint("selectcoins", "Best algorithm: %s - %s", std::to_string((int)bestAlgorithm->type).c_str(), bestAlgorithm->ToString().c_str());
 
         // std::cout << std::to_string((int)bestAlgorithm->type) + " - " + bestAlgorithm->ToString() + "\n" << std::flush;
@@ -3056,17 +3056,18 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
         {
             vfBest[i] = bestAlgorithm->optimalSelection[i];
         }
-        // note optimalTotalAmount would differ from nValueRet (total gross amount) except when useInputsNetValues is set to false
+        // consider optimalTotalAmount would differ from nValueRet (total gross amount) except when useInputsNetValues is set to false
         nBestAmount = bestAlgorithm->optimalTotalAmount;
     }
 
     // If a solution (using smaller coins) has not been found...
     if (nBestAmount < nTargetValue)
     {
-        //...but there is a bigger coin, then use it
-        if (std::get<2>(coinLowestLarger).first)
+        //...but there is a bigger coin (with admissible size), then use it
+        if (std::get<3>(coinLowestLarger) != 0 &&
+            std::get<3>(coinLowestLarger) <= availableBytes)
         {
-            setCoinsRet.insert(std::get<2>(coinLowestLarger));
+            vCoinsRet.push_back(std::get<2>(coinLowestLarger));
             nValueRet = std::get<0>(coinLowestLarger);
             totalInputsBytes = std::get<3>(coinLowestLarger);
         }
@@ -3081,7 +3082,7 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
         for (unsigned int i = 0; i < vValue.size(); i++)
             if (vfBest[i])
             {
-                setCoinsRet.insert(std::get<2>(vValue[i]));
+                vCoinsRet.push_back(std::get<2>(vValue[i]));
                 nValueRet += std::get<0>(vValue[i]);
                 totalInputsBytes += std::get<3>(vValue[i]);
             }
@@ -3106,7 +3107,7 @@ size_t CWallet::EstimateInputSize(const CWalletTransactionBase* transaction, uns
     return inSize;
 }
 
-bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletTransactionBase*,unsigned int>>& setCoinsRet, CAmount& nValueRet, size_t& totalInputsBytes,
+bool CWallet::SelectCoins(const CAmount& nTargetValue, vector<COutput>& vCoinsRet, CAmount& nValueRet, size_t& totalInputsBytes,
                           bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet,
                           const CCoinControl* coinControl, size_t availableBytes, bool useInputsNetValues) const
 {
@@ -3151,13 +3152,13 @@ bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletTra
             if (!out.fSpendable)
                  continue;
             nValueRet += out.tx->getTxBase()->GetVout()[out.pos].nValue;
-            setCoinsRet.insert(make_pair(out.tx, out.pos));
+            vCoinsRet.push_back(out);
         }
         return (nValueRet >= nTargetValue);
     }
 
     // calculate value from preset inputs and store them
-    set<pair<const CWalletTransactionBase*, uint32_t> > setPresetCoins;
+    vector<COutput> vPresetCoins;
     CAmount nValueFromPresetInputs = 0;
 
     std::vector<COutPoint> vPresetInputs;
@@ -3173,26 +3174,35 @@ bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletTra
             if (pcoin->getTxBase()->GetVout().size() <= outpoint.n)
                 return false;
             nValueFromPresetInputs += pcoin->getTxBase()->GetVout()[outpoint.n].nValue;
-            setPresetCoins.insert(make_pair(pcoin, outpoint.n));
+            vPresetCoins.push_back(COutput(pcoin, outpoint.n, pcoin->GetDepthInMainChain(), true));
         } else
             return false; // TODO: Allow non-wallet inputs
     }
 
     // remove preset inputs from vCoins
     if((coinControl != nullptr) && coinControl->HasSelected())
-    {
-        auto isPresent = [&](const COutput& out) {return setPresetCoins.count(make_pair(out.tx, out.pos));};
-        std::vector<COutput>::const_iterator it = std::remove_if(vCoins.begin(), vCoins.end(), isPresent);
-        vCoins.erase(it, vCoins.end());
+    {        
+        for (int i = 0; i < vCoins.size(); ++i)
+        {
+            for (int j = 0; j < vPresetCoins.size(); ++j)
+            {
+                if (vCoins[i].tx->getTxBase()->GetHash() == vPresetCoins[j].tx->getTxBase()->GetHash() &&
+                    vCoins[i].pos == vPresetCoins[j].pos)
+                {
+                    vCoins.erase(vCoins.begin() + i--);
+                    break;
+                }
+            }
+        }
     }
 
     bool res = nTargetValue <= nValueFromPresetInputs ||
-        SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, 1, 6, vCoins, setCoinsRet, nValueRet, totalInputsBytes, availableBytes, useInputsNetValues) ||
-        SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, 1, 1, vCoins, setCoinsRet, nValueRet, totalInputsBytes, availableBytes, useInputsNetValues) ||
-        (bSpendZeroConfChange && SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, 0, 1, vCoins, setCoinsRet, nValueRet, totalInputsBytes, availableBytes, useInputsNetValues));
+        SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, 1, 6, vCoins, vCoinsRet, nValueRet, totalInputsBytes, availableBytes, useInputsNetValues) ||
+        SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, 1, 1, vCoins, vCoinsRet, nValueRet, totalInputsBytes, availableBytes, useInputsNetValues) ||
+        (bSpendZeroConfChange && SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, 0, 1, vCoins, vCoinsRet, nValueRet, totalInputsBytes, availableBytes, useInputsNetValues));
 
-    // because SelectCoinsMinConf clears the setCoinsRet, we now add the possible inputs to the coinset
-    setCoinsRet.insert(setPresetCoins.begin(), setPresetCoins.end());
+    // because SelectCoinsMinConf clears the vCoinsRet, we now add the possible inputs to the coinset
+    vCoinsRet.insert(vCoinsRet.end(), vPresetCoins.begin(), vPresetCoins.end());
 
     // add preset inputs to the total value selected
     nValueRet += nValueFromPresetInputs;
@@ -3429,7 +3439,7 @@ bool CWallet::CreateTransaction(
                 double dPriority = 0;
 
                 // Choose coins to use
-                set<pair<const CWalletTransactionBase*,unsigned int>> setCoins;
+                vector<COutput> setCoins;
                 CAmount nValueIn = 0;
                 bool fOnlyCoinbaseCoins = false;
                 bool fNeedCoinbaseCoins = false;
@@ -3449,12 +3459,12 @@ bool CWallet::CreateTransaction(
                     }
                     for (auto& pcoin : setCoins)
                     {
-                        CAmount nCredit = pcoin.first->getTxBase()->GetVout()[pcoin.second].nValue;
+                        CAmount nCredit = pcoin.tx->getTxBase()->GetVout()[pcoin.pos].nValue;
                         //The coin age after the next block (depth+1) is used instead of the current,
                         //reflecting an assumption the user would accept a bit more delay for
                         //a chance at a free transaction.
                         //But mempool inputs might still be in the mempool, so their age stays 0
-                        int age = pcoin.first->GetDepthInMainChain();
+                        int age = pcoin.tx->GetDepthInMainChain();
                         if (age != 0)
                             age += 1;
                         dPriority += (double)nCredit * age;
@@ -3581,7 +3591,7 @@ bool CWallet::CreateTransaction(
                 // Note how the sequence number is set to max()-1 so that the
                 // nLockTime set above actually works.
                 for (const auto& coin : setCoins)
-                    txNew.vin.push_back(CTxIn(coin.first->getTxBase()->GetHash(),coin.second,CScript(),
+                    txNew.vin.push_back(CTxIn(coin.tx->getTxBase()->GetHash(),coin.pos,CScript(),
                                               std::numeric_limits<unsigned int>::max()-1));
 
                 // add csw input 
@@ -3603,7 +3613,7 @@ bool CWallet::CreateTransaction(
                 for (const auto& coin : setCoins)
                 {
                     bool signSuccess;
-                    const CScript& scriptPubKey = coin.first->getTxBase()->GetVout()[coin.second].scriptPubKey;
+                    const CScript& scriptPubKey = coin.tx->getTxBase()->GetVout()[coin.pos].scriptPubKey;
                     CScript& scriptSigRes = txNew.vin[nIn].scriptSig;
                     if (sign)
                         signSuccess = ProduceSignature(TransactionSignatureCreator(*this, txNewConst, nIn, SIGHASH_ALL), scriptPubKey, scriptSigRes);
@@ -4597,6 +4607,158 @@ void CWallet::GetFilteredNotes(
             }
         }
     }
+}
+
+bool CWallet::SelectNotes(const CAmount& nTargetValue, std::vector<CNotePlaintextEntry> vNotes,
+                          std::vector<CNotePlaintextEntry>& vNotesRet, CAmount& nValueRet, size_t& totalInputsBytes,
+                          size_t availableBytes, bool useNotesNetValues, const std::vector<CAmount>& joinsplitsOutputsAmounts) const
+{
+    vNotesRet.clear();
+    nValueRet = 0;
+    totalInputsBytes = 0;
+
+    // List of values less than target
+    // <value, note, size>
+    vector<tuple<CAmount, CNotePlaintextEntry, size_t>> vValue;
+    CAmount nTotalLower = 0;
+    size_t totalInputsBytesLower = 0;
+
+    // Lowest larger (than target value) note
+    // <value, note, size>
+    tuple<CAmount, CNotePlaintextEntry, size_t> noteLowestLarger(std::numeric_limits<CAmount>::max(),
+                                                                 CNotePlaintextEntry(),
+                                                                 0);
+
+    BOOST_FOREACH(const CNotePlaintextEntry &note, vNotes)
+    {
+        CAmount grossValue = static_cast<CAmount>(note.plaintext.value());
+        size_t estimatedNoteSize = JSDescription::getNewInstance(true).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION, GROTH_TX_VERSION);
+        CAmount value = grossValue; // TODO: refactor
+
+        // <value, note, size>
+        tuple<CAmount, CNotePlaintextEntry, size_t> extendedNote = make_tuple(value, note, estimatedNoteSize);
+
+        if (value == nTargetValue &&
+            estimatedNoteSize <= availableBytes) // if a single note with exact match (and the single size is admissible) is found then return
+        {
+            vNotesRet.push_back(std::get<1>(extendedNote));
+            nValueRet = grossValue;
+            totalInputsBytes = estimatedNoteSize;
+            return true;
+        }
+        else if (value < nTargetValue) // if note is less than target add it to the set of possible notes to be selected
+        {
+            vValue.push_back(extendedNote);
+            nTotalLower += value;
+            totalInputsBytesLower += estimatedNoteSize;
+        }
+        else if (value < std::get<0>(noteLowestLarger)) // if note is larger than target check if it is the smallest larger
+        {
+            noteLowestLarger = extendedNote;
+        }
+    }
+
+    if (nTotalLower == nTargetValue &&
+        totalInputsBytesLower <= availableBytes) // if the sum of lower notes is an exact match and the total size is admissible then return
+    {
+        for (unsigned int i = 0; i < vValue.size(); ++i)
+        {
+            vNotesRet.push_back(std::get<1>(vValue[i]));
+            nValueRet += std::get<0>(vValue[i]);
+        }
+        totalInputsBytes = totalInputsBytesLower;
+        return true;
+    }
+
+    if ((nTotalLower < nTargetValue) ||
+        (nTotalLower == nTargetValue && totalInputsBytesLower > availableBytes)) // if the sum of lower notes is lower than target (or equal but with not admissible size)...
+    {
+        if (std::get<2>(noteLowestLarger) == 0 ||
+            std::get<2>(noteLowestLarger) > availableBytes) // ...and there is no larger note (or its single size is not admissible) then the problem is unsolvable
+            return false;
+        vNotesRet.push_back(std::get<1>(noteLowestLarger)); // ...otherwise return the larger note
+        nValueRet = std::get<0>(noteLowestLarger);
+        totalInputsBytes = std::get<2>(noteLowestLarger);
+        return true;
+    }
+
+    std::sort(vValue.begin(), vValue.end(), [](tuple<CAmount, CNotePlaintextEntry, size_t> left,
+                                               tuple<CAmount, CNotePlaintextEntry, size_t> right)
+                                               -> bool { return ( std::get<0>(left) > std::get<0>(right)); } );
+
+    std::vector<std::pair<CAmount, size_t>> amountsAndSizes = std::vector<std::pair<CAmount, size_t>>(vValue.size(), std::make_pair(0, 0));
+    for (int i = 0; i < vValue.size(); i++) {
+        amountsAndSizes[i] = std::make_pair(std::get<0>(vValue[i]), std::get<2>(vValue[i]));
+    }
+    
+    const CAmount targetAmount = nTargetValue;
+    const CAmount targetAmountPlusOffsetNoChange = nTargetValue; //no change
+    const CAmount targetAmountPlusOffsetMaxChange = std::get<2>(noteLowestLarger) != 0 ?
+                                                    std::min(std::get<0>(noteLowestLarger), nTotalLower) : nTotalLower; //max change
+    const size_t availableTotalSize = availableBytes;
+
+    std::unique_ptr<CCoinsSelectionAlgorithmBase> fastNotOptimalAlgorithm;
+    for (int i = 0; i < COINS_SELECTION_INTERMEDIATE_CHANGE_LEVELS + 2; ++i)
+    {
+        const CAmount targetAmountPlusOffset = targetAmountPlusOffsetNoChange +
+                                               (double)(i) / (COINS_SELECTION_INTERMEDIATE_CHANGE_LEVELS + 1) * (targetAmountPlusOffsetMaxChange - targetAmountPlusOffsetNoChange);
+        fastNotOptimalAlgorithm = std::unique_ptr<CCoinsSelectionAlgorithmBase>(new CCoinsSelectionForNotes(amountsAndSizes, targetAmount, targetAmountPlusOffset, availableTotalSize, joinsplitsOutputsAmounts));
+        // no async solving is required for these algorithms
+        fastNotOptimalAlgorithm->Solve();
+        if (fastNotOptimalAlgorithm->optimalTotalSelection > 0)
+        {
+            break;
+        }
+    }
+
+    vector<char> vfBest;
+    CAmount nBestAmount = 0;
+    vfBest.assign(vValue.size(), false);
+    if (fastNotOptimalAlgorithm != nullptr)
+    {
+        for (int i = 0; i < fastNotOptimalAlgorithm->problemDimension; i++)
+        {
+            vfBest[i] = fastNotOptimalAlgorithm->optimalSelection[i];
+        }
+        // consider optimalTotalAmount would differ from nValueRet (total gross amount) except when useInputsNetValues is set to false
+        nBestAmount = fastNotOptimalAlgorithm->optimalTotalAmount;
+    }
+
+    // If a solution (using smaller notes) has not been found...
+    if (nBestAmount < nTargetValue)
+    {
+        //...but there is a bigger note (with admissible size), then use it
+        if (std::get<2>(noteLowestLarger) != 0 &&
+            std::get<2>(noteLowestLarger) <= availableBytes)
+        {
+            vNotesRet.push_back(std::get<1>(noteLowestLarger));
+            nValueRet = std::get<0>(noteLowestLarger);
+            totalInputsBytes = std::get<2>(noteLowestLarger);
+        }
+        //...otherwise the problem is unsolvable
+        else
+        {
+            return false;
+        }
+    }
+    else
+    {
+        for (unsigned int i = 0; i < vValue.size(); i++)
+            if (vfBest[i])
+            {
+                vNotesRet.push_back(std::get<1>(vValue[i]));
+                nValueRet += std::get<0>(vValue[i]);
+                totalInputsBytes += std::get<2>(vValue[i]);
+            }
+
+        LogPrint("zrpcunsafe", "SelectNotes() best subset: ");
+        for (unsigned int i = 0; i < vValue.size(); i++)
+            if (vfBest[i])
+                LogPrint("zrpcunsafe", "%s ", FormatMoney(std::get<0>(vValue[i])));
+        LogPrint("zrpcunsafe", "total %s\n", FormatMoney(nBestAmount));
+    }
+
+    return true;
 }
 
 bool CWalletTransactionBase::HasInputFrom(const CScript& scriptPubKey) const 
