@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 #
 # SHA256 compression function implementation below is a verbatim copy of PyPy's implementation from
 # https://bitbucket.org/pypy/pypy/raw/f1f064b3faf1e012f7a9a9ab08f18074637ebe8a/lib_pypy/_sha256.py .
