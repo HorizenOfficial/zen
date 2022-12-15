@@ -132,8 +132,8 @@ bool CSidechain::CheckCertTiming(int certEpoch, int referencedHeight, const CCoi
             __func__, __LINE__);
     }
 
-    // Adding handling of quality, we can have also certificates for the same epoch of the last certificate.
-    // The epoch number must be consistent with the sc certificate history (no old epoch allowed)
+    // The epoch number must be consistent with the sc certificate history
+    // (no old epoch allowed for ceasing, only consecutive epochs for non ceasing)
     if (isNonCeasing())
     {
         if (certEpoch != lastTopQualityCertReferencedEpoch + 1)
@@ -143,15 +143,16 @@ bool CSidechain::CheckCertTiming(int certEpoch, int referencedHeight, const CCoi
         }
 
         // Check that every certificate references a block whose commitment tree includes the previous certificate.
-        // This also implies referencedHeight > lastReferencedHeight.
+        // This also implies referencedHeight > ref_height_of_last_certificate
         if (referencedHeight < lastInclusionHeight)
         {
-            return error("%s():%d - ERROR: certificate cannot be accepted, cert height (%d) not greater than last certificate inclusion height (%d)\n",
+            return error("%s():%d - ERROR: certificate cannot be accepted, cert reference height (%d) less than last certificate inclusion height (%d)\n",
                 __func__, __LINE__, referencedHeight, lastInclusionHeight);
         }
     }
     else
     {
+        // Adding handling of quality, we can have also certificates for the same epoch of the last certificate.
         if (certEpoch != lastTopQualityCertReferencedEpoch &&
             certEpoch != lastTopQualityCertReferencedEpoch + 1)
         {

@@ -417,7 +417,7 @@ class getblockexpanded(BitcoinTestFramework):
         self.nodes[0].generate(2)
         self.sync_all()
 
-        # Add to mempool cert3 referring to (current block - 1)
+        # Add to mempool cert2 referring to (current block - 1)
         mark_logs("########### Add Certificate 2 to mempool ##################", self.nodes, DEBUG_MODE)
         curr_height = self.nodes[0].getblockcount()
         epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH, is_non_ceasing = True)
