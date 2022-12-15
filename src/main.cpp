@@ -1304,7 +1304,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
                 state.Invalid(
                     error("%s():%d - Dropping cert %s : conflicting with another cert in mempool for non ceasing SC\n",
                         __func__, __LINE__, certHash.ToString()),
-                    CValidationState::Code::INVALID, "bad-sc-cert-conflict"); // TODO(dr): is this msg ok?
+                    CValidationState::Code::INVALID, "bad-sc-cert-conflict");
                 return MempoolReturnValue::INVALID;
             }
             else if (!sc.isNonCeasing())
