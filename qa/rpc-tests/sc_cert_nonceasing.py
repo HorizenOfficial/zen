@@ -281,7 +281,10 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         mark_logs("## Test ok, send ft with amount lower than HIGH_FT_SC_FEE in mempool, but ok with FT_SC_FEE in blockchain ##", self.nodes, DEBUG_MODE)
         #------------------------------------------------
         fwt_amount = Decimal(0.5)
-        fwd_tx = self.nodes[0].sc_send([{'toaddress': "abcd", 'amount': fwt_amount, "scid": scid, "mcReturnAddress": self.nodes[0].getnewaddress()}])
+        fwd_tx = self.nodes[0].sc_send(
+                                        [{'toaddress': "abcd", 'amount': fwt_amount, "scid": scid, "mcReturnAddress": self.nodes[0].getnewaddress()}],
+                                        {'minconf': 1} # this minconf is used to make sure that fwd_tx does not depend on cert_2
+                                      )
         assert(fwd_tx in self.nodes[0].getrawmempool())
 
         #------------------------------------------------
@@ -362,11 +365,10 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         assert_equal(2, scinfo['items'][0]['lastCertificateQuality'])
 
         cpool = self.nodes[0].getrawmempool()
-        if len(cpool) > 0:
-            assert(cert_2 in cpool)
-        if len(cpool) > 1:
-            assert(fwd_tx in cpool)
-        assert(len(cpool) <= 2)
+
+        assert(cert_2 in cpool)
+        assert(fwd_tx in cpool)
+        assert(len(cpool) == 2)
 
         #------------------------------------------------
         mark_logs("## Reconsider last 2 blocks ##", self.nodes, DEBUG_MODE)
@@ -403,12 +405,10 @@ class ncsc_cert_epochs(BitcoinTestFramework):
 
         cpool = self.nodes[0].getrawmempool()
         # certificates 2 and 3 have no reference anymore, so they are gone
-        # fwd_tx may or may not depend on Cert2, so it may or may not be still around
-        if len(cpool) > 0:
-            assert(cert_1 in cpool)
-        if len(cpool) > 1:
-            assert(fwd_tx in cpool)
-        assert(len(cpool) <= 2)
+        # fwd_tx does not depend on Cert2, so it is still around
+        assert(cert_1 in cpool)
+        assert(fwd_tx in cpool)
+        assert(len(cpool) == 2)
 
         self.nodes[0].reconsiderblock(c0_block)
         assert_equal(0, len(self.nodes[0].getrawmempool())) # everything is in the blockchain again
