@@ -59,10 +59,8 @@ uint64_t nLastBlockTxPartitionSize = 0;
 
 bool TxPriorityCompare::operator()(const TxPriority& a, const TxPriority& b)
 {
-    // When comparing two certificates we have to order them by epoch
-    // and then by quality.
-    // Before the introduction of non-ceasable sidechains, we only had
-    // to order by quality.
+    // If we are comparing two certs, we must be sure they are ordered by
+    // quality if they refer to the same scid and epoch.
     // This criterion is a consensus rule and overrides the others two
     if (a.get<2>()->IsCertificate() && b.get<2>()->IsCertificate() )
     {
@@ -73,16 +71,7 @@ bool TxPriorityCompare::operator()(const TxPriority& a, const TxPriority& b)
 
             if (aCert.GetScId() == bCert.GetScId() )
             {
-                if (aCert.epochNumber != bCert.epochNumber )
-                {
-                    // First order by epoch number
-                    return aCert.epochNumber > bCert.epochNumber;
-                }
-                else
-                {
-                    // Then order by quality
-                    return aCert.quality > bCert.quality;
-                }
+                return aCert.quality > bCert.quality;
             }
         } catch (...) {
             LogPrintf("%s():%d - ERROR: cast error\n", __func__, __LINE__ );
