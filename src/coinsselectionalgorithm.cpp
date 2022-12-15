@@ -191,41 +191,64 @@ void CCoinsSelectionSlidingWindow::Solve()
         size_t tempTotalSize = 0;
         CAmount tempTotalAmount = 0;
         unsigned int tempTotalSelection = 0;
-        int exclusionIndex = maxIndex;
-        int inclusionIndex = maxIndex;
-        for (; inclusionIndex >= 0; --inclusionIndex)   
+        int windowFrontIndex = maxIndex;
+        int windowBackIndex = maxIndex;
+        bool admissibleFound = false;
+        bool bestAdmissibleFound = false; // "best" for this specific algorithm implementation
+        for (; windowFrontIndex >= 0; --windowFrontIndex)   
         {
             if (stopRequested)
             {
                 break;
             }
-            tempSelection[inclusionIndex] = true;
-            tempTotalSize += sizes[inclusionIndex];
-            tempTotalAmount += amounts[inclusionIndex];
+            // insert new coin in selection
+            tempSelection[windowFrontIndex] = true;
+            tempTotalSize += sizes[windowFrontIndex];
+            tempTotalAmount += amounts[windowFrontIndex];
             tempTotalSelection += 1;
+            // check upper-limit constraints
             while (tempTotalSize > availableTotalSize ||
                    tempTotalAmount > targetAmountPlusOffset)
             {
-                tempSelection[exclusionIndex] = false;
-                tempTotalSize -= sizes[exclusionIndex];
-                tempTotalAmount -= amounts[exclusionIndex];
-                tempTotalSelection -= 1;
-                --exclusionIndex;
+                // if admissible solution still not found, pop from back of the sliding window
+                if (!admissibleFound)
+                {
+                    tempSelection[windowBackIndex] = false;
+                    tempTotalSize -= sizes[windowBackIndex];
+                    tempTotalAmount -= amounts[windowBackIndex];
+                    tempTotalSelection -= 1;
+                    --windowBackIndex;
+                }
+                // if admissible solution already found, pop from front of the sliding window only the element just inserted (and break)
+                else
+                {
+                    tempSelection[windowFrontIndex] = false;
+                    tempTotalSize -= sizes[windowFrontIndex];
+                    tempTotalAmount -= amounts[windowFrontIndex];
+                    tempTotalSelection -= 1;
+                    bestAdmissibleFound = true;
+                }
             }
+            // check lower-limit constraint
             if (tempTotalAmount >= targetAmount)
             {
-                optimalTotalSize = tempTotalSize;
-                optimalTotalAmount = tempTotalAmount;
-                optimalTotalSelection = tempTotalSelection;
-                for (int index = 0; index < problemDimension; ++index)
+                admissibleFound = true;
+                // if best admissible solution already found or reached array end, set optimal solution
+                if (bestAdmissibleFound || windowFrontIndex == 0)
                 {
-                    optimalSelection[index] = tempSelection[index];
+                    optimalTotalSize = tempTotalSize;
+                    optimalTotalAmount = tempTotalAmount;
+                    optimalTotalSelection = tempTotalSelection;
+                    for (int index = 0; index < problemDimension; ++index)
+                    {
+                        optimalSelection[index] = tempSelection[index];
+                    }
+                    break;
                 }
-                break;
             }
         }
         #if COINS_SELECTION_ALGORITHM_PROFILING
-        iterations = (maxIndex + 1 - inclusionIndex) + (maxIndex - exclusionIndex);
+        iterations = (maxIndex + 1 - windowFrontIndex);
         executionMicroseconds = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - microsecondsBefore;
         #endif
         if (stopRequested == false)
@@ -414,33 +437,90 @@ void CCoinsSelectionForNotes::Solve()
         size_t tempTotalSize = 0;
         CAmount tempTotalAmount = 0;
         unsigned int tempTotalSelection = 0;
-        int exclusionIndex = maxIndex;
-        int inclusionIndex = maxIndex;
-        for (; inclusionIndex >= 0; --inclusionIndex)   
+        int windowBackIndex = maxIndex;
+        int windowFrontIndex = maxIndex;
+
+        //SPECIFIC TODO: REFACTOR
+        int joinsplitsOutputAmountIndex = 0;
+        bool newEmptyJoinSplit = true;
+        CAmount joinsplitValue = 0;
+        //SPECIFIC TODO: REFACTOR
+
+        for (; windowFrontIndex >= 0; --windowFrontIndex)   
         {
             if (stopRequested)
             {
                 break;
             }
-            tempSelection[inclusionIndex] = true;
-            //if (tempTotalSelection >= joinSplitsAlreadyIncluded)
-            QUI C'E' DA FINIRE (CAPIRE SE E' MEGLIO TOGLIERE COMUNQUE DA AVAILABLE BYTES OPPURE GESTIRE LA SIZE DIRETTAMENTE QUA)
-            {
-                tempTotalSize += sizes[inclusionIndex];
-            }
-            tempTotalAmount += amounts[inclusionIndex];
+            tempSelection[windowFrontIndex] = true;
+            tempTotalSize += 0;
+            tempTotalAmount += amounts[windowFrontIndex];
             tempTotalSelection += 1;
+
+
+            //HERE WE HANDLE AUX VARIABLES
+            if (newEmptyJoinSplit)
+            {
+                newEmptyJoinSplit = false;
+                tempTotalSize += sizes[windowFrontIndex];
+                joinsplitValue = 0;
+                joinsplitValue += amounts[windowFrontIndex];                            
+            }
+            else
+            {
+                newEmptyJoinSplit = true;
+                joinsplitValue += amounts[windowFrontIndex];
+            }
+
+
+
+            //numberOfJoinsplitsInputs += (tempTotalSelection % 2 == 0) ? 1 : 0;
+            //cumulativeNoteValue += amounts[windowFrontIndex];
+            // while (true)
+            // {
+                // if (cumulativeNoteValue >= joinsplitsOutputsAmounts[joinsplitsOutputAmountIndex])
+                // {
+                //     cumulativeNoteValue -= joinsplitsOutputsAmounts[joinsplitsOutputAmountIndex];
+                //     ++joinsplitsOutputAmountIndex;
+                // }
+            //     else
+            //     {
+            //         break;
+            //     }
+            // }
+
+
+
+            //HERE WE HANDLE SIZE
+            if (tempTotalSelection > numberOfJoinsplitsOutputsAmounts)
+            {
+                //update size
+            }
+            else
+            {
+                //do not update size (regardless of other variables)
+            }
+
+
+
+
+
+
+
+
+
+
             while (tempTotalSize > availableTotalSize ||
                    tempTotalAmount > targetAmountPlusOffset)
             {
-                tempSelection[exclusionIndex] = false;
+                tempSelection[windowBackIndex] = false;
                 //if (tempTotalSelection > joinSplitsAlreadyIncluded)
                 {
-                    tempTotalSize -= sizes[exclusionIndex];
+                    tempTotalSize -= sizes[windowBackIndex];
                 }
-                tempTotalAmount -= amounts[exclusionIndex];
+                tempTotalAmount -= amounts[windowBackIndex];
                 tempTotalSelection -= 1;
-                --exclusionIndex;
+                --windowBackIndex;
             }
             if (tempTotalAmount >= targetAmount)
             {
@@ -455,7 +535,7 @@ void CCoinsSelectionForNotes::Solve()
             }
         }
         #if COINS_SELECTION_ALGORITHM_PROFILING
-        iterations = (maxIndex + 1 - inclusionIndex) + (maxIndex - exclusionIndex);
+        iterations = (maxIndex + 1 - windowFrontIndex) + (maxIndex - windowBackIndex);
         executionMicroseconds = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - microsecondsBefore;
         #endif
         if (stopRequested == false)

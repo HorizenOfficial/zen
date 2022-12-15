@@ -121,7 +121,7 @@ class TxFailBigDimension(BitcoinTestFramework):
 
         elif test_flow == 3:
             # from Z to T
-            fromZ = False
+            fromZ = True
             toZ = True
             mix = False
             fromAddr = nz0 if fromZ else nt0

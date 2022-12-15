@@ -151,11 +151,13 @@ public:
 /*!
   This class provides a specific implementation of the solving routine.
   In this implementation coins are iteratively added to (or removed from) current selection set starting from lowest
-  amount coin and proceeding towards highest amount coin (FIFO queue).
+  amount coin and proceeding towards highest amount coin.
   At each iteration the algorithm pushes in the next coin; if the target amount plus offset and available total size
   constraints (upper-limit) are not met, the algorithm starts popping out the smallest coins until the two constraints
-  above are met; then the algorithm checks if the target amount constraint (lower-limit) is met, if so it returns the
-  current selection set without further optimization, otherwise it continues
+  above are met; then the algorithm checks if the target amount constraint (lower-limit) is met; if it is not met the
+  algorithm continues with next coin insertion, otherwise it marks the finding of an admissible solution and performs
+  additional insertions until one of the upper-limit constraints is broken (and thus removing the just inserted coin)
+  or the set of available coins is empty, eventually setting the best selection set.
 */
 class CCoinsSelectionSlidingWindow : public CCoinsSelectionAlgorithmBase
 {
@@ -209,11 +211,11 @@ public:
   +] backtracking (1): given that at a certain recursion, including a new coin would automatically increase both the temporary
      total amount as well as the temporary total size, if during the tree exploration the two upper-limit constraints associated
      to target amount plus offset and to total size are broken then all the branches from the current recursion on are cut;
-     this is done in order to avoid reaching leaves that would certainly be not admissible with respect to these two constraints.
+     this is done in order to avoid reaching leaves that would certainly be not admissible with respect to these two constraints,
   +] backtracking (2): given that at a certain recursion, the highest total amount reachable is computed as the sum of current
      total amount and of all the amounts of coins from the current recursion on, if during the tree exploration this sum does not
      exceed the lower-limit associated to target amount then all the branches from the current recursion on are cut; this is done
-     in order to avoid reaching leaves that would certainly be not admissible with respect to this constraint.
+     in order to avoid reaching leaves that would certainly be not admissible with respect to this constraint,
   +] bounding: given that at a certain recursion, the highest total selection reachable is computed as the sum of current total
      selection and of the quantity of coins from the current recrusion on, if during tree exploration this sum does not exceed
      the temporary optimal solution (ties are handled prioritizing low total amount) then all the branches from the current

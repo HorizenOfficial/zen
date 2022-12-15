@@ -206,7 +206,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
     bool isPureTaddrOnlyTx = (isfromtaddr_ && z_outputs_.size() == 0);
     CAmount minersFee = fee_;
 
-    bool useNewSelectionAlgo = true;
+    bool useNewSelectionAlgo = false;
 
     if (!useNewSelectionAlgo)
     {
