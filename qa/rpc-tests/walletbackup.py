@@ -76,9 +76,9 @@ class WalletBackupTest(BitcoinTestFramework):
 
         # nodes 1, 2,3 are spenders, let's give them a keypool=100
         extra_args = [
-           ['-debug=1', "-keypool=100", ed0],
-           ['-debug=1', "-keypool=100", ed1],
-           ['-debug=1', "-keypool=100", ed2],
+           ['-debug=zrpc', "-keypool=100", ed0],
+           ['-debug=zrpc', "-keypool=100", ed1],
+           ['-debug=zrpc', "-keypool=100", ed2],
            []]
         self.nodes = start_nodes(4, self.options.tmpdir, extra_args)
         connect_nodes(self.nodes[0], 3)

@@ -244,9 +244,13 @@ class sc_cert_base(BitcoinTestFramework):
 
         last_certificate_height = self.nodes[0].getblockcount()
 
-        ### 4: Check certificates ordering (by epoch number for non-ceasable sidechains, by quality for ceasable ones)
+        # Non ceasable sidechains can have at most 1 certificate per block, so there's no order to check
+        if not ceasable:
+            return
 
-        num_certificates = 10 if ceasable else 1
+        ### 4: Check certificates ordering (by quality)
+
+        num_certificates = 10
         from_addresses = []
 
         # Send coins to be used as input for the next certificate to a new address.
@@ -261,23 +265,17 @@ class sc_cert_base(BitcoinTestFramework):
         self.sync_all()
 
         # Note that for the non-ceasing scenario the epoch_length is set to 0
-        blocks_to_generate = num_certificates if not ceasable else epoch_length
+        blocks_to_generate = epoch_length
 
         mark_logs(f"Node 0 mines {blocks_to_generate} blocks to reach the next submission window (or just have blocks to be referenced)",
                   self.nodes, DEBUG_MODE)
         self.nodes[0].generate(blocks_to_generate)
         self.sync_all()
 
-        if not ceasable:
-            # Assert we have enough blocks since the last certificate to create several certificates with different referenced heights
-            assert(blocks_to_generate >= num_certificates)
-
         lowest_quality = quality + 1
 
         for i in range(0, num_certificates):
-            # referenced_height is used only for the non-ceasable scenario
-            referenced_height = last_certificate_height + i + 1
-            epoch_number, epoch_cum_tree_hash, prev_cert_data_hash = get_epoch_data(scid, self.nodes[0], epoch_length, not ceasable, referenced_height)
+            epoch_number, epoch_cum_tree_hash, prev_cert_data_hash = get_epoch_data(scid, self.nodes[0], epoch_length, not ceasable)
 
             quality += 1
 
@@ -310,10 +308,7 @@ class sc_cert_base(BitcoinTestFramework):
             block_template = self.nodes[i].getblocktemplate()
             assert(len(block_template['certificates']) == num_certificates)
             assert(len(block_template['transactions']) == 0)
-            if ceasable:
-                self.check_certificates_ordering_by_quality(block_template, lowest_quality)
-            else:
-                self.check_certificates_ordering_by_epoch(block_template, epoch_number - num_certificates + 1)
+            self.check_certificates_ordering_by_quality(block_template, lowest_quality)
 
         mark_logs("Mine one block and sync to check that the block is valid", self.nodes, DEBUG_MODE)
         # If there is any error in the order of certificates, generation of the block would fail.
