@@ -4,7 +4,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
+from test_framework.test_framework import ForkHeights, MINER_REWARD_POST_H200
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_equal, initialize_chain_clean, \
     start_nodes, stop_nodes, wait_bitcoinds, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, dump_ordered_tips
@@ -56,7 +56,7 @@ class sc_cr_fw(BitcoinTestFramework):
             return epoch_number, epoch_block_hash
 
         # forward transfer amounts
-        creation_amount = Decimal(MINER_REWARD_POST_H200*(MINIMAL_SC_HEIGHT-100)) #Most of mature coins owned by Node
+        creation_amount = Decimal(MINER_REWARD_POST_H200*(ForkHeights['MINIMAL_SC']-100)) #Most of mature coins owned by Node
         fwt_amount = Decimal("3.0")
 
         # node 1 earns some coins, they would be available after 100 blocks
@@ -64,8 +64,8 @@ class sc_cr_fw(BitcoinTestFramework):
         self.nodes[1].generate(1)
         self.sync_all()
 
-        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT), self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(MINIMAL_SC_HEIGHT)
+        mark_logs("Node 0 generates {} block".format(ForkHeights['MINIMAL_SC']), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(ForkHeights['MINIMAL_SC'])
         self.sync_all()
 
         # generate a tx in mempool whose coins will be used by the tx creating the sc as input. This will make the creation tx orphan

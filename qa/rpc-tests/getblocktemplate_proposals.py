@@ -4,7 +4,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.test_framework import MINIMAL_SC_HEIGHT
+from test_framework.test_framework import ForkHeights
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import COIN, assert_true, assert_false, assert_equal, mark_logs, swap_bytes
 from test_framework.mininode import hash256, ser_string
@@ -142,7 +142,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         self.doTest(sc_fork_reached)
 
         # reach the height where the next block is the last before the fork point where certificates are supported
-        delta = MINIMAL_SC_HEIGHT - currentHeight - 2;
+        delta = ForkHeights['MINIMAL_SC'] - currentHeight - 2;
         self.nodes[0].generate(delta) 
         self.sync_all()
 

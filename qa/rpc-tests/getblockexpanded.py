@@ -3,7 +3,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import BitcoinTestFramework, ForkHeights
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_node, connect_nodes_bi, assert_true, assert_false, get_epoch_data, \
     swap_bytes
@@ -17,7 +17,6 @@ CERT_FEE = Decimal("0.000123")
 SC_FEE = Decimal("0.000345")
 FT_SC_FEE = Decimal('0')
 MBTR_SC_FEE = Decimal('0')
-MINIMAL_SC_HEIGHT = 420
 
 class getblockexpanded(BitcoinTestFramework):
     FEE = 0.0001
@@ -46,7 +45,7 @@ class getblockexpanded(BitcoinTestFramework):
         bwt_amount = Decimal("5")
         tAddr1 = self.nodes[1].getnewaddress()
         node1Addr = self.nodes[1].validateaddress(tAddr1)['address']
-        self.nodes[0].generate(MINIMAL_SC_HEIGHT)
+        self.nodes[0].generate(ForkHeights['MINIMAL_SC'])
         self.sync_all()
         
         ########### Create the sidechain ##################
@@ -176,7 +175,7 @@ class getblockexpanded(BitcoinTestFramework):
             rpcDataByHash = self.nodes[0].getblockexpanded(rpcDataByHeight['hash'])
             rpcDataByHashVerbosity = self.nodes[0].getblockexpanded(rpcDataByHeight['hash'],2)
          
-            if (rpcDataByHash['height'] >= MINIMAL_SC_HEIGHT):
+            if (rpcDataByHash['height'] >= ForkHeights['MINIMAL_SC']):
                 assert_true('matureCertificate' in rpcDataByHash)
                 assert_true('matureCertificate' in rpcDataByHeight)
                 assert_true('matureCertificate' in rpcDataByHashVerbosity)
