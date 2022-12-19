@@ -7,7 +7,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_equal, bytes_to_hex_str, get_field_element_with_padding, hex_str_to_bytes, initialize_chain_clean, \
     start_nodes, stop_nodes, wait_bitcoinds, connect_nodes_bi, mark_logs, get_epoch_data, get_spendable, swap_bytes
-from test_framework.test_framework import MINIMAL_SC_HEIGHT, SC_VERSION_FORK_HEIGHT
+from test_framework.test_framework import ForkHeights
 from test_framework.mc_test.mc_test import CertTestUtils, generate_random_field_element_hex
 import os
 from decimal import Decimal
@@ -67,8 +67,8 @@ class sc_cert_customfields(BitcoinTestFramework):
         self.sync_all()
 
 
-        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT), self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(MINIMAL_SC_HEIGHT)
+        mark_logs("Node 0 generates {} block".format(ForkHeights['MINIMAL_SC']), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(ForkHeights['MINIMAL_SC'])
         self.sync_all()
 
         #generate wCertVk and constant
@@ -649,7 +649,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         assert_true(cert in self.nodes[1].getblock(bestHash, True)['cert'])
 
         # Generate some blocks to reach the sidechain version fork point
-        self.nodes[0].generate(SC_VERSION_FORK_HEIGHT - self.nodes[0].getblockcount())
+        self.nodes[0].generate(ForkHeights['SC_VERSION'] - self.nodes[0].getblockcount())
         self.sync_all()
 
         # Create a sidechain v1 and test the validation of custom fields (endianness)
