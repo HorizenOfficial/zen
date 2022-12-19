@@ -97,10 +97,8 @@ private:
     CTransaction tx_;
    
     size_t add_taddr_change_output_to_tx(CAmount amount, bool sendChangeToSource = false, bool onlyComputeDummyChangeSize = false);
-    size_t add_taddr_outputs_to_tx(bool onlyComputeOutputsSizes = false); // TODO: onlyComputeOutputsSizes SHOULD BE REMOVED!
-    bool find_unspent_notes();
-    bool find_utxos(bool fAcceptCoinbase);
-    std::array<unsigned char, ZC_MEMO_SIZE> get_memo_from_hex_string(const std::string& s);
+    size_t add_taddr_outputs_to_tx();
+    std::array<unsigned char, ZC_MEMO_SIZE> get_memo_from_hex_string(std::string s);
     bool main_impl();
 
     // JoinSplit without any input notes to spend
@@ -143,18 +141,10 @@ public:
         return delegate->add_taddr_change_output_to_tx(amount, sendChangeToSource, onlyComputeDummyChangeSize);
     }
     
-    size_t add_taddr_outputs_to_tx(bool onlyComputeOutputsSizes = false) {
-        return delegate->add_taddr_outputs_to_tx(onlyComputeOutputsSizes);
+    size_t add_taddr_outputs_to_tx() {
+        return delegate->add_taddr_outputs_to_tx();
     }
-    
-    bool find_unspent_notes() {
-        return delegate->find_unspent_notes();
-    }
-
-    bool find_utxos(bool fAcceptCoinbase) {
-        return delegate->find_utxos(fAcceptCoinbase);
-    }
-    
+       
     std::array<unsigned char, ZC_MEMO_SIZE> get_memo_from_hex_string(std::string s) {
         return delegate->get_memo_from_hex_string(s);
     }

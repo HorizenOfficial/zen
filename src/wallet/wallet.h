@@ -739,7 +739,7 @@ private:
       \param nTargetValue the target value (as sum of coins values) to be satisfied (lower-limit), can be considered as gross or net value based on useInputsNetValues param
       \param setCoinsRet the set of coins returned by selection algorithm
       \param nValueRet the actual total value of coins returned (as sum of returned coins values), to be considered always as gross value
-      \param totalInputsBytes the total bytes of selected inputs
+      \param selectionTotalBytes the total bytes of selected inputs
       \param fOnlyCoinbaseCoinsRet variable indicating if returned coins are all coinbase
       \param fNeedCoinbaseCoinsRet variable indicating if coinbase coins are present in the selction (and not including them would result in failing selection)
       \param coinControl pre-prepared info for selecting specific coins (default to NULL)
@@ -748,7 +748,7 @@ private:
                                 of gross value; if true nTargetValue inValueRet will represent a sum of gross values, if false nValueRet will represent a sum of net values
       \return a flag representing wether the selection actually found (true) an admissible set of coins or not (false)
     */
-    bool SelectCoins(const CAmount& nTargetValue, std::vector<COutput>& vCoinsRet, CAmount& nValueRet, size_t& totalInputsBytes,
+    bool SelectCoins(const CAmount& nTargetValue, std::vector<COutput>& vCoinsRet, CAmount& nValueRet, size_t& selectionTotalBytes,
                      bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet,
                      const CCoinControl *coinControl = NULL, size_t availableBytes = MAX_TX_SIZE, bool useInputsNetValues = true) const;
 
@@ -994,7 +994,7 @@ public:
 
     void AvailableCoins(std::vector<COutput>& vCoins, bool fOnlyConfirmed=true, const CCoinControl *coinControl = nullptr, bool fIncludeZeroValue=false, bool fIncludeCoinBase=true, bool fIncludeCommunityFund=true) const;
 
-    //! Method for filtering coins based on confirmation count and then selecting coins based on value and size constarint
+    //! Method for filtering coins based on confirmation count and then selecting coins based on value and size constraints
     /*!
       \param nTargetValue the target value (as sum of coins values) to be satisfied (lower-limit), can be considered as gross or net value based on useInputsNetValues param
       \param nConfMine the minimum number of confirmations from this wallet (filtering)
@@ -1002,14 +1002,14 @@ public:
       \param vCoins the set of coins on which the filtering algorithm and then the selection algorithms have to be executed
       \param setCoinsRet the set of coins returned by filtering and selection algorithms
       \param nValueRet the actual total value of coins returned (as sum of returned coins values), to be considered always as gross value
-      \param totalInputsBytes the total bytes of selected inputs
+      \param selectionTotalBytes the total bytes of selected inputs
       \param availableBytes available bytes (considered as an upper-limit on the sum of inputs sizes) for performing coins selection (default to MAX_TX_SIZE)
       \param useInputsNetValues flag indicating if the net value (equals to gross value minus fee to pay for including the input) of inputs must be used instead
                                 of gross value; if true nTargetValue inValueRet will represent a sum of gross values, if false nValueRet will represent a sum of net values
       \return a flag representing wether the selection actually found (true) an admissible set of coins or not (false)
     */
     bool SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins,
-                            std::vector<COutput>& vCoinsRet, CAmount& nValueRet, size_t& totalInputsBytes,
+                            std::vector<COutput>& vCoinsRet, CAmount& nValueRet, size_t& selectionTotalBytes,
                             size_t availableBytes = MAX_TX_SIZE, bool useInputsNetValues = true) const;
 
     //! Method for estimating input size based on dummy signature
@@ -1280,9 +1280,24 @@ public:
                           bool ignoreSpent=true,
                           bool ignoreUnspendable=true);
 
+    //! Method for selecting notes based on value and size constraints
+    /*!
+      The implementation details of this method are stricly connected to the implementation of AsyncRPCOperation_sendmany::main_impl() as for commit "d1104ef903147338692344069e30c666d8b78614"
+      
+      Unlike coins selection methods (SelectCoins/SelectCoinsMinConf), this method does not provide a distinction between notes gross value and notes net value;
+      gross value is always considered as value.
+      \param nTargetValue the target value (as sum of notes values) to be satisfied (lower-limit), to be considered always as gross value
+      \param vNotes the set of notes on which the selection algorithms have to be executed
+      \param vNotesRet the set of notes returned selection algorithms
+      \param nValueRet the actual total value of notes returned (as sum of returned notes values), to be considered always as gross value
+      \param selectionTotalBytes the total bytes of selected notes
+      \param availableBytes available bytes (considered as an upper-limit on the sum of joinsplits sizes) for performing notes selection (default to MAX_TX_SIZE)
+      \param joinsplitsOutputsAmounts the vector of joinsplits outputs that need to be satisfied by the selected notes
+      \return a flag representing wether the selection actually found (true) an admissible set of notes or not (false)
+    */
     bool SelectNotes(const CAmount& nTargetValue, std::vector<CNotePlaintextEntry> vNotes,
-                     std::vector<CNotePlaintextEntry>& vNotesRet, CAmount& nValueRet, size_t &totalInputsBytes,
-                     size_t availableBytes = MAX_TX_SIZE, bool useInputsNetValues = true, const std::vector<CAmount>& joinsplitsOutputsAmounts = std::vector<CAmount>()) const;
+                     std::vector<CNotePlaintextEntry>& vNotesRet, CAmount& nValueRet, size_t &selectionTotalBytes,
+                     size_t availableBytes = MAX_TX_SIZE, const std::vector<CAmount>& joinsplitsOutputsAmounts = std::vector<CAmount>()) const;
     
     /* Find unspent notes filtered by payment address, min depth and max depth */
     void GetUnspentFilteredNotes(std::vector<CUnspentNotePlaintextEntry>& outEntries,

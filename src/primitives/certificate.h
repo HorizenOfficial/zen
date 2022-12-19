@@ -400,7 +400,7 @@ struct CScCertificateView
 };
 
 //! Struct for storing certificate subsections size info
-struct CCertificateSizeInfo : CBaseTransactionSizeInfo
+struct CCertificateSizeEstimation : CBaseTransactionSizeEstimation
 {
     size_t certificateVariableFieldsSize = 0;
 };

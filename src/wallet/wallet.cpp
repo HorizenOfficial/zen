@@ -2910,25 +2910,25 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
 }
 
 bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int nConfTheirs, vector<COutput> vCoins,
-                                 vector<COutput>& vCoinsRet, CAmount& nValueRet, size_t &totalInputsBytes,
+                                 vector<COutput>& vCoinsRet, CAmount& nValueRet, size_t &selectionTotalBytes,
                                  size_t availableBytes, bool useInputsNetValues) const
 {
     vCoinsRet.clear();
     nValueRet = 0;
-    totalInputsBytes = 0;
+    selectionTotalBytes = 0;
 
     // List of values less than target
     // <gross value, value, output, size>
     vector<tuple<CAmount, CAmount, COutput, size_t>> vValue;
-    CAmount nTotalLower = 0;
-    size_t totalInputsBytesLower = 0;
-
     // Lowest larger (than target value) coin
     // <gross value, value, output, size>
     tuple<CAmount, CAmount, COutput, size_t> coinLowestLarger(std::numeric_limits<CAmount>::max(),
                                                               std::numeric_limits<CAmount>::max(),
                                                               COutput(NULL, 0, 0 , false),
                                                               0);
+
+    CAmount nTotalLower = 0;
+    size_t selectionTotalBytesLower = 0;
 
     BOOST_FOREACH(const COutput &output, vCoins)
     {
@@ -2949,47 +2949,54 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
         // <gross value, value, output, size>
         tuple<CAmount, CAmount, COutput, size_t> coin = make_tuple(grossValue, value, output, estimatedInputSize);
 
+        // if a single coin with exact match (and the single size is admissible) is found then return
         if (value == nTargetValue &&
-            estimatedInputSize <= availableBytes) // if a single coin with exact match (and the single size is admissible) is found then return
+            estimatedInputSize <= availableBytes)
         {
-            vCoinsRet.push_back(std::get<2>(coin));
+            vCoinsRet.push_back(output);
             nValueRet = grossValue;
-            totalInputsBytes = estimatedInputSize;
+            selectionTotalBytes = estimatedInputSize;
             return true;
         }
-        else if (value < nTargetValue) // if coin is less than target add it to the set of possible coins to be selected
+        // if coin is less than target add it to the set of possible coins to be selected
+        else if (value < nTargetValue)
         {
             vValue.push_back(coin);
             nTotalLower += value;
-            totalInputsBytesLower += estimatedInputSize;
+            selectionTotalBytesLower += estimatedInputSize;
         }
-        else if (value < std::get<1>(coinLowestLarger)) // if coin is larger than target check if it is the smallest larger
+        // if coin is larger than target check if it is the smallest larger
+        else if (value < std::get<1>(coinLowestLarger))
         {
             coinLowestLarger = coin;
         }
     }
 
+    // if the sum of lower coins is an exact match and the total size is admissible then return
     if (nTotalLower == nTargetValue &&
-        totalInputsBytesLower <= availableBytes) // if the sum of lower coins is an exact match and the total size is admissible then return
+        selectionTotalBytesLower <= availableBytes)
     {
         for (unsigned int i = 0; i < vValue.size(); ++i)
         {
             vCoinsRet.push_back(std::get<2>(vValue[i]));
             nValueRet += std::get<0>(vValue[i]);
         }
-        totalInputsBytes = totalInputsBytesLower;
+        selectionTotalBytes = selectionTotalBytesLower;
         return true;
     }
 
+    // if the sum of lower coins is lower than target (or equal but with not admissible size)...
     if ((nTotalLower < nTargetValue) ||
-        (nTotalLower == nTargetValue && totalInputsBytesLower > availableBytes)) // if the sum of lower coins is lower than target (or equal but with not admissible size)...
+        (nTotalLower == nTargetValue && selectionTotalBytesLower > availableBytes))
     {
+        // ...and there is no larger coin (or its single size is not admissible) then the problem is unsolvable
         if (std::get<3>(coinLowestLarger) == 0 ||
-            std::get<3>(coinLowestLarger) > availableBytes) // ...and there is no larger coin (or its single size is not admissible) then the problem is unsolvable
+            std::get<3>(coinLowestLarger) > availableBytes)
             return false;
-        vCoinsRet.push_back(std::get<2>(coinLowestLarger)); // ...otherwise return the larger coin
+        // ...otherwise return the larger coin
+        vCoinsRet.push_back(std::get<2>(coinLowestLarger));
         nValueRet = std::get<0>(coinLowestLarger);
-        totalInputsBytes = std::get<3>(coinLowestLarger);
+        selectionTotalBytes = std::get<3>(coinLowestLarger);
         return true;
     }
 
@@ -3047,21 +3054,8 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
         // std::cout << std::to_string((int)bestAlgorithm->type) + " - " + bestAlgorithm->ToString() + "\n" << std::flush;
     }
 
-    vector<char> vfBest;
-    CAmount nBestAmount = 0;
-    vfBest.assign(vValue.size(), false);
-    if (bestAlgorithm != nullptr)
-    {
-        for (int i = 0; i < bestAlgorithm->problemDimension; i++)
-        {
-            vfBest[i] = bestAlgorithm->optimalSelection[i];
-        }
-        // consider optimalTotalAmount would differ from nValueRet (total gross amount) except when useInputsNetValues is set to false
-        nBestAmount = bestAlgorithm->optimalTotalAmount;
-    }
-
     // If a solution (using smaller coins) has not been found...
-    if (nBestAmount < nTargetValue)
+    if (bestAlgorithm == nullptr || bestAlgorithm->optimalTotalAmount < nTargetValue)
     {
         //...but there is a bigger coin (with admissible size), then use it
         if (std::get<3>(coinLowestLarger) != 0 &&
@@ -3069,7 +3063,7 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
         {
             vCoinsRet.push_back(std::get<2>(coinLowestLarger));
             nValueRet = std::get<0>(coinLowestLarger);
-            totalInputsBytes = std::get<3>(coinLowestLarger);
+            selectionTotalBytes = std::get<3>(coinLowestLarger);
         }
         //...otherwise the problem is unsolvable
         else
@@ -3079,19 +3073,18 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
     }
     else
     {
-        for (unsigned int i = 0; i < vValue.size(); i++)
-            if (vfBest[i])
+        LogPrint("selectcoins", "SelectCoinsMinConf() best subset: ");
+        for (int i = 0; i < bestAlgorithm->problemDimension; i++)
+        {
+            if (bestAlgorithm->optimalSelection[i])
             {
+                LogPrint("selectcoins", "%s ", FormatMoney(std::get<0>(vValue[i])));
                 vCoinsRet.push_back(std::get<2>(vValue[i]));
                 nValueRet += std::get<0>(vValue[i]);
-                totalInputsBytes += std::get<3>(vValue[i]);
             }
-
-        LogPrint("selectcoins", "SelectCoinsMinConf() best subset: ");
-        for (unsigned int i = 0; i < vValue.size(); i++)
-            if (vfBest[i])
-                LogPrint("selectcoins", "%s ", FormatMoney(std::get<0>(vValue[i])));
-        LogPrint("selectcoins", "total %s\n", FormatMoney(nBestAmount));
+        }
+        selectionTotalBytes = bestAlgorithm->optimalTotalSize;
+        LogPrint("selectcoins", "total %s\n", FormatMoney(bestAlgorithm->optimalTotalAmount));
     }
 
     return true;
@@ -3102,12 +3095,12 @@ size_t CWallet::EstimateInputSize(const CWalletTransactionBase* transaction, uns
     CTxIn in(transaction->getTxBase()->GetHash(), position, CScript(), 0);
     const CScript& scriptPubKey = transaction->getTxBase()->GetVout()[position].scriptPubKey;
     CScript& scriptSigRes = in.scriptSig;
-    ProduceSignature(DummySignatureCreator(*this), scriptPubKey, scriptSigRes); //TODO: check if this is ok
+    ProduceSignature(DummySignatureCreator(*this), scriptPubKey, scriptSigRes);
     size_t inSize = in.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
     return inSize;
 }
 
-bool CWallet::SelectCoins(const CAmount& nTargetValue, vector<COutput>& vCoinsRet, CAmount& nValueRet, size_t& totalInputsBytes,
+bool CWallet::SelectCoins(const CAmount& nTargetValue, vector<COutput>& vCoinsRet, CAmount& nValueRet, size_t& selectionTotalBytes,
                           bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet,
                           const CCoinControl* coinControl, size_t availableBytes, bool useInputsNetValues) const
 {
@@ -3197,9 +3190,9 @@ bool CWallet::SelectCoins(const CAmount& nTargetValue, vector<COutput>& vCoinsRe
     }
 
     bool res = nTargetValue <= nValueFromPresetInputs ||
-        SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, 1, 6, vCoins, vCoinsRet, nValueRet, totalInputsBytes, availableBytes, useInputsNetValues) ||
-        SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, 1, 1, vCoins, vCoinsRet, nValueRet, totalInputsBytes, availableBytes, useInputsNetValues) ||
-        (bSpendZeroConfChange && SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, 0, 1, vCoins, vCoinsRet, nValueRet, totalInputsBytes, availableBytes, useInputsNetValues));
+               SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, 1, 6, vCoins, vCoinsRet, nValueRet, selectionTotalBytes, availableBytes, useInputsNetValues) ||
+               SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, 1, 1, vCoins, vCoinsRet, nValueRet, selectionTotalBytes, availableBytes, useInputsNetValues) ||
+               (bSpendZeroConfChange && SelectCoinsMinConf(nTargetValue - nValueFromPresetInputs, 0, 1, vCoins, vCoinsRet, nValueRet, selectionTotalBytes, availableBytes, useInputsNetValues));
 
     // because SelectCoinsMinConf clears the vCoinsRet, we now add the possible inputs to the coinset
     vCoinsRet.insert(vCoinsRet.end(), vPresetCoins.begin(), vPresetCoins.end());
@@ -3330,14 +3323,14 @@ bool CWallet::CreateTransaction(
     wtxNew.fTimeReceivedIsTxTime = true;
     wtxNew.BindWallet(this);
     CMutableTransaction txNew;
-    CTransactionSizeInfo transactionSize;
+    CTransactionSizeEstimation transactionSizeEstimation;
 
     if (!vecScSend.empty() || !vecFtSend.empty() || !vecBwtRequest.empty() || !vcsw_input.empty())
     {
         // set proper version
         txNew.nVersion = SC_TX_VERSION;
     }
-    transactionSize.overheadSize = txNew.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+    transactionSizeEstimation.overheadSize = txNew.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
 
     // Discourage fee sniping.
     //
@@ -3370,9 +3363,9 @@ bool CWallet::CreateTransaction(
 
             while (true)
             {
-                transactionSize.baseOutputsNoChangeSize = 0;
-                transactionSize.baseOutputChangeOnlySize = 0;
-                transactionSize.baseInputsSize = 0;
+                transactionSizeEstimation.baseOutputsNoChangeSize = 0;
+                transactionSizeEstimation.baseOutputChangeOnlySize = 0;
+                transactionSizeEstimation.baseInputsSize = 0;
                 txNew.vin.clear();
                 txNew.vcsw_ccin.clear();
                 txNew.resizeOut(0);
@@ -3388,7 +3381,7 @@ bool CWallet::CreateTransaction(
                 {
                     CTxOut txout(recipient.nAmount, recipient.scriptPubKey);
                     txNew.addOut(txout);
-                    transactionSize.baseOutputsNoChangeSize += txout.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+                    transactionSizeEstimation.baseOutputsNoChangeSize += txout.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
                 }
 
                 // vccouts to the payees
@@ -3396,21 +3389,21 @@ bool CWallet::CreateTransaction(
                 {
                     CTxScCreationOut txccout(entry.nValue, entry.address, entry.ftScFee, entry.mbtrScFee, entry.fixedParams);
                     txNew.add(txccout);
-                    transactionSize.baseOutputsNoChangeSize += txccout.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+                    transactionSizeEstimation.baseOutputsNoChangeSize += txccout.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
                 }
 
                 for (const auto& entry : vecFtSend)
                 {
                     CTxForwardTransferOut txccout(entry.scId, entry.nValue, entry.address, entry.mcReturnAddress);
                     txNew.add(txccout);
-                    transactionSize.baseOutputsNoChangeSize += txccout.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+                    transactionSizeEstimation.baseOutputsNoChangeSize += txccout.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
                 }
 
                 for (const auto& entry : vecBwtRequest)
                 {
                     CBwtRequestOut txccout(entry.scId, entry.mcDestinationAddress, entry.bwtRequestData);
                     txNew.add(txccout);
-                    transactionSize.baseOutputsNoChangeSize += txccout.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+                    transactionSizeEstimation.baseOutputsNoChangeSize += txccout.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
                 }
 
                 // dummy output change is created in order to extract info related to its size
@@ -3428,10 +3421,13 @@ bool CWallet::CreateTransaction(
                     dummyScriptChange = GetScriptForDestination(vchPubKey.GetID());
                 }
                 CTxOut dummyChangeTxOut(std::numeric_limits<CAmount>::max(), dummyScriptChange); //in this way the change output size is voluntarily slightly overestimated
-                transactionSize.baseOutputChangeOnlySize = dummyChangeTxOut.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+                transactionSizeEstimation.baseOutputChangeOnlySize = dummyChangeTxOut.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
 
                 // this amount represents the fee to be paid for the transaction without considering inputs
-                CAmount minimumTransactionFeeExcludingInputs = GetMinimumFee(transactionSize.overheadSize + transactionSize.baseOutputsNoChangeSize + transactionSize.baseOutputChangeOnlySize, nTxConfirmTarget, mempool, false);
+                CAmount minimumTransactionFeeExcludingInputs = GetMinimumFee(transactionSizeEstimation.overheadSize +
+                                                                             transactionSizeEstimation.baseOutputsNoChangeSize +
+                                                                             transactionSizeEstimation.baseOutputChangeOnlySize,
+                                                                             nTxConfirmTarget, mempool, false);
                 
                 CAmount nTotalValue = totalOutputValue;
                 if (nSubtractFeeFromAmount == 0) //if the fee is on sender side, then the total target value has to be increased
@@ -3445,15 +3441,18 @@ bool CWallet::CreateTransaction(
                 bool fNeedCoinbaseCoins = false;
                 if (nTotalValue > 0)
                 {
-                    if ( !SelectCoins(nTotalValue, setCoins, nValueIn, transactionSize.baseInputsSize, fOnlyCoinbaseCoins, fNeedCoinbaseCoins, coinControl,
-                                      MAX_TX_SIZE - (transactionSize.overheadSize + transactionSize.baseOutputsNoChangeSize + transactionSize.baseOutputChangeOnlySize), nSubtractFeeFromAmount == 0))
+                    if (!SelectCoins(nTotalValue, setCoins, nValueIn, transactionSizeEstimation.baseInputsSize, fOnlyCoinbaseCoins, fNeedCoinbaseCoins, coinControl,
+                                     MAX_TX_SIZE - (transactionSizeEstimation.overheadSize +
+                                                    transactionSizeEstimation.baseOutputsNoChangeSize +
+                                                    transactionSizeEstimation.baseOutputChangeOnlySize),
+                                     nSubtractFeeFromAmount == 0))
                     {
                         if (fOnlyCoinbaseCoins && ForkManager::getInstance().mustCoinBaseBeShielded(chainActive.Height())) {
                             strFailReason = _("Coinbase funds can only be sent to a zaddr");
                         } else if (fNeedCoinbaseCoins && ForkManager::getInstance().mustCoinBaseBeShielded(chainActive.Height())) {
                             strFailReason = _("Insufficient funds, coinbase funds can only be spent after they have been sent to a zaddr");
                         } else {
-                            strFailReason = _("Insufficient (or not selectable) funds");
+                            strFailReason = _("Insufficient or not selectable (due to value, size or maturity) funds");
                         }
                         return false;
                     }
@@ -3474,10 +3473,11 @@ bool CWallet::CreateTransaction(
                 // it is now possible to get a complete estimation of transaction fee
                 // this quantity should be equal to the fee actually needed (computed later after the transaction is signed), in the unlikely
                 // case in which the estimation would be insufficient another loop with additional fee contribution is performed
-                nFeeRet = additionalFee + GetMinimumFee(transactionSize.overheadSize +
-                                                        transactionSize.baseOutputsNoChangeSize +
-                                                        transactionSize.baseOutputChangeOnlySize +
-                                                        transactionSize.baseInputsSize, nTxConfirmTarget, mempool);
+                nFeeRet = additionalFee + GetMinimumFee(transactionSizeEstimation.overheadSize +
+                                                        transactionSizeEstimation.baseOutputsNoChangeSize +
+                                                        transactionSizeEstimation.baseOutputChangeOnlySize +
+                                                        transactionSizeEstimation.baseInputsSize,
+                                                        nTxConfirmTarget, mempool);
 
                 // after selection is done, it is possible to adapt (in case fee is on recipients side) outputs values with respect
                 // to fees and to check they are over dust threshold
@@ -3648,8 +3648,15 @@ bool CWallet::CreateTransaction(
                     nIn++;
                 }
 
-                // this quantity should match the sum of the members of struct transactionSize (a part maybe from change section)
+                // this quantity should match the sum of the members of struct transactionSizeEstimation (apart maybe from change section)
                 unsigned int nBytes = ::GetSerializeSize(txNew, SER_NETWORK, PROTOCOL_VERSION);
+                LogPrint("selectcoins", "Actual tx size: %d, estimated tx size: %d (dummy change size: %d)",
+                         nBytes,
+                         transactionSizeEstimation.overheadSize +
+                         transactionSizeEstimation.baseOutputsNoChangeSize +
+                         transactionSizeEstimation.baseOutputChangeOnlySize +
+                         transactionSizeEstimation.baseInputsSize,
+                         transactionSizeEstimation.baseOutputChangeOnlySize);
 
                 // Remove scriptSigs if we used dummy signatures for fee calculation
                 if (!sign) {
@@ -4610,75 +4617,86 @@ void CWallet::GetFilteredNotes(
 }
 
 bool CWallet::SelectNotes(const CAmount& nTargetValue, std::vector<CNotePlaintextEntry> vNotes,
-                          std::vector<CNotePlaintextEntry>& vNotesRet, CAmount& nValueRet, size_t& totalInputsBytes,
-                          size_t availableBytes, bool useNotesNetValues, const std::vector<CAmount>& joinsplitsOutputsAmounts) const
+                          std::vector<CNotePlaintextEntry>& vNotesRet, CAmount& nValueRet, size_t &selectionTotalBytes,
+                          size_t availableBytes, const std::vector<CAmount>& joinsplitsOutputsAmounts) const
 {
     vNotesRet.clear();
     nValueRet = 0;
-    totalInputsBytes = 0;
+    selectionTotalBytes = 0;
 
     // List of values less than target
     // <value, note, size>
     vector<tuple<CAmount, CNotePlaintextEntry, size_t>> vValue;
-    CAmount nTotalLower = 0;
-    size_t totalInputsBytesLower = 0;
-
     // Lowest larger (than target value) note
     // <value, note, size>
     tuple<CAmount, CNotePlaintextEntry, size_t> noteLowestLarger(std::numeric_limits<CAmount>::max(),
                                                                  CNotePlaintextEntry(),
                                                                  0);
 
+    CAmount nTotalLower = 0;
+    size_t selectionTotalBytesLower = 0;
+    size_t estimatedNoteSize = JSDescription::getNewInstance(true).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION, GROTH_TX_VERSION);
+
     BOOST_FOREACH(const CNotePlaintextEntry &note, vNotes)
     {
-        CAmount grossValue = static_cast<CAmount>(note.plaintext.value());
-        size_t estimatedNoteSize = JSDescription::getNewInstance(true).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION, GROTH_TX_VERSION);
-        CAmount value = grossValue; // TODO: refactor
+        CAmount value = static_cast<CAmount>(note.plaintext.value());
 
         // <value, note, size>
         tuple<CAmount, CNotePlaintextEntry, size_t> extendedNote = make_tuple(value, note, estimatedNoteSize);
 
+        // if a single note with exact match is found and the single note size (eventually increased by
+        // the sum of the notes sizes to be provided for fulfilling recipients) is admissible, then return
         if (value == nTargetValue &&
-            estimatedNoteSize <= availableBytes) // if a single note with exact match (and the single size is admissible) is found then return
+            std::max(1, (int)joinsplitsOutputsAmounts.size()) * estimatedNoteSize <= availableBytes)
         {
             vNotesRet.push_back(std::get<1>(extendedNote));
-            nValueRet = grossValue;
-            totalInputsBytes = estimatedNoteSize;
+            nValueRet = value;
+            selectionTotalBytes = std::max(1, (int)joinsplitsOutputsAmounts.size()) * estimatedNoteSize;
             return true;
         }
-        else if (value < nTargetValue) // if note is less than target add it to the set of possible notes to be selected
+        // if note is less than target add it to the set of possible notes to be selected
+        else if (value < nTargetValue)
         {
             vValue.push_back(extendedNote);
             nTotalLower += value;
-            totalInputsBytesLower += estimatedNoteSize;
+            if (vValue.size() != 1) // this is specific condition (the very second note does not result in a new joinsplit)
+            {
+                selectionTotalBytesLower += estimatedNoteSize;
+            }
         }
-        else if (value < std::get<0>(noteLowestLarger)) // if note is larger than target check if it is the smallest larger
+        // if note is larger than target check if it is the smallest larger
+        else if (value < std::get<0>(noteLowestLarger))
         {
             noteLowestLarger = extendedNote;
         }
     }
 
-    if (nTotalLower == nTargetValue &&
-        totalInputsBytesLower <= availableBytes) // if the sum of lower notes is an exact match and the total size is admissible then return
+    // if the sum of lower notes is an exact match and the total size (eventually increased by the sum
+    // of the notes sizes to be provided for fulfilling recipients) is admissible then return
+    if (nTotalLower == nTargetValue &&                                                                                                         
+        selectionTotalBytesLower + std::max(0, (int)joinsplitsOutputsAmounts.size() - (int)vValue.size()) * estimatedNoteSize <= availableBytes)
     {
         for (unsigned int i = 0; i < vValue.size(); ++i)
         {
             vNotesRet.push_back(std::get<1>(vValue[i]));
             nValueRet += std::get<0>(vValue[i]);
         }
-        totalInputsBytes = totalInputsBytesLower;
+        selectionTotalBytes = selectionTotalBytesLower + std::max(0, (int)joinsplitsOutputsAmounts.size() - (int)vValue.size()) * estimatedNoteSize;
         return true;
     }
 
+    // if the sum of lower notes is lower than target (or equal but with not admissible size)...
     if ((nTotalLower < nTargetValue) ||
-        (nTotalLower == nTargetValue && totalInputsBytesLower > availableBytes)) // if the sum of lower notes is lower than target (or equal but with not admissible size)...
+        (nTotalLower == nTargetValue && selectionTotalBytesLower + std::max(0, (int)joinsplitsOutputsAmounts.size() - (int)vValue.size()) * estimatedNoteSize > availableBytes))
     {
+        // ...and there is no larger note (or its single size is not admissible) then the problem is unsolvable
         if (std::get<2>(noteLowestLarger) == 0 ||
-            std::get<2>(noteLowestLarger) > availableBytes) // ...and there is no larger note (or its single size is not admissible) then the problem is unsolvable
+            std::get<2>(noteLowestLarger) + std::max(1, (int)joinsplitsOutputsAmounts.size()) * estimatedNoteSize > availableBytes)
             return false;
-        vNotesRet.push_back(std::get<1>(noteLowestLarger)); // ...otherwise return the larger note
+        // ...otherwise return the larger note
+        vNotesRet.push_back(std::get<1>(noteLowestLarger));
         nValueRet = std::get<0>(noteLowestLarger);
-        totalInputsBytes = std::get<2>(noteLowestLarger);
+        selectionTotalBytes = std::get<2>(noteLowestLarger) + std::max(1, (int)joinsplitsOutputsAmounts.size()) * estimatedNoteSize;
         return true;
     }
 
@@ -4690,7 +4708,7 @@ bool CWallet::SelectNotes(const CAmount& nTargetValue, std::vector<CNotePlaintex
     for (int i = 0; i < vValue.size(); i++) {
         amountsAndSizes[i] = std::make_pair(std::get<0>(vValue[i]), std::get<2>(vValue[i]));
     }
-    
+
     const CAmount targetAmount = nTargetValue;
     const CAmount targetAmountPlusOffsetNoChange = nTargetValue; //no change
     const CAmount targetAmountPlusOffsetMaxChange = std::get<2>(noteLowestLarger) != 0 ?
@@ -4711,29 +4729,16 @@ bool CWallet::SelectNotes(const CAmount& nTargetValue, std::vector<CNotePlaintex
         }
     }
 
-    vector<char> vfBest;
-    CAmount nBestAmount = 0;
-    vfBest.assign(vValue.size(), false);
-    if (fastNotOptimalAlgorithm != nullptr)
-    {
-        for (int i = 0; i < fastNotOptimalAlgorithm->problemDimension; i++)
-        {
-            vfBest[i] = fastNotOptimalAlgorithm->optimalSelection[i];
-        }
-        // consider optimalTotalAmount would differ from nValueRet (total gross amount) except when useInputsNetValues is set to false
-        nBestAmount = fastNotOptimalAlgorithm->optimalTotalAmount;
-    }
-
     // If a solution (using smaller notes) has not been found...
-    if (nBestAmount < nTargetValue)
+    if (fastNotOptimalAlgorithm == nullptr || fastNotOptimalAlgorithm->optimalTotalAmount < nTargetValue)
     {
         //...but there is a bigger note (with admissible size), then use it
         if (std::get<2>(noteLowestLarger) != 0 &&
-            std::get<2>(noteLowestLarger) <= availableBytes)
+            std::get<2>(noteLowestLarger) + std::max(1, (int)joinsplitsOutputsAmounts.size()) * estimatedNoteSize <= availableBytes)
         {
             vNotesRet.push_back(std::get<1>(noteLowestLarger));
             nValueRet = std::get<0>(noteLowestLarger);
-            totalInputsBytes = std::get<2>(noteLowestLarger);
+            selectionTotalBytes = std::get<2>(noteLowestLarger) + std::max(1, (int)joinsplitsOutputsAmounts.size()) * estimatedNoteSize ;
         }
         //...otherwise the problem is unsolvable
         else
@@ -4743,19 +4748,18 @@ bool CWallet::SelectNotes(const CAmount& nTargetValue, std::vector<CNotePlaintex
     }
     else
     {
-        for (unsigned int i = 0; i < vValue.size(); i++)
-            if (vfBest[i])
+        for (int i = 0; i < fastNotOptimalAlgorithm->problemDimension; i++)
+        {
+            LogPrint("zrpcunsafe", "SelectNotes() best subset: ");
+            if (fastNotOptimalAlgorithm->optimalSelection[i])
             {
+                LogPrint("zrpcunsafe", "%s ", FormatMoney(std::get<0>(vValue[i])));
                 vNotesRet.push_back(std::get<1>(vValue[i]));
                 nValueRet += std::get<0>(vValue[i]);
-                totalInputsBytes += std::get<2>(vValue[i]);
             }
-
-        LogPrint("zrpcunsafe", "SelectNotes() best subset: ");
-        for (unsigned int i = 0; i < vValue.size(); i++)
-            if (vfBest[i])
-                LogPrint("zrpcunsafe", "%s ", FormatMoney(std::get<0>(vValue[i])));
-        LogPrint("zrpcunsafe", "total %s\n", FormatMoney(nBestAmount));
+        }
+        selectionTotalBytes = fastNotOptimalAlgorithm->optimalTotalSize;
+        LogPrint("zrpcunsafe", "total %s\n", FormatMoney(fastNotOptimalAlgorithm->optimalTotalAmount));
     }
 
     return true;

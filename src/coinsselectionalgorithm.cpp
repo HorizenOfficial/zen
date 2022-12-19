@@ -197,19 +197,29 @@ void CCoinsSelectionSlidingWindow::Solve()
         bool bestAdmissibleFound = false; // "best" for this specific algorithm implementation
         for (; windowFrontIndex >= 0; --windowFrontIndex)   
         {
+            #if COINS_SELECTION_ALGORITHM_PROFILING
+            ++iterations;
+            #endif
+
             if (stopRequested)
             {
                 break;
             }
+
             // insert new coin in selection
             tempSelection[windowFrontIndex] = true;
             tempTotalSize += sizes[windowFrontIndex];
             tempTotalAmount += amounts[windowFrontIndex];
             tempTotalSelection += 1;
+
             // check upper-limit constraints
             while (tempTotalSize > availableTotalSize ||
                    tempTotalAmount > targetAmountPlusOffset)
             {
+                #if COINS_SELECTION_ALGORITHM_PROFILING
+                ++iterations;
+                #endif
+       
                 // if admissible solution still not found, pop from back of the sliding window
                 if (!admissibleFound)
                 {
@@ -227,8 +237,10 @@ void CCoinsSelectionSlidingWindow::Solve()
                     tempTotalAmount -= amounts[windowFrontIndex];
                     tempTotalSelection -= 1;
                     bestAdmissibleFound = true;
+                    break; // almost surely it is useless, but kept for better flow
                 }
             }
+
             // check lower-limit constraint
             if (tempTotalAmount >= targetAmount)
             {
@@ -248,7 +260,6 @@ void CCoinsSelectionSlidingWindow::Solve()
             }
         }
         #if COINS_SELECTION_ALGORITHM_PROFILING
-        iterations = (maxIndex + 1 - windowFrontIndex);
         executionMicroseconds = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - microsecondsBefore;
         #endif
         if (stopRequested == false)
@@ -434,108 +445,127 @@ void CCoinsSelectionForNotes::Solve()
         #if COINS_SELECTION_ALGORITHM_PROFILING
         uint64_t microsecondsBefore = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
         #endif
-        size_t tempTotalSize = 0;
-        CAmount tempTotalAmount = 0;
-        unsigned int tempTotalSelection = 0;
+
         int windowBackIndex = maxIndex;
         int windowFrontIndex = maxIndex;
+        bool admissibleFound = false;
+        bool bestAdmissibleFound = false; // "best" for this specific algorithm implementation
+        bool breakOuterLoop = false;
 
-        //SPECIFIC TODO: REFACTOR
-        int joinsplitsOutputAmountIndex = 0;
-        bool newEmptyJoinSplit = true;
-        CAmount joinsplitValue = 0;
-        //SPECIFIC TODO: REFACTOR
-
-        for (; windowFrontIndex >= 0; --windowFrontIndex)   
+        for (; windowBackIndex >= 0; --windowBackIndex)
         {
-            if (stopRequested)
+            if (breakOuterLoop)
             {
                 break;
             }
-            tempSelection[windowFrontIndex] = true;
-            tempTotalSize += 0;
-            tempTotalAmount += amounts[windowFrontIndex];
-            tempTotalSelection += 1;
 
-
-            //HERE WE HANDLE AUX VARIABLES
-            if (newEmptyJoinSplit)
+            // quick reset before restarting with sliding window back index increased by one position
+            for (int index = 0; index < problemDimension; ++index)
             {
-                newEmptyJoinSplit = false;
-                tempTotalSize += sizes[windowFrontIndex];
-                joinsplitValue = 0;
-                joinsplitValue += amounts[windowFrontIndex];                            
+                tempSelection[index] = false;
             }
-            else
+            size_t tempTotalSize = 0;
+            CAmount tempTotalAmount = 0;
+            unsigned int tempTotalSelection = 0;
+        
+            // joinsplits auxiliary variables
+            int joinsplitsOutputAmountIndex = 0;
+            bool isFirstJoinsplitInput = true;
+            CAmount joinsplitValue = 0;
+            CAmount changeFromPreviousJoinsplit = 0;
+
+            for (windowFrontIndex = windowBackIndex; windowFrontIndex >= 0; --windowFrontIndex)   
             {
-                newEmptyJoinSplit = true;
-                joinsplitValue += amounts[windowFrontIndex];
-            }
+                #if COINS_SELECTION_ALGORITHM_PROFILING
+                ++iterations;
+                #endif
 
-
-
-            //numberOfJoinsplitsInputs += (tempTotalSelection % 2 == 0) ? 1 : 0;
-            //cumulativeNoteValue += amounts[windowFrontIndex];
-            // while (true)
-            // {
-                // if (cumulativeNoteValue >= joinsplitsOutputsAmounts[joinsplitsOutputAmountIndex])
-                // {
-                //     cumulativeNoteValue -= joinsplitsOutputsAmounts[joinsplitsOutputAmountIndex];
-                //     ++joinsplitsOutputAmountIndex;
-                // }
-            //     else
-            //     {
-            //         break;
-            //     }
-            // }
-
-
-
-            //HERE WE HANDLE SIZE
-            if (tempTotalSelection > numberOfJoinsplitsOutputsAmounts)
-            {
-                //update size
-            }
-            else
-            {
-                //do not update size (regardless of other variables)
-            }
-
-
-
-
-
-
-
-
-
-
-            while (tempTotalSize > availableTotalSize ||
-                   tempTotalAmount > targetAmountPlusOffset)
-            {
-                tempSelection[windowBackIndex] = false;
-                //if (tempTotalSelection > joinSplitsAlreadyIncluded)
+                if (stopRequested)
                 {
-                    tempTotalSize -= sizes[windowBackIndex];
+                    breakOuterLoop = true;
+                    break;
                 }
-                tempTotalAmount -= amounts[windowBackIndex];
-                tempTotalSelection -= 1;
-                --windowBackIndex;
-            }
-            if (tempTotalAmount >= targetAmount)
-            {
-                optimalTotalSize = tempTotalSize;
-                optimalTotalAmount = tempTotalAmount;
-                optimalTotalSelection = tempTotalSelection;
-                for (int index = 0; index < problemDimension; ++index)
+
+                // insert new note in selection
+                tempSelection[windowFrontIndex] = true;
+                size_t tempTotalSizeIterationIncrease = isFirstJoinsplitInput ? sizes[windowFrontIndex] : 0;
+                tempTotalSize += tempTotalSizeIterationIncrease;
+                tempTotalAmount += amounts[windowFrontIndex];
+                tempTotalSelection += 1;
+
+                // update joinsplit auxiliary variables
+                if (isFirstJoinsplitInput && changeFromPreviousJoinsplit == 0)
                 {
-                    optimalSelection[index] = tempSelection[index];
+                    // first joinsplit input
+                    joinsplitValue = amounts[windowFrontIndex];
+                    isFirstJoinsplitInput = false;
                 }
-                break;
+                else
+                {
+                    // first joinsplit input as previous joinsplit change
+                    if (isFirstJoinsplitInput && changeFromPreviousJoinsplit > 0)
+                    {
+                        joinsplitValue = changeFromPreviousJoinsplit;
+                    }
+                    //second joinsplit input
+                    joinsplitValue += amounts[windowFrontIndex];
+                    if (joinsplitsOutputAmountIndex < numberOfJoinsplitsOutputsAmounts)
+                    {
+                        if (joinsplitValue >= joinsplitsOutputsAmounts[joinsplitsOutputAmountIndex])
+                        {
+                            changeFromPreviousJoinsplit = joinsplitValue - joinsplitsOutputsAmounts[joinsplitsOutputAmountIndex];
+                            ++joinsplitsOutputAmountIndex;
+                        }
+                        else
+                        {
+                            joinsplitsOutputsAmounts[joinsplitsOutputAmountIndex] -= joinsplitValue;
+                            changeFromPreviousJoinsplit = 0;
+                        }
+                    }
+                    isFirstJoinsplitInput = true;
+                }
+
+                // check upper-limit constraints
+                if (tempTotalSize + (numberOfJoinsplitsOutputsAmounts - joinsplitsOutputAmountIndex) * sizes[0] > availableTotalSize || // first element size is used (but actually all sizes are equal)
+                    tempTotalAmount > targetAmountPlusOffset)
+                {
+                    // if admissible solution still not found, restart with sliding window back index increased by one position
+                    if (!admissibleFound)
+                    {
+                        break;
+                    }
+                    // if admissible solution already found, pop from front of the sliding window only the element just inserted
+                    else
+                    {
+                        tempSelection[windowFrontIndex] = false;
+                        tempTotalSize -= tempTotalSizeIterationIncrease;
+                        tempTotalAmount -= amounts[windowFrontIndex];
+                        tempTotalSelection -= 1;
+                        bestAdmissibleFound = true;
+                    }                    
+                }
+
+                // check lower-limit constraint
+                if (tempTotalAmount >= targetAmount)
+                {
+                    admissibleFound = true;
+                    // if best admissible solution already found or reached array end, set optimal solution
+                    if (bestAdmissibleFound || windowFrontIndex == 0)
+                    {
+                        optimalTotalSize = tempTotalSize + (numberOfJoinsplitsOutputsAmounts - joinsplitsOutputAmountIndex) * sizes[0]; // first element size is used (but actually all sizes are equal)
+                        optimalTotalAmount = tempTotalAmount;
+                        optimalTotalSelection = tempTotalSelection;
+                        for (int index = 0; index < problemDimension; ++index)
+                        {
+                            optimalSelection[index] = tempSelection[index];
+                        }
+                        breakOuterLoop = true;
+                        break;
+                    }
+                }
             }
         }
         #if COINS_SELECTION_ALGORITHM_PROFILING
-        iterations = (maxIndex + 1 - windowFrontIndex) + (maxIndex - windowBackIndex);
         executionMicroseconds = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - microsecondsBefore;
         #endif
         if (stopRequested == false)

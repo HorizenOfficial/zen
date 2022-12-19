@@ -203,24 +203,26 @@ public:
   The algorithm doesn't rely on simple brute force strategy, instead two additional aspects are taken into account for
   speeding up the algorithm and avoiding exploring branches which would not give an improved solution (with respect to
   the temporary optimal one): backtracking and bounding.
-  Starting with an "all coins unselected" setup, the algorithm recursively explores the tree (from biggest coin toward smallest
-  coin) opening two new branches, the first one excluding the current coin, the second one including the current coin; when a
-  leaf is reached, the output variables are checked to identify if an improved solution (with respect to the temporary optimal
-  one) is found and eventually marked as the new temporary optimal solution.
+  Starting with an "all coins unselected" setup, the algorithm recursively explores the tree (from biggest coin towards
+  smallest coin) opening two new branches, the first one excluding the current coin, the second one including the current
+  coin; when a leaf is reached, the output variables are checked to identify if an improved solution (with respect to
+  the temporary optimal one) is found and eventually marked as the new temporary optimal solution.
   The tree actual exploration differs very significantly from the tree full exploration thanks to:
-  +] backtracking (1): given that at a certain recursion, including a new coin would automatically increase both the temporary
-     total amount as well as the temporary total size, if during the tree exploration the two upper-limit constraints associated
-     to target amount plus offset and to total size are broken then all the branches from the current recursion on are cut;
-     this is done in order to avoid reaching leaves that would certainly be not admissible with respect to these two constraints,
-  +] backtracking (2): given that at a certain recursion, the highest total amount reachable is computed as the sum of current
-     total amount and of all the amounts of coins from the current recursion on, if during the tree exploration this sum does not
-     exceed the lower-limit associated to target amount then all the branches from the current recursion on are cut; this is done
-     in order to avoid reaching leaves that would certainly be not admissible with respect to this constraint,
-  +] bounding: given that at a certain recursion, the highest total selection reachable is computed as the sum of current total
-     selection and of the quantity of coins from the current recrusion on, if during tree exploration this sum does not exceed
-     the temporary optimal solution (ties are handled prioritizing low total amount) then all the branches from the current
-     recursion on are cut; this is done in order to avoid reaching leaves that would certainly not improve the temporary optimal
-     solution.
+  +] backtracking (1): given that at a certain recursion, including a new coin would automatically increase both the
+     temporary total amount as well as the temporary total size, if during the tree exploration the two upper-limit
+     constraints associated to target amount plus offset and to total size are broken then all the branches from the
+     current recursion on are cut; this is done in order to avoid reaching leaves that would certainly be not admissible
+     with respect to these two constraints,
+  +] backtracking (2): given that at a certain recursion, the highest total amount reachable is computed as the sum of
+     current total amount and of all the amounts of coins from the current recursion on, if during the tree exploration
+     this sum does not exceed the lower-limit associated to target amount then all the branches from the current recursion
+     on are cut; this is done in order to avoid reaching leaves that would certainly be not admissible with respect to this
+     constraint,
+  +] bounding: given that at a certain recursion, the highest total selection reachable is computed as the sum of current
+     total selection and of the quantity of coins from the current recrusion on, if during tree exploration this sum does
+     not exceed the temporary optimal solution (ties are handled prioritizing low total amount) then all the branches from
+     the current recursion on are cut; this is done in order to avoid reaching leaves that would certainly not improve the
+     temporary optimal solution.
 */
 class CCoinsSelectionBranchAndBound : public CCoinsSelectionAlgorithmBase
 {
@@ -284,7 +286,26 @@ public:
 
 //! "For Notes" implementation of algorithm of coins selection
 /*!
+  The implementation details of this method are stricly connected to the implementation of AsyncRPCOperation_sendmany::main_impl() as for commit "d1104ef903147338692344069e30c666d8b78614"
+
   This class provides a specific implementation of the solving routine.
+  A crucial consideration is that, unlike coins selection, the selection of a note doesn't give an independent contribution
+  to overall selection size; indeed, from an iteration point of view, each selection of a note actually adds size only if
+  it triggers the insertion of a new joinsplit; furthermore, from a global point of view, the overall selection of notes
+  may require a number of joinsplits that is lower than the number of joinsplits that is requested by the recipients, hence
+  the overall size has to updated accordingly.
+  In this implementation notes are iteratively added to (or removed from) current selection set starting from lowest
+  amount note and proceeding towards highest amount note.
+
+...
+
+  At each iteration the algorithm pushes in the next note and updates some auxiliary variables for keeping track of the
+  overall size of the selection; unlike coins selection algorithms; if the target amount plus offset and available total size
+  constraints (upper-limit) are not met, the algorithm starts popping out the smallest coins until the two constraints
+  above are met; then the algorithm checks if the target amount constraint (lower-limit) is met; if it is not met the
+  algorithm continues with next coin insertion, otherwise it marks the finding of an admissible solution and performs
+  additional insertions until one of the upper-limit constraints is broken (and thus removing the just inserted coin)
+  or the set of available coins is empty, eventually setting the best selection set.
 */
 class CCoinsSelectionForNotes : public CCoinsSelectionAlgorithmBase
 {
@@ -301,7 +322,7 @@ public:
     //! Number of joinsplits outputs amounts
     const unsigned int numberOfJoinsplitsOutputsAmounts;
     //! Joinsplits outputs amounts
-    const CAmount* joinsplitsOutputsAmounts;
+    CAmount* joinsplitsOutputsAmounts;
     // input variables
 
 private:

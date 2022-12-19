@@ -68,15 +68,8 @@ class ZSendmanyTest(BitcoinTestFramework):
 
         amount = 10.0
         #Send 10 Zen to Zaddress and verify the change is returned back to the input address of the transaction
-        ZDestAddress2_0 = self.nodes[2].z_getnewaddress()
-        ZDestAddress2_1 = self.nodes[2].z_getnewaddress()
-        ZDestAddress2_2 = self.nodes[2].z_getnewaddress()
-        TDestAddress2_0 = self.nodes[2].getnewaddress()
-        TDestAddress2_1 = self.nodes[2].getnewaddress()
-        TDestAddress2_2 = self.nodes[2].getnewaddress()
-        recipients= [{"address":ZDestAddress2_0, "amount": amount/4},
-                     {"address":ZDestAddress2_1, "amount": amount/4},
-                     {"address":ZDestAddress2_2, "amount": amount/4}]
+        ZDestAddress = self.nodes[2].z_getnewaddress()
+        recipients= [{"address":ZDestAddress, "amount": amount}]
         myopid = self.nodes[1].z_sendmany(fromAddress,recipients,1,self.FEE, True)
         txid = wait_and_assert_operationid_status(self.nodes[1], myopid)
         self.sync_all()
@@ -87,9 +80,7 @@ class ZSendmanyTest(BitcoinTestFramework):
         vouts = self.nodes[1].decoderawtransaction(hex)['vout']
         assert_equal(len(vouts),1)
         assert_equal(vouts[0]['scriptPubKey']['addresses'][0],fromAddress)
-        assert_equal(self.nodes[2].z_getbalance(ZDestAddress2_0),amount/4)
-        assert_equal(self.nodes[2].z_getbalance(ZDestAddress2_1),amount/4)
-        assert_equal(self.nodes[2].z_getbalance(ZDestAddress2_2),amount/4)
+        assert_equal(self.nodes[2].z_getbalance(ZDestAddress),10)
 
 
         #Send 10 Zen to Taddress and verify the change is returned back to the input address of the transaction

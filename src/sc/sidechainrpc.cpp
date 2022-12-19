@@ -1088,7 +1088,7 @@ ScRpcCmdCert::ScRpcCmdCert(
 
 void ScRpcCmdCert::_execute()
 {
-    CCertificateSizeInfo certificateSize;
+    CCertificateSizeEstimation certificateSize;
 
     // initialize transaction and compute overhead size
     init();
@@ -1364,25 +1364,37 @@ void ScRpcCmdTx::sign()
 
 void ScRpcCmdTx::_execute()
 {
-    CTransactionSizeInfo transactionSize;
+    CTransactionSizeEstimation transactionSizeEstimation;
 
     // initialize transaction and compute overhead size
     init();
-    transactionSize.overheadSize = _tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+    transactionSizeEstimation.overheadSize = _tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
 
     // compute size of dummy change output (when estimating transaction size, change output is always included)
-    transactionSize.baseOutputChangeOnlySize = addChange(true);
+    transactionSizeEstimation.baseOutputChangeOnlySize = addChange(true);
 
     // add crosschain outputs and store their sizes
-    transactionSize.sidechainOutputsSize = addCcOutputs();
+    transactionSizeEstimation.sidechainOutputsSize = addCcOutputs();
 
     // add base inputs based on available size
-    transactionSize.baseInputsSize = addInputs(MAX_TX_SIZE - (transactionSize.overheadSize + transactionSize.baseOutputChangeOnlySize + transactionSize.sidechainOutputsSize));
+    transactionSizeEstimation.baseInputsSize = addInputs(MAX_TX_SIZE - (transactionSizeEstimation.overheadSize +
+                                                                        transactionSizeEstimation.baseOutputChangeOnlySize +
+                                                                        transactionSizeEstimation.sidechainOutputsSize));
 
-    // add actual change base output
-    transactionSize.baseOutputChangeOnlySize = addChange();
+    // add actual change base output (estimation is not updated)
+    addChange();
 
     sign();
+
+    // this quantity should match the sum of the members of struct transactionSize (apart maybe from change section)
+    unsigned int nBytes = ::GetSerializeSize(_tx, SER_NETWORK, PROTOCOL_VERSION);
+    LogPrint("selectcoins", "Actual tx size: %d, estimated tx size: %d (dummy change size: %d)",
+             nBytes,
+             transactionSizeEstimation.overheadSize +
+             transactionSizeEstimation.baseOutputsNoChangeSize +
+             transactionSizeEstimation.baseOutputChangeOnlySize +
+             transactionSizeEstimation.baseInputsSize,
+             transactionSizeEstimation.baseOutputChangeOnlySize);
 }
 
 void ScRpcCmd::execute()
