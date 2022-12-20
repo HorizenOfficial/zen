@@ -2949,24 +2949,16 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
         // <gross value, value, output, size>
         tuple<CAmount, CAmount, COutput, size_t> coin = make_tuple(grossValue, value, output, estimatedInputSize);
 
-        // if a single coin with exact match (and the single size is admissible) is found then return
-        if (value == nTargetValue &&
-            estimatedInputSize <= availableBytes)
-        {
-            vCoinsRet.push_back(output);
-            nValueRet = grossValue;
-            selectionTotalBytes = estimatedInputSize;
-            return true;
-        }
-        // if coin is less than target add it to the set of possible coins to be selected
-        else if (value < nTargetValue)
+        // if coin is less than target, add it to the set of possible coins to be selected
+        if (value < nTargetValue)
         {
             vValue.push_back(coin);
             nTotalLower += value;
             selectionTotalBytesLower += estimatedInputSize;
         }
-        // if coin is larger than target check if it is the smallest larger
-        else if (value < std::get<1>(coinLowestLarger))
+        // if coin is larger than target, check if it is the smallest larger and its size is admissible
+        else if (value < std::get<1>(coinLowestLarger) &&
+                 estimatedInputSize <= availableBytes)
         {
             coinLowestLarger = coin;
         }
@@ -2989,9 +2981,8 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
     if ((nTotalLower < nTargetValue) ||
         (nTotalLower == nTargetValue && selectionTotalBytesLower > availableBytes))
     {
-        // ...and there is no larger coin (or its single size is not admissible) then the problem is unsolvable
-        if (std::get<3>(coinLowestLarger) == 0 ||
-            std::get<3>(coinLowestLarger) > availableBytes)
+        // ...and there is no larger coin, then the problem is unsolvable
+        if (std::get<3>(coinLowestLarger) == 0)
             return false;
         // ...otherwise return the larger coin
         vCoinsRet.push_back(std::get<2>(coinLowestLarger));
@@ -4644,18 +4635,8 @@ bool CWallet::SelectNotes(const CAmount& nTargetValue, std::vector<CNotePlaintex
         // <value, note, size>
         tuple<CAmount, CNotePlaintextEntry, size_t> extendedNote = make_tuple(value, note, estimatedNoteSize);
 
-        // if a single note with exact match is found and the single note size (eventually increased by
-        // the sum of the notes sizes to be provided for fulfilling recipients) is admissible, then return
-        if (value == nTargetValue &&
-            std::max(1, (int)joinsplitsOutputsAmounts.size()) * estimatedNoteSize <= availableBytes)
-        {
-            vNotesRet.push_back(std::get<1>(extendedNote));
-            nValueRet = value;
-            selectionTotalBytes = std::max(1, (int)joinsplitsOutputsAmounts.size()) * estimatedNoteSize;
-            return true;
-        }
-        // if note is less than target add it to the set of possible notes to be selected
-        else if (value < nTargetValue)
+        // if note is less than target, add it to the set of possible notes to be selected
+        if (value < nTargetValue)
         {
             vValue.push_back(extendedNote);
             nTotalLower += value;
@@ -4664,15 +4645,17 @@ bool CWallet::SelectNotes(const CAmount& nTargetValue, std::vector<CNotePlaintex
                 selectionTotalBytesLower += estimatedNoteSize;
             }
         }
-        // if note is larger than target check if it is the smallest larger
-        else if (value < std::get<0>(noteLowestLarger))
+        // if note is larger than target, check if it is the smallest larger and if its size (eventually
+        // increased by the sum of the notes sizes to be provided for fulfilling recipients) is admissible
+        else if (value < std::get<0>(noteLowestLarger) &&
+                 std::max(1, (int)joinsplitsOutputsAmounts.size()) * estimatedNoteSize <= availableBytes)
         {
             noteLowestLarger = extendedNote;
         }
     }
 
-    // if the sum of lower notes is an exact match and the total size (eventually increased by the sum
-    // of the notes sizes to be provided for fulfilling recipients) is admissible then return
+    // if the sum of lower notes is an exact match and the total size (eventually increased by the
+    // sum of the notes sizes to be provided for fulfilling recipients) is admissible, then return
     if (nTotalLower == nTargetValue &&                                                                                                         
         selectionTotalBytesLower + std::max(0, (int)joinsplitsOutputsAmounts.size() - (int)vValue.size()) * estimatedNoteSize <= availableBytes)
     {
@@ -4689,14 +4672,13 @@ bool CWallet::SelectNotes(const CAmount& nTargetValue, std::vector<CNotePlaintex
     if ((nTotalLower < nTargetValue) ||
         (nTotalLower == nTargetValue && selectionTotalBytesLower + std::max(0, (int)joinsplitsOutputsAmounts.size() - (int)vValue.size()) * estimatedNoteSize > availableBytes))
     {
-        // ...and there is no larger note (or its single size is not admissible) then the problem is unsolvable
-        if (std::get<2>(noteLowestLarger) == 0 ||
-            std::get<2>(noteLowestLarger) + std::max(1, (int)joinsplitsOutputsAmounts.size()) * estimatedNoteSize > availableBytes)
+        // ...and there is no larger note then the problem is unsolvable
+        if (std::get<2>(noteLowestLarger) == 0)
             return false;
         // ...otherwise return the larger note
         vNotesRet.push_back(std::get<1>(noteLowestLarger));
         nValueRet = std::get<0>(noteLowestLarger);
-        selectionTotalBytes = std::get<2>(noteLowestLarger) + std::max(1, (int)joinsplitsOutputsAmounts.size()) * estimatedNoteSize;
+        selectionTotalBytes = std::max(1, (int)joinsplitsOutputsAmounts.size()) * estimatedNoteSize;
         return true;
     }
 
