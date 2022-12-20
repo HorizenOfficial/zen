@@ -34,60 +34,70 @@ enum class CoinsSelectionAlgorithmType {
 class CCoinsSelectionAlgorithmBase
 {    
 protected:
-    // auxiliary
+    // ---------- auxiliary
     //! The temporary set of selected elements (true->selected, false->unselected)
     bool* tempSelection;
+
     //! Max index of elements (equal to "problemDimension - 1")
     const unsigned int maxIndex;
-    // auxiliary
+    // ---------- auxiliary
 
-    // profiling and control
+    // ---------- profiling and control
     //! Flag identifying if the solving routine is running
     bool isRunning;
+
     //! Flag identifying if a stop of the solving routine has been requested
     bool stopRequested;
+
     //! The thread associated to the solving routine
     std::thread* solvingThread;
-    // profiling and control
+
+    //! Flag identifying if the solving routine has completed
+    bool hasCompleted;
+
+    #if COINS_SELECTION_ALGORITHM_PROFILING
+    //! Microseconds elapsed to complete solving routine
+    uint64_t executionMicroseconds;
+    #endif
+    // ---------- profiling and control
+
+    // ---------- output variables
+    //! The optimal set of selected elements (true->selected, false->unselected)
+    bool* optimalSelection;
+
+    //! The total amount of optimal selection
+    CAmount optimalTotalAmount;
+
+    //! The total size of optimal selection
+    size_t optimalTotalSize;
+
+    //! The quantity of elements of optimal selection (this is the variable to be maximized)
+    unsigned int optimalTotalSelection;
+    // ---------- output variables
 
 public:
     //! The algorithm type
     CoinsSelectionAlgorithmType type;
 
-    // input variables
+    // ---------- input variables
     //! Number of elements
     const unsigned int problemDimension;
+
     //! The array of amounts
     const CAmount* amounts;
+
     //! The array of sizes (in terms of bytes of the associated input)
     const size_t* sizes;
+
     //! The target amount to satisfy (it is a lower-limit constraint)
     const CAmount targetAmount;
+
     //! The target amount plus a positive offset (it is an upper-limit constraint)
     const CAmount targetAmountPlusOffset;
+
     //! The available total size (in terms of bytes, it is an upper-limit constraint)
     const size_t availableTotalSize;
-    // input variables
-
-    // output variables
-    //! The optimal set of selected elements (true->selected, false->unselected)
-    bool* optimalSelection;
-    //! The total amount of optimal selection
-    CAmount optimalTotalAmount;
-    //! The total size of optimal selection
-    size_t optimalTotalSize;
-    //! The quantity of elements of optimal selection (this is the variable to be maximized)
-    unsigned int optimalTotalSelection;
-    // output variables
-
-    // profiling and control
-    //! Flag identifying if the solving routine has completed
-    bool hasCompleted;
-    #if COINS_SELECTION_ALGORITHM_PROFILING
-    //! Microseconds elapsed to complete solving routine
-    uint64_t executionMicroseconds;
-    #endif
-    // profiling and control
+    // ---------- input variables
 
 private:
     //! Method for preparing array of amounts sorting them with descending order (with respect to amounts)
@@ -96,6 +106,7 @@ private:
       \return the array of amounts in descending order
     */
     CAmount* PrepareAmounts(std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes);
+
     //! Method for preparing array of sizes sorting them with descending order (with respect to amounts)
     /*!
       \param unsortedAmountsAndSizes vector of pairs of amounts and sizes of the elements
@@ -121,19 +132,25 @@ public:
                              CAmount _targetAmount,
                              CAmount _targetAmountPlusOffset,
                              size_t _availableTotalSize);
+                             
     //! Destructor
     ~CCoinsSelectionAlgorithmBase();
+
     //! Method for asynchronously starting the solving routine
     void StartSolvingAsync();
+
     //! Abstract method for synchronously running the solving routine
     virtual void Solve() = 0;
+
     //! Method for synchronously stopping the solving routine
     void StopSolving();
+
     //! Method for providing a string representation of the algorithm input and output variables
     /*!
       \return a string representation of the algorithm input and output variables
     */
     std::string ToString();
+
     //! Static method for selecting the best among two algorithms based on their output variables
     /*!
       \param left tne algorithm for comparison (position does not matter)
@@ -141,9 +158,31 @@ public:
       \return the best algorithm
     */
     static void GetBestAlgorithmBySolution(std::unique_ptr<CCoinsSelectionAlgorithmBase> &left, std::unique_ptr<CCoinsSelectionAlgorithmBase> &right, std::unique_ptr<CCoinsSelectionAlgorithmBase> &best);
+
+    // ---------- getters
+    //! Method for getting if the solving routine has completed
+    bool GetHasCompleted();
+
+    //! Method for getting the microseconds elapsed to complete solving routine
+    #if COINS_SELECTION_ALGORITHM_PROFILING
+    uint64_t GetExecutionMicroseconds();
+    #endif
+
+    //! Method for getting the optimal set of selected elements (true->selected, false->unselected)
+    bool* GetOptimalSelection();
+
+    //! Method for getting the total amount of optimal selection
+    CAmount GetOptimalTotalAmount();
+
+    //! Method for getting the total size of optimal selection
+    size_t GetOptimalTotalSize();
+
+    //! Method for getting the quantity of elements of optimal selection (this is the variable to be maximized)
+    unsigned int GetOptimalTotalSelection();
+    // ---------- getters
 };
 
-/* ---------- ---------- */
+/* ---------- CCoinsSelectionAlgorithmBase ---------- */
 
 /* ---------- CCoinsSelectionSlidingWindow ---------- */
 
@@ -162,12 +201,12 @@ public:
 class CCoinsSelectionSlidingWindow : public CCoinsSelectionAlgorithmBase
 {
 protected:
-    // profiling
+    // ---------- profiling
     #if COINS_SELECTION_ALGORITHM_PROFILING
     //! Counter for keeping track of the number of iterations the solving routine has performed
     uint64_t iterations;
     #endif
-    // profiling
+    // ---------- profiling
 
 protected:
     //! Method for resetting internal variables (must be called before restarting the algorithm)
@@ -185,13 +224,15 @@ public:
                                  CAmount _targetAmount,
                                  CAmount _targetAmountPlusOffset,
                                  size_t _availableTotalSize);
+
     //! Destructor
     ~CCoinsSelectionSlidingWindow();
+
     //! Method for synchronously running the solving routine with "Sliding Window" strategy
     void Solve() override;
 };
 
-/* ---------- ---------- */
+/* ---------- CCoinsSelectionSlidingWindow ---------- */
 
 /* ---------- CCoinsSelectionBranchAndBound ---------- */
 
@@ -227,21 +268,23 @@ public:
 class CCoinsSelectionBranchAndBound : public CCoinsSelectionAlgorithmBase
 {
 protected:
-    // auxiliary
+    // ---------- auxiliary
     //! The array of cumulative amounts (considered summing amounts from index to end of amounts array)
     const CAmount* cumulativeAmountsForward;
-    // auxiliary
+    // ---------- auxiliary
 
-    // profiling
+    // ---------- profiling
     #if COINS_SELECTION_ALGORITHM_PROFILING
     //! Counter for keeping track of the number of recursions the solving routine has performed
     uint64_t recursions;
+
     //! Counter for keeping track of the number of nodes reached by the solving routine
     uint64_t reachedNodes;
+
     //! Counter for keeping track of the number of leaves reached by the solving routine
     uint64_t reachedLeaves;
     #endif
-    // profiling
+    // ---------- profiling
 
 private:
     //! Method for preparing array of cumulative amounts
@@ -249,6 +292,7 @@ private:
       \return the array of cumulative amounts
     */
     CAmount* PrepareCumulativeAmountsForward();
+
     //! Method for synchronously running the solving routine recursion with "Branch & Bound" strategy
     /*!
       \param currentIndex the current index the tree exploration is at
@@ -256,6 +300,7 @@ private:
       \param tempTotalAmount the temporary total amount of tree exploration
       \param tempTotalSelection the temporary total selection of tree exploration
     */
+
     void SolveRecursive(int currentIndex, size_t tempTotalSize, CAmount tempTotalAmount, unsigned int tempTotalSelection);
 
 protected:
@@ -274,13 +319,15 @@ public:
                                   CAmount _targetAmount,
                                   CAmount _targetAmountPlusOffset,
                                   size_t _availableTotalSize);
+
     //! Destructor
     ~CCoinsSelectionBranchAndBound();
+
     //! Method for synchronously running the solving routine with "Branch & Bound" strategy
     void Solve() override;
 };
 
-/* ---------- ---------- */
+/* ---------- CCoinsSelectionBranchAndBound ---------- */
 
 /* ---------- CCoinsSelectionForNotes ---------- */
 
@@ -310,20 +357,20 @@ public:
 class CCoinsSelectionForNotes : public CCoinsSelectionAlgorithmBase
 {
 protected:
-    // profiling
+    // ---------- profiling
     #if COINS_SELECTION_ALGORITHM_PROFILING
     //! Counter for keeping track of the number of iterations the solving routine has performed
     uint64_t iterations;
     #endif
-    // profiling
+    // ---------- profiling
 
-public:
-    // input variables
+    // ---------- input variables
     //! Number of joinsplits outputs amounts
     const unsigned int numberOfJoinsplitsOutputsAmounts;
+
     //! Joinsplits outputs amounts
     CAmount* joinsplitsOutputsAmounts;
-    // input variables
+    // ---------- input variables
 
 private:
     //! Method for preparing array of joinsplits outputs amounts
@@ -350,12 +397,14 @@ public:
                             CAmount _targetAmountPlusOffset,
                             size_t _availableTotalSize,
                             std::vector<CAmount> _joinsplitsOutputsAmounts);
+
     //! Destructor
     ~CCoinsSelectionForNotes();
+
     //! Method for synchronously running the solving routine with "Sliding Window" strategy
     void Solve() override;
 };
 
-/* ---------- ---------- */
+/* ---------- CCoinsSelectionForNotes ---------- */
 
 #endif // _COINS_SELECTION_ALGORITHM_H

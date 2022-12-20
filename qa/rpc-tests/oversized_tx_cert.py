@@ -22,18 +22,6 @@ class OversizedTxCert(BitcoinTestFramework):
         # 101 blocks generated on node2 + (0.001 sent from node2 to node0 + 1 block generated on node2) * 2000 +
         # (1 block genrated on node1 + 100 blocks generated on node2 + shielding on node1 coinbase) * 200 +
         # 1 block generated on node2
-        #
-        # node0:
-        # +] ztfu9KvBM5ef7aoRXZrfXsQM6BBPwduDo5N -> 2.00000000 {2000 utxos}
-        #
-        # node1:
-        # +] ztTEv3uMRhWoKmBmqTdap54AiyCRRitPYNm -> 2.00000000 {2000 utxos}
-        #
-        # node2:
-        # +] ztonWoE4zHCtWwE1SMZKY2hPCgfkkghWENy
-		# +] ztTAABJcZ2E2Cgg7HyUzqBsibF7fzwvjGnk
-        # +] ...
-        # +] ztksKwGeJUpx5KcWTodM1FE4r4rinMnXLT8 -> tot 15522.49940000 (+375.00060000 immature) {2001 utxos (+100 immature)}
 
         resource_file = os.sep.join([os.path.dirname(__file__), 'resources', 'oversized_tx_cert', 'test_setup_.zip'])
         with zipfile.ZipFile(resource_file, 'r') as zip_ref:
@@ -66,6 +54,7 @@ class OversizedTxCert(BitcoinTestFramework):
         nt1b = self.nodes[1].z_getbalance(nt1)
         nz1b = self.nodes[1].z_getbalance(nz1)
         nt2b = self.nodes[2].z_getbalance(nt2)
+
 
         # ---------- testing sendto (sendfrom is analogous) ----------
         try:
@@ -317,6 +306,7 @@ class OversizedTxCert(BitcoinTestFramework):
         self.sync_all()
         self.nodes[2].generate(1)
         self.sync_all()
+
 
         # ---------- testing z_sendmany (from_z part) ----------
         # failure due to notes selection resulting in too many joinsplits (as input) even if single recipient

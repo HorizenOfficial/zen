@@ -149,6 +149,38 @@ void CCoinsSelectionAlgorithmBase::GetBestAlgorithmBySolution(std::unique_ptr<CC
     }
 }
 
+bool CCoinsSelectionAlgorithmBase::GetHasCompleted()
+{
+    return hasCompleted;
+}
+
+#if COINS_SELECTION_ALGORITHM_PROFILING
+uint64_t CCoinsSelectionAlgorithmBase::GetExecutionMicroseconds()
+{
+    return executionMicroseconds;
+}
+#endif
+
+bool* CCoinsSelectionAlgorithmBase::GetOptimalSelection()
+{
+    return optimalSelection;
+}
+
+CAmount CCoinsSelectionAlgorithmBase::GetOptimalTotalAmount()
+{
+    return optimalTotalAmount;
+}
+
+size_t CCoinsSelectionAlgorithmBase::GetOptimalTotalSize()
+{
+    return optimalTotalSize;
+}
+
+unsigned int CCoinsSelectionAlgorithmBase::GetOptimalTotalSelection()
+{
+    return optimalTotalSelection;
+}
+
 /* ---------- ---------- */
 
 /* ---------- CCoinsSelectionSlidingWindow ---------- */
@@ -406,7 +438,7 @@ CCoinsSelectionForNotes::CCoinsSelectionForNotes(std::vector<std::pair<CAmount, 
                                                                                 _targetAmount,
                                                                                 _targetAmountPlusOffset,
                                                                                 _availableTotalSize),
-                                                                                numberOfJoinsplitsOutputsAmounts {_joinsplitsOutputsAmounts.size()},
+                                                                                numberOfJoinsplitsOutputsAmounts {(unsigned int)_joinsplitsOutputsAmounts.size()},
                                                                                 joinsplitsOutputsAmounts {PrepareJoinsplitsOutputsAmounts(_joinsplitsOutputsAmounts)}
 {
     #if COINS_SELECTION_ALGORITHM_PROFILING
