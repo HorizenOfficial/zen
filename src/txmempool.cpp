@@ -290,7 +290,7 @@ void CTxMemPool::addAddressIndex(const CTransactionBase &txBase, int64_t nTime, 
         if (!sidechain.isNonCeasing() && (mapSidechains.at(cert->GetScId()).mBackwardCertificates.size() > 1) && isTopQualityCert)
         {
             // Entries are ordered by quality, therefore the former top-quality is the second starting from the bottom
-            std::map<std::pair<int64_t, int>, uint256>::const_reverse_iterator mempoolCertEntryIt =
+            std::map<int64_t, uint256>::const_reverse_iterator mempoolCertEntryIt =
                 mapSidechains.at(cert->GetScId()).mBackwardCertificates.crbegin();
 
             const uint256& certSuperseededHash = (++mempoolCertEntryIt)->second;
