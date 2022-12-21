@@ -16,7 +16,6 @@ os: linux
       - DOCKER_FROM=ubuntu_bionic
       - DOCKER_IS_DEB=true
       - MAKEFLAGS="--legacy-cpu"
-
   - &docker_amd64_linux_ubuntu_jammy
     env:
       - DOCKER_ARCH=amd64
@@ -30,7 +29,6 @@ os: linux
       - DOCKER_FROM=ubuntu_jammy
       - DOCKER_IS_DEB=true
       - MAKEFLAGS="--legacy-cpu"
-
   - &docker_amd64_windows_ubuntu_bionic
     env:
       - DOCKER_ARCH=amd64
@@ -264,6 +262,10 @@ os: linux
     cache:
       directories:
         - "$HOME/.ccache"
+        - depends/built
+        - depends/sources
+        - depends/work
+        - depends/x86_64*
     script:
       - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/build/build_${TRAVIS_CPU_ARCH}_${DOCKER_TARGET_OS}_${DOCKER_FROM}.sh"
       - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/push_archive.sh ${B2_UL_COMPRESS_FOLDER} ${B2_UL_FILENAME}"
@@ -367,6 +369,10 @@ jobs:
       cache:
         directories:
           - "$HOME/.ccache"
+          - depends/built
+          - depends/sources
+          - depends/work
+          - depends/x86_64*
       script:
         - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/get_archive.sh ${B2_DL_DECOMPRESS_FOLDER} ${B2_DL_FILENAME}"
         - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/travis_stay_alive.sh"
@@ -473,4 +479,3 @@ jobs:
       if: env(SKIP_OSX) != true
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_11
-
