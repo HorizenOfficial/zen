@@ -13,7 +13,7 @@
 #include <main.h>
 #include <init.h>
 
-#define MAX_LOOP 100
+constexpr int MAX_LOOP = 100;
 
 extern UniValue ValueFromAmount(const CAmount& amount);
 extern CAmount AmountFromValue(const UniValue& value);

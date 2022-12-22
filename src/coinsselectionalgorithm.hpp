@@ -5,6 +5,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <atomic>
 #include "amount.h"
 
 
@@ -44,13 +45,13 @@ protected:
 
     // ---------- profiling and control
     //! Flag identifying if the solving routine is running
-    bool isRunning;
+    std::atomic<bool> isRunning;
 
     //! Flag identifying if a stop of the solving routine has been requested
-    bool stopRequested;
+    std::atomic<bool> stopRequested;
 
     //! The thread associated to the solving routine
-    std::thread* solvingThread;
+    std::unique_ptr<std::thread> solvingThread;
 
     //! Flag identifying if the solving routine has completed
     bool hasCompleted;
@@ -102,17 +103,17 @@ public:
 private:
     //! Method for preparing array of amounts sorting them with descending order (with respect to amounts)
     /*!
-      \param unsortedAmountsAndSizes vector of pairs of amounts and sizes of the elements
+      \param amountsAndSizes vector of pairs of amounts and sizes of the elements
       \return the array of amounts in descending order
     */
-    CAmount* PrepareAmounts(std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes);
+    CAmount* PrepareAmounts(std::vector<std::pair<CAmount, size_t>>& amountsAndSizes);
 
-    //! Method for preparing array of sizes sorting them with descending order (with respect to amounts)
+    //! Method for preparing array of sizes (expects descending order with respect to amounts)
     /*!
-      \param unsortedAmountsAndSizes vector of pairs of amounts and sizes of the elements
-      \return the array of sizes (arranged in descending order with respect to input amounts)
+      \param amountsAndSizes vector of pairs of amounts and sizes of the elements
+      \return the array of sizes
     */
-    size_t* PrepareSizes(std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes);
+    size_t* PrepareSizes(std::vector<std::pair<CAmount, size_t>>& amountsAndSizes);
 
 protected:
     //! Method for resetting internal variables (must be called before restarting the algorithm)
@@ -128,13 +129,25 @@ public:
       \param _availableTotalSize available total size (in terms of bytes, it is an upper-limit constraint)
     */
     CCoinsSelectionAlgorithmBase(CoinsSelectionAlgorithmType _type,
-                             std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
-                             CAmount _targetAmount,
-                             CAmount _targetAmountPlusOffset,
-                             size_t _availableTotalSize);
-                             
+                                 std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
+                                 CAmount _targetAmount,
+                                 CAmount _targetAmountPlusOffset,
+                                 size_t _availableTotalSize);
+
+    //! Deleted copy constructor
+    CCoinsSelectionAlgorithmBase(const CCoinsSelectionAlgorithmBase&) = delete;
+
+    //! Deleted move constructor (deletion not needed, but better to be explicit)
+    CCoinsSelectionAlgorithmBase(CCoinsSelectionAlgorithmBase&&) = delete;
+
+    //! Deleted assignment operator
+    CCoinsSelectionAlgorithmBase& operator=(const CCoinsSelectionAlgorithmBase&) = delete;
+
+    //! Deleted move operator (deletion not needed, but better to be explicit)
+    CCoinsSelectionAlgorithmBase& operator=(CCoinsSelectionAlgorithmBase&&) = delete;
+
     //! Destructor
-    ~CCoinsSelectionAlgorithmBase();
+    virtual ~CCoinsSelectionAlgorithmBase();
 
     //! Method for asynchronously starting the solving routine
     void StartSolvingAsync();
@@ -193,7 +206,7 @@ public:
   amount coin and proceeding towards highest amount coin.
   At each iteration the algorithm pushes in the next coin; if the target amount plus offset and available total size
   constraints (upper-limit) are not met, the algorithm starts popping out the smallest coins until the two constraints
-  above are met; then the algorithm checks if the target amount constraint (lower-limit) is met; if it is not met the
+  above are met; then the algorithm checks if the target amount constraint (lower-limit) is met; if it is not met, the
   algorithm continues with next coin insertion, otherwise it marks the finding of an admissible solution and performs
   additional insertions until one of the upper-limit constraints is broken (and thus removing the just inserted coin)
   or the set of available coins is empty, eventually setting the best selection set.
@@ -224,6 +237,18 @@ public:
                                  CAmount _targetAmount,
                                  CAmount _targetAmountPlusOffset,
                                  size_t _availableTotalSize);
+
+    //! Deleted copy constructor
+    CCoinsSelectionSlidingWindow(const CCoinsSelectionSlidingWindow&) = delete;
+
+    //! Deleted move constructor (deletion not needed, but better to be explicit)
+    CCoinsSelectionSlidingWindow(CCoinsSelectionSlidingWindow&&) = delete;
+
+    //! Deleted assignment operator
+    CCoinsSelectionSlidingWindow& operator=(const CCoinsSelectionSlidingWindow&) = delete;
+
+    //! Deleted move operator (deletion not needed, but better to be explicit)
+    CCoinsSelectionSlidingWindow& operator=(CCoinsSelectionSlidingWindow&&) = delete;
 
     //! Destructor
     ~CCoinsSelectionSlidingWindow();
@@ -320,6 +345,18 @@ public:
                                   CAmount _targetAmountPlusOffset,
                                   size_t _availableTotalSize);
 
+    //! Deleted copy constructor
+    CCoinsSelectionBranchAndBound(const CCoinsSelectionBranchAndBound&) = delete;
+
+    //! Deleted move constructor (deletion not needed, but better to be explicit)
+    CCoinsSelectionBranchAndBound(CCoinsSelectionBranchAndBound&&) = delete;
+
+    //! Deleted assignment operator
+    CCoinsSelectionBranchAndBound& operator=(const CCoinsSelectionBranchAndBound&) = delete;
+
+    //! Deleted move operator (deletion not needed, but better to be explicit)
+    CCoinsSelectionBranchAndBound& operator=(CCoinsSelectionBranchAndBound&&) = delete;
+
     //! Destructor
     ~CCoinsSelectionBranchAndBound();
 
@@ -343,16 +380,14 @@ public:
   the overall size has to updated accordingly.
   In this implementation notes are iteratively added to (or removed from) current selection set starting from lowest
   amount note and proceeding towards highest amount note.
-
-...
-
-  At each iteration the algorithm pushes in the next note and updates some auxiliary variables for keeping track of the
-  overall size of the selection; unlike coins selection algorithms; if the target amount plus offset and available total size
-  constraints (upper-limit) are not met, the algorithm starts popping out the smallest coins until the two constraints
-  above are met; then the algorithm checks if the target amount constraint (lower-limit) is met; if it is not met the
-  algorithm continues with next coin insertion, otherwise it marks the finding of an admissible solution and performs
-  additional insertions until one of the upper-limit constraints is broken (and thus removing the just inserted coin)
-  or the set of available coins is empty, eventually setting the best selection set.
+  At each iteration the algorithm pushes in the next note and check if a new joinsplit has to be included, eventually
+  updating the overall selection size accordingly; if the target amount plus offset and available total size (eventually
+  increased by mandatory joinsplits to be included for satisfying outputs amounts) constraints (upper-limit) are not met,
+  the algorithm restarts with a new search excluding the very first note used within last search; then the algorithm checks
+  if the target amount constraint (lower-limit) is met; if it is not met, the algorithm continues with next note insertion,
+  otherwise it marks the finding of an admissible solution and performs additonal insertions until one of the upper-limit
+  constraints is broken (and thus removing the just inserted note) or the set of available notes is empty, eventually
+  setting the best selection set.
 */
 class CCoinsSelectionForNotes : public CCoinsSelectionAlgorithmBase
 {
@@ -397,6 +432,18 @@ public:
                             CAmount _targetAmountPlusOffset,
                             size_t _availableTotalSize,
                             std::vector<CAmount> _joinsplitsOutputsAmounts);
+
+    //! Deleted copyconstructor
+    CCoinsSelectionForNotes(const CCoinsSelectionForNotes&) = delete;
+
+    //! Deleted move constructor (deletion not needed, but better to be explicit)
+    CCoinsSelectionForNotes(CCoinsSelectionForNotes&&) = delete;
+
+    //! Deleted assignment operator
+    CCoinsSelectionForNotes& operator=(const CCoinsSelectionForNotes&) = delete;
+
+    //! Deleted move operator (deletion not needed, but better to be explicit)
+    CCoinsSelectionForNotes& operator=(CCoinsSelectionForNotes&&) = delete;
 
     //! Destructor
     ~CCoinsSelectionForNotes();

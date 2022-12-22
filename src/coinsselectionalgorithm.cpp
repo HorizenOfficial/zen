@@ -15,18 +15,14 @@ CCoinsSelectionAlgorithmBase::CCoinsSelectionAlgorithmBase(CoinsSelectionAlgorit
                                                      problemDimension {(unsigned int)_amountsAndSizes.size()},
                                                      maxIndex {(unsigned int)_amountsAndSizes.size() - 1},
                                                      amounts {PrepareAmounts(_amountsAndSizes)},
-                                                     sizes {PrepareSizes(_amountsAndSizes)},
+                                                     // sizes must be initialized after amounts (PrepareSizes leverages sorting done by PrepareAmounts)
+                                                     sizes {PrepareSizes(_amountsAndSizes)}, 
                                                      targetAmount {_targetAmount},
                                                      targetAmountPlusOffset {_targetAmountPlusOffset},
                                                      availableTotalSize {_availableTotalSize}
 {
-    tempSelection = new bool[problemDimension];    
-    optimalSelection = new bool[problemDimension];
-    for (int index = 0; index < problemDimension; ++index)
-    {
-        tempSelection[index] = false;
-        optimalSelection[index] = false;
-    }
+    tempSelection = new bool[problemDimension]{};    
+    optimalSelection = new bool[problemDimension]{};
 
     optimalTotalAmount = 0;
     optimalTotalSize = 0;
@@ -51,26 +47,23 @@ CCoinsSelectionAlgorithmBase::~CCoinsSelectionAlgorithmBase()
     delete[] optimalSelection;
 }
 
-CAmount* CCoinsSelectionAlgorithmBase::PrepareAmounts(std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes)
+CAmount* CCoinsSelectionAlgorithmBase::PrepareAmounts(std::vector<std::pair<CAmount, size_t>>& amountsAndSizes)
 {
-    std::vector<std::pair<CAmount, size_t>> sortedAmountsAndSizes = unsortedAmountsAndSizes;
-    std::sort(sortedAmountsAndSizes.begin(), sortedAmountsAndSizes.end(), [](std::pair<CAmount, size_t> left, std::pair<CAmount, size_t> right) -> bool { return ( left.first > right.first); } );
+    std::sort(amountsAndSizes.begin(), amountsAndSizes.end(), std::greater<>());
     CAmount* sortedAmounts = new CAmount[problemDimension];
     for (int index = 0; index < problemDimension; ++index)
     {
-        sortedAmounts[index] = sortedAmountsAndSizes[index].first;
+        sortedAmounts[index] = amountsAndSizes[index].first;
     }
     return sortedAmounts;
 }
 
-size_t* CCoinsSelectionAlgorithmBase::PrepareSizes(std::vector<std::pair<CAmount, size_t>> unsortedAmountsAndSizes)
+size_t* CCoinsSelectionAlgorithmBase::PrepareSizes(std::vector<std::pair<CAmount, size_t>>& amountsAndSizes)
 {
-    std::vector<std::pair<CAmount, size_t>> sortedAmountsAndSizes = unsortedAmountsAndSizes;
-    std::sort(sortedAmountsAndSizes.begin(), sortedAmountsAndSizes.end(), [](std::pair<CAmount, size_t> left, std::pair<CAmount, size_t> right) -> bool { return ( left.first > right.first); } );
     size_t* sortedSizes = new size_t[problemDimension];
     for (int index = 0; index < problemDimension; ++index)
     {
-        sortedSizes[index] = sortedAmountsAndSizes[index].second;
+        sortedSizes[index] = amountsAndSizes[index].second;
     }
     return sortedSizes;
 }
@@ -112,13 +105,7 @@ void CCoinsSelectionAlgorithmBase::StartSolvingAsync()
 {
     if (!isRunning)
     {
-        if (solvingThread != nullptr)
-        {
-            // this can be the case of a new start on the same algorithm instance,
-            // hence a deletion of previous pointer is performed before reallocation
-            delete solvingThread;
-        }
-        solvingThread = new std::thread(&CCoinsSelectionAlgorithmBase::Solve, this);
+        solvingThread = std::unique_ptr<std::thread>(new std::thread(&CCoinsSelectionAlgorithmBase::Solve, this));
     }
 }
 
@@ -130,7 +117,6 @@ void CCoinsSelectionAlgorithmBase::StopSolving()
         if (solvingThread != nullptr)
         {
             solvingThread->join();
-            delete solvingThread;
             solvingThread = nullptr;
         }
     }
@@ -181,7 +167,7 @@ unsigned int CCoinsSelectionAlgorithmBase::GetOptimalTotalSelection()
     return optimalTotalSelection;
 }
 
-/* ---------- ---------- */
+/* ---------- CCoinsSelectionAlgorithmBase ---------- */
 
 /* ---------- CCoinsSelectionSlidingWindow ---------- */
 
@@ -200,7 +186,8 @@ CCoinsSelectionSlidingWindow::CCoinsSelectionSlidingWindow(std::vector<std::pair
     #endif
 }
 
-CCoinsSelectionSlidingWindow::~CCoinsSelectionSlidingWindow() {
+CCoinsSelectionSlidingWindow::~CCoinsSelectionSlidingWindow()
+{
 }
 
 void CCoinsSelectionSlidingWindow::Reset()
@@ -227,16 +214,11 @@ void CCoinsSelectionSlidingWindow::Solve()
         int windowBackIndex = maxIndex;
         bool admissibleFound = false;
         bool bestAdmissibleFound = false; // "best" for this specific algorithm implementation
-        for (; windowFrontIndex >= 0; --windowFrontIndex)   
+        for (; !stopRequested && windowFrontIndex >= 0; --windowFrontIndex)   
         {
             #if COINS_SELECTION_ALGORITHM_PROFILING
             ++iterations;
             #endif
-
-            if (stopRequested)
-            {
-                break;
-            }
 
             // insert new coin in selection
             tempSelection[windowFrontIndex] = true;
@@ -300,7 +282,7 @@ void CCoinsSelectionSlidingWindow::Solve()
     }
 }
 
-/* ---------- ---------- */
+/* ---------- CCoinsSelectionSlidingWindow ---------- */
 
 /* ---------- CCoinsSelectionBranchAndBound ---------- */
 
@@ -343,10 +325,10 @@ void CCoinsSelectionBranchAndBound::SolveRecursive(int currentIndex, size_t temp
     ++recursions;
     #endif
     int nextIndex = currentIndex + 1;
-    // it has been empirically found that it is better to perform first exclusion and then inclusion
-    // this, together with the descending order of coins, is probably due to the fact in this way the algorithm
-    // arrives quickly at exploring tree branches with low amount coins (instead of dealing with included high
-    // amount coins that would hardly represent the optimal solution)
+    // it has been empirically found that it is better to perform first exclusion and then inclusion this,
+    // together with the descending order of coins, is probably due to the fact in this way the algorithm
+    // arrives quickly at exploring tree branches with low amount coins (instead of dealing with included
+    // high amount coins that would hardly represent the optimal solution)
     for (bool value : { false, true })
     {
         if (stopRequested)
@@ -424,7 +406,7 @@ void CCoinsSelectionBranchAndBound::Solve()
     }
 }
 
-/* ---------- ---------- */
+/* ---------- CCoinsSelectionBranchAndBound ---------- */
 
 /* ---------- CCoinsSelectionForNotes ---------- */
 
@@ -484,14 +466,9 @@ void CCoinsSelectionForNotes::Solve()
         bool bestAdmissibleFound = false; // "best" for this specific algorithm implementation
         bool breakOuterLoop = false;
 
-        for (; windowBackIndex >= 0; --windowBackIndex)
+        for (; !stopRequested && !breakOuterLoop && windowBackIndex >= 0; --windowBackIndex)
         {
-            if (breakOuterLoop)
-            {
-                break;
-            }
-
-            // quick reset before restarting with sliding window back index increased by one position
+            // quick reset before restarting with sliding window back index decreased by one position
             for (int index = 0; index < problemDimension; ++index)
             {
                 tempSelection[index] = false;
@@ -506,17 +483,11 @@ void CCoinsSelectionForNotes::Solve()
             CAmount joinsplitValue = 0;
             CAmount changeFromPreviousJoinsplit = 0;
 
-            for (windowFrontIndex = windowBackIndex; windowFrontIndex >= 0; --windowFrontIndex)   
+            for (windowFrontIndex = windowBackIndex; !stopRequested && windowFrontIndex >= 0; --windowFrontIndex)   
             {
                 #if COINS_SELECTION_ALGORITHM_PROFILING
                 ++iterations;
                 #endif
-
-                if (stopRequested)
-                {
-                    breakOuterLoop = true;
-                    break;
-                }
 
                 // insert new note in selection
                 tempSelection[windowFrontIndex] = true;
@@ -605,3 +576,5 @@ void CCoinsSelectionForNotes::Solve()
         isRunning = false;
     }
 }
+
+/* ---------- CCoinsSelectionForNotes ---------- */

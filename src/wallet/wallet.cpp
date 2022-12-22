@@ -2903,7 +2903,6 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
                     int nDepth = pcoin->GetDepthInMainChain();
                     vCoins.push_back(COutput(pcoin, voutPos, nDepth, (mine & ISMINE_SPENDABLE) != ISMINE_NO));
                 }
-
             }
         }
     }
@@ -2991,6 +2990,7 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
         return true;
     }
 
+    // this must be kept for preserving ordering between vValue and optimalSelection
     std::sort(vValue.begin(), vValue.end(), [](tuple<CAmount, CAmount, COutput, size_t> left,
                                                tuple<CAmount, CAmount, COutput, size_t> right)
                                                -> bool { return ( std::get<1>(left) > std::get<1>(right)); } );
@@ -3015,27 +3015,27 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
         fastNotOptimalAlgorithm = std::unique_ptr<CCoinsSelectionAlgorithmBase>(new CCoinsSelectionSlidingWindow(amountsAndSizes, targetAmount, targetAmountPlusOffset, availableTotalSize));
         // no async solving is required for these algorithms
         fastNotOptimalAlgorithm->Solve();
-        if (fastNotOptimalAlgorithm->optimalTotalSelection > 0)
+        if (fastNotOptimalAlgorithm->GetOptimalTotalSelection() > 0)
         {
             break;
         }
     }
 
     std::unique_ptr<CCoinsSelectionAlgorithmBase> slowOptimalAlgorithm = nullptr;
-    if (fastNotOptimalAlgorithm->optimalTotalSelection > 0)
+    if (fastNotOptimalAlgorithm->GetOptimalTotalSelection() > 0)
     {
         slowOptimalAlgorithm = std::unique_ptr<CCoinsSelectionAlgorithmBase>(new CCoinsSelectionBranchAndBound(amountsAndSizes, targetAmount, fastNotOptimalAlgorithm->targetAmountPlusOffset, availableTotalSize));
         // async solving is required for this algorithm
         slowOptimalAlgorithm->StartSolvingAsync();
         for (int wait = 0; wait < GetArg("-coinsselectiontimeout", 4) * 10; ++wait)
         {
-            if (slowOptimalAlgorithm->hasCompleted)
+            if (slowOptimalAlgorithm->GetHasCompleted())
             {
                 break;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
-        if (!slowOptimalAlgorithm->hasCompleted)
+        if (!slowOptimalAlgorithm->GetHasCompleted())
         {
             slowOptimalAlgorithm->StopSolving();
         }
@@ -3046,7 +3046,7 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
     }
 
     // If a solution (using smaller coins) has not been found...
-    if (bestAlgorithm == nullptr || bestAlgorithm->optimalTotalAmount < nTargetValue)
+    if (bestAlgorithm == nullptr || bestAlgorithm->GetOptimalTotalAmount() < nTargetValue)
     {
         //...but there is a bigger coin (with admissible size), then use it
         if (std::get<3>(coinLowestLarger) != 0 &&
@@ -3067,15 +3067,15 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
         LogPrint("selectcoins", "SelectCoinsMinConf() best subset: ");
         for (int i = 0; i < bestAlgorithm->problemDimension; i++)
         {
-            if (bestAlgorithm->optimalSelection[i])
+            if (bestAlgorithm->GetOptimalSelection()[i])
             {
                 LogPrint("selectcoins", "%s ", FormatMoney(std::get<0>(vValue[i])));
                 vCoinsRet.push_back(std::get<2>(vValue[i]));
                 nValueRet += std::get<0>(vValue[i]);
             }
         }
-        selectionTotalBytes = bestAlgorithm->optimalTotalSize;
-        LogPrint("selectcoins", "total %s\n", FormatMoney(bestAlgorithm->optimalTotalAmount));
+        selectionTotalBytes = bestAlgorithm->GetOptimalTotalSize();
+        LogPrint("selectcoins", "total %s\n", FormatMoney(bestAlgorithm->GetOptimalTotalAmount()));
     }
 
     return true;
@@ -4682,6 +4682,7 @@ bool CWallet::SelectNotes(const CAmount& nTargetValue, std::vector<CNotePlaintex
         return true;
     }
 
+    // this must be kept for preserving ordering between vValue and optimalSelection
     std::sort(vValue.begin(), vValue.end(), [](tuple<CAmount, CNotePlaintextEntry, size_t> left,
                                                tuple<CAmount, CNotePlaintextEntry, size_t> right)
                                                -> bool { return ( std::get<0>(left) > std::get<0>(right)); } );
@@ -4705,14 +4706,14 @@ bool CWallet::SelectNotes(const CAmount& nTargetValue, std::vector<CNotePlaintex
         fastNotOptimalAlgorithm = std::unique_ptr<CCoinsSelectionAlgorithmBase>(new CCoinsSelectionForNotes(amountsAndSizes, targetAmount, targetAmountPlusOffset, availableTotalSize, joinsplitsOutputsAmounts));
         // no async solving is required for these algorithms
         fastNotOptimalAlgorithm->Solve();
-        if (fastNotOptimalAlgorithm->optimalTotalSelection > 0)
+        if (fastNotOptimalAlgorithm->GetOptimalTotalSelection() > 0)
         {
             break;
         }
     }
 
     // If a solution (using smaller notes) has not been found...
-    if (fastNotOptimalAlgorithm == nullptr || fastNotOptimalAlgorithm->optimalTotalAmount < nTargetValue)
+    if (fastNotOptimalAlgorithm == nullptr || fastNotOptimalAlgorithm->GetOptimalTotalAmount() < nTargetValue)
     {
         //...but there is a bigger note (with admissible size), then use it
         if (std::get<2>(noteLowestLarger) != 0 &&
@@ -4733,15 +4734,15 @@ bool CWallet::SelectNotes(const CAmount& nTargetValue, std::vector<CNotePlaintex
         for (int i = 0; i < fastNotOptimalAlgorithm->problemDimension; i++)
         {
             LogPrint("zrpcunsafe", "SelectNotes() best subset: ");
-            if (fastNotOptimalAlgorithm->optimalSelection[i])
+            if (fastNotOptimalAlgorithm->GetOptimalSelection()[i])
             {
                 LogPrint("zrpcunsafe", "%s ", FormatMoney(std::get<0>(vValue[i])));
                 vNotesRet.push_back(std::get<1>(vValue[i]));
                 nValueRet += std::get<0>(vValue[i]);
             }
         }
-        selectionTotalBytes = fastNotOptimalAlgorithm->optimalTotalSize;
-        LogPrint("zrpcunsafe", "total %s\n", FormatMoney(fastNotOptimalAlgorithm->optimalTotalAmount));
+        selectionTotalBytes = fastNotOptimalAlgorithm->GetOptimalTotalSize();
+        LogPrint("zrpcunsafe", "total %s\n", FormatMoney(fastNotOptimalAlgorithm->GetOptimalTotalAmount()));
     }
 
     return true;
