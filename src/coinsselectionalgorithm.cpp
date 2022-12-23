@@ -7,19 +7,19 @@
 /* ---------- CCoinsSelectionAlgorithmBase ---------- */
 
 CCoinsSelectionAlgorithmBase::CCoinsSelectionAlgorithmBase(CoinsSelectionAlgorithmType _type,
-                                                   std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
-                                                   CAmount _targetAmount,
-                                                   CAmount _targetAmountPlusOffset,
-                                                   size_t _availableTotalSize)
-                                                   : type {_type},
-                                                     problemDimension {(unsigned int)_amountsAndSizes.size()},
-                                                     maxIndex {(unsigned int)_amountsAndSizes.size() - 1},
-                                                     amounts {PrepareAmounts(_amountsAndSizes)},
-                                                     // sizes must be initialized after amounts (PrepareSizes leverages sorting done by PrepareAmounts)
-                                                     sizes {PrepareSizes(_amountsAndSizes)}, 
-                                                     targetAmount {_targetAmount},
-                                                     targetAmountPlusOffset {_targetAmountPlusOffset},
-                                                     availableTotalSize {_availableTotalSize}
+                                                           std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
+                                                           CAmount _targetAmount,
+                                                           CAmount _targetAmountPlusOffset,
+                                                           size_t _availableTotalSize)
+                                                           : type {_type},
+                                                             problemDimension {(unsigned int)_amountsAndSizes.size()},
+                                                             maxIndex {(unsigned int)_amountsAndSizes.size() - 1},
+                                                             amounts {PrepareAmounts(_amountsAndSizes)},
+                                                             // sizes must be initialized after amounts (PrepareSizes leverages sorting done by PrepareAmounts)
+                                                             sizes {PrepareSizes(_amountsAndSizes)}, 
+                                                             targetAmount {_targetAmount},
+                                                             targetAmountPlusOffset {_targetAmountPlusOffset},
+                                                             availableTotalSize {_availableTotalSize}
 {
     tempSelection = new bool[problemDimension]{};    
     optimalSelection = new bool[problemDimension]{};
@@ -68,25 +68,37 @@ size_t* CCoinsSelectionAlgorithmBase::PrepareSizes(std::vector<std::pair<CAmount
     return sortedSizes;
 }
 
-void CCoinsSelectionAlgorithmBase::Reset()
-{  
-    for (int index = 0; index < problemDimension; ++index)
+bool CCoinsSelectionAlgorithmBase::Reset()
+{
+    bool resetActuallyDone = false;
+
+    if (isRunning || hasCompleted)
     {
-        tempSelection[index] = false;
-        optimalSelection[index] = false;
+        if (isRunning)
+        {
+            StopSolving();
+        }
+        for (int index = 0; index < problemDimension; ++index)
+        {
+            tempSelection[index] = false;
+            optimalSelection[index] = false;
+        }
+
+        optimalTotalAmount = 0;
+        optimalTotalSize = 0;
+        optimalTotalSelection= 0;
+
+        isRunning = false;
+        stopRequested = false;
+        solvingThread = nullptr;
+        hasCompleted = false;
+        #if COINS_SELECTION_ALGORITHM_PROFILING
+        executionMicroseconds = 0;
+        #endif
+        resetActuallyDone = true;
     }
 
-    optimalTotalAmount = 0;
-    optimalTotalSize = 0;
-    optimalTotalSelection= 0;
-
-    isRunning = false;
-    stopRequested = false;
-    solvingThread = nullptr;
-    hasCompleted = false;
-    #if COINS_SELECTION_ALGORITHM_PROFILING
-    executionMicroseconds = 0;
-    #endif
+    return resetActuallyDone;
 }
 
 std::string CCoinsSelectionAlgorithmBase::ToString()
@@ -190,19 +202,26 @@ CCoinsSelectionSlidingWindow::~CCoinsSelectionSlidingWindow()
 {
 }
 
-void CCoinsSelectionSlidingWindow::Reset()
+bool CCoinsSelectionSlidingWindow::Reset()
 {
-    CCoinsSelectionAlgorithmBase::Reset();
+    bool resetActuallyDone = CCoinsSelectionAlgorithmBase::Reset();
 
-    #if COINS_SELECTION_ALGORITHM_PROFILING
-    iterations = 0;
-    #endif
+    if (resetActuallyDone)
+    {
+        #if COINS_SELECTION_ALGORITHM_PROFILING
+        iterations = 0;
+        #endif
+    }
+
+    return resetActuallyDone;
 }
 
 void CCoinsSelectionSlidingWindow::Solve()
 {
     if (!isRunning)
     {
+        Reset();
+
         isRunning = true;
         #if COINS_SELECTION_ALGORITHM_PROFILING
         uint64_t microsecondsBefore = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
@@ -276,8 +295,7 @@ void CCoinsSelectionSlidingWindow::Solve()
         #if COINS_SELECTION_ALGORITHM_PROFILING
         executionMicroseconds = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - microsecondsBefore;
         #endif
-        if (stopRequested == false)
-            hasCompleted = true;
+        hasCompleted = !stopRequested;
         isRunning = false;
     }
 }
@@ -377,21 +395,28 @@ void CCoinsSelectionBranchAndBound::SolveRecursive(int currentIndex, size_t temp
     }
 }
 
-void CCoinsSelectionBranchAndBound::Reset()
+bool CCoinsSelectionBranchAndBound::Reset()
 {
-    CCoinsSelectionAlgorithmBase::Reset();
+    bool resetActuallyDone = CCoinsSelectionAlgorithmBase::Reset();
 
-    #if COINS_SELECTION_ALGORITHM_PROFILING
-    recursions = 0;
-    reachedNodes = 0;
-    reachedLeaves = 0;
-    #endif
+    if (resetActuallyDone)
+    {
+        #if COINS_SELECTION_ALGORITHM_PROFILING
+        recursions = 0;
+        reachedNodes = 0;
+        reachedLeaves = 0;
+        #endif
+    }
+
+    return resetActuallyDone;
 }
 
 void CCoinsSelectionBranchAndBound::Solve()
 {
     if (!isRunning)
     {
+        Reset();
+
         isRunning = true;
         #if COINS_SELECTION_ALGORITHM_PROFILING
         uint64_t microsecondsBefore = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
@@ -400,8 +425,7 @@ void CCoinsSelectionBranchAndBound::Solve()
         #if COINS_SELECTION_ALGORITHM_PROFILING
         executionMicroseconds = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - microsecondsBefore;
         #endif
-        if (stopRequested == false)
-            hasCompleted = true;
+        hasCompleted = !stopRequested;
         isRunning = false;
     }
 }
@@ -442,19 +466,26 @@ CAmount* CCoinsSelectionForNotes::PrepareJoinsplitsOutputsAmounts(std::vector<CA
     return joinsplitsOutputsAmountsTemp;
 }
 
-void CCoinsSelectionForNotes::Reset()
+bool CCoinsSelectionForNotes::Reset()
 {
-    CCoinsSelectionAlgorithmBase::Reset();
+    bool resetActuallyDone = CCoinsSelectionAlgorithmBase::Reset();
 
-    #if COINS_SELECTION_ALGORITHM_PROFILING
-    iterations = 0;
-    #endif
+    if (resetActuallyDone)
+    {
+        #if COINS_SELECTION_ALGORITHM_PROFILING
+        iterations = 0;
+        #endif
+    }
+
+    return resetActuallyDone;
 }
 
 void CCoinsSelectionForNotes::Solve()
 {
     if (!isRunning)
     {
+        Reset();
+
         isRunning = true;
         #if COINS_SELECTION_ALGORITHM_PROFILING
         uint64_t microsecondsBefore = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
@@ -571,8 +602,7 @@ void CCoinsSelectionForNotes::Solve()
         #if COINS_SELECTION_ALGORITHM_PROFILING
         executionMicroseconds = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - microsecondsBefore;
         #endif
-        if (stopRequested == false)
-            hasCompleted = true;
+        hasCompleted = !stopRequested;
         isRunning = false;
     }
 }

@@ -54,7 +54,7 @@ protected:
     std::unique_ptr<std::thread> solvingThread;
 
     //! Flag identifying if the solving routine has completed
-    bool hasCompleted;
+    std::atomic<bool> hasCompleted;
 
     #if COINS_SELECTION_ALGORITHM_PROFILING
     //! Microseconds elapsed to complete solving routine
@@ -117,7 +117,10 @@ private:
 
 protected:
     //! Method for resetting internal variables (must be called before restarting the algorithm)
-    virtual void Reset();
+    /*!
+      \return the flag representing if the reset was actually done
+    */
+    virtual bool Reset();
 
 public:
     //! Constructor
@@ -166,31 +169,49 @@ public:
 
     //! Static method for selecting the best among two algorithms based on their output variables
     /*!
-      \param left tne algorithm for comparison (position does not matter)
-      \param right the other algorithm for comparison (position does not matter)
-      \return the best algorithm
+      \param left the algorithm for comparison (this is returned in case of full tie)
+      \param right the other algorithm for comparison
+      \param best the best algorithm
     */
     static void GetBestAlgorithmBySolution(std::unique_ptr<CCoinsSelectionAlgorithmBase> &left, std::unique_ptr<CCoinsSelectionAlgorithmBase> &right, std::unique_ptr<CCoinsSelectionAlgorithmBase> &best);
 
     // ---------- getters
     //! Method for getting if the solving routine has completed
+    /*!
+      \return the flag representing if the solving routine has completed
+    */
     bool GetHasCompleted();
 
     //! Method for getting the microseconds elapsed to complete solving routine
+    /*!
+      \return the microseconds elapsed to complete solving routine
+    */
     #if COINS_SELECTION_ALGORITHM_PROFILING
     uint64_t GetExecutionMicroseconds();
     #endif
 
     //! Method for getting the optimal set of selected elements (true->selected, false->unselected)
+    /*!
+      \return the optimal set of selected elements
+    */
     bool* GetOptimalSelection();
 
     //! Method for getting the total amount of optimal selection
+    /*!
+      \return the total amount of optimal selection
+    */
     CAmount GetOptimalTotalAmount();
 
-    //! Method for getting the total size of optimal selection
+    //! Method for getting the total size of optimal selection (the underlying variable is the one to be maximized)
+    /*!
+      \return the total size of optimal selection
+    */
     size_t GetOptimalTotalSize();
 
-    //! Method for getting the quantity of elements of optimal selection (this is the variable to be maximized)
+    //! Method for getting the quantity of elements of optimal selection
+    /*!
+      \return the quantity of elements of optimal selection
+    */
     unsigned int GetOptimalTotalSelection();
     // ---------- getters
 };
@@ -223,7 +244,10 @@ protected:
 
 protected:
     //! Method for resetting internal variables (must be called before restarting the algorithm)
-    void Reset() override;
+    /*!
+      \return the flag representing if the reset was actually done
+    */
+    bool Reset() override;
 
 public:
     //! Constructor
@@ -330,7 +354,10 @@ private:
 
 protected:
     //! Method for resetting internal variables (must be called before restarting the algorithm)
-    void Reset() override;
+    /*!
+      \return the flag representing if the reset was actually done
+    */
+    bool Reset() override;
 
 public:
     //! Constructor
@@ -416,7 +443,10 @@ private:
 
 protected:
     //! Method for resetting internal variables (must be called before restarting the algorithm)
-    void Reset() override;
+    /*!
+      \return the flag representing if the reset was actually done
+    */
+    bool Reset() override;
 
 public:
     //! Constructor
