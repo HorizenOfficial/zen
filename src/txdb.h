@@ -22,7 +22,6 @@ struct CMaturityHeightKey;
 struct CMaturityHeightIteratorKey;
 struct CMaturityHeightValue;
 
-#ifdef ENABLE_ADDRESS_INDEXING
 enum class AddressType;
 struct CAddressUnspentKey;
 struct CAddressUnspentValue;
@@ -36,7 +35,6 @@ struct CTimestampBlockIndexKey;
 struct CTimestampBlockIndexValue;
 struct CSpentIndexKey;
 struct CSpentIndexValue;
-#endif // ENABLE_ADDRESS_INDEXING
 
 class uint256;
 
@@ -177,7 +175,6 @@ public:
     bool ReadMaturityHeightIndex(int height, std::vector<CMaturityHeightKey> &val);
     bool UpdateMaturityHeightIndex(const std::vector<std::pair<CMaturityHeightKey, CMaturityHeightValue>> &maturityHeightList);
 
-#ifdef ENABLE_ADDRESS_INDEXING
     bool ReadSpentIndex(CSpentIndexKey &key, CSpentIndexValue &value);
     bool UpdateSpentIndex(const std::vector<std::pair<CSpentIndexKey, CSpentIndexValue> >&vect);
     bool UpdateAddressUnspentIndex(const std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue > >&vect);
@@ -194,7 +191,6 @@ public:
     bool WriteTimestampBlockIndex(const CTimestampBlockIndexKey &blockhashIndex, const CTimestampBlockIndexValue &logicalts);
     bool ReadTimestampBlockIndex(const uint256 &hash, unsigned int &logicalTS);
     bool blockOnchainActive(const uint256 &hash);
-#endif // ENABLE_ADDRESS_INDEXING
 
     bool WriteFlag(const std::string &name, bool fValue);
     bool ReadFlag(const std::string &name, bool &fValue);

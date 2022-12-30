@@ -10,10 +10,8 @@
 #include "config/bitcoin-config.h"
 #endif
 
-#ifdef ENABLE_ADDRESS_INDEXING
 #include "spentindex.h"
 #include "timestampindex.h"
-#endif // ENABLE_ADDRESS_INDEXING
 
 #include "amount.h"
 #include "chain.h"
@@ -48,9 +46,8 @@ class CValidationState;
 class CTxUndo;
 struct CNodeStateStats;
 class CTxInUndo;
-#ifdef ENABLE_ADDRESS_INDEXING
+
 enum class AddressType;
-#endif // ENABLE_ADDRESS_INDEXING
 
 /** Default for -blockmaxsize and -blockminsize, which control the range of sizes the mining code will create **/
 static const unsigned int DEFAULT_BLOCK_MAX_SIZE = MAX_BLOCK_SIZE;
@@ -109,16 +106,11 @@ static const unsigned int MAX_REJECT_MESSAGE_LENGTH = 111;
 /* Maximum number of heigths meaningful when looking for block finality */
 static const int MAX_BLOCK_AGE_FOR_FINALITY = 2000;
 
-#ifdef ENABLE_ADDRESS_INDEXING
 static const bool DEFAULT_ADDRESSINDEX = false;
 static const bool DEFAULT_TIMESTAMPINDEX = false;
 static const bool DEFAULT_SPENTINDEX = false;
 static const unsigned int DEFAULT_DB_MAX_OPEN_FILES = 1000;
 static const bool DEFAULT_DB_COMPRESSION = true;
-#else
-static const unsigned int DEFAULT_DB_MAX_OPEN_FILES = 64;
-static const bool DEFAULT_DB_COMPRESSION = false;
-#endif // ENABLE_ADDRESS_INDEXING
 
 // Sanity check the magic numbers when we change them
 BOOST_STATIC_ASSERT(DEFAULT_BLOCK_MAX_SIZE <= MAX_BLOCK_SIZE);
@@ -150,11 +142,8 @@ extern bool fReindex;
 extern bool fReindexFast;
 extern int nScriptCheckThreads;
 
-#ifdef ENABLE_ADDRESS_INDEXING
 extern bool fAddressIndex;
 extern bool fSpentIndex;
-#endif // ENABLE_ADDRESS_INDEXING
-
 extern bool fTxIndex;
 extern bool fMaturityHeightIndex;
 extern bool fIsBareMultisigStd;
@@ -522,15 +511,11 @@ public:
     ScriptError GetScriptError() const;
 };
 
-#ifdef ENABLE_ADDRESS_INDEXING
-bool GetTimestampIndex(const unsigned int &high, const unsigned int &low, const bool fActiveOnly, std::vector<std::pair<uint256, unsigned int> > &hashes);
-bool GetSpentIndex(CSpentIndexKey &key, CSpentIndexValue &value);
-bool GetAddressIndex(uint160 addressHash, AddressType type,
-                     std::vector<std::pair<CAddressIndexKey, CAddressIndexValue> > &addressIndex,
-                     int start = 0, int end = 0);
-bool GetAddressUnspent(uint160 addressHash, AddressType type,
-                       std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs);
-#endif // ENABLE_ADDRESS_INDEXING
+bool GetTimestampIndex(const unsigned int& high, const unsigned int& low, const bool fActiveOnly, std::vector<std::pair<uint256, unsigned int>>& hashes);
+bool GetSpentIndex(CSpentIndexKey& key, CSpentIndexValue& value);
+bool GetAddressIndex(uint160 addressHash, AddressType type, std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>>& addressIndex, int start = 0, int end = 0);
+bool GetAddressUnspent(uint160 addressHash, AddressType type, std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>& unspentOutputs);
+
 
 /** Functions for disk access for blocks */
 bool WriteBlockToDisk(CBlock& block, CDiskBlockPos& pos, const CMessageHeader::MessageStartChars& messageStart);

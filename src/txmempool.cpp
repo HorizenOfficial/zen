@@ -234,8 +234,6 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
     return true;
 }
 
-#ifdef ENABLE_ADDRESS_INDEXING
-
 void CTxMemPool::addAddressIndex(const CTransactionBase &txBase, int64_t nTime, const CCoinsViewCache &view)
 {
     LOCK(cs);
@@ -442,7 +440,6 @@ bool CTxMemPool::removeSpentIndex(const uint256& txBaseHash)
 
     return true;
 }
-#endif // ENABLE_ADDRESS_INDEXING
 
 std::vector<uint256> CTxMemPool::mempoolDirectDependenciesFrom(const CTransactionBase& root) const
 {
@@ -668,12 +665,11 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
             nTransactionsUpdated++;
             minerPolicyEstimator->removeTx(hash);
 
-#ifdef ENABLE_ADDRESS_INDEXING
             if (fAddressIndex)
                 removeAddressIndex(hash);
             if (fSpentIndex)
                 removeSpentIndex(hash);
-#endif // ENABLE_ADDRESS_INDEXING
+
         } else if (mapCertificate.count(hash))
         {
             const CScCertificate& cert = mapCertificate[hash].GetCertificate();
@@ -684,11 +680,9 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
 
             const uint256& scid = cert.GetScId();
 
-#ifdef ENABLE_ADDRESS_INDEXING
             // are we removing a top-quality cert?
             const uint256& topQualHash = mapSidechains.at(scid).GetTopQualityCert()->second;
             bool isTopQualityCert = (topQualHash == hash);
-#endif // ENABLE_ADDRESS_INDEXING
 
             // remove certificate hash from list
             LogPrint("mempool", "%s():%d - removing cert [%s] from mapSidechain[%s]\n",
@@ -709,12 +703,9 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
             mapCertificate.erase(hash);
             nCertificatesUpdated++;
 
-#ifdef ENABLE_ADDRESS_INDEXING
-            if (fAddressIndex)
-            {
+            if (fAddressIndex) {
                 removeAddressIndex(hash);
-                if (isTopQualityCert)
-                {
+                if (isTopQualityCert) {
                     // we have removed a top quality cert, if another one is promoted to be the next top quality, we have to
                     // set the status properly in the address index data
                     updateTopQualCertAddressIndex(scid);
@@ -722,7 +713,6 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
             }
             if (fSpentIndex)
                 removeSpentIndex(hash);
-#endif // ENABLE_ADDRESS_INDEXING
         }
     }
 }
@@ -1154,12 +1144,10 @@ void CTxMemPool::clear()
     mapNullifiers.clear();
     mapRecentlyAddedTxBase.clear();
 
-#ifdef ENABLE_ADDRESS_INDEXING
     mapAddress.clear();
     mapAddressInserted.clear();
     mapSpent.clear();
     mapSpentInserted.clear();
-#endif // ENABLE_ADDRESS_INDEXING
 
     totalTxSize = 0;
     totalCertificateSize = 0;

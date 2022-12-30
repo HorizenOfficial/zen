@@ -116,11 +116,6 @@ LIBZCASH_H = \
   zcash/util.h \
   zcash/Zcash.h
 
-ADDR_INDEX_H = \
-  addressindex.h \
-  spentindex.h \
-  timestampindex.h
-
 .PHONY: FORCE  cargo-build collate-libsnark check-symbols check-security
 # bitcoin core #
 BITCOIN_CORE_H = \
@@ -229,11 +224,10 @@ BITCOIN_CORE_H = \
   zmq/zmqabstractnotifier.h \
   zmq/zmqconfig.h\
   zmq/zmqnotificationinterface.h \
-  zmq/zmqpublishnotifier.h
-
-if ENABLE_ADDRESS_INDEXING
-  BITCOIN_CORE_H += $(ADDR_INDEX_H)
-endif
+  zmq/zmqpublishnotifier.h \
+  addressindex.h \
+  spentindex.h \
+  timestampindex.h
 
 LIBZENCASH_H = \
     zen/utiltls.h\

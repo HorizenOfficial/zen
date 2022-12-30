@@ -59,8 +59,6 @@ cd zen
 ./zcutil/build.sh -j$(nproc)
 # Build for platforms without adx, bmi2 CPU flags
 ./zcutil/build.sh --legacy-cpu -j$(nproc)
-# Build with AddressIndexing support for block explorers
-./zcutil/build.sh --enable-address-indexing -j$(nproc)
 # Fetch key
 ./zcutil/fetch-params.sh
 # Run

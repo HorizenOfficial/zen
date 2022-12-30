@@ -139,7 +139,6 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
             o.pushKV("hex", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
             in.pushKV("scriptSig", o);
 
-#ifdef ENABLE_ADDRESS_INDEXING
             // Add address and value info if spentindex enabled
             CSpentIndexValue spentInfo;
             CSpentIndexKey spentKey(txin.prevout.hash, txin.prevout.n);
@@ -152,7 +151,6 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
                     in.pushKV("address", CBitcoinAddress(CScriptID(spentInfo.addressHash)).ToString());
                 }
             }
-#endif // ENABLE_ADDRESS_INDEXING
 
         }
         in.pushKV("sequence", (int64_t)txin.nSequence);
@@ -177,7 +175,6 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
         ScriptPubKeyToJSON(txout.scriptPubKey, o, true);
         out.pushKV("scriptPubKey", o);
 
-#ifdef ENABLE_ADDRESS_INDEXING
         // Add spent information if spentindex is enabled
         CSpentIndexValue spentInfo;
         CSpentIndexKey spentKey(txid, i);
@@ -186,7 +183,6 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
             out.pushKV("spentIndex", (int)spentInfo.inputIndex);
             out.pushKV("spentHeight", spentInfo.blockHeight);
         }
-#endif // ENABLE_ADDRESS_INDEXING
 
         vout.push_back(out);
     }
@@ -236,7 +232,6 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
         o.pushKV("hex", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
         in.pushKV("scriptSig", o);
 
-#ifdef ENABLE_ADDRESS_INDEXING
         // Add address and value info if spentindex enabled
         CSpentIndexValue spentInfo;
         CSpentIndexKey spentKey(txin.prevout.hash, txin.prevout.n);
@@ -249,7 +244,6 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
                 in.pushKV("address", CBitcoinAddress(CScriptID(spentInfo.addressHash)).ToString());
             }
         }
-#endif // ENABLE_ADDRESS_INDEXING
 
         in.pushKV("sequence", (int64_t)txin.nSequence);
         vin.push_back(in);
@@ -266,7 +260,6 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
         ScriptPubKeyToJSON(txout.scriptPubKey, o, true);
         out.pushKV("scriptPubKey", o);
 
-#ifdef ENABLE_ADDRESS_INDEXING
         // Add spent information if spentindex is enabled
         CSpentIndexValue spentInfo;
         CSpentIndexKey spentKey(certId, i);
@@ -275,7 +268,6 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
             out.pushKV("spentIndex", (int)spentInfo.inputIndex);
             out.pushKV("spentHeight", spentInfo.blockHeight);
         }
-#endif // ENABLE_ADDRESS_INDEXING
 
         if (cert.IsBackwardTransfer(i))
         {

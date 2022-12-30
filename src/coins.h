@@ -30,12 +30,10 @@ struct CTxIndexValue;
 struct CMaturityHeightValue;
 struct CMaturityHeightKey;
 
-#ifdef ENABLE_ADDRESS_INDEXING
 struct CAddressIndexKey;
 struct CAddressIndexValue;
 struct CAddressUnspentKey;
 struct CAddressUnspentValue;
-#endif // ENABLE_ADDRESS_INDEXING
 
 static const int BWT_POS_UNSET = -1;
 
@@ -712,7 +710,6 @@ public:
     void NullifyBackwardTransfers(const uint256& certHash, std::vector<CTxInUndo>& nullifiedOuts);
     bool RestoreBackwardTransfers(const uint256& certHash, const std::vector<CTxInUndo>& outsToRestore);
 
-#ifdef ENABLE_ADDRESS_INDEXING
     /**
      * @brief The enumeration of allowed operations related to the indexes update.
      * When connecting a new block, a previous top quality certificate get superseded.
@@ -730,7 +727,6 @@ public:
                                         std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>>& addressIndex,
                                         std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>& addressUnspentIndex,
                                         flagIndexesUpdateType updateType);
-#endif // ENABLE_ADDRESS_INDEXING
 
     //SIDECHAINS EVENTS RELATED MEMBERS
     bool HaveSidechainEvents(int height)                            const override;
@@ -748,7 +744,7 @@ public:
                                       std::vector<std::pair<CMaturityHeightKey,CMaturityHeightValue>>& maturityHeightIndex);
     void RevertMaturityHeightIndexSidechainEvents(int height, CBlockUndo& blockUndo, CBlockTreeDB* pblocktree,
                                                    std::vector<std::pair<CMaturityHeightKey,CMaturityHeightValue>>& maturityHeightIndex);
-#ifdef ENABLE_ADDRESS_INDEXING
+                                                   
     void HandleIndexesSidechainEvents(int height, CBlockTreeDB* pblocktree,
                                       std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>>& addressIndex,
                                       std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>& addressUnspentIndex);
@@ -756,7 +752,6 @@ public:
     void RevertIndexesSidechainEvents(int height, CBlockUndo& blockUndo, CBlockTreeDB* pblocktree,
                                       std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>>& addressIndex,
                                       std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>& addressUnspentIndex);
-#endif // ENABLE_ADDRESS_INDEXING
 
     //CSW NULLIFIER PUBLIC MEMBERS
     bool HaveCswNullifier(const uint256& scId, const CFieldElement &nullifier) const override;
