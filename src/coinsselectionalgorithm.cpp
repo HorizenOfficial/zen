@@ -1,8 +1,10 @@
 #include "coinsselectionalgorithm.hpp"
-#include <chrono>
 #include <cstdio>
 #include <iostream>
 #include <string>
+#if COINS_SELECTION_ALGORITHM_PROFILING
+#include <chrono>
+#endif
 
 /* ---------- CCoinsSelectionAlgorithmBase ---------- */
 
@@ -21,8 +23,8 @@ CCoinsSelectionAlgorithmBase::CCoinsSelectionAlgorithmBase(CoinsSelectionAlgorit
                                                              targetAmountPlusOffset {_targetAmountPlusOffset},
                                                              availableTotalSize {_availableTotalSize}
 {
-    tempSelection = new bool[problemDimension]{};    
-    optimalSelection = new bool[problemDimension]{};
+    tempSelection = std::vector<char>(problemDimension, 0);    
+    optimalSelection = std::vector<char>(problemDimension, 0);
 
     optimalTotalAmount = 0;
     optimalTotalSize = 0;
@@ -39,18 +41,13 @@ CCoinsSelectionAlgorithmBase::CCoinsSelectionAlgorithmBase(CoinsSelectionAlgorit
 
 CCoinsSelectionAlgorithmBase::~CCoinsSelectionAlgorithmBase()
 {
-    // solvingThread stopping must be performed before data destruction
     StopSolving();
-    delete[] amounts;
-    delete[] sizes;
-    delete[] tempSelection;
-    delete[] optimalSelection;
 }
 
-CAmount* CCoinsSelectionAlgorithmBase::PrepareAmounts(std::vector<std::pair<CAmount, size_t>>& amountsAndSizes)
+std::vector<CAmount> CCoinsSelectionAlgorithmBase::PrepareAmounts(std::vector<std::pair<CAmount, size_t>>& amountsAndSizes)
 {
     std::sort(amountsAndSizes.begin(), amountsAndSizes.end(), std::greater<>());
-    CAmount* sortedAmounts = new CAmount[problemDimension];
+    std::vector<CAmount> sortedAmounts(amountsAndSizes.size(), 0);
     for (int index = 0; index < problemDimension; ++index)
     {
         sortedAmounts[index] = amountsAndSizes[index].first;
@@ -58,9 +55,9 @@ CAmount* CCoinsSelectionAlgorithmBase::PrepareAmounts(std::vector<std::pair<CAmo
     return sortedAmounts;
 }
 
-size_t* CCoinsSelectionAlgorithmBase::PrepareSizes(std::vector<std::pair<CAmount, size_t>>& amountsAndSizes)
+std::vector<size_t> CCoinsSelectionAlgorithmBase::PrepareSizes(std::vector<std::pair<CAmount, size_t>>& amountsAndSizes)
 {
-    size_t* sortedSizes = new size_t[problemDimension];
+    std::vector<size_t> sortedSizes(amountsAndSizes.size(), 0);
     for (int index = 0; index < problemDimension; ++index)
     {
         sortedSizes[index] = amountsAndSizes[index].second;
@@ -80,8 +77,8 @@ bool CCoinsSelectionAlgorithmBase::Reset()
         }
         for (int index = 0; index < problemDimension; ++index)
         {
-            tempSelection[index] = false;
-            optimalSelection[index] = false;
+            tempSelection[index] = 0;
+            optimalSelection[index] = 0;
         }
 
         optimalTotalAmount = 0;
@@ -159,7 +156,7 @@ uint64_t CCoinsSelectionAlgorithmBase::GetExecutionMicroseconds()
 }
 #endif
 
-bool* CCoinsSelectionAlgorithmBase::GetOptimalSelection()
+std::vector<char> CCoinsSelectionAlgorithmBase::GetOptimalSelection()
 {
     return optimalSelection;
 }
@@ -240,7 +237,7 @@ void CCoinsSelectionSlidingWindow::Solve()
             #endif
 
             // insert new coin in selection
-            tempSelection[windowFrontIndex] = true;
+            tempSelection[windowFrontIndex] = 1;
             tempTotalSize += sizes[windowFrontIndex];
             tempTotalAmount += amounts[windowFrontIndex];
             tempTotalSelection += 1;
@@ -256,7 +253,7 @@ void CCoinsSelectionSlidingWindow::Solve()
                 // if admissible solution still not found, pop from back of the sliding window
                 if (!admissibleFound)
                 {
-                    tempSelection[windowBackIndex] = false;
+                    tempSelection[windowBackIndex] = 0;
                     tempTotalSize -= sizes[windowBackIndex];
                     tempTotalAmount -= amounts[windowBackIndex];
                     tempTotalSelection -= 1;
@@ -265,7 +262,7 @@ void CCoinsSelectionSlidingWindow::Solve()
                 // if admissible solution already found, pop from front of the sliding window only the element just inserted (and break)
                 else
                 {
-                    tempSelection[windowFrontIndex] = false;
+                    tempSelection[windowFrontIndex] = 0;
                     tempTotalSize -= sizes[windowFrontIndex];
                     tempTotalAmount -= amounts[windowFrontIndex];
                     tempTotalSelection -= 1;
@@ -323,12 +320,11 @@ CCoinsSelectionBranchAndBound::CCoinsSelectionBranchAndBound(std::vector<std::pa
 }
 
 CCoinsSelectionBranchAndBound::~CCoinsSelectionBranchAndBound() {
-    delete [] cumulativeAmountsForward;
 }
 
-CAmount* CCoinsSelectionBranchAndBound::PrepareCumulativeAmountsForward()
+std::vector<CAmount> CCoinsSelectionBranchAndBound::PrepareCumulativeAmountsForward()
 {
-    CAmount* cumulativeAmountsForwardTemp = new CAmount[problemDimension + 1];
+    std::vector<CAmount> cumulativeAmountsForwardTemp(problemDimension + 1, 0);
     cumulativeAmountsForwardTemp[problemDimension] = 0;
     for (int index = problemDimension - 1; index >= 0; --index)
     {
@@ -347,7 +343,7 @@ void CCoinsSelectionBranchAndBound::SolveRecursive(int currentIndex, size_t temp
     // together with the descending order of coins, is probably due to the fact in this way the algorithm
     // arrives quickly at exploring tree branches with low amount coins (instead of dealing with included
     // high amount coins that would hardly represent the optimal solution)
-    for (bool value : { false, true })
+    for (char value = 0; value <= 1; ++value)
     {
         if (stopRequested)
         {
@@ -445,25 +441,15 @@ CCoinsSelectionForNotes::CCoinsSelectionForNotes(std::vector<std::pair<CAmount, 
                                                                                 _targetAmountPlusOffset,
                                                                                 _availableTotalSize),
                                                                                 numberOfJoinsplitsOutputsAmounts {(unsigned int)_joinsplitsOutputsAmounts.size()},
-                                                                                joinsplitsOutputsAmounts {PrepareJoinsplitsOutputsAmounts(_joinsplitsOutputsAmounts)}
+                                                                                joinsplitsOutputsAmounts(_joinsplitsOutputsAmounts)
 {
     #if COINS_SELECTION_ALGORITHM_PROFILING
     iterations = 0;
     #endif
 }
 
-CCoinsSelectionForNotes::~CCoinsSelectionForNotes() {
-    delete [] joinsplitsOutputsAmounts;
-}
-
-CAmount* CCoinsSelectionForNotes::PrepareJoinsplitsOutputsAmounts(std::vector<CAmount> joinsplitsOutputsAmounts)
+CCoinsSelectionForNotes::~CCoinsSelectionForNotes()
 {
-    CAmount* joinsplitsOutputsAmountsTemp = new CAmount[numberOfJoinsplitsOutputsAmounts];
-    for (int index = 0; index < numberOfJoinsplitsOutputsAmounts; ++index)
-    {
-        joinsplitsOutputsAmountsTemp[index] = joinsplitsOutputsAmounts[index];
-    }
-    return joinsplitsOutputsAmountsTemp;
 }
 
 bool CCoinsSelectionForNotes::Reset()
@@ -502,7 +488,7 @@ void CCoinsSelectionForNotes::Solve()
             // quick reset before restarting with sliding window back index decreased by one position
             for (int index = 0; index < problemDimension; ++index)
             {
-                tempSelection[index] = false;
+                tempSelection[index] = 0;
             }
             size_t tempTotalSize = 0;
             CAmount tempTotalAmount = 0;
@@ -521,7 +507,7 @@ void CCoinsSelectionForNotes::Solve()
                 #endif
 
                 // insert new note in selection
-                tempSelection[windowFrontIndex] = true;
+                tempSelection[windowFrontIndex] = 1;
                 size_t tempTotalSizeIterationIncrease = isFirstJoinsplitInput ? sizes[windowFrontIndex] : 0;
                 tempTotalSize += tempTotalSizeIterationIncrease;
                 tempTotalAmount += amounts[windowFrontIndex];
@@ -571,7 +557,7 @@ void CCoinsSelectionForNotes::Solve()
                     // if admissible solution already found, pop from front of the sliding window only the element just inserted
                     else
                     {
-                        tempSelection[windowFrontIndex] = false;
+                        tempSelection[windowFrontIndex] = 0;
                         tempTotalSize -= tempTotalSizeIterationIncrease;
                         tempTotalAmount -= amounts[windowFrontIndex];
                         tempTotalSelection -= 1;

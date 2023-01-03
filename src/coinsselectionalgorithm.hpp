@@ -11,6 +11,7 @@
 
 //! Flag for profiling/debugging mode
 #define COINS_SELECTION_ALGORITHM_PROFILING 0
+
 //! This represents the number of intermediate change levels inside the interval [targetAmount + 0, targetAmount + maxChange]
 /*!
   Low value -> higher quantity of selected utxos and higher change, high value -> lower quantity of selected utxos and lower change
@@ -36,8 +37,9 @@ class CCoinsSelectionAlgorithmBase
 {    
 protected:
     // ---------- auxiliary
-    //! The temporary set of selected elements (true->selected, false->unselected)
-    bool* tempSelection;
+    //! The temporary set of selected elements (1->selected, 0->unselected)
+    //! std::vector<char> is used over std::vector<bool> for favoring processing over optimization
+    std::vector<char> tempSelection;
 
     //! Max index of elements (equal to "problemDimension - 1")
     const unsigned int maxIndex;
@@ -63,8 +65,9 @@ protected:
     // ---------- profiling and control
 
     // ---------- output variables
-    //! The optimal set of selected elements (true->selected, false->unselected)
-    bool* optimalSelection;
+    //! The optimal set of selected elements (1->selected, 0->unselected)
+    //! std::vector<char> is used over std::vector<bool> for favoring processing over optimization
+    std::vector<char> optimalSelection;
 
     //! The total amount of optimal selection
     CAmount optimalTotalAmount;
@@ -85,10 +88,10 @@ public:
     const unsigned int problemDimension;
 
     //! The array of amounts
-    const CAmount* amounts;
+    const std::vector<CAmount> amounts;
 
     //! The array of sizes (in terms of bytes of the associated input)
-    const size_t* sizes;
+    const std::vector<size_t> sizes;
 
     //! The target amount to satisfy (it is a lower-limit constraint)
     const CAmount targetAmount;
@@ -106,14 +109,14 @@ private:
       \param amountsAndSizes vector of pairs of amounts and sizes of the elements
       \return the array of amounts in descending order
     */
-    CAmount* PrepareAmounts(std::vector<std::pair<CAmount, size_t>>& amountsAndSizes);
+    std::vector<CAmount> PrepareAmounts(std::vector<std::pair<CAmount, size_t>>& amountsAndSizes);
 
     //! Method for preparing array of sizes (expects descending order with respect to amounts)
     /*!
       \param amountsAndSizes vector of pairs of amounts and sizes of the elements
       \return the array of sizes
     */
-    size_t* PrepareSizes(std::vector<std::pair<CAmount, size_t>>& amountsAndSizes);
+    std::vector<size_t> PrepareSizes(std::vector<std::pair<CAmount, size_t>>& amountsAndSizes);
 
 protected:
     //! Method for resetting internal variables (must be called before restarting the algorithm)
@@ -194,7 +197,7 @@ public:
     /*!
       \return the optimal set of selected elements
     */
-    bool* GetOptimalSelection();
+    std::vector<char> GetOptimalSelection();
 
     //! Method for getting the total amount of optimal selection
     /*!
@@ -319,7 +322,7 @@ class CCoinsSelectionBranchAndBound : public CCoinsSelectionAlgorithmBase
 protected:
     // ---------- auxiliary
     //! The array of cumulative amounts (considered summing amounts from index to end of amounts array)
-    const CAmount* cumulativeAmountsForward;
+    const std::vector<CAmount> cumulativeAmountsForward;
     // ---------- auxiliary
 
     // ---------- profiling
@@ -340,7 +343,7 @@ private:
     /*!
       \return the array of cumulative amounts
     */
-    CAmount* PrepareCumulativeAmountsForward();
+    std::vector<CAmount> PrepareCumulativeAmountsForward();
 
     //! Method for synchronously running the solving routine recursion with "Branch & Bound" strategy
     /*!
@@ -431,15 +434,8 @@ protected:
     const unsigned int numberOfJoinsplitsOutputsAmounts;
 
     //! Joinsplits outputs amounts
-    CAmount* joinsplitsOutputsAmounts;
+    std::vector<CAmount> joinsplitsOutputsAmounts;
     // ---------- input variables
-
-private:
-    //! Method for preparing array of joinsplits outputs amounts
-    /*!
-      \return the array of cumulative amounts
-    */
-    CAmount* PrepareJoinsplitsOutputsAmounts(std::vector<CAmount> joinsplitsOutputsAmounts);
 
 protected:
     //! Method for resetting internal variables (must be called before restarting the algorithm)
