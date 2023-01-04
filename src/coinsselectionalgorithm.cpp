@@ -25,18 +25,6 @@ CCoinsSelectionAlgorithmBase::CCoinsSelectionAlgorithmBase(CoinsSelectionAlgorit
 {
     tempSelection = std::vector<char>(problemDimension, 0);    
     optimalSelection = std::vector<char>(problemDimension, 0);
-
-    optimalTotalAmount = 0;
-    optimalTotalSize = 0;
-    optimalTotalSelection= 0;
-
-    isRunning = false;
-    stopRequested = false;
-    solvingThread = nullptr;
-    hasCompleted = false;
-    #if COINS_SELECTION_ALGORITHM_PROFILING
-    executionMicroseconds = 0;
-    #endif
 }
 
 CCoinsSelectionAlgorithmBase::~CCoinsSelectionAlgorithmBase()
@@ -69,23 +57,21 @@ bool CCoinsSelectionAlgorithmBase::Reset()
 {
     bool resetActuallyDone = false;
 
-    if (isRunning || hasCompleted)
+    if (isRunning || hasCompleted || stopRequested)
     {
         if (isRunning)
         {
             StopSolving();
         }
-        for (int index = 0; index < problemDimension; ++index)
-        {
-            tempSelection[index] = 0;
-            optimalSelection[index] = 0;
-        }
+        tempSelection.assign(problemDimension, 0);
+        optimalSelection.assign(problemDimension, 0);
 
         optimalTotalAmount = 0;
         optimalTotalSize = 0;
         optimalTotalSelection= 0;
 
         isRunning = false;
+        asyncStartRequested = false;
         stopRequested = false;
         solvingThread = nullptr;
         hasCompleted = false;
@@ -112,22 +98,20 @@ std::string CCoinsSelectionAlgorithmBase::ToString()
 
 void CCoinsSelectionAlgorithmBase::StartSolvingAsync()
 {
-    if (!isRunning)
+    if (!isRunning && !asyncStartRequested)
     {
+        asyncStartRequested = true;
         solvingThread = std::unique_ptr<std::thread>(new std::thread(&CCoinsSelectionAlgorithmBase::Solve, this));
     }
 }
 
 void CCoinsSelectionAlgorithmBase::StopSolving()
 {
-    if (!stopRequested)
+    stopRequested = true;
+    if (solvingThread != nullptr)
     {
-        stopRequested = true;
-        if (solvingThread != nullptr)
-        {
-            solvingThread->join();
-            solvingThread = nullptr;
-        }
+        solvingThread->join();
+        solvingThread.reset();
     }
 }
 
@@ -156,7 +140,7 @@ uint64_t CCoinsSelectionAlgorithmBase::GetExecutionMicroseconds()
 }
 #endif
 
-std::vector<char> CCoinsSelectionAlgorithmBase::GetOptimalSelection()
+std::vector<char>& CCoinsSelectionAlgorithmBase::GetOptimalSelection()
 {
     return optimalSelection;
 }
@@ -190,9 +174,6 @@ CCoinsSelectionSlidingWindow::CCoinsSelectionSlidingWindow(std::vector<std::pair
                                                                                           _targetAmountPlusOffset,
                                                                                           _availableTotalSize)
 {
-    #if COINS_SELECTION_ALGORITHM_PROFILING
-    iterations = 0;
-    #endif
 }
 
 CCoinsSelectionSlidingWindow::~CCoinsSelectionSlidingWindow()
@@ -281,10 +262,7 @@ void CCoinsSelectionSlidingWindow::Solve()
                     optimalTotalSize = tempTotalSize;
                     optimalTotalAmount = tempTotalAmount;
                     optimalTotalSelection = tempTotalSelection;
-                    for (int index = 0; index < problemDimension; ++index)
-                    {
-                        optimalSelection[index] = tempSelection[index];
-                    }
+                    optimalSelection.assign(tempSelection.begin(), tempSelection.end());
                     break;
                 }
             }
@@ -312,11 +290,6 @@ CCoinsSelectionBranchAndBound::CCoinsSelectionBranchAndBound(std::vector<std::pa
                                                                                             _availableTotalSize),
                                                                                             cumulativeAmountsForward {PrepareCumulativeAmountsForward()}
 {
-    #if COINS_SELECTION_ALGORITHM_PROFILING
-    recursions = 0;
-    reachedNodes = 0;
-    reachedLeaves = 0;
-    #endif
 }
 
 CCoinsSelectionBranchAndBound::~CCoinsSelectionBranchAndBound() {
@@ -379,10 +352,7 @@ void CCoinsSelectionBranchAndBound::SolveRecursive(int currentIndex, size_t temp
                             optimalTotalSize = tempTotalSizeNew;
                             optimalTotalAmount = tempTotalAmountNew;
                             optimalTotalSelection = tempTotalSelectionNew;
-                            for (int index = 0; index < problemDimension; ++index)
-                            {
-                                optimalSelection[index] = tempSelection[index];
-                            }
+                            optimalSelection.assign(tempSelection.begin(), tempSelection.end());
                         }
                     }
                 }
@@ -443,9 +413,6 @@ CCoinsSelectionForNotes::CCoinsSelectionForNotes(std::vector<std::pair<CAmount, 
                                                                                 numberOfJoinsplitsOutputsAmounts {(unsigned int)_joinsplitsOutputsAmounts.size()},
                                                                                 joinsplitsOutputsAmounts(_joinsplitsOutputsAmounts)
 {
-    #if COINS_SELECTION_ALGORITHM_PROFILING
-    iterations = 0;
-    #endif
 }
 
 CCoinsSelectionForNotes::~CCoinsSelectionForNotes()
@@ -486,10 +453,7 @@ void CCoinsSelectionForNotes::Solve()
         for (; !stopRequested && !breakOuterLoop && windowBackIndex >= 0; --windowBackIndex)
         {
             // quick reset before restarting with sliding window back index decreased by one position
-            for (int index = 0; index < problemDimension; ++index)
-            {
-                tempSelection[index] = 0;
-            }
+            std::fill(tempSelection.begin(), tempSelection.end(), 0);
             size_t tempTotalSize = 0;
             CAmount tempTotalAmount = 0;
             unsigned int tempTotalSelection = 0;
@@ -575,10 +539,7 @@ void CCoinsSelectionForNotes::Solve()
                         optimalTotalSize = tempTotalSize + (numberOfJoinsplitsOutputsAmounts - joinsplitsOutputAmountIndex) * sizes[0]; // first element size is used (but actually all sizes are equal)
                         optimalTotalAmount = tempTotalAmount;
                         optimalTotalSelection = tempTotalSelection;
-                        for (int index = 0; index < problemDimension; ++index)
-                        {
-                            optimalSelection[index] = tempSelection[index];
-                        }
+                        optimalSelection.assign(tempSelection.begin(), tempSelection.end());
                         breakOuterLoop = true;
                         break;
                     }

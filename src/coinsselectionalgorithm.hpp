@@ -16,7 +16,7 @@
 /*!
   Low value -> higher quantity of selected utxos and higher change, high value -> lower quantity of selected utxos and lower change
 */
-#define COINS_SELECTION_INTERMEDIATE_CHANGE_LEVELS 9
+constexpr int COINS_SELECTION_INTERMEDIATE_CHANGE_LEVELS = 9;
 
 
 //! Types of coins selection algorithm
@@ -47,20 +47,23 @@ protected:
 
     // ---------- profiling and control
     //! Flag identifying if the solving routine is running
-    std::atomic<bool> isRunning;
+    std::atomic<bool> isRunning = false;
+
+    //! Flag identifying if an async start of the solving routine has been requested
+    std::atomic<bool> asyncStartRequested = false;
 
     //! Flag identifying if a stop of the solving routine has been requested
-    std::atomic<bool> stopRequested;
+    std::atomic<bool> stopRequested = false;
 
     //! The thread associated to the solving routine
-    std::unique_ptr<std::thread> solvingThread;
+    std::unique_ptr<std::thread> solvingThread = nullptr;
 
     //! Flag identifying if the solving routine has completed
-    std::atomic<bool> hasCompleted;
+    std::atomic<bool> hasCompleted = false;
 
     #if COINS_SELECTION_ALGORITHM_PROFILING
     //! Microseconds elapsed to complete solving routine
-    uint64_t executionMicroseconds;
+    uint64_t executionMicroseconds = 0;
     #endif
     // ---------- profiling and control
 
@@ -70,13 +73,13 @@ protected:
     std::vector<char> optimalSelection;
 
     //! The total amount of optimal selection
-    CAmount optimalTotalAmount;
+    CAmount optimalTotalAmount = 0;
 
     //! The total size of optimal selection
-    size_t optimalTotalSize;
+    size_t optimalTotalSize = 0;
 
     //! The quantity of elements of optimal selection (this is the variable to be maximized)
-    unsigned int optimalTotalSelection;
+    unsigned int optimalTotalSelection = 0;
     // ---------- output variables
 
 public:
@@ -197,7 +200,7 @@ public:
     /*!
       \return the optimal set of selected elements
     */
-    std::vector<char> GetOptimalSelection();
+    std::vector<char>& GetOptimalSelection();
 
     //! Method for getting the total amount of optimal selection
     /*!
@@ -241,7 +244,7 @@ protected:
     // ---------- profiling
     #if COINS_SELECTION_ALGORITHM_PROFILING
     //! Counter for keeping track of the number of iterations the solving routine has performed
-    uint64_t iterations;
+    uint64_t iterations = 0;
     #endif
     // ---------- profiling
 
@@ -328,13 +331,13 @@ protected:
     // ---------- profiling
     #if COINS_SELECTION_ALGORITHM_PROFILING
     //! Counter for keeping track of the number of recursions the solving routine has performed
-    uint64_t recursions;
+    uint64_t recursions = 0;
 
     //! Counter for keeping track of the number of nodes reached by the solving routine
-    uint64_t reachedNodes;
+    uint64_t reachedNodes = 0;
 
     //! Counter for keeping track of the number of leaves reached by the solving routine
-    uint64_t reachedLeaves;
+    uint64_t reachedLeaves = 0;
     #endif
     // ---------- profiling
 
@@ -425,7 +428,7 @@ protected:
     // ---------- profiling
     #if COINS_SELECTION_ALGORITHM_PROFILING
     //! Counter for keeping track of the number of iterations the solving routine has performed
-    uint64_t iterations;
+    uint64_t iterations = 0;
     #endif
     // ---------- profiling
 
