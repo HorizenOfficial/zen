@@ -108,7 +108,7 @@ class sc_cert_addressindex(BitcoinTestFramework):
         #generate wCertVk and constant
         mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
         sc_name = f"sc{sidechain_version}-{'non-ceasable' if is_non_ceasing else ''}"
-        vk = mcTest.generate_params(sc_name)
+        vk = mcTest.generate_params(sc_name, keyrot=True if sidechain_version >=2 else False)
         constant = generate_random_field_element_hex()
 
         cmdInput = {
@@ -131,7 +131,7 @@ class sc_cert_addressindex(BitcoinTestFramework):
         assert_equal(scid, decoded_tx['vsc_ccout'][0]['scid'])
         mark_logs(f"created SC id: {scid}", self.nodes, DEBUG_MODE)
 
-        mark_logs("Node0 confirms Sc creation generating 1 block", self.nodes, DEBUG_MODE)
+        mark_logs("Node 0 confirms Sc creation generating 1 block", self.nodes, DEBUG_MODE)
         sc_creation_block_hash = self.nodes[0].generate(1)[0]
         current_height += 1
         sc_creation_block = self.nodes[0].getblock(sc_creation_block_hash)
@@ -144,8 +144,8 @@ class sc_cert_addressindex(BitcoinTestFramework):
         self.sync_all()
 
         #Mine Certificate 1 with quality = 5
-        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
-        quality = 0 if is_non_ceasing else 5
+        epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH, is_non_ceasing)
+        quality = 5
         proof = mcTest.create_test_proof(sc_name,
                                          scid_swapped,
                                          epoch_number,
@@ -153,6 +153,7 @@ class sc_cert_addressindex(BitcoinTestFramework):
                                          MBTR_SC_FEE,
                                          FT_SC_FEE,
                                          epoch_cum_tree_hash,
+                                         prev_cert_hash = prev_cert_hash if sidechain_version >= 2 else None,
                                          constant = constant,
                                          pks      = [node1Addr],
                                          amounts  = [bwt_amount])
@@ -220,9 +221,13 @@ class sc_cert_addressindex(BitcoinTestFramework):
         assert_equal(addressutxoWithImmature[-1]["satoshis"], to_satoshis(bwt_amount))
         assert_equal(addressutxoWithImmature[-1]["blocksToMaturity"], 0 if is_non_ceasing else maturityHeight - current_height)
 
+        self.nodes[0].generate(1)
+        current_height += 1
+        self.sync_all()
+
         #Add to mempool Certificate 2 with quality = 7
-        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH, is_non_ceasing, self.nodes[0].getblockcount() - 1)
-        quality = 0 if is_non_ceasing else 7
+        epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH, is_non_ceasing, self.nodes[0].getblockcount() - 1)
+        quality = 7
         bwt_amount2 = Decimal("7")
         mark_logs(f"Add to mempool Certificate 2 with quality = {quality}...", self.nodes, DEBUG_MODE)
         proof = mcTest.create_test_proof(sc_name,
@@ -232,6 +237,7 @@ class sc_cert_addressindex(BitcoinTestFramework):
                                          MBTR_SC_FEE,
                                          FT_SC_FEE,
                                          epoch_cum_tree_hash,
+                                         prev_cert_hash = prev_cert_hash if sidechain_version >= 2 else None,
                                          constant = constant,
                                          pks      = [node1Addr],
                                          amounts  = [bwt_amount2])
@@ -253,11 +259,19 @@ class sc_cert_addressindex(BitcoinTestFramework):
         assert_equal(addressmempool[0]['address'], tAddr1)
         assert_equal(addressmempool[0]['outstatus'], TOP_QUALITY_CERT_BACKWARD_TRANSFER)
 
-        quality = 0 if is_non_ceasing else 9
+        # Non-ceasable sc enforces the rule of one certificate per epoch to be present in
+        # the mempool, and this certificate must belong to the current epoch, hence we are
+        # forced to advance to the next epoch for submitting cert3
+        if is_non_ceasing:
+            self.nodes[0].generate(1)
+            current_height += 1
+            self.sync_all()
+
+        quality = 9
         bwt_amount3 = Decimal("9")
         mark_logs(f"Add to mempool Certificate 3 with quality = {quality}...", self.nodes, DEBUG_MODE)
 
-        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH, is_non_ceasing, self.nodes[0].getblockcount())
+        epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH, is_non_ceasing, self.nodes[0].getblockcount())
 
         proof = mcTest.create_test_proof(sc_name,
                                          scid_swapped,
@@ -266,6 +280,7 @@ class sc_cert_addressindex(BitcoinTestFramework):
                                          MBTR_SC_FEE,
                                          FT_SC_FEE,
                                          epoch_cum_tree_hash,
+                                         prev_cert_hash = prev_cert_hash if sidechain_version >= 2 else None,
                                          constant = constant,
                                          pks      = [node1Addr],
                                          amounts  = [bwt_amount3])
@@ -281,17 +296,23 @@ class sc_cert_addressindex(BitcoinTestFramework):
 
         ####### Test getaddressmempool ########
         addressmempool = self.nodes[1].getaddressmempool({"addresses":[tAddr1]})
-        assert_equal(len(addressmempool), 2)
-        assert_equal(addressmempool[0]['txid'], cert2)
-        assert_equal(addressmempool[0]['satoshis'], float(bwt_amount2) * 1e8)
-        assert_equal(addressmempool[0]['address'], tAddr1)
-        assert_equal(addressmempool[0]['outstatus'],
-                     TOP_QUALITY_CERT_BACKWARD_TRANSFER if is_non_ceasing else LOW_QUALITY_CERT_BACKWARD_TRANSFER)
+        if is_non_ceasing:
+            assert_equal(len(addressmempool), 1)
+            assert_equal(addressmempool[0]['txid'], cert3)
+            assert_equal(addressmempool[0]['satoshis'], float(bwt_amount3) * 1e8)
+            assert_equal(addressmempool[0]['address'], tAddr1)
+            assert_equal(addressmempool[0]['outstatus'], TOP_QUALITY_CERT_BACKWARD_TRANSFER)
+        else:
+            assert_equal(len(addressmempool), 2)
+            assert_equal(addressmempool[0]['txid'], cert2)
+            assert_equal(addressmempool[0]['satoshis'], float(bwt_amount2) * 1e8)
+            assert_equal(addressmempool[0]['address'], tAddr1)
+            assert_equal(addressmempool[0]['outstatus'], LOW_QUALITY_CERT_BACKWARD_TRANSFER)
 
-        assert_equal(addressmempool[1]['txid'], cert3)
-        assert_equal(addressmempool[1]['satoshis'], float(bwt_amount3) * 1e8)
-        assert_equal(addressmempool[1]['address'], tAddr1)
-        assert_equal(addressmempool[1]['outstatus'], TOP_QUALITY_CERT_BACKWARD_TRANSFER)
+            assert_equal(addressmempool[1]['txid'], cert3)
+            assert_equal(addressmempool[1]['satoshis'], float(bwt_amount3) * 1e8)
+            assert_equal(addressmempool[1]['address'], tAddr1)
+            assert_equal(addressmempool[1]['outstatus'], TOP_QUALITY_CERT_BACKWARD_TRANSFER)
 
         self.nodes[0].generate(1)
         current_height += 1
@@ -335,7 +356,7 @@ class sc_cert_addressindex(BitcoinTestFramework):
             address_utxo_slice.sort(key=lambda x: x["satoshis"])
             # The first certificate was included (and matured) in the penultimate block
             # while the last two were included (and matured) in the last one
-            maturity_heights = [current_height - 1, current_height, current_height]
+            maturity_heights = [current_height - 3, current_height - 1, current_height]
             bwt_amounts = [bwt_amount, bwt_amount2, bwt_amount3]
         else:
             # Take the top quality certificate UTXO only
@@ -374,8 +395,8 @@ class sc_cert_addressindex(BitcoinTestFramework):
 
 
         #Mine a block with Certificate 4 with quality = 11 and Certificate 5 with quality = 13
-        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH, is_non_ceasing, current_height - 1)
-        quality = 0 if is_non_ceasing else 11
+        epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH, is_non_ceasing, current_height - 1)
+        quality = 11
         bwt_amount4 = Decimal("11")
         mark_logs(f"Create a Certificate 4 with quality = {quality}...", self.nodes, DEBUG_MODE)
         proof = mcTest.create_test_proof(sc_name,
@@ -385,6 +406,7 @@ class sc_cert_addressindex(BitcoinTestFramework):
                                          MBTR_SC_FEE,
                                          FT_SC_FEE,
                                          epoch_cum_tree_hash,
+                                         prev_cert_hash = prev_cert_hash if sidechain_version >= 2 else None,
                                          constant = constant,
                                          pks      = [node1Addr],
                                          amounts  = [bwt_amount4])
@@ -396,8 +418,13 @@ class sc_cert_addressindex(BitcoinTestFramework):
 
         total_bwt_amount += bwt_amount4
 
-        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH, is_non_ceasing, current_height)
-        quality = 0 if is_non_ceasing else 13
+        # As before, this is required for non-ceasable sidechain to submit cert5
+        if is_non_ceasing:
+            self.nodes[0].generate(1)
+            current_height += 1
+
+        epoch_number, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH, is_non_ceasing, current_height)
+        quality = 13
         bwt_amount5 = Decimal("13")
         mark_logs(f"Create a Certificate 5 with quality = {quality}...", self.nodes, DEBUG_MODE)
         proof = mcTest.create_test_proof(sc_name,
@@ -407,6 +434,7 @@ class sc_cert_addressindex(BitcoinTestFramework):
                                          MBTR_SC_FEE,
                                          FT_SC_FEE,
                                          epoch_cum_tree_hash,
+                                         prev_cert_hash = prev_cert_hash if sidechain_version >= 2 else None,
                                          constant = constant,
                                          pks      = [node1Addr],
                                          amounts  = [bwt_amount5])
@@ -427,7 +455,10 @@ class sc_cert_addressindex(BitcoinTestFramework):
         print(self.nodes[1].getblockchaininfo()['blocks'])
 
         assert_equal(self.nodes[0].getblockchaininfo()['blocks'], current_height)
-        assert_equal(self.nodes[1].getblockchaininfo()['blocks'], current_height - 1)
+        if is_non_ceasing:
+            assert_equal(self.nodes[1].getblockchaininfo()['blocks'], current_height - 2)
+        else:
+            assert_equal(self.nodes[1].getblockchaininfo()['blocks'], current_height - 1)
 
         mark_logs("\nJoining network", self.nodes, DEBUG_MODE)
         self.join_network()
@@ -494,7 +525,7 @@ class sc_cert_addressindex(BitcoinTestFramework):
         for index, address_utxo in enumerate(address_utxo_slice):
             assert_true(address_utxo["backwardTransfer"])
             assert_equal(address_utxo["mature"], is_non_ceasing)
-            assert_equal(address_utxo["maturityHeight"], current_height if is_non_ceasing else maturityHeight)
+            assert_equal(address_utxo["maturityHeight"], current_height - 1 + index if is_non_ceasing else maturityHeight)
             assert_equal(address_utxo["satoshis"], to_satoshis(bwt_amounts[index]))
             assert_equal(address_utxo["blocksToMaturity"], 0 if is_non_ceasing else maturityHeight - current_height)
 
@@ -507,10 +538,10 @@ class sc_cert_addressindex(BitcoinTestFramework):
         mark_logs("\nInvalidating the last block and checking RPC call results...", self.nodes, DEBUG_MODE)
         self.nodes[1].invalidateblock(lastBlock)
         current_height -= 1
-        total_bwt_amount -= bwt_amount4 + bwt_amount5
+        total_bwt_amount -= bwt_amount5 if is_non_ceasing else bwt_amount4 + bwt_amount5
         ####### Test getaddressmempool ########
         addressmempool = self.nodes[1].getaddressmempool({"addresses":[tAddr1]})
-        assert_equal(len(addressmempool), 2)
+        assert_equal(len(addressmempool), 1 if is_non_ceasing else 2)
 
         for address_mempool_entry in addressmempool:
             if (address_mempool_entry['txid'] == cert4):
@@ -560,8 +591,8 @@ class sc_cert_addressindex(BitcoinTestFramework):
             # Block N => None
             # Block N+1 => Cert4 and Cert5
             # Then we reverted block N+1
-            maturity_heights = [current_height - 2, current_height - 1, current_height - 1]
-            bwt_amounts = [bwt_amount, bwt_amount2, bwt_amount3]
+            maturity_heights = [current_height - 3, current_height - 2, current_height]
+            bwt_amounts = [bwt_amount2, bwt_amount3, bwt_amount4]
         else:
             # Take the top quality certificate UTXO only
             address_utxo_slice = addressutxoWithImmature[len(addressutxoWithImmature) - 1:]
@@ -570,8 +601,8 @@ class sc_cert_addressindex(BitcoinTestFramework):
 
         if is_non_ceasing:
             # For non-ceasing sidechains, all the 3 certs are "valid", there is no superseding
-            assert_equal(len(addressutxo), len(starting_address_utxo) + 3)
-            assert_equal(len(addressutxoWithImmature), len(starting_address_utxo_with_immature) + 3)
+            assert_equal(len(addressutxo), len(starting_address_utxo) + 4)
+            assert_equal(len(addressutxoWithImmature), len(starting_address_utxo_with_immature) + 4)
         else:
             # For ceasing sidechains, only the top quality UTXO is "valid" and it's not yet matured
             assert_equal(len(addressutxo), len(starting_address_utxo) + 0)
@@ -589,9 +620,9 @@ class sc_cert_addressindex(BitcoinTestFramework):
         # Generate blocks to reach maturity height (and also make sidechain cease)
         mark_logs("\nGenerating blocks to make the sidechain ceased...", self.nodes, DEBUG_MODE)
         lastBlock = self.nodes[1].generate(maturityHeight - current_height)[-1]
-        certificates_inclusion_height = current_height + 1
+        certificates_inclusion_height = current_height
         current_height = maturityHeight
-        total_bwt_amount += bwt_amount4 + bwt_amount5
+        total_bwt_amount += bwt_amount5 if is_non_ceasing else bwt_amount4 + bwt_amount5
         self.sync_all()
 
         mark_logs("Checking that all the certificates are considered as not mature...", self.nodes, DEBUG_MODE)
@@ -687,7 +718,7 @@ class sc_cert_addressindex(BitcoinTestFramework):
         for index, address_utxo in enumerate(address_utxo_slice):
             assert_true(address_utxo["backwardTransfer"])
             assert_equal(address_utxo["mature"], is_non_ceasing)
-            assert_equal(address_utxo["maturityHeight"], certificates_inclusion_height if is_non_ceasing else maturityHeight)
+            assert_equal(address_utxo["maturityHeight"], certificates_inclusion_height + index if is_non_ceasing else maturityHeight)
             assert_equal(address_utxo["satoshis"], to_satoshis(bwt_amounts[index]))
             assert_equal(address_utxo["blocksToMaturity"], 0 if is_non_ceasing else maturityHeight - current_height)
 
