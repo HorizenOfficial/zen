@@ -186,39 +186,39 @@ public:
     /*!
       \return the flag representing if the solving routine has completed
     */
-    bool GetHasCompleted();
+    bool GetHasCompleted() const;
 
     //! Method for getting the microseconds elapsed to complete solving routine
     /*!
       \return the microseconds elapsed to complete solving routine
     */
     #if COINS_SELECTION_ALGORITHM_PROFILING
-    uint64_t GetExecutionMicroseconds();
+    uint64_t GetExecutionMicroseconds() const;
     #endif
 
     //! Method for getting the optimal set of selected elements (true->selected, false->unselected)
     /*!
       \return the optimal set of selected elements
     */
-    std::vector<char>& GetOptimalSelection();
+    const std::vector<char>& GetOptimalSelection() const;
 
     //! Method for getting the total amount of optimal selection
     /*!
       \return the total amount of optimal selection
     */
-    CAmount GetOptimalTotalAmount();
+    CAmount GetOptimalTotalAmount() const;
 
     //! Method for getting the total size of optimal selection (the underlying variable is the one to be maximized)
     /*!
       \return the total size of optimal selection
     */
-    size_t GetOptimalTotalSize();
+    size_t GetOptimalTotalSize() const;
 
     //! Method for getting the quantity of elements of optimal selection
     /*!
       \return the quantity of elements of optimal selection
     */
-    unsigned int GetOptimalTotalSelection();
+    unsigned int GetOptimalTotalSelection() const;
     // ---------- getters
 };
 
@@ -315,7 +315,7 @@ public:
      on are cut; this is done in order to avoid reaching leaves that would certainly be not admissible with respect to this
      constraint,
   +] bounding: given that at a certain recursion, the highest total selection reachable is computed as the sum of current
-     total selection and of the quantity of coins from the current recrusion on, if during tree exploration this sum does
+     total selection and of the quantity of coins from the current recursion on, if during tree exploration this sum does
      not exceed the temporary optimal solution (ties are handled prioritizing low total amount) then all the branches from
      the current recursion on are cut; this is done in order to avoid reaching leaves that would certainly not improve the
      temporary optimal solution.

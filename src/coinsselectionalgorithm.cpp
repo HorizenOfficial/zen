@@ -128,34 +128,34 @@ void CCoinsSelectionAlgorithmBase::GetBestAlgorithmBySolution(std::unique_ptr<CC
     }
 }
 
-bool CCoinsSelectionAlgorithmBase::GetHasCompleted()
+bool CCoinsSelectionAlgorithmBase::GetHasCompleted() const
 {
     return hasCompleted;
 }
 
 #if COINS_SELECTION_ALGORITHM_PROFILING
-uint64_t CCoinsSelectionAlgorithmBase::GetExecutionMicroseconds()
+uint64_t CCoinsSelectionAlgorithmBase::GetExecutionMicroseconds() const
 {
     return executionMicroseconds;
 }
 #endif
 
-std::vector<char>& CCoinsSelectionAlgorithmBase::GetOptimalSelection()
+const std::vector<char>& CCoinsSelectionAlgorithmBase::GetOptimalSelection() const
 {
     return optimalSelection;
 }
 
-CAmount CCoinsSelectionAlgorithmBase::GetOptimalTotalAmount()
+CAmount CCoinsSelectionAlgorithmBase::GetOptimalTotalAmount() const
 {
     return optimalTotalAmount;
 }
 
-size_t CCoinsSelectionAlgorithmBase::GetOptimalTotalSize()
+size_t CCoinsSelectionAlgorithmBase::GetOptimalTotalSize() const
 {
     return optimalTotalSize;
 }
 
-unsigned int CCoinsSelectionAlgorithmBase::GetOptimalTotalSelection()
+unsigned int CCoinsSelectionAlgorithmBase::GetOptimalTotalSelection() const
 {
     return optimalTotalSelection;
 }
