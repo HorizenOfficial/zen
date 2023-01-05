@@ -31,21 +31,23 @@ TEST(LimitedMap, Insertion) {
     ASSERT_EQ(lm.size(), 2);
     ASSERT_TRUE(lm.find("c") != lm.end());
     ASSERT_TRUE(lm.find("d") != lm.end());
+
+    lm.insert(std::make_pair("d", 5));
+    ASSERT_EQ(lm.size(), 2);
+    ASSERT_TRUE(lm.find("c") != lm.end());
+    ASSERT_TRUE(lm.find("d") != lm.end());
+    ASSERT_EQ(lm.find("d")->second, 4);
 }
 
 TEST(LimitedMap, Update) {
-    LimitedMap<const char*, int> lm(0);
-    lm.insert(std::make_pair("a", 1));
-    ASSERT_EQ(lm.size(), 0);
+    LimitedMap<const char*, int> lm(2);
 
-    lm.max_size(1);
     lm.insert(std::make_pair("a", 1));
     lm.update(lm.find("a"), 2);
     ASSERT_EQ(lm.size(), 1);
     ASSERT_TRUE(lm.find("a") != lm.end());
     ASSERT_EQ(lm.find("a")->second, 2);
 
-    lm.max_size(2);
     lm.insert(std::make_pair("b", 1));
     lm.update(lm.find("b"), 2);
     ASSERT_EQ(lm.size(), 2);
@@ -66,7 +68,10 @@ TEST(LimitedMap, Deletion) {
     ASSERT_TRUE(lm.find("a") != lm.end());
     ASSERT_TRUE(lm.find("c") != lm.end());
 
-    lm.max_size(1);
+    lm.erase("a");
     ASSERT_EQ(lm.size(), 1);
     ASSERT_TRUE(lm.find("c") != lm.end());
+
+    lm.erase("c");
+    ASSERT_EQ(lm.size(), 0);
 }
