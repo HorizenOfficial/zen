@@ -13,9 +13,7 @@ template <typename K, typename V>
 class LimitedMap
 {
 public:
-    typedef K key_type;
-    typedef V mapped_type;
-    typedef std::pair<const key_type, mapped_type> value_type;
+    typedef std::pair<const K, V> value_type;
     typedef typename std::map<K, V>::const_iterator const_iterator;
     typedef typename std::map<K, V>::size_type size_type;
 
@@ -38,35 +36,40 @@ private:
     }
 
 public:
-    LimitedMap(size_type nMaxSizeIn = 0) { nMaxSize = nMaxSizeIn; }
+    LimitedMap(size_type nMaxSizeIn) {
+        assert(nMaxSizeIn > 0);
+        nMaxSize = nMaxSizeIn;
+    }
     const_iterator begin() const { return map.begin(); }
     const_iterator end() const { return map.end(); }
     size_type size() const { return map.size(); }
     bool empty() const { return map.empty(); }
-    const_iterator find(const key_type& k) const { return map.find(k); }
-    size_type count(const key_type& k) const { return map.count(k); }
+    const_iterator find(const K& k) const { return map.find(k); }
+    size_type count(const K& k) const { return map.count(k); }
 
-    void insert(const value_type& x) {
-        if (nMaxSize == 0) {
-            return;
+    bool insert(const value_type& x) {
+        if (map.find(x.first) != map.end()) {
+            return false;
         }
 
         if (map.size() == nMaxSize) {
             const V& cur_min = rmap.begin()->first;
             if (x.second <  cur_min) {
-                return;
+                return false;
             }
             map.erase(rmap.begin()->second);
             rmap.erase(rmap.begin());
         }
+
         std::pair<iterator, bool> ret = map.insert(x);
-        if (ret.second) {
-            // in zend, we expect to insert increasing timestamps most of the times, hence the hint.
-            rmap.insert(rmap.end(), make_pair(x.second, ret.first));
-        }
+        assert(ret.second);
+        // in zend, we expect to insert increasing timestamps most of the times,
+        // so we suggest std::multimap to insert at the end.
+        rmap.insert(rmap.end(), make_pair(x.second, ret.first));
+        return true;
     }
 
-    size_t erase(const key_type& k) {
+    size_t erase(const K& k) {
         iterator itTarget = map.find(k);
         if (itTarget == map.end())
             return 0;
@@ -77,28 +80,20 @@ public:
         return 1; // be consistent with std::map return value
     }
 
-    void update(const_iterator itIn, const mapped_type& v) {
+    bool update(const_iterator itIn, const V& v) {
         iterator itTarget = map.erase(itIn, itIn); // empty range used to get iterator from const_iterator
         if (itTarget == map.end())
-            return;
+            return false;
 
         rmap_iterator rit = find_rmap_key_value_pair(itIn);
         assert(rit != rmap.end());
         rmap.erase(rit);
         itTarget->second = v;
         rmap.insert(std::make_pair(v, itTarget));
+        return true;
     }
 
     size_type max_size() const { return nMaxSize; }
-
-    size_type max_size(size_type s) {
-        while (map.size() > s) {
-            map.erase(rmap.begin()->second);
-            rmap.erase(rmap.begin());
-        }
-        nMaxSize = s;
-        return nMaxSize;
-    }
 };
 
 #endif // BITCOIN_LIMITEDMAP_H
