@@ -1161,7 +1161,6 @@ struct CBaseTransactionSizeEstimation
 struct CTransactionSizeEstimation : CBaseTransactionSizeEstimation
 {
     size_t joinsplitsSize = 0;
-    size_t sidechainInputsSize = 0;
     size_t sidechainOutputsSize = 0;
 };
 

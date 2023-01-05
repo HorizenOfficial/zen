@@ -1099,7 +1099,7 @@ void ScRpcCmdCert::_execute()
     certificateSize.baseOutputChangeOnlySize = addChange(true);
 
     // add crosschain outputs and store their sizes
-    certificateSize.baseOutputsNoChangeSize += addBackwardTransfers();
+    certificateSize.baseOutputsNoChangeSize = addBackwardTransfers();
 
     // add custom fields and store their sizes
     addCustomFields();

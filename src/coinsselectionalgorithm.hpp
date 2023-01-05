@@ -410,7 +410,7 @@ public:
   to overall selection size; indeed, from an iteration point of view, each selection of a note actually adds size only if
   it triggers the insertion of a new joinsplit; furthermore, from a global point of view, the overall selection of notes
   may require a number of joinsplits that is lower than the number of joinsplits that is requested by the recipients, hence
-  the overall size has to updated accordingly.
+  the overall size has to be updated accordingly.
   In this implementation notes are iteratively added to (or removed from) current selection set starting from lowest
   amount note and proceeding towards highest amount note.
   At each iteration the algorithm pushes in the next note and check if a new joinsplit has to be included, eventually
