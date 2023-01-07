@@ -5852,11 +5852,11 @@ bool InitBlockIndex() {
     pblocktree->WriteString("indexVersion", indexVersionStr);
 
     // Use the provided setting for -txindex in the new database
-    fTxIndex = GetBoolArg("-txindex", false);
+    fTxIndex = GetBoolArg("-txindex", DEFAULT_TXINDEX);
     pblocktree->WriteFlag("txindex", fTxIndex);
 
     // Use the provided setting for -maturityheightindex in the new database
-    fMaturityHeightIndex = GetBoolArg("-maturityheightindex", false);
+    fMaturityHeightIndex = GetBoolArg("-maturityheightindex", DEFAULT_MATURITYHEIGHTINDEX);
     pblocktree->WriteFlag("maturityheightindex", fMaturityHeightIndex);
 
     // Use the provided setting for -addressindex in the new database

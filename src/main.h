@@ -106,6 +106,8 @@ static const unsigned int MAX_REJECT_MESSAGE_LENGTH = 111;
 /* Maximum number of heigths meaningful when looking for block finality */
 static const int MAX_BLOCK_AGE_FOR_FINALITY = 2000;
 
+static const bool DEFAULT_TXINDEX = false;
+static const bool DEFAULT_MATURITYHEIGHTINDEX = false;
 static const bool DEFAULT_ADDRESSINDEX = false;
 static const bool DEFAULT_TIMESTAMPINDEX = false;
 static const bool DEFAULT_SPENTINDEX = false;
@@ -143,6 +145,7 @@ extern bool fReindexFast;
 extern int nScriptCheckThreads;
 
 extern bool fAddressIndex;
+extern bool fTimestampIndex;
 extern bool fSpentIndex;
 extern bool fTxIndex;
 extern bool fMaturityHeightIndex;

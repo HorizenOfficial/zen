@@ -876,6 +876,7 @@ bool AppInitServers()
  */
 bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 {
+    
     // ********************************************************* Step 1: setup
 #ifdef _MSC_VER
     // Turn off Microsoft heap dump noise
@@ -1616,13 +1617,13 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 }
 
                 // Check for changed -txindex state
-                if (fTxIndex != GetBoolArg("-txindex", false)) {
+                if (fTxIndex != GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
                     strLoadError = _("You need to rebuild the database using -reindex to change -txindex");
                     break;
                 }
 
                 // Check for changed -maturityheightindex state
-                if (fMaturityHeightIndex != GetBoolArg("-maturityheightindex", false)) {
+                if (fMaturityHeightIndex != GetBoolArg("-maturityheightindex", DEFAULT_MATURITYHEIGHTINDEX)) {
                     strLoadError = _("You need to rebuild the database using -reindex to change -maturityheightindex");
                     break;
                 }
@@ -1633,8 +1634,20 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 LogPrintf("%s: indexVersion %s\n", __func__, indexVersionStr);  
    
                 // Check for changed -addressindex state
-                if (fAddressIndex != GetBoolArg("-addressindex", false)) {
+                if (fAddressIndex != GetBoolArg("-addressindex", DEFAULT_ADDRESSINDEX)) {
                     strLoadError = _("You need to rebuild the database using -reindex to change -addressindex");
+                    break;
+                }
+
+                // Check for changed -timestampindex state
+                if (fTimestampIndex != GetBoolArg("-timestampindex", DEFAULT_TIMESTAMPINDEX)) {
+                    strLoadError = _("You need to rebuild the database using -reindex to change -timestampindex");
+                    break;
+                }
+
+                // Check for changed -spentindex state
+                if (fSpentIndex != GetBoolArg("-spentindex", DEFAULT_SPENTINDEX)) {
+                    strLoadError = _("You need to rebuild the database using -reindex to change -spentindex");
                     break;
                 }
 
