@@ -1057,7 +1057,7 @@ void static BitcoinMiner()
                     // Write the solution to the hash and compute the result.
                     LogPrint("pow", "- Checking solution against target\n");
                     pblock->nSolution = soln;
-                    solutionTargetChecks.increment();
+                    ++solutionTargetChecks;
 
                     if (UintToArith256(pblock->GetHash()) > hashTarget) {
                         return false;
@@ -1081,7 +1081,7 @@ void static BitcoinMiner()
                     // In regression test mode, stop mining after a block is found.
                     if (chainparams.MineBlocksOnDemand()) {
                         // Increment here because throwing skips the call below
-                        ehSolverRuns.increment();
+                        ++ehSolverRuns;
                         throw boost::thread_interrupted();
                     }
 
@@ -1108,7 +1108,7 @@ void static BitcoinMiner()
                         eq.showbsizes(r);
                     }
                     eq.digitK(0);
-                    ehSolverRuns.increment();
+                    ++ehSolverRuns;
 
                     // Convert solution indices to byte array (decompress) and pass it to validBlock method.
                     for (size_t s = 0; s < eq.nsols; s++) {
@@ -1129,7 +1129,7 @@ void static BitcoinMiner()
                     try {
                         // If we find a valid block, we rebuild
                         bool found = EhOptimisedSolve(n, k, curr_state, validBlock, cancelled);
-                        ehSolverRuns.increment();
+                        ++ehSolverRuns;
                         if (found) {
                             break;
                         }

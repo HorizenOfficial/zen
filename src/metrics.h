@@ -8,24 +8,6 @@
 #include <mutex>
 #include <string>
 
-struct AtomicCounter {
-    std::atomic<uint64_t> value;
-
-    AtomicCounter() : value {0} { }
-
-    void increment(){
-        ++value;
-    }
-
-    void decrement(){
-        --value;
-    }
-
-    int get() const {
-        return value.load();
-    }
-};
-
 class AtomicTimer {
 private:
     std::mutex mtx;
@@ -51,12 +33,12 @@ public:
 
     uint64_t threadCount();
 
-    double rate(const AtomicCounter& count);
+    double rate(const std::atomic_uint64_t& count);
 };
 
-extern AtomicCounter transactionsValidated;
-extern AtomicCounter ehSolverRuns;
-extern AtomicCounter solutionTargetChecks;
+extern std::atomic_uint64_t transactionsValidated;
+extern std::atomic_uint64_t ehSolverRuns;
+extern std::atomic_uint64_t solutionTargetChecks;
 extern AtomicTimer miningTimer;
 
 void TrackMinedBlock(uint256 hash);

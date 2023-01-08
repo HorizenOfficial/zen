@@ -1059,7 +1059,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
 {
     // Don't count coinbase transactions because mining skews the count
     if (!tx.IsCoinBase()) {
-        transactionsValidated.increment();
+        ++transactionsValidated;
     }
     if (!CheckTransactionWithoutProofVerification(tx, state)) {
         return false;

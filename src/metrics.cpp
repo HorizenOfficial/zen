@@ -61,7 +61,7 @@ uint64_t AtomicTimer::threadCount()
     return threads;
 }
 
-double AtomicTimer::rate(const AtomicCounter& count)
+double AtomicTimer::rate(const std::atomic_uint64_t& count)
 {
     std::unique_lock<std::mutex> lock(mtx);
     int64_t duration = total_time;
@@ -69,17 +69,17 @@ double AtomicTimer::rate(const AtomicCounter& count)
         // Timer is running, so get the latest count
         duration += GetTime() - start_time;
     }
-    return duration > 0 ? (double)count.get() / duration : 0;
+    return duration > 0 ? (double)count.load() / duration : 0;
 }
 
 CCriticalSection cs_metrics;
 
 boost::synchronized_value<int64_t> nNodeStartTime;
 boost::synchronized_value<int64_t> nNextRefresh;
-AtomicCounter transactionsValidated;
-AtomicCounter ehSolverRuns;
-AtomicCounter solutionTargetChecks;
-AtomicCounter minedBlocks;
+std::atomic_uint64_t transactionsValidated{0};
+std::atomic_uint64_t ehSolverRuns{0};
+std::atomic_uint64_t solutionTargetChecks{0};
+std::atomic_uint64_t minedBlocks{0};
 AtomicTimer miningTimer;
 
 boost::synchronized_value<std::list<uint256>> trackedBlocks;
@@ -93,7 +93,7 @@ extern int64_t GetNetworkHashPS(int lookup, int height);
 void TrackMinedBlock(uint256 hash)
 {
     LOCK(cs_metrics);
-    minedBlocks.increment();
+    ++minedBlocks;
     trackedBlocks->push_back(hash);
 }
 
@@ -335,7 +335,7 @@ int printMetrics(size_t cols, bool mining)
     std::cout << strDuration << std::endl;
     lines += (strDuration.size() / cols);
 
-    int validatedCount = transactionsValidated.get();
+    int validatedCount = static_cast<int>(transactionsValidated.load());
     if (validatedCount > 1) {
       std::cout << "- " << strprintf(_("You have validated %d transactions!"), validatedCount) << std::endl;
     } else if (validatedCount == 1) {
@@ -345,7 +345,7 @@ int printMetrics(size_t cols, bool mining)
     }
 
     if (mining && loaded) {
-        std::cout << "- " << strprintf(_("You have completed %d Equihash solver runs."), ehSolverRuns.get()) << std::endl;
+        std::cout << "- " << strprintf(_("You have completed %d Equihash solver runs."), ehSolverRuns.load()) << std::endl;
         lines++;
 
         int mined = 0;
@@ -382,7 +382,7 @@ int printMetrics(size_t cols, bool mining)
                 }
             }
 
-            mined = minedBlocks.get();
+            mined = minedBlocks.load();
             orphaned = mined - u->size();
         }
 

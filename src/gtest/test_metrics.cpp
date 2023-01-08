@@ -29,22 +29,22 @@ TEST(Metrics, AtomicTimer) {
     t.start();
     EXPECT_TRUE(t.running());
 
-    AtomicCounter c;
+    std::atomic_uint64_t c;
     EXPECT_EQ(0, t.rate(c));
 
-    c.increment();
+    ++c;
     EXPECT_EQ(0, t.rate(c));
 
     SetMockTime(101);
     EXPECT_EQ(1, t.rate(c));
 
-    c.decrement();
+    --c;
     EXPECT_EQ(0, t.rate(c));
 
     SetMockTime(102);
     EXPECT_EQ(0, t.rate(c));
 
-    c.increment();
+    ++c;
     EXPECT_EQ(0.5, t.rate(c));
 
     t.stop();
@@ -65,7 +65,7 @@ TEST(Metrics, GetLocalSolPS) {
     EXPECT_EQ(0, GetLocalSolPS());
 
     // Increment solutions
-    solutionTargetChecks.increment();
+    ++solutionTargetChecks;
     EXPECT_EQ(1, GetLocalSolPS());
 
     // Increment time
@@ -73,8 +73,8 @@ TEST(Metrics, GetLocalSolPS) {
     EXPECT_EQ(0.5, GetLocalSolPS());
 
     // Increment solutions
-    solutionTargetChecks.increment();
-    solutionTargetChecks.increment();
+    ++solutionTargetChecks;
+    ++solutionTargetChecks;
     EXPECT_EQ(1.5, GetLocalSolPS());
 
     // Stop timing
