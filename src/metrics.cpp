@@ -493,8 +493,7 @@ void ThreadShowMetricsScreen()
                   << _("Zen is economic freedom. Thanks for running a node.") << "\n" // Thank you text
                   << _("仕方が無い") << "\n"
                   << _("Shikata ga nai.") << "\n"
-                  << _("它不能得到帮助") << "\n\n"
-                  << PrivacyInfo() << "\n";
+                  << _("它不能得到帮助") << "\n\n";
     }
 
     while (true) {
