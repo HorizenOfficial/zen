@@ -488,22 +488,13 @@ void ThreadShowMetricsScreen()
 #ifdef WIN32
         enableVTMode();
 #endif
-        // Clear screen
-        std::cout << "\e[2J";
-
-        // Print art
-        std::cout << METRICS_ART << std::endl;
-        std::cout << std::endl;
-
-        // Thank you text
-        std::cout << _("Zen is economic freedom. Thanks for running a node.") << std::endl;
-        std::cout << _("仕方が無い") << std::endl;
-        std::cout << _("Shikata ga nai.") << std::endl;
-        std::cout << _("它不能得到帮助") << std::endl << std::endl;
-
-        // Privacy notice text
-        std::cout << PrivacyInfo();
-        std::cout << std::endl;
+        std::cout << "\e[2J"                                                          // Clear screen
+                  << METRICS_ART << "\n"                                              // Print art
+                  << _("Zen is economic freedom. Thanks for running a node.") << "\n" // Thank you text
+                  << _("仕方が無い") << "\n"
+                  << _("Shikata ga nai.") << "\n"
+                  << _("它不能得到帮助") << "\n\n"
+                  << PrivacyInfo() << "\n";
     }
 
     while (true) {
@@ -549,13 +540,13 @@ void ThreadShowMetricsScreen()
         if (isScreen) {
             // Explain how to exit
             //std::cout << "[" << _("Press Ctrl+C to exit") << "] [" << _("Set 'showmetrics=0' to hide") << "]" << std::endl;
-            std::cout << "[";
+            std::cout << "["
 #ifdef WIN32
-            std::cout << _("'zen-cli.exe stop' to exit");
+                      << _("'zen-cli.exe stop' to exit")
 #else
-            std::cout << _("Press Ctrl+C to exit");
+                      << _("Press Ctrl+C to exit")
 #endif
-            std::cout << "] [" << _("Set 'showmetrics=0' to hide") << "]" << std::endl;
+            << "] [" << _("Set 'showmetrics=0' to hide") << "]\n";
         } else {
             // Print delineator
             std::cout << "----------------------------------------" << std::endl;
@@ -569,7 +560,7 @@ void ThreadShowMetricsScreen()
 
         if (isScreen) {
             // Return to the top of the updating section
-            std::cout << "\e[" << lines << "A";
+            std::cout << "\e[" << lines << "A" << std::flush;
         }
     }
 }
