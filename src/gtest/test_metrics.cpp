@@ -29,7 +29,7 @@ TEST(Metrics, AtomicTimer) {
     t.start();
     EXPECT_TRUE(t.running());
 
-    std::atomic_uint64_t c;
+    std::atomic_uint64_t c{0};
     EXPECT_EQ(0, t.rate(c));
 
     ++c;
