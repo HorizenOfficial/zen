@@ -375,8 +375,8 @@ std::string HelpMessage(HelpMessageMode mode)
     #if !defined(WIN32)
     strUsage += HelpMessageOpt("-sysperms", _("Create new files with system default permissions, instead of umask 077 (only effective with disabled wallet functionality)"));
 #endif
-    strUsage += HelpMessageOpt("-txindex", strprintf(_("Maintain a full transaction index, used by the getrawtransaction rpc call (default: %u)"), 0));
-    strUsage += HelpMessageOpt("-maturityheightindex", strprintf(_("Maintain a maturity height index that stores for every height the cerficates that became mature, used by the getblockexpanded rpc call. It requires -txindex (default: %u)"), 0));
+    strUsage += HelpMessageOpt("-txindex", strprintf(_("Maintain a full transaction index, used by the getrawtransaction rpc call (default: %u)"), DEFAULT_TXINDEX));
+    strUsage += HelpMessageOpt("-maturityheightindex", strprintf(_("Maintain a maturity height index that stores for every height the cerficates that became mature, used by the getblockexpanded rpc call. It requires -txindex (default: %u)"), DEFAULT_MATURITYHEIGHTINDEX));
 
     strUsage += HelpMessageOpt("-addressindex", strprintf(_("Maintain a full address index, used to query for the balance, txids and unspent outputs for addresses (default: %u)"), DEFAULT_ADDRESSINDEX));
     strUsage += HelpMessageOpt("-timestampindex", strprintf(_("Maintain a timestamp index for block hashes, used to query blocks hashes by a range of timestamps (default: %u)"), DEFAULT_TIMESTAMPINDEX));
@@ -1552,7 +1552,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         // enable 3/4 of the cache if addressindex and/or spentindex is enabled
         nBlockTreeDBCache = nTotalCache * 3 / 4;
     } else {
-        if (nBlockTreeDBCache > (1 << 21) && !GetBoolArg("-txindex", false)) {
+        if (nBlockTreeDBCache > (1 << 21) && !GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
             nBlockTreeDBCache = (1 << 21); // block tree db cache shouldn't be larger than 2 MiB
         }
     }
