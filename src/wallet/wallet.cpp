@@ -3007,12 +3007,13 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
     const size_t availableTotalSize = availableBytes;
     std::unique_ptr<CCoinsSelectionAlgorithmBase> bestAlgorithm = nullptr;
 
-    std::unique_ptr<CCoinsSelectionAlgorithmBase> fastNotOptimalAlgorithm;
+    std::unique_ptr<CCoinsSelectionAlgorithmBase> fastNotOptimalAlgorithm = nullptr;
     for (int i = 0, end = COINS_SELECTION_INTERMEDIATE_CHANGE_LEVELS + 2; i < end; ++i)
     {
         const CAmount targetAmountPlusOffset = targetAmountPlusOffsetNoChange +
                                                (double)(i) / (COINS_SELECTION_INTERMEDIATE_CHANGE_LEVELS + 1) * (targetAmountPlusOffsetMaxChange - targetAmountPlusOffsetNoChange);
-        fastNotOptimalAlgorithm = std::unique_ptr<CCoinsSelectionAlgorithmBase>(new CCoinsSelectionSlidingWindow(amountsAndSizes, targetAmount, targetAmountPlusOffset, availableTotalSize));
+        fastNotOptimalAlgorithm.reset(new CCoinsSelectionSlidingWindow(amountsAndSizes, targetAmount, targetAmountPlusOffset, availableTotalSize));
+        //fastNotOptimalAlgorithm = std::unique_ptr<CCoinsSelectionAlgorithmBase>(new CCoinsSelectionSlidingWindow(amountsAndSizes, targetAmount, targetAmountPlusOffset, availableTotalSize));
         // solving without timeout because the algorithm is fast
         fastNotOptimalAlgorithm->Solve();
         if (fastNotOptimalAlgorithm->GetOptimalTotalSelection() > 0)
@@ -3029,9 +3030,9 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
         // solving with timeout because the algorithm is slow
         slowOptimalAlgorithm->Solve();
 
-        // the solution found by slowOptimalAlgorithm is checked even if the algorithm was unable to complete its full exploration
-        // due to timeout; since optimal solution is updated continuously, chances are that it is better than solution found by
-        // fastNotOptimalAlgorithm nevertheless
+// the solution found by slowOptimalAlgorithm is checked even if the algorithm was unable to complete its full exploration
+// due to timeout; since optimal solution is updated continuously, chances are that it is better than solution found by
+// fastNotOptimalAlgorithm nevertheless
         CCoinsSelectionAlgorithmBase::GetBestAlgorithmBySolution(slowOptimalAlgorithm, fastNotOptimalAlgorithm, bestAlgorithm);
         LogPrint("selectcoins", "Best algorithm: %s - %s", std::to_string(static_cast<int>(bestAlgorithm->GetAlgorithmType())), bestAlgorithm->ToString());
     }
