@@ -12,7 +12,8 @@ CCoinsSelectionAlgorithmBase::CCoinsSelectionAlgorithmBase(CoinsSelectionAlgorit
                                                            std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
                                                            CAmount _targetAmount,
                                                            CAmount _targetAmountPlusOffset,
-                                                           size_t _availableTotalSize)
+                                                           size_t _availableTotalSize,
+                                                           uint64_t _executionTimeoutMilliseconds)
                                                            : type {_type},
                                                              problemDimension {(unsigned int)_amountsAndSizes.size()},
                                                              maxIndex {(unsigned int)_amountsAndSizes.size() - 1},
@@ -21,7 +22,8 @@ CCoinsSelectionAlgorithmBase::CCoinsSelectionAlgorithmBase(CoinsSelectionAlgorit
                                                              sizes {PrepareSizes(_amountsAndSizes)}, 
                                                              targetAmount {_targetAmount},
                                                              targetAmountPlusOffset {_targetAmountPlusOffset},
-                                                             availableTotalSize {_availableTotalSize}
+                                                             availableTotalSize {_availableTotalSize},
+                                                             executionTimeoutMilliseconds {_executionTimeoutMilliseconds}
 {
     tempSelection = std::vector<char>(problemDimension, 0);    
     optimalSelection = std::vector<char>(problemDimension, 0);
@@ -75,9 +77,9 @@ bool CCoinsSelectionAlgorithmBase::Reset()
         stopRequested = false;
         solvingThread = nullptr;
         hasCompleted = false;
-        #if COINS_SELECTION_ALGORITHM_PROFILING
-        executionMicroseconds = 0;
-        #endif
+        executionStartMilliseconds = 0;        
+        executionElapsedMilliseconds = 0;
+        timeoutHit = false;
         resetActuallyDone = true;
     }
 
@@ -128,17 +130,20 @@ void CCoinsSelectionAlgorithmBase::GetBestAlgorithmBySolution(std::unique_ptr<CC
     }
 }
 
+CoinsSelectionAlgorithmType CCoinsSelectionAlgorithmBase::GetAlgorithmType() const
+{
+    return type;
+}
+
 bool CCoinsSelectionAlgorithmBase::GetHasCompleted() const
 {
     return hasCompleted;
 }
 
-#if COINS_SELECTION_ALGORITHM_PROFILING
-uint64_t CCoinsSelectionAlgorithmBase::GetExecutionMicroseconds() const
+uint64_t CCoinsSelectionAlgorithmBase::GetExecutionElapsedMilliseconds() const
 {
-    return executionMicroseconds;
+    return executionElapsedMilliseconds;
 }
-#endif
 
 const std::vector<char>& CCoinsSelectionAlgorithmBase::GetOptimalSelection() const
 {
@@ -167,12 +172,14 @@ unsigned int CCoinsSelectionAlgorithmBase::GetOptimalTotalSelection() const
 CCoinsSelectionSlidingWindow::CCoinsSelectionSlidingWindow(std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
                                                            CAmount _targetAmount,
                                                            CAmount _targetAmountPlusOffset,
-                                                           size_t _availableTotalSize)
+                                                           size_t _availableTotalSize,
+                                                           uint64_t _executionTimeoutMilliseconds)
                                                            : CCoinsSelectionAlgorithmBase(CoinsSelectionAlgorithmType::SLIDING_WINDOW,
                                                                                           _amountsAndSizes,
                                                                                           _targetAmount,
                                                                                           _targetAmountPlusOffset,
-                                                                                          _availableTotalSize)
+                                                                                          _availableTotalSize,
+                                                                                          _executionTimeoutMilliseconds)
 {
 }
 
@@ -201,9 +208,7 @@ void CCoinsSelectionSlidingWindow::Solve()
         Reset();
 
         isRunning = true;
-        #if COINS_SELECTION_ALGORITHM_PROFILING
-        uint64_t microsecondsBefore = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-        #endif
+        executionStartMilliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
         size_t tempTotalSize = 0;
         CAmount tempTotalAmount = 0;
         unsigned int tempTotalSelection = 0;
@@ -211,8 +216,16 @@ void CCoinsSelectionSlidingWindow::Solve()
         int windowBackIndex = maxIndex;
         bool admissibleFound = false;
         bool bestAdmissibleFound = false; // "best" for this specific algorithm implementation
-        for (; !stopRequested && windowFrontIndex >= 0; --windowFrontIndex)   
+        for (; !stopRequested && windowFrontIndex >= 0; --windowFrontIndex)
         {
+            // timeout handling
+            if (executionTimeoutMilliseconds > 0 &&
+                std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - executionStartMilliseconds > executionTimeoutMilliseconds)
+            {
+                timeoutHit = true;
+                break;
+            }
+
             #if COINS_SELECTION_ALGORITHM_PROFILING
             ++iterations;
             #endif
@@ -267,10 +280,9 @@ void CCoinsSelectionSlidingWindow::Solve()
                 }
             }
         }
-        #if COINS_SELECTION_ALGORITHM_PROFILING
-        executionMicroseconds = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - microsecondsBefore;
-        #endif
-        hasCompleted = !stopRequested;
+
+        executionElapsedMilliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - executionStartMilliseconds;
+        hasCompleted = !stopRequested && !timeoutHit;
         isRunning = false;
     }
 }
@@ -282,12 +294,14 @@ void CCoinsSelectionSlidingWindow::Solve()
 CCoinsSelectionBranchAndBound::CCoinsSelectionBranchAndBound(std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
                                                              CAmount _targetAmount,
                                                              CAmount _targetAmountPlusOffset,
-                                                             size_t _availableTotalSize)
+                                                             size_t _availableTotalSize,
+                                                             uint64_t _executionTimeoutMilliseconds)
                                                              : CCoinsSelectionAlgorithmBase(CoinsSelectionAlgorithmType::BRANCH_AND_BOUND,
                                                                                             _amountsAndSizes,
                                                                                             _targetAmount,
                                                                                             _targetAmountPlusOffset,
-                                                                                            _availableTotalSize),
+                                                                                            _availableTotalSize,
+                                                                                            _executionTimeoutMilliseconds),
                                                                                             cumulativeAmountsForward {PrepareCumulativeAmountsForward()}
 {
 }
@@ -318,6 +332,19 @@ void CCoinsSelectionBranchAndBound::SolveRecursive(int currentIndex, size_t temp
     // high amount coins that would hardly represent the optimal solution)
     for (char value = 0; value <= 1; ++value)
     {
+        // timeout handling
+        if (timeoutHit)
+        {
+            break;
+        }
+        if (value == 0 && currentIndex % CCoinsSelectionBranchAndBound::TIMEOUT_CHECK_PERIOD == 0 && // in order to avoid checking too frequently
+            executionTimeoutMilliseconds > 0 &&
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - executionStartMilliseconds > executionTimeoutMilliseconds)
+        {
+            timeoutHit = true;
+            break;
+        }
+
         if (stopRequested)
         {
             break;
@@ -384,14 +411,11 @@ void CCoinsSelectionBranchAndBound::Solve()
         Reset();
 
         isRunning = true;
-        #if COINS_SELECTION_ALGORITHM_PROFILING
-        uint64_t microsecondsBefore = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-        #endif
+        executionStartMilliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
         SolveRecursive(0, 0, 0, 0);
-        #if COINS_SELECTION_ALGORITHM_PROFILING
-        executionMicroseconds = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - microsecondsBefore;
-        #endif
-        hasCompleted = !stopRequested;
+
+        executionElapsedMilliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - executionStartMilliseconds;
+        hasCompleted = !stopRequested && !timeoutHit;
         isRunning = false;
     }
 }
@@ -404,12 +428,14 @@ CCoinsSelectionForNotes::CCoinsSelectionForNotes(std::vector<std::pair<CAmount, 
                                                  CAmount _targetAmount,
                                                  CAmount _targetAmountPlusOffset,
                                                  size_t _availableTotalSize,
+                                                 uint64_t _executionTimeoutMilliseconds,
                                                  std::vector<CAmount> _joinsplitsOutputsAmounts)
                                                  : CCoinsSelectionAlgorithmBase(CoinsSelectionAlgorithmType::FOR_NOTES,
                                                                                 _amountsAndSizes,
                                                                                 _targetAmount,
                                                                                 _targetAmountPlusOffset,
-                                                                                _availableTotalSize),
+                                                                                _availableTotalSize,
+                                                                                _executionTimeoutMilliseconds),
                                                                                 numberOfJoinsplitsOutputsAmounts {(unsigned int)_joinsplitsOutputsAmounts.size()},
                                                                                 joinsplitsOutputsAmounts(_joinsplitsOutputsAmounts)
 {
@@ -440,10 +466,7 @@ void CCoinsSelectionForNotes::Solve()
         Reset();
 
         isRunning = true;
-        #if COINS_SELECTION_ALGORITHM_PROFILING
-        uint64_t microsecondsBefore = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-        #endif
-
+        executionStartMilliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
         int windowBackIndex = maxIndex;
         int windowFrontIndex = maxIndex;
         bool admissibleFound = false;
@@ -466,6 +489,15 @@ void CCoinsSelectionForNotes::Solve()
 
             for (windowFrontIndex = windowBackIndex; !stopRequested && windowFrontIndex >= 0; --windowFrontIndex)   
             {
+                // timeout handling
+                if (executionTimeoutMilliseconds > 0 &&
+                    std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - executionStartMilliseconds > executionTimeoutMilliseconds)
+                {
+                    breakOuterLoop = true;
+                    timeoutHit = true;
+                    break;
+                }
+
                 #if COINS_SELECTION_ALGORITHM_PROFILING
                 ++iterations;
                 #endif
@@ -546,10 +578,9 @@ void CCoinsSelectionForNotes::Solve()
                 }
             }
         }
-        #if COINS_SELECTION_ALGORITHM_PROFILING
-        executionMicroseconds = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - microsecondsBefore;
-        #endif
-        hasCompleted = !stopRequested;
+
+        executionElapsedMilliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - executionStartMilliseconds;
+        hasCompleted = !stopRequested && !timeoutHit;
         isRunning = false;
     }
 }

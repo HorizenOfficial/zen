@@ -62,6 +62,8 @@ static const unsigned int MAX_FREE_TRANSACTION_CREATE_SIZE = 1000;
 //  Should be large enough that we can expect not to reorg beyond our cache
 //  unless there is some exceptional network disruption.
 static const unsigned int WITNESS_CACHE_SIZE = COINBASE_MATURITY;
+//! Timeout (in milliseconds) for coins selection optimal algorithm
+static const unsigned int COINS_SELECTION_TIMEOUT = 4000;
 
 class CBlockIndex;
 class CCoinControl;
@@ -745,7 +747,8 @@ private:
       \param coinControl pre-prepared info for selecting specific coins (default to NULL)
       \param availableBytes available bytes (considered as an upper-limit on the sum of inputs sizes) for performing coins selection (default to MAX_TX_SIZE)
       \param useInputsNetValues flag indicating if the net value (equals to gross value minus fee to pay for including the input) of inputs must be used instead
-                                of gross value; if true nTargetValue inValueRet will represent a sum of gross values, if false nValueRet will represent a sum of net values
+                                of gross value; if true nTargetValue inValueRet will represent a sum of gross values, if false nValueRet will represent a sum of
+                                net values (default to true)
       \return a flag representing wether the selection actually found (true) an admissible set of coins or not (false)
     */
     bool SelectCoins(const CAmount& nTargetValue, std::vector<COutput>& vCoinsRet, CAmount& nValueRet, size_t& selectionTotalBytes,
@@ -1005,7 +1008,8 @@ public:
       \param selectionTotalBytes the total bytes of selected inputs
       \param availableBytes available bytes (considered as an upper-limit on the sum of inputs sizes) for performing coins selection (default to MAX_TX_SIZE)
       \param useInputsNetValues flag indicating if the net value (equals to gross value minus fee to pay for including the input) of inputs must be used instead
-                                of gross value; if true nTargetValue inValueRet will represent a sum of gross values, if false nValueRet will represent a sum of net values
+                                of gross value; if true nTargetValue inValueRet will represent a sum of gross values, if false nValueRet will represent a sum of
+                                net values (default to true)
       \return a flag representing wether the selection actually found (true) an admissible set of coins or not (false)
     */
     bool SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins,
@@ -1292,7 +1296,7 @@ public:
       \param nValueRet the actual total value of notes returned (as sum of returned notes values), to be considered always as gross value
       \param selectionTotalBytes the total bytes of selected notes
       \param availableBytes available bytes (considered as an upper-limit on the sum of joinsplits sizes) for performing notes selection (default to MAX_TX_SIZE)
-      \param joinsplitsOutputsAmounts the vector of joinsplits outputs that need to be satisfied by the selected notes
+      \param joinsplitsOutputsAmounts the vector of joinsplits outputs that need to be satisfied by the selected notes (default to empty vector)
       \return a flag representing wether the selection actually found (true) an admissible set of notes or not (false)
     */
     bool SelectNotes(const CAmount& nTargetValue, std::vector<CNotePlaintextEntry> vNotes,

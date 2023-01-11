@@ -36,6 +36,9 @@ enum class CoinsSelectionAlgorithmType {
 class CCoinsSelectionAlgorithmBase
 {    
 protected:
+    //! The algorithm type
+    const CoinsSelectionAlgorithmType type;
+
     // ---------- auxiliary
     //! The temporary set of selected elements (1->selected, 0->unselected)
     //! std::vector<char> is used over std::vector<bool> for favoring processing over optimization
@@ -61,10 +64,14 @@ protected:
     //! Flag identifying if the solving routine has completed
     std::atomic<bool> hasCompleted = false;
 
-    #if COINS_SELECTION_ALGORITHM_PROFILING
-    //! Microseconds elapsed to complete solving routine
-    uint64_t executionMicroseconds = 0;
-    #endif
+    //! Milliseconds the solving routine started
+    uint64_t executionStartMilliseconds = 0;
+
+    //! Milliseconds elapsed completing the solving routine
+    uint64_t executionElapsedMilliseconds = 0;
+
+    //! Flag identifying if the solving routine has hit timeout
+    bool timeoutHit = false;
     // ---------- profiling and control
 
     // ---------- output variables
@@ -83,9 +90,6 @@ protected:
     // ---------- output variables
 
 public:
-    //! The algorithm type
-    CoinsSelectionAlgorithmType type;
-
     // ---------- input variables
     //! Number of elements
     const unsigned int problemDimension;
@@ -104,6 +108,9 @@ public:
 
     //! The available total size (in terms of bytes, it is an upper-limit constraint)
     const size_t availableTotalSize;
+
+    //! Timeout for completing solving routine (in milliseconds)
+    const uint64_t executionTimeoutMilliseconds = 0;
     // ---------- input variables
 
 private:
@@ -136,12 +143,14 @@ public:
       \param _targetAmount target amount to satisfy (it is a lower-limit constraint)
       \param _targetAmountPlusOffset target amount plus a positive offset (it is an upper-limit constraint)
       \param _availableTotalSize available total size (in terms of bytes, it is an upper-limit constraint)
+      \param _executionTimeoutMilliseconds timeout for completing solving routine (in milliseconds) (default to 0)
     */
     CCoinsSelectionAlgorithmBase(CoinsSelectionAlgorithmType _type,
                                  std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
                                  CAmount _targetAmount,
                                  CAmount _targetAmountPlusOffset,
-                                 size_t _availableTotalSize);
+                                 size_t _availableTotalSize,
+                                 uint64_t _executionTimeoutMilliseconds = 0);
 
     //! Deleted copy constructor
     CCoinsSelectionAlgorithmBase(const CCoinsSelectionAlgorithmBase&) = delete;
@@ -182,19 +191,23 @@ public:
     static void GetBestAlgorithmBySolution(std::unique_ptr<CCoinsSelectionAlgorithmBase> &left, std::unique_ptr<CCoinsSelectionAlgorithmBase> &right, std::unique_ptr<CCoinsSelectionAlgorithmBase> &best);
 
     // ---------- getters
+    //! Method for getting the algorithm type
+    /*!
+      \return the algorithm type
+    */
+    CoinsSelectionAlgorithmType GetAlgorithmType() const;
+
     //! Method for getting if the solving routine has completed
     /*!
       \return the flag representing if the solving routine has completed
     */
     bool GetHasCompleted() const;
 
-    //! Method for getting the microseconds elapsed to complete solving routine
+    //! Method for getting the milliseconds elapsed completing the solving routine
     /*!
-      \return the microseconds elapsed to complete solving routine
+      \return the milliseconds elapsed completing the solving routine
     */
-    #if COINS_SELECTION_ALGORITHM_PROFILING
-    uint64_t GetExecutionMicroseconds() const;
-    #endif
+    uint64_t GetExecutionElapsedMilliseconds() const;
 
     //! Method for getting the optimal set of selected elements (true->selected, false->unselected)
     /*!
@@ -262,11 +275,13 @@ public:
       \param _targetAmount target amount to satisfy (it is a lower-limit constraint)
       \param _targetAmountPlusOffset target amount plus a positive offset (it is an upper-limit constraint)
       \param _availableTotalSize available total size (in terms of bytes, it is an upper-limit constraint)
+      \param _executionTimeoutMilliseconds timeout for completing solving routine (in milliseconds) (default to 0)
     */
     CCoinsSelectionSlidingWindow(std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
                                  CAmount _targetAmount,
                                  CAmount _targetAmountPlusOffset,
-                                 size_t _availableTotalSize);
+                                 size_t _availableTotalSize,
+                                 uint64_t _executionTimeoutMilliseconds = 0);
 
     //! Deleted copy constructor
     CCoinsSelectionSlidingWindow(const CCoinsSelectionSlidingWindow&) = delete;
@@ -322,6 +337,9 @@ public:
 */
 class CCoinsSelectionBranchAndBound : public CCoinsSelectionAlgorithmBase
 {
+  //! The timeout check period (in order to avoid checking too frequently)  
+  static constexpr int TIMEOUT_CHECK_PERIOD = 10;
+
 protected:
     // ---------- auxiliary
     //! The array of cumulative amounts (considered summing amounts from index to end of amounts array)
@@ -372,11 +390,13 @@ public:
       \param _targetAmount target amount to satisfy (it is a lower-limit constraint)
       \param _targetAmountPlusOffset target amount plus a positive offset (it is an upper-limit constraint)
       \param _availableTotalSize available total size (in terms of bytes, it is an upper-limit constraint)
+      \param _executionTimeoutMilliseconds timeout for completing solving routine (in milliseconds) (default to 0)
     */
     CCoinsSelectionBranchAndBound(std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
                                   CAmount _targetAmount,
                                   CAmount _targetAmountPlusOffset,
-                                  size_t _availableTotalSize);
+                                  size_t _availableTotalSize,
+                                  uint64_t _executionTimeoutMilliseconds = 0);
 
     //! Deleted copy constructor
     CCoinsSelectionBranchAndBound(const CCoinsSelectionBranchAndBound&) = delete;
@@ -454,13 +474,15 @@ public:
       \param _targetAmount target amount to satisfy (it is a lower-limit constraint)
       \param _targetAmountPlusOffset target amount plus a positive offset (it is an upper-limit constraint)
       \param _availableTotalSize available total size (in terms of bytes, it is an upper-limit constraint)
-      \param _joinsplitsOutputsAmount amounts of joinsplits outputs (order matters)
+      \param _executionTimeoutMilliseconds timeout for completing solving routine (in milliseconds) (default to 0)
+      \param _joinsplitsOutputsAmount amounts of joinsplits outputs (order matters) (default to empty vector)
     */
     CCoinsSelectionForNotes(std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
                             CAmount _targetAmount,
                             CAmount _targetAmountPlusOffset,
                             size_t _availableTotalSize,
-                            std::vector<CAmount> _joinsplitsOutputsAmounts);
+                            uint64_t _executionTimeoutMilliseconds = 0,
+                            std::vector<CAmount> _joinsplitsOutputsAmounts = std::vector<CAmount>());
 
     //! Deleted copyconstructor
     CCoinsSelectionForNotes(const CCoinsSelectionForNotes&) = delete;

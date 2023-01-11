@@ -3013,7 +3013,7 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
         const CAmount targetAmountPlusOffset = targetAmountPlusOffsetNoChange +
                                                (double)(i) / (COINS_SELECTION_INTERMEDIATE_CHANGE_LEVELS + 1) * (targetAmountPlusOffsetMaxChange - targetAmountPlusOffsetNoChange);
         fastNotOptimalAlgorithm = std::unique_ptr<CCoinsSelectionAlgorithmBase>(new CCoinsSelectionSlidingWindow(amountsAndSizes, targetAmount, targetAmountPlusOffset, availableTotalSize));
-        // no async solving is required for these algorithms
+        // solving without timeout because the algorithm is fast
         fastNotOptimalAlgorithm->Solve();
         if (fastNotOptimalAlgorithm->GetOptimalTotalSelection() > 0)
         {
@@ -3024,23 +3024,16 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
     std::unique_ptr<CCoinsSelectionAlgorithmBase> slowOptimalAlgorithm = nullptr;
     if (fastNotOptimalAlgorithm->GetOptimalTotalSelection() > 0)
     {
-        slowOptimalAlgorithm = std::unique_ptr<CCoinsSelectionAlgorithmBase>(new CCoinsSelectionBranchAndBound(amountsAndSizes, targetAmount, fastNotOptimalAlgorithm->targetAmountPlusOffset, availableTotalSize));
-        // async solving is required for this algorithm
-        slowOptimalAlgorithm->StartSolvingAsync();
-        for (int wait = 0; wait < GetArg("-coinsselectiontimeout", 4) * 10; ++wait)
-        {
-            if (slowOptimalAlgorithm->GetHasCompleted())
-            {
-                break;
-            }
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        }
-        if (!slowOptimalAlgorithm->GetHasCompleted())
-        {
-            slowOptimalAlgorithm->StopSolving();
-        }
+        slowOptimalAlgorithm = std::unique_ptr<CCoinsSelectionAlgorithmBase>(new CCoinsSelectionBranchAndBound(amountsAndSizes, targetAmount, fastNotOptimalAlgorithm->targetAmountPlusOffset,
+                                                                                                               availableTotalSize, GetArg("-coinsselectiontimeout", COINS_SELECTION_TIMEOUT)));
+        // solving with timeout because the algorithm is slow
+        slowOptimalAlgorithm->Solve();
+
+        // the solution found by slowOptimalAlgorithm is checked even if the algorithm was unable to complete its full exploration
+        // due to timeout; since optimal solution is updated continuously, chances are that it is better than solution found by
+        // fastNotOptimalAlgorithm nevertheless
         CCoinsSelectionAlgorithmBase::GetBestAlgorithmBySolution(slowOptimalAlgorithm, fastNotOptimalAlgorithm, bestAlgorithm);
-        LogPrint("selectcoins", "Best algorithm: %s - %s", std::to_string(static_cast<int>(bestAlgorithm->type)), bestAlgorithm->ToString());
+        LogPrint("selectcoins", "Best algorithm: %s - %s", std::to_string(static_cast<int>(bestAlgorithm->GetAlgorithmType())), bestAlgorithm->ToString());
     }
 
     // If a solution (using smaller coins) has not been found...
@@ -4701,7 +4694,7 @@ bool CWallet::SelectNotes(const CAmount& nTargetValue, std::vector<CNotePlaintex
     {
         const CAmount targetAmountPlusOffset = targetAmountPlusOffsetNoChange +
                                                (double)(i) / (COINS_SELECTION_INTERMEDIATE_CHANGE_LEVELS + 1) * (targetAmountPlusOffsetMaxChange - targetAmountPlusOffsetNoChange);
-        fastNotOptimalAlgorithm = std::unique_ptr<CCoinsSelectionAlgorithmBase>(new CCoinsSelectionForNotes(amountsAndSizes, targetAmount, targetAmountPlusOffset, availableTotalSize, joinsplitsOutputsAmounts));
+        fastNotOptimalAlgorithm = std::unique_ptr<CCoinsSelectionAlgorithmBase>(new CCoinsSelectionForNotes(amountsAndSizes, targetAmount, targetAmountPlusOffset, availableTotalSize, 0, joinsplitsOutputsAmounts));
         // no async solving is required for these algorithms
         fastNotOptimalAlgorithm->Solve();
         if (fastNotOptimalAlgorithm->GetOptimalTotalSelection() > 0)
