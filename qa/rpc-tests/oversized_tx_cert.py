@@ -171,7 +171,7 @@ class OversizedTxCert(BitcoinTestFramework):
             for i in range(len(listunspent0)):
                 partialBalance0 += listunspent0[i]["amount"]
                 if ((i + 1) % 600 == 0 or i == len(listunspent0) - 1): # an "almost void" transaction supports approximately up to 650 inputs
-                    self.nodes[0].sendtoaddress(nt2, partialBalance0, "", "", True)               
+                    self.nodes[0].sendtoaddress(nt2, partialBalance0, "", "", True)
                     self.sync_all()
                     self.nodes[2].generate(1)
                     self.sync_all()

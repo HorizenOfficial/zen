@@ -9,17 +9,19 @@
 /* ---------- CCoinsSelectionAlgorithmBase ---------- */
 
 CCoinsSelectionAlgorithmBase::CCoinsSelectionAlgorithmBase(CoinsSelectionAlgorithmType _type,
-                                                           std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
+                                                           std::vector<std::tuple<CAmount, size_t, int>> _amountsAndSizesAndIds,
                                                            CAmount _targetAmount,
                                                            CAmount _targetAmountPlusOffset,
                                                            size_t _availableTotalSize,
                                                            uint64_t _executionTimeoutMilliseconds)
                                                            : type {_type},
-                                                             problemDimension {(unsigned int)_amountsAndSizes.size()},
-                                                             maxIndex {(unsigned int)_amountsAndSizes.size() - 1},
-                                                             amounts {PrepareAmounts(_amountsAndSizes)},
+                                                             problemDimension {(unsigned int)_amountsAndSizesAndIds.size()},
+                                                             maxIndex {(unsigned int)_amountsAndSizesAndIds.size() - 1},
+                                                             amounts {PrepareAmounts(_amountsAndSizesAndIds)},
                                                              // sizes must be initialized after amounts (PrepareSizes leverages sorting done by PrepareAmounts)
-                                                             sizes {PrepareSizes(_amountsAndSizes)}, 
+                                                             sizes {PrepareSizes(_amountsAndSizesAndIds)},
+                                                             // ids must be initialized after amounts (PrepareSizes leverages sorting done by PrepareAmounts)
+                                                             ids {PrepareIds(_amountsAndSizesAndIds)},
                                                              targetAmount {_targetAmount},
                                                              targetAmountPlusOffset {_targetAmountPlusOffset},
                                                              availableTotalSize {_availableTotalSize},
@@ -34,25 +36,35 @@ CCoinsSelectionAlgorithmBase::~CCoinsSelectionAlgorithmBase()
     StopSolving();
 }
 
-std::vector<CAmount> CCoinsSelectionAlgorithmBase::PrepareAmounts(std::vector<std::pair<CAmount, size_t>>& amountsAndSizes)
+std::vector<CAmount> CCoinsSelectionAlgorithmBase::PrepareAmounts(std::vector<std::tuple<CAmount, size_t, int>>& amountsAndSizesAndIds)
 {
-    std::sort(amountsAndSizes.begin(), amountsAndSizes.end(), std::greater<>());
-    std::vector<CAmount> sortedAmounts(amountsAndSizes.size(), 0);
+    std::sort(amountsAndSizesAndIds.begin(), amountsAndSizesAndIds.end(), std::greater<>());
+    std::vector<CAmount> sortedAmounts(amountsAndSizesAndIds.size(), 0);
     for (int index = 0; index < problemDimension; ++index)
     {
-        sortedAmounts[index] = amountsAndSizes[index].first;
+        sortedAmounts[index] = std::get<0>(amountsAndSizesAndIds[index]);
     }
     return sortedAmounts;
 }
 
-std::vector<size_t> CCoinsSelectionAlgorithmBase::PrepareSizes(std::vector<std::pair<CAmount, size_t>>& amountsAndSizes)
+std::vector<size_t> CCoinsSelectionAlgorithmBase::PrepareSizes(std::vector<std::tuple<CAmount, size_t, int>>& amountsAndSizesAndIds)
 {
-    std::vector<size_t> sortedSizes(amountsAndSizes.size(), 0);
+    std::vector<size_t> sortedSizes(amountsAndSizesAndIds.size(), 0);
     for (int index = 0; index < problemDimension; ++index)
     {
-        sortedSizes[index] = amountsAndSizes[index].second;
+        sortedSizes[index] = std::get<1>(amountsAndSizesAndIds[index]);
     }
     return sortedSizes;
+}
+
+std::vector<int> CCoinsSelectionAlgorithmBase::PrepareIds(std::vector<std::tuple<CAmount, size_t, int>>& amountsAndSizesAndIds)
+{
+    std::vector<int> sortedIds(amountsAndSizesAndIds.size(), 0);
+    for (int index = 0; index < problemDimension; ++index)
+    {
+        sortedIds[index] = std::get<2>(amountsAndSizesAndIds[index]);
+    }
+    return sortedIds;
 }
 
 bool CCoinsSelectionAlgorithmBase::Reset()
@@ -169,13 +181,13 @@ unsigned int CCoinsSelectionAlgorithmBase::GetOptimalTotalSelection() const
 
 /* ---------- CCoinsSelectionSlidingWindow ---------- */
 
-CCoinsSelectionSlidingWindow::CCoinsSelectionSlidingWindow(std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
+CCoinsSelectionSlidingWindow::CCoinsSelectionSlidingWindow(std::vector<std::tuple<CAmount, size_t, int>> _amountsAndSizesAndIds,
                                                            CAmount _targetAmount,
                                                            CAmount _targetAmountPlusOffset,
                                                            size_t _availableTotalSize,
                                                            uint64_t _executionTimeoutMilliseconds)
                                                            : CCoinsSelectionAlgorithmBase(CoinsSelectionAlgorithmType::SLIDING_WINDOW,
-                                                                                          _amountsAndSizes,
+                                                                                          _amountsAndSizesAndIds,
                                                                                           _targetAmount,
                                                                                           _targetAmountPlusOffset,
                                                                                           _availableTotalSize,
@@ -291,13 +303,13 @@ void CCoinsSelectionSlidingWindow::Solve()
 
 /* ---------- CCoinsSelectionBranchAndBound ---------- */
 
-CCoinsSelectionBranchAndBound::CCoinsSelectionBranchAndBound(std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
+CCoinsSelectionBranchAndBound::CCoinsSelectionBranchAndBound(std::vector<std::tuple<CAmount, size_t, int>> _amountsAndSizesAndIds,
                                                              CAmount _targetAmount,
                                                              CAmount _targetAmountPlusOffset,
                                                              size_t _availableTotalSize,
                                                              uint64_t _executionTimeoutMilliseconds)
                                                              : CCoinsSelectionAlgorithmBase(CoinsSelectionAlgorithmType::BRANCH_AND_BOUND,
-                                                                                            _amountsAndSizes,
+                                                                                            _amountsAndSizesAndIds,
                                                                                             _targetAmount,
                                                                                             _targetAmountPlusOffset,
                                                                                             _availableTotalSize,
@@ -424,14 +436,14 @@ void CCoinsSelectionBranchAndBound::Solve()
 
 /* ---------- CCoinsSelectionForNotes ---------- */
 
-CCoinsSelectionForNotes::CCoinsSelectionForNotes(std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
+CCoinsSelectionForNotes::CCoinsSelectionForNotes(std::vector<std::tuple<CAmount, size_t, int>> _amountsAndSizesAndIds,
                                                  CAmount _targetAmount,
                                                  CAmount _targetAmountPlusOffset,
                                                  size_t _availableTotalSize,
                                                  uint64_t _executionTimeoutMilliseconds,
                                                  std::vector<CAmount> _joinsplitsOutputsAmounts)
                                                  : CCoinsSelectionAlgorithmBase(CoinsSelectionAlgorithmType::FOR_NOTES,
-                                                                                _amountsAndSizes,
+                                                                                _amountsAndSizesAndIds,
                                                                                 _targetAmount,
                                                                                 _targetAmountPlusOffset,
                                                                                 _availableTotalSize,

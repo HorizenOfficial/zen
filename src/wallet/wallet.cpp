@@ -2946,7 +2946,7 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
         CAmount value = useInputsNetValues ? netValue : grossValue;
 
         // <gross value, value, output, size>
-        std::tuple<CAmount, CAmount, COutput, size_t> coin = std::make_tuple(grossValue, value, output, estimatedInputSize);
+        std::tuple<CAmount, CAmount, COutput, size_t> coin = {grossValue, value, output, estimatedInputSize};
 
         // if coin is less than target, add it to the set of possible coins to be selected
         if (value < nTargetValue)
@@ -2990,14 +2990,14 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
         return true;
     }
 
-    // this must be kept for preserving ordering between vValue and optimalSelection
+    // this is done only to speed up the sorting done in algorithm constructor (but doesn't impact the actual solution)
     std::sort(vValue.begin(), vValue.end(), [](std::tuple<CAmount, CAmount, COutput, size_t> left,
                                                std::tuple<CAmount, CAmount, COutput, size_t> right)
                                                -> bool { return ( std::get<1>(left) > std::get<1>(right)); } );
 
-    std::vector<std::pair<CAmount, size_t>> amountsAndSizes = std::vector<std::pair<CAmount, size_t>>(vValue.size(), std::make_pair(0, 0));
+    std::vector<std::tuple<CAmount, size_t, int>> amountsAndSizesAndIds = std::vector<std::tuple<CAmount, size_t, int>>(vValue.size(), {0, 0, 0});
     for (int i = 0; i < vValue.size(); i++) {
-        amountsAndSizes[i] = std::make_pair(std::get<1>(vValue[i]), std::get<3>(vValue[i]));
+        amountsAndSizesAndIds[i] = {std::get<1>(vValue[i]), std::get<3>(vValue[i]), i};
     }
     
     const CAmount targetAmount = nTargetValue;
@@ -3012,8 +3012,7 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
     {
         const CAmount targetAmountPlusOffset = targetAmountPlusOffsetNoChange +
                                                (double)(i) / (COINS_SELECTION_INTERMEDIATE_CHANGE_LEVELS + 1) * (targetAmountPlusOffsetMaxChange - targetAmountPlusOffsetNoChange);
-        fastNotOptimalAlgorithm.reset(new CCoinsSelectionSlidingWindow(amountsAndSizes, targetAmount, targetAmountPlusOffset, availableTotalSize));
-        //fastNotOptimalAlgorithm = std::unique_ptr<CCoinsSelectionAlgorithmBase>(new CCoinsSelectionSlidingWindow(amountsAndSizes, targetAmount, targetAmountPlusOffset, availableTotalSize));
+        fastNotOptimalAlgorithm.reset(new CCoinsSelectionSlidingWindow(amountsAndSizesAndIds, targetAmount, targetAmountPlusOffset, availableTotalSize));
         // solving without timeout because the algorithm is fast
         fastNotOptimalAlgorithm->Solve();
         if (fastNotOptimalAlgorithm->GetOptimalTotalSelection() > 0)
@@ -3025,14 +3024,14 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
     std::unique_ptr<CCoinsSelectionAlgorithmBase> slowOptimalAlgorithm = nullptr;
     if (fastNotOptimalAlgorithm->GetOptimalTotalSelection() > 0)
     {
-        slowOptimalAlgorithm = std::unique_ptr<CCoinsSelectionAlgorithmBase>(new CCoinsSelectionBranchAndBound(amountsAndSizes, targetAmount, fastNotOptimalAlgorithm->targetAmountPlusOffset,
+        slowOptimalAlgorithm = std::unique_ptr<CCoinsSelectionAlgorithmBase>(new CCoinsSelectionBranchAndBound(amountsAndSizesAndIds, targetAmount, fastNotOptimalAlgorithm->targetAmountPlusOffset,
                                                                                                                availableTotalSize, GetArg("-coinsselectiontimeout", COINS_SELECTION_TIMEOUT)));
         // solving with timeout because the algorithm is slow
         slowOptimalAlgorithm->Solve();
 
-// the solution found by slowOptimalAlgorithm is checked even if the algorithm was unable to complete its full exploration
-// due to timeout; since optimal solution is updated continuously, chances are that it is better than solution found by
-// fastNotOptimalAlgorithm nevertheless
+        // the solution found by slowOptimalAlgorithm is checked even if the algorithm was unable to complete its full exploration
+        // due to timeout; since optimal solution is updated continuously, chances are that it is better than solution found by
+        // fastNotOptimalAlgorithm nevertheless
         CCoinsSelectionAlgorithmBase::GetBestAlgorithmBySolution(slowOptimalAlgorithm, fastNotOptimalAlgorithm, bestAlgorithm);
         LogPrint("selectcoins", "Best algorithm: %s - %s", std::to_string(static_cast<int>(bestAlgorithm->GetAlgorithmType())), bestAlgorithm->ToString());
     }
@@ -3061,9 +3060,9 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
         {
             if (bestAlgorithm->GetOptimalSelection()[i])
             {
-                LogPrint("selectcoins", "%s ", FormatMoney(std::get<0>(vValue[i])));
-                vCoinsRet.push_back(std::get<2>(vValue[i]));
-                nValueRet += std::get<0>(vValue[i]);
+                LogPrint("selectcoins", "%s ", FormatMoney(std::get<0>(vValue[bestAlgorithm->ids[i]])));
+                vCoinsRet.push_back(std::get<2>(vValue[bestAlgorithm->ids[i]]));
+                nValueRet += std::get<0>(vValue[bestAlgorithm->ids[i]]);
             }
         }
         selectionTotalBytes = bestAlgorithm->GetOptimalTotalSize();
@@ -4674,14 +4673,14 @@ bool CWallet::SelectNotes(const CAmount& nTargetValue, std::vector<CNotePlaintex
         return true;
     }
 
-    // this must be kept for preserving ordering between vValue and optimalSelection
+    // this is done only to speed up the sorting done in algorithm constructor (but doesn't impact the actual solution)
     std::sort(vValue.begin(), vValue.end(), [](std::tuple<CAmount, CNotePlaintextEntry, size_t> left,
                                                std::tuple<CAmount, CNotePlaintextEntry, size_t> right)
                                                -> bool { return ( std::get<0>(left) > std::get<0>(right)); } );
 
-    std::vector<std::pair<CAmount, size_t>> amountsAndSizes = std::vector<std::pair<CAmount, size_t>>(vValue.size(), std::make_pair(0, 0));
+    std::vector<std::tuple<CAmount, size_t, int>> amountsAndSizesAndIds = std::vector<std::tuple<CAmount, size_t, int>>(vValue.size(), {0, 0, 0});
     for (int i = 0; i < vValue.size(); i++) {
-        amountsAndSizes[i] = std::make_pair(std::get<0>(vValue[i]), std::get<2>(vValue[i]));
+        amountsAndSizesAndIds[i] = {std::get<0>(vValue[i]), std::get<2>(vValue[i]), i};
     }
 
     const CAmount targetAmount = nTargetValue;
@@ -4695,7 +4694,7 @@ bool CWallet::SelectNotes(const CAmount& nTargetValue, std::vector<CNotePlaintex
     {
         const CAmount targetAmountPlusOffset = targetAmountPlusOffsetNoChange +
                                                (double)(i) / (COINS_SELECTION_INTERMEDIATE_CHANGE_LEVELS + 1) * (targetAmountPlusOffsetMaxChange - targetAmountPlusOffsetNoChange);
-        fastNotOptimalAlgorithm = std::unique_ptr<CCoinsSelectionAlgorithmBase>(new CCoinsSelectionForNotes(amountsAndSizes, targetAmount, targetAmountPlusOffset, availableTotalSize, 0, joinsplitsOutputsAmounts));
+        fastNotOptimalAlgorithm = std::unique_ptr<CCoinsSelectionAlgorithmBase>(new CCoinsSelectionForNotes(amountsAndSizesAndIds, targetAmount, targetAmountPlusOffset, availableTotalSize, 0, joinsplitsOutputsAmounts));
         // no async solving is required for these algorithms
         fastNotOptimalAlgorithm->Solve();
         if (fastNotOptimalAlgorithm->GetOptimalTotalSelection() > 0)
@@ -4728,9 +4727,9 @@ bool CWallet::SelectNotes(const CAmount& nTargetValue, std::vector<CNotePlaintex
             LogPrint("zrpcunsafe", "SelectNotes() best subset: ");
             if (fastNotOptimalAlgorithm->GetOptimalSelection()[i])
             {
-                LogPrint("zrpcunsafe", "%s ", FormatMoney(std::get<0>(vValue[i])));
-                vNotesRet.push_back(std::get<1>(vValue[i]));
-                nValueRet += std::get<0>(vValue[i]);
+                LogPrint("zrpcunsafe", "%s ", FormatMoney(std::get<0>(vValue[fastNotOptimalAlgorithm->ids[i]])));
+                vNotesRet.push_back(std::get<1>(vValue[fastNotOptimalAlgorithm->ids[i]]));
+                nValueRet += std::get<0>(vValue[fastNotOptimalAlgorithm->ids[i]]);
             }
         }
         selectionTotalBytes = fastNotOptimalAlgorithm->GetOptimalTotalSize();

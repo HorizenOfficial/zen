@@ -100,6 +100,9 @@ public:
     //! The array of sizes (in terms of bytes of the associated input)
     const std::vector<size_t> sizes;
 
+    //! The array of ids
+    const std::vector<int> ids;
+
     //! The target amount to satisfy (it is a lower-limit constraint)
     const CAmount targetAmount;
 
@@ -116,17 +119,24 @@ public:
 private:
     //! Method for preparing array of amounts sorting them with descending order (with respect to amounts)
     /*!
-      \param amountsAndSizes vector of pairs of amounts and sizes of the elements
+      \param amountsAndSizes vector of tuples of amounts and sizes and ids of the elements
       \return the array of amounts in descending order
     */
-    std::vector<CAmount> PrepareAmounts(std::vector<std::pair<CAmount, size_t>>& amountsAndSizes);
+    std::vector<CAmount> PrepareAmounts(std::vector<std::tuple<CAmount, size_t, int>>& amountsAndSizesAndIds);
 
     //! Method for preparing array of sizes (expects descending order with respect to amounts)
     /*!
-      \param amountsAndSizes vector of pairs of amounts and sizes of the elements
+      \param amountsAndSizes vector of tuples of amounts and sizes and ids of the elements
       \return the array of sizes
     */
-    std::vector<size_t> PrepareSizes(std::vector<std::pair<CAmount, size_t>>& amountsAndSizes);
+    std::vector<size_t> PrepareSizes(std::vector<std::tuple<CAmount, size_t, int>>& amountsAndSizesAndIds);
+
+    //! Method for preparing array of ids (expects descending order with respect to amounts)
+    /*!
+      \param amountsAndSizes vector of tuples of amounts and sizes and ids of the elements
+      \return the array of ids
+    */
+    std::vector<int> PrepareIds(std::vector<std::tuple<CAmount, size_t, int>>& amountsAndSizesAndIds);
 
 protected:
     //! Method for resetting internal variables (must be called before restarting the algorithm)
@@ -139,14 +149,14 @@ public:
     //! Constructor
     /*!
       \param _type algorithm type
-      \param _amountsAndSizes vector of pairs of amounts and sizes of the elements
+      \param _amountsAndSizesAndIds vector of tuples of amounts and sizes and ids of the elements
       \param _targetAmount target amount to satisfy (it is a lower-limit constraint)
       \param _targetAmountPlusOffset target amount plus a positive offset (it is an upper-limit constraint)
       \param _availableTotalSize available total size (in terms of bytes, it is an upper-limit constraint)
       \param _executionTimeoutMilliseconds timeout for completing solving routine (in milliseconds) (default to 0)
     */
     CCoinsSelectionAlgorithmBase(CoinsSelectionAlgorithmType _type,
-                                 std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
+                                 std::vector<std::tuple<CAmount, size_t, int>> _amountsAndSizesAndIds,
                                  CAmount _targetAmount,
                                  CAmount _targetAmountPlusOffset,
                                  size_t _availableTotalSize,
@@ -271,13 +281,13 @@ protected:
 public:
     //! Constructor
     /*!
-      \param _amountsAndSizes vector of pairs of amounts and sizes of the elements
+      \param _amountsAndSizesAndIds vector of tuples of amounts and sizes and ids of the elements
       \param _targetAmount target amount to satisfy (it is a lower-limit constraint)
       \param _targetAmountPlusOffset target amount plus a positive offset (it is an upper-limit constraint)
       \param _availableTotalSize available total size (in terms of bytes, it is an upper-limit constraint)
       \param _executionTimeoutMilliseconds timeout for completing solving routine (in milliseconds) (default to 0)
     */
-    CCoinsSelectionSlidingWindow(std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
+    CCoinsSelectionSlidingWindow(std::vector<std::tuple<CAmount, size_t, int>> _amountsAndSizesAndIds,
                                  CAmount _targetAmount,
                                  CAmount _targetAmountPlusOffset,
                                  size_t _availableTotalSize,
@@ -386,13 +396,13 @@ protected:
 public:
     //! Constructor
     /*!
-      \param _amountsAndSizes vector of pairs of amounts and sizes of the elements
+      \param _amountsAndSizesAndIds vector of tuples of amounts and sizes and ids of the elements
       \param _targetAmount target amount to satisfy (it is a lower-limit constraint)
       \param _targetAmountPlusOffset target amount plus a positive offset (it is an upper-limit constraint)
       \param _availableTotalSize available total size (in terms of bytes, it is an upper-limit constraint)
       \param _executionTimeoutMilliseconds timeout for completing solving routine (in milliseconds) (default to 0)
     */
-    CCoinsSelectionBranchAndBound(std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
+    CCoinsSelectionBranchAndBound(std::vector<std::tuple<CAmount, size_t, int>> _amountsAndSizesAndIds,
                                   CAmount _targetAmount,
                                   CAmount _targetAmountPlusOffset,
                                   size_t _availableTotalSize,
@@ -470,14 +480,14 @@ protected:
 public:
     //! Constructor
     /*!
-      \param _amountsAndSizes vector of pairs of amounts and sizes of the elements
+      \param _amountsAndSizesAndIds vector of tuples of amounts and sizes and ids of the elements
       \param _targetAmount target amount to satisfy (it is a lower-limit constraint)
       \param _targetAmountPlusOffset target amount plus a positive offset (it is an upper-limit constraint)
       \param _availableTotalSize available total size (in terms of bytes, it is an upper-limit constraint)
       \param _executionTimeoutMilliseconds timeout for completing solving routine (in milliseconds) (default to 0)
       \param _joinsplitsOutputsAmount amounts of joinsplits outputs (order matters) (default to empty vector)
     */
-    CCoinsSelectionForNotes(std::vector<std::pair<CAmount, size_t>> _amountsAndSizes,
+    CCoinsSelectionForNotes(std::vector<std::tuple<CAmount, size_t, int>> _amountsAndSizesAndIds,
                             CAmount _targetAmount,
                             CAmount _targetAmountPlusOffset,
                             size_t _availableTotalSize,
