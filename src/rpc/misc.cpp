@@ -499,59 +499,46 @@ bool getAddressFromIndex(const AddressType type, const uint160 &hash, std::strin
     }
 }
 
-std::vector<std::pair<uint160, AddressType>> getAddressesFromParams(const UniValue& params)
-{
-    std::vector<std::pair<uint160, AddressType>> ret;
+std::pair<uint160,AddressType> addressHashAndTypeFromValue(const UniValue& value) {
+    const std::string value_str{value.get_str()}; // Throws if not string type
 
-    if (params[0].isStr()) {
-        CBitcoinAddress address(params[0].get_str());
-        uint160 hashBytes;
-        AddressType type = AddressType::UNKNOWN;
-        if (!address.GetIndexKey(hashBytes, type)) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
-        }
-        ret.push_back(std::make_pair(hashBytes, type));
-    } else if (params[0].isObject()) {
+    uint160 hashBytes;
+    AddressType type = AddressType::UNKNOWN;
+    CBitcoinAddress address(value_str);
+    if (!address.GetIndexKey(hashBytes, type)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid address : ") + value_str);
+    }
+    return {hashBytes, type};
+}
 
-        UniValue addressValues = find_value(params[0].get_obj(), "addresses");
-        if (!addressValues.isArray()) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Addresses is expected to be an array");
-        }
-
-        std::vector<UniValue> values = addressValues.getValues();
-
-        for (std::vector<UniValue>::iterator it = values.begin(); it != values.end(); ++it) {
-
-            CBitcoinAddress address(it->get_str());
-            uint160 hashBytes;
-            AddressType type = AddressType::UNKNOWN;
-            if (!address.GetIndexKey(hashBytes, type)) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
-            }
-            ret.push_back(std::make_pair(hashBytes, type));
-        }
-    } else {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
+std::vector<std::pair<uint160, AddressType>> addressesHashAndTypeFromValue(const UniValue& value, bool allow_empty = true) {
+    if (!value.isArray() || (value.empty() && !allow_empty)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("An array of addresses is expected") + (allow_empty ? "" : " [not empty]"));
     }
 
+    std::vector<std::pair<uint160, AddressType>> ret;
+    ret.reserve(value.size());
+    for (const auto& item : value.getValues()) {
+        ret.push_back(addressHashAndTypeFromValue(item));
+    }
     return ret;
 }
 
-// TODO @ptagl This function is not a sort : is a comparer
-bool heightSort(std::pair<CAddressUnspentKey, CAddressUnspentValue> a,
-                std::pair<CAddressUnspentKey, CAddressUnspentValue> b) {
+bool heightComparer(const std::pair<CAddressUnspentKey, CAddressUnspentValue>& a,
+                    const std::pair<CAddressUnspentKey, CAddressUnspentValue>& b)
+{
     return a.second.blockHeight < b.second.blockHeight;
 }
 
-// TODO @ptagl This function is not a sort : is a comparer
-bool timestampSort(std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> a,
-                   std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> b) {
+bool timestampComparer(const std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta>& a,
+                       const std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta>& b)
+{
     return a.second.time < b.second.time;
 }
 
 UniValue getaddressmempool(const UniValue& params, bool fHelp)
 {
-    if (fHelp || params.size() != 1 || !params[0].isObject() || !params[0].get_obj()["addresses"].isArray())
+    if (fHelp || params.size() != 1 || !params[0].isObject())
         throw runtime_error(
             "getaddressmempool\n"
             "\nReturns all mempool deltas for an address (requires addressindex to be enabled).\n"
@@ -585,44 +572,35 @@ UniValue getaddressmempool(const UniValue& params, bool fHelp)
         throw std::runtime_error("Address indexing not enabled");
     }
 
+    const auto param_obj = params[0];
+
     UniValue result(UniValue::VARR);
-    std::vector<std::pair<uint160, AddressType>> addresses{getAddressesFromParams(params)};
-    if (addresses.empty()) {
+
+    std::vector<std::pair<uint160, AddressType>> addresses{addressesHashAndTypeFromValue(param_obj["addresses"], /*allow_empty=*/ false)};
+    std::vector<std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta>> indexes;
+    std::ignore = mempool.getAddressIndex(addresses, indexes); // Only chance to return false is for fAddressIndex == false but is already checked
+    if (indexes.empty()) {
         return result;
     }
 
-    std::vector<std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> > indexes;
-    if (!mempool.getAddressIndex(addresses, indexes)) {
-        throw JSONRPCError(RPC_INTERNAL_ERROR, "Address indexing not enabled");
-    }
-
-    std::sort(indexes.begin(), indexes.end(), timestampSort);
-
-    
-
-    for (std::vector<std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> >::iterator it = indexes.begin();
-         it != indexes.end(); it++) {
-
+    std::sort(indexes.begin(), indexes.end(), timestampComparer);
+    for (const auto& [deltaKey, delta] : indexes) {
         std::string address;
-        if (!getAddressFromIndex(it->first.type, it->first.addressBytes, address)) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Unknown address type");
-        }
+        std::ignore = getAddressFromIndex(deltaKey.type, deltaKey.addressBytes, address); // We've already validated type during parsing
 
-        UniValue delta(UniValue::VOBJ);
-        delta.pushKV("address", address);
-        delta.pushKV("txid", it->first.txhash.GetHex());
-        delta.pushKV("index", (int)it->first.index);
-        delta.pushKV("satoshis", it->second.amount);
-        delta.pushKV("timestamp", it->second.time);
-        if (it->second.amount < 0) {
-            delta.pushKV("prevtxid", it->second.prevhash.GetHex());
-            delta.pushKV("prevout", (int)it->second.prevout);
+        UniValue result_item(UniValue::VOBJ);
+        result_item.pushKV("address", address);
+        result_item.pushKV("txid", deltaKey.txhash.GetHex());
+        result_item.pushKV("index", static_cast<int>(deltaKey.index));
+        result_item.pushKV("satoshis", delta.amount);
+        result_item.pushKV("timestamp", delta.time);
+        if (delta.amount < 0) {
+            result_item.pushKV("prevtxid", delta.prevhash.GetHex());
+            result_item.pushKV("prevout", static_cast<int>(delta.prevout));
+        } else {
+            result_item.pushKV("outstatus", static_cast<int>(delta.outStatus));
         }
-        else
-        {
-            delta.pushKV("outstatus", (int)it->second.outStatus);
-        }
-        result.push_back(delta);
+        result.push_back(result_item);
     }
 
     return result;
@@ -674,28 +652,33 @@ UniValue getaddressutxos(const UniValue& params, bool fHelp)
         throw std::runtime_error("Address indexing not enabled");
     }
 
-    bool includeChainInfo = false;
-    if (params[0].isObject()) {
-        UniValue chainInfo = find_value(params[0].get_obj(), "chainInfo");
-        if (chainInfo.isBool()) {
-            includeChainInfo = chainInfo.get_bool();
-        }
+    const auto param_obj = params[0];
+    if (!param_obj.isObject()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "First parameter expected object");
     }
 
+    bool includeChainInfo = false;
+    if (const auto chainInfo_v { param_obj["chainInfo"]}; !chainInfo_v.isNull()) {
+        includeChainInfo = chainInfo_v.get_bool();
+    }
+    
     bool includeImmatureBTs = false;
     if (params.size() > 1)
         includeImmatureBTs = params[1].get_bool();
 
-    std::vector<std::pair<uint160, AddressType>> addresses{getAddressesFromParams(params)};
-    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
-
+    const auto input_addresses = param_obj["addresses"];
+    std::vector<std::pair<uint160, AddressType>> addresses{addressesHashAndTypeFromValue(input_addresses, /*allow_empty=*/false)};
+    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>> unspentOutputs;
     for (const auto& [addressHash, addressType] : addresses) {
+
+        // TODO - the only chance for this to return false here is when pblocktree->ReadAddressUnspentIndex throws
+        // hence an internal error not caused by input. Is the JSON exception message accurate ?
         if (!GetAddressUnspent(addressHash, addressType, unspentOutputs)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for address");
         }
     }
 
-    std::sort(unspentOutputs.begin(), unspentOutputs.end(), heightSort);
+    std::sort(unspentOutputs.begin(), unspentOutputs.end(), heightComparer);
 
     UniValue utxos(UniValue::VARR);
     int currentTipHeight = -1;
@@ -704,17 +687,15 @@ UniValue getaddressutxos(const UniValue& params, bool fHelp)
         LOCK(cs_main);
         if (includeChainInfo)
             bestHashStr = chainActive.Tip()->GetBlockHash().GetHex();
-        currentTipHeight = (int)chainActive.Height();
+        currentTipHeight = static_cast<int>(chainActive.Height());
     }
 
-    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++) {
-        UniValue output(UniValue::VOBJ);
-        std::string address;
-        if (!getAddressFromIndex(it->first.type, it->first.hashBytes, address)) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Unknown address type");
-        }
+    for (const auto& [unspentK, unspentV] : unspentOutputs) {
 
-        int bwtMatHeight  = it->second.maturityHeight;
+        std::string address;
+        std::ignore = getAddressFromIndex(unspentK.type, unspentK.hashBytes, address); // We've already validated type during parsing
+
+        int bwtMatHeight  = unspentV.maturityHeight;
         bool isBwt        = (bwtMatHeight != 0);
         int deltaMaturity = bwtMatHeight - currentTipHeight;
         bool isMature     = (deltaMaturity <= 0);
@@ -731,12 +712,13 @@ UniValue getaddressutxos(const UniValue& params, bool fHelp)
             }
         }
 
+        UniValue output(UniValue::VOBJ);
         output.pushKV("address", address);
-        output.pushKV("txid", it->first.txhash.GetHex());
-        output.pushKV("outputIndex", (int)it->first.index);
-        output.pushKV("script", HexStr(it->second.script.begin(), it->second.script.end()));
-        output.pushKV("satoshis", it->second.satoshis);
-        output.pushKV("height", it->second.blockHeight);
+        output.pushKV("txid", unspentK.txhash.GetHex());
+        output.pushKV("outputIndex", static_cast<int>(unspentK.index));
+        output.pushKV("script", HexStr(unspentV.script.begin(), unspentV.script.end()));
+        output.pushKV("satoshis", unspentV.satoshis);
+        output.pushKV("height", unspentV.blockHeight);
 
         output.pushKV("backwardTransfer", isBwt);
 
@@ -820,59 +802,53 @@ UniValue getaddressdeltas(const UniValue& params, bool fHelp)
         throw std::runtime_error("Address indexing not enabled");
     }
 
-
-    UniValue startValue = find_value(params[0].get_obj(), "start");
-    UniValue endValue = find_value(params[0].get_obj(), "end");
-
-    UniValue chainInfo = find_value(params[0].get_obj(), "chainInfo");
-    bool includeChainInfo = false;
-    if (chainInfo.isBool()) {
-        includeChainInfo = chainInfo.get_bool();
-    }
+    const auto param_obj = params[0];
 
     int start = 0;
     int end = 0;
+    bool includeChainInfo = false;
 
-    if (startValue.isNum() && endValue.isNum()) {
-        start = startValue.get_int();
-        end = endValue.get_int();
-        if (start <= 0 || end <= 0) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Start and end is expected to be greater than zero");
-        }
-        if (end < start) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "End value is expected to be greater than start");
-        }
+    if (const auto start_v{param_obj["start"]}; !start_v.isNull()) {
+        start = start_v.get_int();
+    }
+    if (const auto end_v{param_obj["end"]}; !end_v.isNull()) {
+        end = end_v.get_int();
+    }
+    if (const auto chainInfo_v{param_obj["chainInfo"]}; !chainInfo_v.isNull()) {
+        includeChainInfo = chainInfo_v.getBool();
     }
 
-    std::vector<std::pair<uint160, AddressType>> addresses{getAddressesFromParams(params)};
-    std::vector<std::pair<CAddressIndexKey, CAddressIndexValue> > addressIndex;
+    if (start <= 0 || end <= 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Start and end are expected to be greater than zero");
+    }
+    if (start > end) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Start must be lower/equal than end");
+    }
+
+    std::vector<std::pair<uint160, AddressType>> addresses{addressesHashAndTypeFromValue(param_obj["addresses"], /*allow_empty=*/false)};
+    std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>> addressIndex;
 
     for (const auto& [addressHash, addressType] : addresses) {
-        if (start > 0 && end > 0) {
-            if (!GetAddressIndex(addressHash, addressType, addressIndex, start, end)) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for address");
-            }
-        } else {
-            if (!GetAddressIndex(addressHash, addressType, addressIndex)) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for address");
-            }
+
+        // TODO - the only chance for this to return false here is when pblocktree->ReadAddressIndex throws
+        // hence an internal error not caused by input. Is the JSON exception message accurate ?
+        if (!GetAddressIndex(addressHash, addressType, addressIndex, start, end)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for address");
         }
     }
 
     UniValue deltas(UniValue::VARR);
 
-    for (std::vector<std::pair<CAddressIndexKey, CAddressIndexValue> >::const_iterator it=addressIndex.begin(); it!=addressIndex.end(); it++) {
+    for (const auto& [indexK, indexV] : addressIndex) {
         std::string address;
-        if (!getAddressFromIndex(it->first.type, it->first.hashBytes, address)) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Unknown address type");
-        }
+        std::ignore = getAddressFromIndex(indexK.type, indexK.hashBytes, address); // We've already validated type on parsing
 
         UniValue delta(UniValue::VOBJ);
-        delta.pushKV("satoshis", it->second.satoshis);
-        delta.pushKV("txid", it->first.txhash.GetHex());
-        delta.pushKV("index", (int)it->first.index);
-        delta.pushKV("blockindex", (int)it->first.txindex);
-        delta.pushKV("height", it->first.blockHeight);
+        delta.pushKV("satoshis", indexV.satoshis);
+        delta.pushKV("txid", indexK.txhash.GetHex());
+        delta.pushKV("index", static_cast<int>(indexK.index));
+        delta.pushKV("blockindex", static_cast<int>(indexK.txindex));
+        delta.pushKV("height", indexK.blockHeight);
         delta.pushKV("address", address);
         deltas.push_back(delta);
     }
@@ -944,7 +920,8 @@ UniValue getaddressbalance(const UniValue& params, bool fHelp)
         throw std::runtime_error("Address indexing not enabled");
     }
 
-    std::vector<std::pair<uint160, AddressType>> addresses{getAddressesFromParams(params)};
+    const auto param_obj = params[0].get_obj();
+    std::vector<std::pair<uint160, AddressType>> addresses{addressesHashAndTypeFromValue(param_obj["addresses"], /*allow_empty=*/ false)};
 
     bool includeImmatureBTs = false;
     if (params.size() > 1)
@@ -953,6 +930,9 @@ UniValue getaddressbalance(const UniValue& params, bool fHelp)
     std::vector<std::pair<CAddressIndexKey, CAddressIndexValue> > addressIndex;
 
     for (const auto& [addressHash, addressType] : addresses) {
+
+        // TODO - the only chance for this to return false here is when pblocktree->ReadAddressIndex throws
+        // hence an internal error not caused by input. Is the JSON exception message accurate ?
         if (!GetAddressIndex(addressHash, addressType, addressIndex)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for address");
         }
@@ -962,28 +942,31 @@ UniValue getaddressbalance(const UniValue& params, bool fHelp)
     CAmount received = 0;
     CAmount immature = 0;
 
+    // TODO Isn't a lock needed here ? (see getaddressutxos)
     int currentTipHeight = chainActive.Tip()->nHeight;
 
-    for (std::vector<std::pair<CAddressIndexKey, CAddressIndexValue> >::const_iterator it=addressIndex.begin(); it!=addressIndex.end(); it++) {
-        //If maturityHeight is negative it's superseded and we skip it
-        if (it->second.maturityHeight < 0)
+    // TODO Given the input addresses are an array is it correct
+    // we produce a cumulative result ?
+
+    for (const auto& [_, indexV] : addressIndex) {
+        // If maturityHeight is negative it's superseded and we skip it
+        if (indexV.maturityHeight < 0)
             continue;
-        //If maturityHeight > currentTipHeight it's immature and we store the immature balance
-        //and the balance only if specified
-        if (it->second.maturityHeight > currentTipHeight) {
-            immature += it->second.satoshis;
+        // If maturityHeight > currentTipHeight it's immature and we store the immature balance
+        // and the balance only if specified
+        if (indexV.maturityHeight > currentTipHeight) {
+            immature += indexV.satoshis;
             if (includeImmatureBTs) {
-                if (it->second.satoshis > 0) {
-                    received += it->second.satoshis;
+                if (indexV.satoshis > 0) {
+                    received += indexV.satoshis;
                 }
-                balance += it->second.satoshis;
+                balance += indexV.satoshis;
             }
-        }
-        else {
-            if (it->second.satoshis > 0) {
-                received += it->second.satoshis;
+        } else {
+            if (indexV.satoshis > 0) {
+                received += indexV.satoshis;
             }
-            balance += it->second.satoshis;
+            balance += indexV.satoshis;
         }
     }
 
@@ -1032,39 +1015,39 @@ UniValue getaddresstxids(const UniValue& params, bool fHelp)
         throw std::runtime_error("Address indexing not enabled");
     }
 
-    std::vector<std::pair<uint160, AddressType>> addresses{getAddressesFromParams(params)};
+    const auto param_obj = params[0].get_obj();
 
     int start = 0;
     int end = 0;
-    if (params[0].isObject()) {
-        UniValue startValue = find_value(params[0].get_obj(), "start");
-        UniValue endValue = find_value(params[0].get_obj(), "end");
-        if (startValue.isNum() && endValue.isNum()) {
-            start = startValue.get_int();
-            end = endValue.get_int();
-        }
+    if (const auto start_v{param_obj["start"]}; !start_v.isNull()) {
+        start = start_v.get_int();
+    }
+    if (const auto end_v{param_obj["end"]}; !end_v.isNull()) {
+        end = end_v.get_int();
+    }
+    if (start <= 0 || end <= 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Start and/or end are expected to be greater than zero");
+    }
+    if (start > end) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Start must be lower/equal than end");
     }
 
-    std::vector<std::pair<CAddressIndexKey, CAddressIndexValue> > addressIndex;
-
+    std::vector<std::pair<uint160, AddressType>> addresses{addressesHashAndTypeFromValue(param_obj["addresses"], /*allow_empty=*/ false)};
+    std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>> addressIndex;
     for (const auto& [addressHash, addressType] : addresses) {
-        if (start > 0 && end > 0) {
-            if (!GetAddressIndex(addressHash, addressType, addressIndex, start, end)) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for address");
-            }
-        } else {
-            if (!GetAddressIndex(addressHash, addressType, addressIndex)) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for address");
-            }
+        // TODO - the only chance for this to return false here is when pblocktree->ReadAddressIndex throws
+        // hence an internal error not caused by input. Is the JSON exception message accurate ?
+        if (!GetAddressIndex(addressHash, addressType, addressIndex, start, end)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for address");
         }
     }
 
-    std::set<std::pair<int, std::string> > txids;
+    std::set<std::pair<int, std::string>> txids;
     UniValue result(UniValue::VARR);
 
-    for (std::vector<std::pair<CAddressIndexKey, CAddressIndexValue> >::const_iterator it=addressIndex.begin(); it!=addressIndex.end(); it++) {
-        int height = it->first.blockHeight;
-        std::string txid = it->first.txhash.GetHex();
+    for (const auto& [indexK, _] : addressIndex) {
+        int height = indexK.blockHeight;
+        std::string txid = indexK.txhash.GetHex();
 
         if (addresses.size() > 1) {
             txids.insert(std::make_pair(height, txid));
@@ -1076,8 +1059,8 @@ UniValue getaddresstxids(const UniValue& params, bool fHelp)
     }
 
     if (addresses.size() > 1) {
-        for (std::set<std::pair<int, std::string> >::const_iterator it=txids.begin(); it!=txids.end(); it++) {
-            result.push_back(it->second);
+        for (const auto& [_, txid] : txids) {
+            result.push_back(txid);
         }
     }
 
