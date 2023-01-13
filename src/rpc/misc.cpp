@@ -661,6 +661,16 @@ UniValue getaddressutxos(const UniValue& params, bool fHelp)
             + HelpExampleRpc("getaddressutxos", "{\"addresses\": [\"12c6DSiU4Rq3P4ZxziKxzrL5LmMBrzjrJX\"]}")
             );
 
+    // This is needed cause GetAddressUnspent returns false in two cases
+    // Either the address indexing is not enabled or an exception occurred
+    // during the processing of pblocktree->ReadAddressUnspentIndex
+    // this is unfortunate as we cannot distinguish amongst the two conditions
+    // TODO Let the exception flow up to here (if possible) and don't trap
+    // as higher level code of the RPC server already handles it
+    if (!fAddressIndex) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Address indexing not enabled");
+    }
+
     bool includeChainInfo = false;
     if (params[0].isObject()) {
         UniValue chainInfo = find_value(params[0].get_obj(), "chainInfo");
@@ -673,18 +683,7 @@ UniValue getaddressutxos(const UniValue& params, bool fHelp)
     if (params.size() > 1)
         includeImmatureBTs = params[1].get_bool();
 
-    // This is needed cause GetAddressUnspent returns false in two cases
-    // Either the address indexing is not enabled or an exception occurred
-    // during the processing of pblocktree->ReadAddressUnspentIndex
-    // this is unfortunate as we cannot distinguish amongst the two conditions
-    // TODO Let the exception flow up to here (if possible) and don't trap
-    // as higher level code of the RPC server already handles it
-    if(!fAddressIndex) {
-        throw JSONRPCError(RPC_INTERNAL_ERROR, "Address indexing not enabled");
-    }
-
-    std::vector<std::pair<uint160, AddressType> > addresses;
-
+    std::vector<std::pair<uint160, AddressType>> addresses;
     if (!getAddressesFromParams(params, addresses)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
