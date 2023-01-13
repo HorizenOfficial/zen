@@ -791,16 +791,9 @@ UniValue getblock(const UniValue& params, bool fHelp)
     uint256 hash(uint256S(strHash));
 
     int verbosity = 1;
-    if (params.size() > 1) {
-        if(params[1].isNum()) {
-            verbosity = params[1].get_int();
-        } else {
-            verbosity = params[1].get_bool() ? 1 : 0;
-        }
-    }
-
-    if (verbosity < 0 || verbosity > 2) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Verbosity must be in range from 0 to 2");
+    if (params.size() == 2) {
+        verbosity = params[1].get_int(); // Throws if not NUM
+        verbosity = std::min(std::max(verbosity, 0), 2); // Force in range - dont' bother to throw
     }
 
     if (mapBlockIndex.count(hash) == 0)
