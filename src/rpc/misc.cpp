@@ -1121,16 +1121,16 @@ UniValue getspentinfo(const UniValue& params, bool fHelp)
         throw std::runtime_error("spentindex not enabled");
     }
 
-    UniValue txidValue = find_value(params[0].get_obj(), "txid");
-    UniValue indexValue = find_value(params[0].get_obj(), "index");
+    const auto& param_obj = params[0].get_obj();
+    uint256 txid = ParseHashO(param_obj, "txid");   // Throws if not string
+    int outputIndex = param_obj["index"].get_int(); // Throws if not num
 
-    if (!txidValue.isStr() || !indexValue.isNum()) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid txid or index");
+    // Output index cannot be negative otherwise implicit conversion
+    // in CSpentIndexKey causes martian values
+    if (outputIndex < 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "index cannot be negative");
     }
-
-    uint256 txid = ParseHashV(txidValue, "txid");
-    int outputIndex = indexValue.get_int();
-
+    
     CSpentIndexKey key(txid, outputIndex);
     CSpentIndexValue value;
 
