@@ -578,14 +578,17 @@ UniValue getaddressmempool(const UniValue& params, bool fHelp)
             + HelpExampleRpc("getaddressmempool", "{\"addresses\": [\"12c6DSiU4Rq3P4ZxziKxzrL5LmMBrzjrJX\"]}")
         );
 
-    std::vector<std::pair<uint160, AddressType> > addresses;
 
+    if (!fAddressIndex) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Address indexing not enabled");
+    }
+
+    std::vector<std::pair<uint160, AddressType> > addresses;
     if (!getAddressesFromParams(params, addresses)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
 
     std::vector<std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> > indexes;
-
     if (!mempool.getAddressIndex(addresses, indexes)) {
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Address indexing not enabled");
     }
