@@ -766,6 +766,11 @@ UniValue getblock(const UniValue& params, bool fHelp)
 
     std::string strHash = params[0].get_str();
 
+    // TODO - Sample clearly states that first argument can be either
+    // a string hence a hash
+    // a number hence a height
+    // Check wheter the follwing block of code can be safely removed
+
     // If height is supplied, find the hash
     if (strHash.size() < (2 * sizeof(uint256))) {
         // std::stoi allows characters, whereas we want to be strict
