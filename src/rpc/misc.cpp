@@ -499,8 +499,10 @@ bool getAddressFromIndex(const AddressType type, const uint160 &hash, std::strin
     }
 }
 
-bool getAddressesFromParams(const UniValue& params, std::vector<std::pair<uint160, AddressType> > &addresses)
+std::vector<std::pair<uint160, AddressType>> getAddressesFromParams(const UniValue& params)
 {
+    std::vector<std::pair<uint160, AddressType>> ret;
+
     if (params[0].isStr()) {
         CBitcoinAddress address(params[0].get_str());
         uint160 hashBytes;
@@ -508,7 +510,7 @@ bool getAddressesFromParams(const UniValue& params, std::vector<std::pair<uint16
         if (!address.GetIndexKey(hashBytes, type)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
         }
-        addresses.push_back(std::make_pair(hashBytes, type));
+        ret.push_back(std::make_pair(hashBytes, type));
     } else if (params[0].isObject()) {
 
         UniValue addressValues = find_value(params[0].get_obj(), "addresses");
@@ -526,13 +528,13 @@ bool getAddressesFromParams(const UniValue& params, std::vector<std::pair<uint16
             if (!address.GetIndexKey(hashBytes, type)) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
             }
-            addresses.push_back(std::make_pair(hashBytes, type));
+            ret.push_back(std::make_pair(hashBytes, type));
         }
     } else {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
 
-    return true;
+    return ret;
 }
 
 // TODO @ptagl This function is not a sort : is a comparer
@@ -549,7 +551,7 @@ bool timestampSort(std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> a,
 
 UniValue getaddressmempool(const UniValue& params, bool fHelp)
 {
-    if (fHelp || params.size() != 1)
+    if (fHelp || params.size() != 1 || !params[0].isObject() || !params[0].get_obj()["addresses"].isArray())
         throw runtime_error(
             "getaddressmempool\n"
             "\nReturns all mempool deltas for an address (requires addressindex to be enabled).\n"
@@ -583,9 +585,10 @@ UniValue getaddressmempool(const UniValue& params, bool fHelp)
         throw std::runtime_error("Address indexing not enabled");
     }
 
-    std::vector<std::pair<uint160, AddressType> > addresses;
-    if (!getAddressesFromParams(params, addresses)) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
+    UniValue result(UniValue::VARR);
+    std::vector<std::pair<uint160, AddressType>> addresses{getAddressesFromParams(params)};
+    if (addresses.empty()) {
+        return result;
     }
 
     std::vector<std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> > indexes;
@@ -595,7 +598,7 @@ UniValue getaddressmempool(const UniValue& params, bool fHelp)
 
     std::sort(indexes.begin(), indexes.end(), timestampSort);
 
-    UniValue result(UniValue::VARR);
+    
 
     for (std::vector<std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> >::iterator it = indexes.begin();
          it != indexes.end(); it++) {
@@ -683,11 +686,7 @@ UniValue getaddressutxos(const UniValue& params, bool fHelp)
     if (params.size() > 1)
         includeImmatureBTs = params[1].get_bool();
 
-    std::vector<std::pair<uint160, AddressType>> addresses;
-    if (!getAddressesFromParams(params, addresses)) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
-    }
-
+    std::vector<std::pair<uint160, AddressType>> addresses{getAddressesFromParams(params)};
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
 
     for (const auto& [addressHash, addressType] : addresses) {
@@ -845,11 +844,7 @@ UniValue getaddressdeltas(const UniValue& params, bool fHelp)
         }
     }
 
-    std::vector<std::pair<uint160, AddressType>> addresses;
-    if (!getAddressesFromParams(params, addresses)) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
-    }
-
+    std::vector<std::pair<uint160, AddressType>> addresses{getAddressesFromParams(params)};
     std::vector<std::pair<CAddressIndexKey, CAddressIndexValue> > addressIndex;
 
     for (const auto& [addressHash, addressType] : addresses) {
@@ -949,10 +944,7 @@ UniValue getaddressbalance(const UniValue& params, bool fHelp)
         throw std::runtime_error("Address indexing not enabled");
     }
 
-    std::vector<std::pair<uint160, AddressType>> addresses;
-    if (!getAddressesFromParams(params, addresses)) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
-    }
+    std::vector<std::pair<uint160, AddressType>> addresses{getAddressesFromParams(params)};
 
     bool includeImmatureBTs = false;
     if (params.size() > 1)
@@ -1040,10 +1032,7 @@ UniValue getaddresstxids(const UniValue& params, bool fHelp)
         throw std::runtime_error("Address indexing not enabled");
     }
 
-    std::vector<std::pair<uint160, AddressType>> addresses;
-    if (!getAddressesFromParams(params, addresses)) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
-    }
+    std::vector<std::pair<uint160, AddressType>> addresses{getAddressesFromParams(params)};
 
     int start = 0;
     int end = 0;
