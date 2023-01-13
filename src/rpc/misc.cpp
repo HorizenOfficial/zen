@@ -580,7 +580,7 @@ UniValue getaddressmempool(const UniValue& params, bool fHelp)
 
 
     if (!fAddressIndex) {
-        throw JSONRPCError(RPC_INTERNAL_ERROR, "Address indexing not enabled");
+        throw std::runtime_error("Address indexing not enabled");
     }
 
     std::vector<std::pair<uint160, AddressType> > addresses;
@@ -668,7 +668,7 @@ UniValue getaddressutxos(const UniValue& params, bool fHelp)
     // TODO Let the exception flow up to here (if possible) and don't trap
     // as higher level code of the RPC server already handles it
     if (!fAddressIndex) {
-        throw JSONRPCError(RPC_INTERNAL_ERROR, "Address indexing not enabled");
+        throw std::runtime_error("Address indexing not enabled");
     }
 
     bool includeChainInfo = false;
@@ -818,7 +818,7 @@ UniValue getaddressdeltas(const UniValue& params, bool fHelp)
     // TODO Let the exception flow up to here (if possible) and don't trap
     // as higher level code of the RPC server already handles it
     if (!fAddressIndex) {
-        throw JSONRPCError(RPC_INTERNAL_ERROR, "Address indexing not enabled");
+        throw std::runtime_error("Address indexing not enabled");
     }
 
 
@@ -946,7 +946,7 @@ UniValue getaddressbalance(const UniValue& params, bool fHelp)
     // TODO Let the exception flow up to here (if possible) and don't trap
     // as higher level code of the RPC server already handles it
     if (!fAddressIndex) {
-        throw JSONRPCError(RPC_INTERNAL_ERROR, "Address indexing not enabled");
+        throw std::runtime_error("Address indexing not enabled");
     }
 
     std::vector<std::pair<uint160, AddressType>> addresses;
@@ -1037,7 +1037,7 @@ UniValue getaddresstxids(const UniValue& params, bool fHelp)
     // TODO Let the exception flow up to here (if possible) and don't trap
     // as higher level code of the RPC server already handles it
     if (!fAddressIndex) {
-        throw JSONRPCError(RPC_INTERNAL_ERROR, "Address indexing not enabled");
+        throw std::runtime_error("Address indexing not enabled");
     }
 
     std::vector<std::pair<uint160, AddressType>> addresses;
@@ -1098,11 +1098,10 @@ UniValue getaddresstxids(const UniValue& params, bool fHelp)
 
 UniValue getspentinfo(const UniValue& params, bool fHelp)
 {
-
     if (fHelp || params.size() != 1 || !params[0].isObject())
         throw runtime_error(
             "getspentinfo\n"
-            "\nReturns the txid and index where an output is spent.\n"
+            "\nReturns the txid and index where an output is spent (requires spentindex to be enabled).\n"
             "\nArguments:\n"
             "{\n"
             "  \"txid\" (string) The hex string of the txid\n"
@@ -1114,10 +1113,13 @@ UniValue getspentinfo(const UniValue& params, bool fHelp)
             "  \"index\"  (number) The spending input index\n"
             "  ,...\n"
             "}\n"
-            "\nExamples:\n"
-            + HelpExampleCli("getspentinfo", "'{\"txid\": \"0437cd7f8525ceed2324359c2d0ba26006d92d856a9c20fa0241106ee5a597c9\", \"index\": 0}'")
-            + HelpExampleRpc("getspentinfo", "{\"txid\": \"0437cd7f8525ceed2324359c2d0ba26006d92d856a9c20fa0241106ee5a597c9\", \"index\": 0}")
-        );
+            "\nExamples:\n" +
+            HelpExampleCli("getspentinfo", "'{\"txid\": \"0437cd7f8525ceed2324359c2d0ba26006d92d856a9c20fa0241106ee5a597c9\", \"index\": 0}'") + 
+            HelpExampleRpc("getspentinfo", "{\"txid\": \"0437cd7f8525ceed2324359c2d0ba26006d92d856a9c20fa0241106ee5a597c9\", \"index\": 0}"));
+
+    if (!fSpentIndex) {
+        throw std::runtime_error("spentindex not enabled");
+    }
 
     UniValue txidValue = find_value(params[0].get_obj(), "txid");
     UniValue indexValue = find_value(params[0].get_obj(), "index");
