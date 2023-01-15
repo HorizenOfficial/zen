@@ -797,8 +797,19 @@ UniValue getblock(const UniValue& params, bool fHelp)
 
     int verbosity = 1;
     if (params.size() == 2) {
-        verbosity = params[1].get_int(); // Throws if not NUM
-        verbosity = std::min(std::max(verbosity, 0), 2); // Force in range - dont' bother to throw
+        const auto verbosity_v = params[1];
+        switch (verbosity_v.getType())
+        {
+        case UniValue::VType::VBOOL:
+            verbosity = static_cast<int>(verbosity_v.get_bool());
+            break;
+        case UniValue::VType::VNUM:
+            verbosity = std::min(std::max(verbosity_v.get_int(), 0), 2); // Force in range - dont' bother to throw
+            break;
+        default:
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Argument 2 [verbosity] invalid");
+            break;
+        }
     }
 
     if (mapBlockIndex.count(hash) == 0)
