@@ -136,7 +136,13 @@ testScripts=(
   'sc_rpc_cmds_json_output.py'
   'sc_getscgenesisinfo.py'
   'fundaddresses.py'
+  'addressindex.py'
+  'spentindex.py'
+  'timestampindex.py'
+  'sc_cert_addressindex.py'
+  'sc_cert_addrmempool.py'
 );
+
 testScriptsExt=(
   'getblocktemplate_longpoll.py'
   'getblocktemplate_proposals.py'
@@ -176,14 +182,6 @@ fi
 
 if [ "x$ENABLE_PROTON" = "x1" ]; then
   testScripts+=('proton_test.py')
-fi
-
-if [ "x$ENABLE_ADDRESS_INDEX" = "x1" ]; then
-  testScripts+=('addressindex.py'
-                'spentindex.py'
-                'timestampindex.py'
-                'sc_cert_addressindex.py'
-                'sc_cert_addrmempool.py')
 fi
 
 # include extended tests
