@@ -136,6 +136,7 @@ testScripts=(
   'sc_rpc_cmds_json_output.py'
   'sc_getscgenesisinfo.py'
   'fundaddresses.py'
+  'p2p_ignore_spent_tx.py'
   'addressindex.py'
   'spentindex.py'
   'timestampindex.py'

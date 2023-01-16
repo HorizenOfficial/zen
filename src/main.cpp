@@ -6741,6 +6741,7 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
 
     pfrom->setAskFor.erase(inv.hash);
     mapAlreadyAskedFor.erase(inv);
+    mapAlreadyReceived.insert(std::make_pair(inv, GetTimeMicros()));
 
     MempoolReturnValue res = MempoolReturnValue::INVALID;
     CValidationState state;
@@ -8099,7 +8100,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
         while (!pto->fDisconnect && !pto->mapAskFor.empty() && (*pto->mapAskFor.begin()).first <= nNow)
         {
             const CInv& inv = (*pto->mapAskFor.begin()).second;
-            if (!AlreadyHave(inv))
+            if (!AlreadyHave(inv) && mapAlreadyReceived.find(inv) == mapAlreadyReceived.end())
             {
                 if (fDebug)
                     LogPrint("net", "%s():%d - Requesting %s peer=%d\n", __func__, __LINE__, inv.ToString(), pto->id);
