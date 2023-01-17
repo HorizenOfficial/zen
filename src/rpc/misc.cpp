@@ -660,10 +660,10 @@ UniValue getaddressutxos(const UniValue& params, bool fHelp)
         throw std::runtime_error("Address indexing not enabled");
     }
 
-    const auto param_obj = params[0].get_obj(); // Throws if not an object
+    const auto param = params[0]; 
 
     bool includeChainInfo = false;
-    if (const auto chainInfo_v{param_obj["chainInfo"]}; !chainInfo_v.isNull()) {
+    if (const auto chainInfo_v{param["chainInfo"]}; !chainInfo_v.isNull()) {
         includeChainInfo = chainInfo_v.get_bool();
     }
 
@@ -671,8 +671,7 @@ UniValue getaddressutxos(const UniValue& params, bool fHelp)
     if (params.size() > 1)
         includeImmatureBTs = params[1].get_bool();
 
-    const auto input_addresses = param_obj["addresses"];
-    std::vector<std::pair<uint160, AddressType>> addresses{addressesHashAndTypeFromValue(input_addresses, /*allow_empty=*/false)};
+    std::vector<std::pair<uint160, AddressType>> addresses{addressesHashAndTypeFromValue(param.isObject() ? param["addresses"] : param, /*allow_empty=*/false)};
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>> unspentOutputs;
     for (const auto& [addressHash, addressType] : addresses) {
 
