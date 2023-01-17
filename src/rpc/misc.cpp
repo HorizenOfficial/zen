@@ -676,10 +676,10 @@ UniValue getaddressutxos(const UniValue& params, bool fHelp)
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>> unspentOutputs;
     for (const auto& [addressHash, addressType] : addresses) {
 
-        // TODO - the only chance for this to return false here is when pblocktree->ReadAddressUnspentIndex throws
-        // hence an internal error not caused by input. Is the JSON exception message accurate ?
+        // The only chance for this to return false here is when pblocktree->ReadAddressUnspentIndex throws
+        // hence an internal error not caused by input.
         if (!GetAddressUnspent(addressHash, addressType, unspentOutputs)) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for address");
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "Internal db error");
         }
     }
 
@@ -837,10 +837,10 @@ UniValue getaddressdeltas(const UniValue& params, bool fHelp)
 
     for (const auto& [addressHash, addressType] : addresses) {
 
-        // TODO - the only chance for this to return false here is when pblocktree->ReadAddressIndex throws
-        // hence an internal error not caused by input. Is the JSON exception message accurate ?
+        // The only chance for this to return false here is when pblocktree->ReadAddressIndex throws
+        // hence an internal error not caused by input.
         if (!GetAddressIndex(addressHash, addressType, addressIndex, start, end)) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for address");
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "Internal db error");
         }
     }
 
@@ -937,10 +937,10 @@ UniValue getaddressbalance(const UniValue& params, bool fHelp)
     std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>> addressIndex;
     for (const auto& [addressHash, addressType] : addresses) {
 
-        // TODO - the only chance for this to return false here is when pblocktree->ReadAddressIndex throws
-        // hence an internal error not caused by input. Is the JSON exception message accurate ?
+        // The only chance for this to return false here is when pblocktree->ReadAddressIndex throws
+        // hence an internal error not caused by input.
         if (!GetAddressIndex(addressHash, addressType, addressIndex)) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for address");
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "Internal db error");
         }
     }
 
@@ -1041,10 +1041,10 @@ UniValue getaddresstxids(const UniValue& params, bool fHelp)
     std::vector<std::pair<uint160, AddressType>> addresses{addressesHashAndTypeFromValue(param_obj["addresses"], /*allow_empty=*/ false)};
     std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>> addressIndex;
     for (const auto& [addressHash, addressType] : addresses) {
-        // TODO - the only chance for this to return false here is when pblocktree->ReadAddressIndex throws
-        // hence an internal error not caused by input. Is the JSON exception message accurate ?
+        // The only chance for this to return false here is when pblocktree->ReadAddressIndex throws
+        // hence an internal error not caused by input.
         if (!GetAddressIndex(addressHash, addressType, addressIndex, start, end)) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for address");
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "Internal db error");
         }
     }
 
