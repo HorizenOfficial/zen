@@ -815,18 +815,17 @@ UniValue getaddressdeltas(const UniValue& params, bool fHelp)
     int end = 0;
     bool includeChainInfo = false;
 
-    if (const auto start_v{param_obj["start"]}; !start_v.isNull()) {
-        start = start_v.get_int();
+    if (const auto v{param_obj["start"]}; !v.isNull()) {
+        start = v.get_int();
     }
-    if (const auto end_v{param_obj["end"]}; !end_v.isNull()) {
-        end = end_v.get_int();
+    if (const auto v{param_obj["end"]}; !v.isNull()) {
+        end = v.get_int();
     }
-    if (const auto chainInfo_v{param_obj["chainInfo"]}; !chainInfo_v.isNull()) {
-        includeChainInfo = chainInfo_v.getBool();
+    if (const auto v{param_obj["chainInfo"]}; !v.isNull()) {
+        includeChainInfo = v.getBool();
     }
-
-    if (start <= 0 || end <= 0) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Start and end are expected to be greater than zero");
+    if (start < 0 || end < 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Start and/or end are expected to be non negative integers");
     }
     if (start > end) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Start must be lower/equal than end");
