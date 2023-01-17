@@ -1021,15 +1021,15 @@ UniValue getaddresstxids(const UniValue& params, bool fHelp)
         throw std::runtime_error("Address indexing not enabled");
     }
 
-    const auto param_obj = params[0].get_obj();
+    const auto param = params[0];
 
     int start = 0;
     int end = 0;
-    if (const auto start_v{param_obj["start"]}; !start_v.isNull()) {
-        start = start_v.get_int();
+    if (const auto v{param["start"]}; !v.isNull()) {
+        start = v.get_int();
     }
-    if (const auto end_v{param_obj["end"]}; !end_v.isNull()) {
-        end = end_v.get_int();
+    if (const auto v{param["end"]}; !v.isNull()) {
+        end = v.get_int();
     }
     if (start <= 0 || end <= 0) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Start and/or end are expected to be greater than zero");
@@ -1038,7 +1038,7 @@ UniValue getaddresstxids(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Start must be lower/equal than end");
     }
 
-    std::vector<std::pair<uint160, AddressType>> addresses{addressesHashAndTypeFromValue(param_obj["addresses"], /*allow_empty=*/ false)};
+    std::vector<std::pair<uint160, AddressType>> addresses{addressesHashAndTypeFromValue(param.isObject() ? param["addresses"] : param, /*allow_empty=*/ false)};
     std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>> addressIndex;
     for (const auto& [addressHash, addressType] : addresses) {
         // The only chance for this to return false here is when pblocktree->ReadAddressIndex throws
