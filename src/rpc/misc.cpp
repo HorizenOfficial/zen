@@ -1031,8 +1031,8 @@ UniValue getaddresstxids(const UniValue& params, bool fHelp)
     if (const auto v{param["end"]}; !v.isNull()) {
         end = v.get_int();
     }
-    if (start <= 0 || end <= 0) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Start and/or end are expected to be greater than zero");
+    if (start < 0 || end < 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Start and/or end are expected to be non negative integers");
     }
     if (start > end) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Start must be lower/equal than end");
