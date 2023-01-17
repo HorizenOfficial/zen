@@ -512,6 +512,12 @@ std::pair<uint160,AddressType> addressHashAndTypeFromValue(const UniValue& value
 }
 
 std::vector<std::pair<uint160, AddressType>> addressesHashAndTypeFromValue(const UniValue& value, bool allow_empty = true) {
+
+    // TODO See Jira's discussion ZEND-242
+    if (value.isStr()) {
+        return {addressHashAndTypeFromValue(value)};
+    }
+
     if (!value.isArray() || (value.empty() && !allow_empty)) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("An array of addresses is expected") + (allow_empty ? "" : " [not empty]"));
     }
@@ -538,7 +544,7 @@ bool timestampComparer(const std::pair<CMempoolAddressDeltaKey, CMempoolAddressD
 
 UniValue getaddressmempool(const UniValue& params, bool fHelp)
 {
-    if (fHelp || params.size() != 1 || !params[0].isObject())
+    if (fHelp || params.size() != 1)
         throw runtime_error(
             "getaddressmempool\n"
             "\nReturns all mempool deltas for an address (requires addressindex to be enabled).\n"
@@ -584,6 +590,8 @@ UniValue getaddressmempool(const UniValue& params, bool fHelp)
     }
 
     std::sort(indexes.begin(), indexes.end(), timestampComparer);
+    result.reserve(indexes.size());
+
     for (const auto& [deltaKey, delta] : indexes) {
         std::string address;
         std::ignore = getAddressFromIndex(deltaKey.type, deltaKey.addressBytes, address); // We've already validated type during parsing
@@ -652,16 +660,13 @@ UniValue getaddressutxos(const UniValue& params, bool fHelp)
         throw std::runtime_error("Address indexing not enabled");
     }
 
-    const auto param_obj = params[0];
-    if (!param_obj.isObject()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "First parameter expected object");
-    }
+    const auto param_obj = params[0].get_obj(); // Throws if not an object
 
     bool includeChainInfo = false;
-    if (const auto chainInfo_v { param_obj["chainInfo"]}; !chainInfo_v.isNull()) {
+    if (const auto chainInfo_v{param_obj["chainInfo"]}; !chainInfo_v.isNull()) {
         includeChainInfo = chainInfo_v.get_bool();
     }
-    
+
     bool includeImmatureBTs = false;
     if (params.size() > 1)
         includeImmatureBTs = params[1].get_bool();
@@ -681,6 +686,8 @@ UniValue getaddressutxos(const UniValue& params, bool fHelp)
     std::sort(unspentOutputs.begin(), unspentOutputs.end(), heightComparer);
 
     UniValue utxos(UniValue::VARR);
+    utxos.reserve(unspentOutputs.size());
+
     int currentTipHeight = -1;
     std::string bestHashStr;
     {
@@ -838,6 +845,7 @@ UniValue getaddressdeltas(const UniValue& params, bool fHelp)
     }
 
     UniValue deltas(UniValue::VARR);
+    deltas.reserve(addressIndex.size());
 
     for (const auto& [indexK, indexV] : addressIndex) {
         std::string address;
@@ -920,15 +928,13 @@ UniValue getaddressbalance(const UniValue& params, bool fHelp)
         throw std::runtime_error("Address indexing not enabled");
     }
 
-    const auto param_obj = params[0].get_obj();
-    std::vector<std::pair<uint160, AddressType>> addresses{addressesHashAndTypeFromValue(param_obj["addresses"], /*allow_empty=*/ false)};
+    std::vector<std::pair<uint160, AddressType>> addresses{addressesHashAndTypeFromValue(params[0], /*allow_empty=*/ false)};
 
     bool includeImmatureBTs = false;
     if (params.size() > 1)
         includeImmatureBTs = params[1].get_bool();
 
-    std::vector<std::pair<CAddressIndexKey, CAddressIndexValue> > addressIndex;
-
+    std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>> addressIndex;
     for (const auto& [addressHash, addressType] : addresses) {
 
         // TODO - the only chance for this to return false here is when pblocktree->ReadAddressIndex throws
