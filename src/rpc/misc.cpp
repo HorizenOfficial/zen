@@ -578,11 +578,11 @@ UniValue getaddressmempool(const UniValue& params, bool fHelp)
         throw std::runtime_error("Address indexing not enabled");
     }
 
-    const auto param_obj = params[0];
+    const auto param = params[0];
 
     UniValue result(UniValue::VARR);
 
-    std::vector<std::pair<uint160, AddressType>> addresses{addressesHashAndTypeFromValue(param_obj["addresses"], /*allow_empty=*/ false)};
+    std::vector<std::pair<uint160, AddressType>> addresses{addressesHashAndTypeFromValue(param.isObject() ? param["addresses"] : param, /*allow_empty=*/false)};
     std::vector<std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta>> indexes;
     std::ignore = mempool.getAddressIndex(addresses, indexes); // Only chance to return false is for fAddressIndex == false but is already checked
     if (indexes.empty()) {
