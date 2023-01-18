@@ -926,7 +926,8 @@ UniValue getaddressbalance(const UniValue& params, bool fHelp)
         throw std::runtime_error("Address indexing not enabled");
     }
 
-    std::vector<std::pair<uint160, AddressType>> addresses{addressesHashAndTypeFromValue(params[0], /*allow_empty=*/ false)};
+    const auto param = params[0];
+    std::vector<std::pair<uint160, AddressType>> addresses{addressesHashAndTypeFromValue(param.isObject() ? param["addresses"] : params, /*allow_empty=*/false)};
 
     bool includeImmatureBTs = false;
     if (params.size() > 1)
