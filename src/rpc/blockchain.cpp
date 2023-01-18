@@ -502,19 +502,53 @@ UniValue getblockdeltas(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() != 1)
         throw runtime_error(
-            "getblockdeltas\n"
-            "\nReturns ...  (require spentindex is enabled).\n"
-
+            "getblockdeltas \"blockhash\"\n"
+            "\nReturns information about the given block and its transactions (requires spentindex is enabled).\n"
             "\nArguments:\n"
-            "1. \"hash\"                          (string, required) the block hash\n"
-
+            "1. \"hash\"          (string, required) The block hash\n"
             "\nResult:\n"
             "{\n"
+            "  \"hash\": \"hash\",              (string) block ID\n"
+            "  \"confirmations\": n,            (numeric) number of confirmations\n"
+            "  \"size\": n,                     (numeric) block size in bytes\n"
+            "  \"height\": n,                   (numeric) block height\n"
+            "  \"version\": n,                  (numeric) block version (e.g. 4)\n"
+            "  \"merkleroot\": \"hash\",        (hexstring) block Merkle root\n"
+            "  \"deltas\": [\n"
+            "    {\n"
+            "      \"txid\": \"hash\",          (hexstring) transaction ID\n"
+            "      \"index\": n,                (numeric) The offset of the tx in the block\n"
+            "      \"inputs\": [                (array of json objects)\n"
+            "        {\n"
+            "          \"address\": \"taddr\",  (string) transparent address\n"
+            "          \"satoshis\": n,         (numeric) negative of spend amount\n"
+            "          \"index\": n,            (numeric) vin index\n"
+            "          \"prevtxid\": \"hash\",  (string) source utxo tx ID\n"
+            "          \"prevout\": n           (numeric) source utxo index\n"
+            "        }, ...\n"
+            "      ],\n"
+            "      \"outputs\": [               (array of json objects)\n"
+            "        {\n"
+            "          \"address\": \"taddr\",  (string) transparent address\n"
+            "          \"satoshis\": n,         (numeric) amount\n"
+            "          \"index\": n             (numeric) vout index\n"
+            "        }, ...\n"
+            "      ]\n"
+            "    }, ...\n"
+            "  ],\n"
+            "  \"time\" : n,                    (numeric) The block version\n"
+            "  \"mediantime\": n,               (numeric) The most recent blocks' ave time\n"
+            "  \"nonce\" : \"nonce\",           (hex string) The nonce\n"
+            "  \"bits\" : \"1d00ffff\",         (hex string) The bits\n"
+            "  \"difficulty\": n,               (numeric) the current difficulty\n"
+            "  \"chainwork\": \"xxxx\"          (hex string) expected number of hashes required to produce the chain up to this block\n"
+            "  \"previousblockhash\" : \"hash\",(hex string) The hash of the previous block\n"
+            "  \"nextblockhash\" : \"hash\"     (hex string) The hash of the next block\n"
             "}\n"
-
-            "\nExamples:\n" +
-            HelpExampleCli("getblockdeltas", "\"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\"") +
-            HelpExampleRpc("getblockdeltas", "\"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\""));
+            "\nExamples:\n"
+            + HelpExampleCli("getblockdeltas", "\"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\"")
+            + HelpExampleRpc("getblockdeltas", "\"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\"")
+);
 
     if(!fSpentIndex) {
         throw std::runtime_error("spentindex not enabled");
