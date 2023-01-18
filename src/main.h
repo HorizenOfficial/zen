@@ -142,7 +142,7 @@ static const bool DEFAULT_SPENTINDEX = false;
 #endif
 
 #if defined(BITNESS_32)
-#error "Zend does is not supported on 32 bit architecture"
+#error "Zend is not supported on 32 bit architecture"
 #endif
 
 #undef BITNESS_32
