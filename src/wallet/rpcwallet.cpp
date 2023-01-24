@@ -5788,11 +5788,11 @@ UniValue z_shieldcoinbase(const UniValue& params, bool fHelp)
             
             "\nResult:\n"
             "{\n"
-            "  \"operationid\": xxx          (string) an operationid to pass to z_getoperationstatus to get the result of the operation.\n"
-            "  \"shieldedUTXOs\": xxx        (numeric) number of coinbase utxos being shielded.\n"
-            "  \"shieldedValue\": xxx        (numeric) value of coinbase utxos being shielded.\n"
             "  \"remainingUTXOs\": xxx       (numeric) number of coinbase utxos still available for shielding.\n"
             "  \"remainingValue\": xxx       (numeric) value of coinbase utxos still available for shielding.\n"
+            "  \"shieldingUTXOs\": xxx       (numeric) number of coinbase utxos being shielded.\n"
+            "  \"shieldingValue\": xxx       (numeric) value of coinbase utxos being shielded.\n"
+            "  \"opid\": xxx                 (string) an operation id to pass to z_getoperationstatus to get the result of the operation.\n"
             "}\n"
 
             "\nExamples:\n"
