@@ -347,6 +347,7 @@ public:
 */
 class CCoinsSelectionBranchAndBound : public CCoinsSelectionAlgorithmBase
 {
+private:
   //! The timeout check period (in order to avoid checking too frequently)  
   static constexpr int TIMEOUT_CHECK_PERIOD = 10;
 
@@ -366,6 +367,15 @@ protected:
 
     //! Counter for keeping track of the number of leaves reached by the solving routine
     uint64_t reachedLeaves = 0;
+
+    //! Counter for keeping track of the number of recursions avoided leveraging backtracking feature
+    uint64_t avoidedRecursionsBacktracking = 0;
+
+    //! Counter for keeping track of the number of recursions avoided leveraging bounding feature
+    uint64_t avoidedRecursionsBounding = 0;
+
+    //! Counter for keeping track of the number of recursions avoided leveraging pruning feature
+    uint64_t avoidedRecursionsPruning = 0;
     #endif
     // ---------- profiling
 

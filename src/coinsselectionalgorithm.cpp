@@ -27,7 +27,7 @@ CCoinsSelectionAlgorithmBase::CCoinsSelectionAlgorithmBase(CoinsSelectionAlgorit
                                                              availableTotalSize {_availableTotalSize},
                                                              executionTimeoutMilliseconds {_executionTimeoutMilliseconds}
 {
-    tempSelection = std::vector<char>(problemDimension, 0);    
+    tempSelection = std::vector<char>(problemDimension, 0);
     optimalSelection = std::vector<char>(problemDimension, 0);
 }
 
@@ -379,24 +379,68 @@ void CCoinsSelectionBranchAndBound::SolveRecursive(int currentIndex, size_t temp
                     if ((maxTotalSelectionForward > optimalTotalSelection) ||
                         (maxTotalSelectionForward == optimalTotalSelection && tempTotalAmountNewBiggestPossible < optimalTotalAmount)) // {bounding}
                     {
-                        if (currentIndex < maxIndex)
-                        {
+                        if (tempTotalAmountNew < targetAmount) // no check "(currentIndex < maxIndex)" because already handled by boudning condition
+                        {                            
                             SolveRecursive(nextIndex, tempTotalSizeNew, tempTotalAmountNew, tempTotalSelectionNew);
                         }
-                        else
+                        else // if admissible, then check if better and prune {pruning}
                         {
                             #if COINS_SELECTION_ALGORITHM_PROFILING
-                            ++reachedLeaves;
+                            if (currentIndex == maxIndex)
+                                ++reachedLeaves;
                             #endif
-                            optimalTotalSize = tempTotalSizeNew;
-                            optimalTotalAmount = tempTotalAmountNew;
-                            optimalTotalSelection = tempTotalSelectionNew;
-                            optimalSelection.assign(tempSelection.begin(), tempSelection.end());
+
+                            if ((tempTotalSelectionNew > optimalTotalSelection) ||
+                                (tempTotalSelectionNew == optimalTotalSelection && tempTotalAmountNew < optimalTotalAmount))
+                            {
+                                optimalTotalSize = tempTotalSizeNew;
+                                optimalTotalAmount = tempTotalAmountNew;
+                                optimalTotalSelection = tempTotalSelectionNew;
+                                // not necessarily at a leaf (hence only a partial copy is performed)
+                                for (int i = 0; i <= currentIndex; ++i)
+                                {
+                                    optimalSelection[i] = tempSelection[i];
+                                }
+                                for (int i = currentIndex + 1; i < problemDimension; ++i)
+                                {
+                                    optimalSelection[i] = 0;
+                                }
+                            }
+                            #if COINS_SELECTION_ALGORITHM_PROFILING
+                            else
+                            {
+                                avoidedRecursionsPruning += maxIndex - currentIndex;
+                            }
+                            #endif
                         }
                     }
+                    #if COINS_SELECTION_ALGORITHM_PROFILING
+                    else
+                    {
+                        avoidedRecursionsBounding += maxIndex - currentIndex;
+                    }
+                    #endif
                 }
+                #if COINS_SELECTION_ALGORITHM_PROFILING
+                else
+                {
+                    avoidedRecursionsBacktracking += maxIndex - currentIndex;
+                }
+                #endif
             }
+            #if COINS_SELECTION_ALGORITHM_PROFILING
+            else
+            {
+                avoidedRecursionsBacktracking += maxIndex - currentIndex;
+            }
+            #endif
         }
+        #if COINS_SELECTION_ALGORITHM_PROFILING
+        else
+        {
+            avoidedRecursionsBacktracking += maxIndex - currentIndex;
+        }
+        #endif
     }
 }
 
@@ -410,6 +454,9 @@ bool CCoinsSelectionBranchAndBound::Reset()
         recursions = 0;
         reachedNodes = 0;
         reachedLeaves = 0;
+        avoidedRecursionsBacktracking = 0;
+        avoidedRecursionsBounding = 0;
+        avoidedRecursionsPruning = 0;
         #endif
     }
 
@@ -425,7 +472,6 @@ void CCoinsSelectionBranchAndBound::Solve()
         isRunning = true;
         executionStartMilliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
         SolveRecursive(0, 0, 0, 0);
-
         executionElapsedMilliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - executionStartMilliseconds;
         hasCompleted = !stopRequested && !timeoutHit;
         isRunning = false;
