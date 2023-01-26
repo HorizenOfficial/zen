@@ -683,7 +683,6 @@ void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
     {
         CImportingNow imp;
         int nFile = 0;
-        if (fReindexFast) uiInterface.InitMessage(_("Reindexing block headers from files..."));
         while (fReindexFast)
         {
             CDiskBlockPos pos(nFile, 0);
@@ -691,6 +690,7 @@ void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
                 break; // No block files left to reindex
             FILE *file = OpenBlockFile(pos, true);
             if (!file) break; // This error is logged in OpenBlockFile
+            uiInterface.InitMessage(_(tfm::format("Reindexing block headers from files... (blk%05u.dat)", (unsigned int)nFile).c_str()));
             LogPrintf("Reindexing block file blk%05u.dat, headers-only...\n", (unsigned int)nFile);
             LoadBlocksFromExternalFile(file, &pos, /*loadHeadersOnly*/true);
             nFile++;
@@ -699,7 +699,6 @@ void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
             LogPrintf("Headers-only reindexing finished. Going on with blocks\n");
 
         nFile = 0;
-        uiInterface.InitMessage(_("Reindexing block from files..."));
         while (true)
         {
             CDiskBlockPos pos(nFile, 0);
@@ -707,6 +706,7 @@ void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
                 break; // No block files left to reindex
             FILE *file = OpenBlockFile(pos, true);
             if (!file) break; // This error is logged in OpenBlockFile
+            uiInterface.InitMessage(_(tfm::format("Reindexing block from files... (blk%05u.dat)", (unsigned int)nFile).c_str()));
             LogPrintf("Reindexing block file blk%05u.dat...\n", (unsigned int)nFile);
             LoadBlocksFromExternalFile(file, &pos, /*loadHeadersOnly*/false);
             nFile++;
