@@ -59,6 +59,7 @@ class ListTransactionsTest(BitcoinTestFramework):
 
         # send-to-self:
         txid = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 0.2)
+        self.sync_all()
         check_array_result(self.nodes[0].listtransactions(),
                            {"txid": txid, "category": "send"},
                            {"amount": Decimal("-0.2")})
@@ -100,6 +101,7 @@ class ListTransactionsTest(BitcoinTestFramework):
 
         # Below tests about filtering by address
         self.nodes[0].generate(10)
+        self.sync_all()
         address = self.nodes[1].getnewaddress()
 
         # simple send 1 to address and verify listtransaction returns this tx with address in input
