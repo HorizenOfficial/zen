@@ -10,7 +10,7 @@ from test_framework.test_framework import ForkHeights
 from decimal import Decimal
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_equal
-from test_framework.mc_test.mc_test import *
+from test_framework.mc_test.mc_test import CertTestUtils, generate_random_field_element_hex
 
 
 def check_array_result(object_array, to_match, expected):
@@ -29,11 +29,10 @@ def check_array_result(object_array, to_match, expected):
             continue
         for key, value in expected.items():
             if item[key] != value:
-                raise AssertionError("%s : expected %s=%s" % (str(item), str(key), str(value)))
+                raise AssertionError(f"{str(item)} : expected {str(key)}={str(value)}")
             num_matched = num_matched + 1
     if num_matched == 0:
-        raise AssertionError("No objects matched %s" % (str(to_match)))
-
+        raise AssertionError(f"No objects matched {str(to_match)}")
 
 class ListTransactionsTest(BitcoinTestFramework):
 
@@ -350,7 +349,7 @@ class ListTransactionsTest(BitcoinTestFramework):
                     break
 
         assert_true(len(fromaddr))
-        result_node1_latest = self.nodes[1].listtransactions("*", 1, 0, False, fromaddr)
+        self.nodes[1].listtransactions("*", 1, 0, False, fromaddr)
         
         sidechain_address = "0000000000000000000000000000000000000000000000000000000051dec4a1"
         fee = 0.00025
