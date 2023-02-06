@@ -5,7 +5,7 @@ $(package)_file_name=$(package)-$($(package)_git_commit).tar.gz
 $(package)_download_file=$($(package)_git_commit).tar.gz
 $(package)_sha256_hash=40dfbbc020e846f156ecb20d9d94c1f13e8d45357054abb1cd0f969f8fdb9975
 $(package)_git_commit=7a96af9aee9adbcb43666251590425d98124ee94
-$(package)_dependencies=rust $(rust_crates_z)
+$(package)_dependencies=rust
 $(package)_patches=cargo.config
 
 ifeq ($(CLANG_ARG),true)
