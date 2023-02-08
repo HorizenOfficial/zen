@@ -1,5 +1,11 @@
-Zen 3.2.1
+Zen 4.0.0-beta3
 ================
+
+Note
+----------------
+This version of zend only works on Sidechain Testnet version 2, a network separate from normal testnet3. The default P2P port has been changed to 20033 and the P2P protocol version has been changed to prohibit connections to official testnet3.
+Sidechain Testnet version 2 is a network specifically created to test the introduction of Sidchains version 2 with support for non-ceasable Sidechains via hard fork activation (Fork #10), prior to activation on official testnet3 and mainnet.
+
 What is Horizen?
 ----------------
 Horizen is an inclusive and scalable platform where everyone is empowered and rewarded for their contributions. Horizen’s sidechain platform enables real-world applications mapped onto a public blockchain architecture with the largest node network in the industry. Horizen’s Sidechain-SDK provides developers with all necessary components to deploy their own fully customizable blockchains on Horizen’s open sidechain protocol, Zendoo.
