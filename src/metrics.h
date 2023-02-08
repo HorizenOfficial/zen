@@ -72,6 +72,8 @@ void TriggerRefresh();
 void ConnectMetricsScreen();
 void ThreadShowMetricsScreen();
 
+void SetDoneLoadingUI();
+
 /**
  * Rendering options:
 // ZEN MOD START
