@@ -202,7 +202,7 @@ Now use Zen-cli to verify there is only a single peer connection.
 	        "id" : 1,
 	        "addr" : "d2y2vsq5rxkcpk6f.onion:18233",
 	        ...
-	        "version" : 170002,
+	        "version" : 170005,
 	        "subver" : "/zen:1.0.0/",
 	        ...
 	    }
