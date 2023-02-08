@@ -711,7 +711,7 @@ void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
                 break; // No block files left to reindex
             FILE *file = OpenBlockFile(pos, true);
             if (!file) break; // This error is logged in OpenBlockFile
-            uiInterface.InitMessage(_(tfm::format("Reindexing block from files... (blk%05u.dat)", (unsigned int)nFile).c_str()));
+            uiInterface.InitMessageAfterLoading(_(tfm::format("Reindexing block from files... (blk%05u.dat)", (unsigned int)nFile).c_str()));
             LogPrintf("Reindexing block file blk%05u.dat...\n", (unsigned int)nFile);
             LoadBlocksFromExternalFile(file, &pos, /*loadHeadersOnly*/false);
             nFile++;
@@ -2004,7 +2004,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // ********************************************************* Step 11: finished
 
     SetRPCWarmupFinished();
-    uiInterface.InitMessage(_("Done loading"));
+    SetDoneLoadingUI();
 
 #ifdef ENABLE_WALLET
     if (pwalletMain) {

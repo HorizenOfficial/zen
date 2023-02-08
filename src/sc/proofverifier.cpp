@@ -525,6 +525,7 @@ ProofVerificationResult CScProofVerifier::NormalVerifyCertificate(CCertProofVeri
                   __func__, __LINE__, input.proofId, code);
         return ProofVerificationResult::Failed;
     }
+    assert(code == CctpErrorCode::OK);
     return ProofVerificationResult::Passed;
 }
 
@@ -572,6 +573,7 @@ ProofVerificationResult CScProofVerifier::NormalVerifyCsw(std::vector<CCswProofV
                       __func__, __LINE__, input.proofId, code);
             return ProofVerificationResult::Failed;
         }
+        assert(code == CctpErrorCode::OK);
     }
     return ProofVerificationResult::Passed;
 }
