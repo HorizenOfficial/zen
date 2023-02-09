@@ -9,7 +9,7 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, stop_nodes, get_epoch_data, \
     sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, mark_logs, \
     assert_false, assert_true, swap_bytes
-from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
+from test_framework.test_framework import ForkHeights, MINER_REWARD_POST_H200
 from test_framework.mc_test.mc_test import *
 import os
 import pprint
@@ -77,8 +77,8 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         amounts_2 = [{"address": addr_node1, "amount": bwt_amount_2}]
 
 
-        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT), self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(MINIMAL_SC_HEIGHT)
+        mark_logs("Node 0 generates {} block".format(ForkHeights['MINIMAL_SC']), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(ForkHeights['MINIMAL_SC'])
         self.sync_all()
 
         #generate wCertVk and constant
@@ -112,13 +112,13 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         print("#### chain height=", self.nodes[0].getblockcount())
         print
 
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
         ret = self.nodes[0].getscinfo(scid, False, False)['items'][0]
         pprint.pprint(ret)
-        assert_equal(ret['createdAtBlockHeight'], MINIMAL_SC_HEIGHT+1)
-        assert_equal(ret['endEpochHeight'], MINIMAL_SC_HEIGHT+EPOCH_LENGTH)
-        assert_equal(ret['ceasingHeight'], MINIMAL_SC_HEIGHT+EPOCH_LENGTH+EPOCH_LENGTH/5)
+        assert_equal(ret['createdAtBlockHeight'], ForkHeights['MINIMAL_SC']+1)
+        assert_equal(ret['endEpochHeight'], ForkHeights['MINIMAL_SC']+EPOCH_LENGTH)
+        assert_equal(ret['ceasingHeight'], ForkHeights['MINIMAL_SC']+EPOCH_LENGTH+EPOCH_LENGTH/5)
         assert_equal(ret['epoch'], 0)
         assert_equal(ret['scid'], scid)
         assert_equal(ret['withdrawalEpochLength'], EPOCH_LENGTH)
@@ -127,7 +127,16 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         # Certificate epoch 0 
         #----------------------------------------------------------------------
         quality = 1
-        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount_1])
+        proof = mcTest.create_test_proof("sc1",
+                                         scid_swapped,
+                                         epoch_number,
+                                         quality,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         epoch_cum_tree_hash,
+                                         constant = constant,
+                                         pks      = [addr_node1],
+                                         amounts  = [bwt_amount_1])
 
         mark_logs("Node 0 sends a cert for scid {} with a bwd transfer of {} coins to Node1 address {}".format(scid, bwt_amount_1, addr_node1), self.nodes, DEBUG_MODE)
         try:
@@ -144,14 +153,14 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         self.nodes[0].generate(EPOCH_LENGTH)
         self.sync_all()
 
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
         ret = self.nodes[0].getscinfo(scid, False, False)['items'][0]
         print("ceasingHeight   =", ret['ceasingHeight'])
         print("endEpochHeight =", ret['endEpochHeight'])
         print("epoch number     =", ret['epoch'])
-        assert_equal(ret['ceasingHeight'], MINIMAL_SC_HEIGHT+2*EPOCH_LENGTH+EPOCH_LENGTH/5) 
-        assert_equal(ret['endEpochHeight'], MINIMAL_SC_HEIGHT+2*EPOCH_LENGTH)
+        assert_equal(ret['ceasingHeight'], ForkHeights['MINIMAL_SC']+2*EPOCH_LENGTH+EPOCH_LENGTH/5) 
+        assert_equal(ret['endEpochHeight'], ForkHeights['MINIMAL_SC']+2*EPOCH_LENGTH)
         assert_equal(ret['epoch'], 1)
         print("#### chain height=", self.nodes[0].getblockcount())
         print
@@ -160,7 +169,16 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         # Certificate epoch 1 
         #----------------------------------------------------------------------
         quality = 1
-        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount_2])
+        proof = mcTest.create_test_proof("sc1",
+                                         scid_swapped,
+                                         epoch_number,
+                                         quality,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         epoch_cum_tree_hash,
+                                         constant = constant,
+                                         pks      = [addr_node1],
+                                         amounts  = [bwt_amount_2])
 
         mark_logs("Node 0 sends a cert for scid {} with a bwd transfer of {} coins to Node1 address {}".format(scid, bwt_amount_2, addr_node1), self.nodes, DEBUG_MODE)
         try:
@@ -177,14 +195,14 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         self.nodes[0].generate(EPOCH_LENGTH)
         self.sync_all()
 
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
         ret = self.nodes[0].getscinfo(scid, False, False)['items'][0]
         print("ceasingHeight   =", ret['ceasingHeight'])
         print("endEpochHeight =", ret['endEpochHeight'])
         print("epoch number     =", ret['epoch'])
-        assert_equal(ret['ceasingHeight'], MINIMAL_SC_HEIGHT+3*EPOCH_LENGTH+EPOCH_LENGTH/5) 
-        assert_equal(ret['endEpochHeight'], MINIMAL_SC_HEIGHT+3*EPOCH_LENGTH)
+        assert_equal(ret['ceasingHeight'], ForkHeights['MINIMAL_SC']+3*EPOCH_LENGTH+EPOCH_LENGTH/5) 
+        assert_equal(ret['endEpochHeight'], ForkHeights['MINIMAL_SC']+3*EPOCH_LENGTH)
         assert_equal(ret['epoch'], 2)
         print("#### chain height=", self.nodes[0].getblockcount())
         print
@@ -256,7 +274,14 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         try:
             #Create proof for WCert
             quality = 2
-            proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [], [])
+            proof = mcTest.create_test_proof("sc1",
+                                             scid_swapped,
+                                             epoch_number,
+                                             quality,
+                                             MBTR_SC_FEE,
+                                             FT_SC_FEE,
+                                             epoch_cum_tree_hash,
+                                             constant = constant)
 
             cert_2 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)

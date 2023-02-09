@@ -18,6 +18,7 @@
 #include "txdb.h"
 
 CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & creationTxAmount, int epochLength,
+                                                int sidechainVersion,
                                                 const CAmount& ftScFee, const CAmount& mbtrScFee, int mbtrDataLength)
 {
     CMutableTransaction mtx;
@@ -43,7 +44,7 @@ CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & c
     mtx.vjoinsplit[1].nullifiers.at(1) = uint256S("3");
 
     mtx.vsc_ccout.resize(1);
-    mtx.vsc_ccout[0].version = 0;
+    mtx.vsc_ccout[0].version = sidechainVersion;
     mtx.vsc_ccout[0].nValue = creationTxAmount;
     mtx.vsc_ccout[0].address = uint256S("bebe111222dada");
     mtx.vsc_ccout[0].withdrawalEpochLength = epochLength;
@@ -99,9 +100,9 @@ void txCreationUtils::signTx(CMutableScCertificate& mcert)
     // Add the signature
 }
 
-CTransaction txCreationUtils::createNewSidechainTxWith(const CAmount & creationTxAmount, int epochLength)
+CTransaction txCreationUtils::createNewSidechainTxWith(const CAmount & creationTxAmount, int epochLength, int sidechainVersion)
 {
-    CMutableTransaction mtx = populateTx(SC_TX_VERSION, creationTxAmount, epochLength);
+    CMutableTransaction mtx = populateTx(SC_TX_VERSION, creationTxAmount, epochLength, sidechainVersion);
 
     mtx.resizeOut(0);
     mtx.vjoinsplit.resize(0);
@@ -111,9 +112,9 @@ CTransaction txCreationUtils::createNewSidechainTxWith(const CAmount & creationT
     return CTransaction(mtx);
 }
 
-CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount)
+CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount, int sidechainVersion)
 {
-    CMutableTransaction mtx = populateTx(SC_TX_VERSION, fwdTxAmount);
+    CMutableTransaction mtx = populateTx(SC_TX_VERSION, fwdTxAmount, 5, sidechainVersion);
     mtx.resizeOut(0);
     mtx.vjoinsplit.resize(0);
     mtx.vsc_ccout.resize(0);
@@ -205,7 +206,7 @@ CTransaction txCreationUtils::createSproutTx(bool ccIsNull)
     return CTransaction(mtx);
 }
 
-void txCreationUtils::addNewScCreationToTx(CTransaction & tx, const CAmount & scAmount)
+void txCreationUtils::addNewScCreationToTx(CTransaction & tx, const CAmount & scAmount, int sidechainVersion)
 {
     CMutableTransaction mtx = tx;
 
@@ -214,6 +215,7 @@ void txCreationUtils::addNewScCreationToTx(CTransaction & tx, const CAmount & sc
     CTxScCreationOut aSidechainCreationTx;
     aSidechainCreationTx.nValue = scAmount;
     aSidechainCreationTx.withdrawalEpochLength = 100;
+    aSidechainCreationTx.version = sidechainVersion;
     mtx.vsc_ccout.push_back(aSidechainCreationTx);
 
     tx = mtx;
@@ -301,10 +303,11 @@ void chainSettingUtils::ExtendChainActiveToHeight(int targetHeight)
         BlockMap::iterator mi = mapBlockIndex.insert(std::make_pair(currBlockHash, pNewBlockIdx)).first;
         pNewBlockIdx->phashBlock = &(mi->first);
 
-        if (pNewBlockIdx->pprev && pNewBlockIdx->nVersion == BLOCK_VERSION_SC_SUPPORT )
+        if (pNewBlockIdx->pprev && pNewBlockIdx->nVersion == BLOCK_VERSION_SC_SUPPORT)
         {
             // don't do a real cumulative poseidon hash if it is not necessary
             pNewBlockIdx->scCumTreeHash = CFieldElement{SAMPLE_FIELD};
+            mapCumtreeHeight.insert(std::make_pair(pNewBlockIdx->scCumTreeHash.GetLegacyHash(), height));
         }
 
         chainActive.SetTip(mapBlockIndex.at(currBlockHash));
@@ -472,10 +475,11 @@ void BlockchainTestManager::ExtendChainActiveToHeight(int targetHeight) const
         BlockMap::iterator mi = mapBlockIndex.insert(std::make_pair(currBlockHash, pNewBlockIdx)).first;
         pNewBlockIdx->phashBlock = &(mi->first);
 
-        if (pNewBlockIdx->pprev && pNewBlockIdx->nVersion == BLOCK_VERSION_SC_SUPPORT )
+        if (pNewBlockIdx->pprev && pNewBlockIdx->nVersion == BLOCK_VERSION_SC_SUPPORT)
         {
             // don't do a real cumulative poseidon hash if it is not necessary
             pNewBlockIdx->scCumTreeHash = CFieldElement{SAMPLE_FIELD};
+            mapCumtreeHeight.insert(std::make_pair(pNewBlockIdx->scCumTreeHash.GetLegacyHash(), height));
         }
 
         chainActive.SetTip(mapBlockIndex.at(currBlockHash));
@@ -732,7 +736,7 @@ CScCertificate BlockchainTestManager::GenerateCertificate(uint256 scId, int epoc
     CSidechain sidechain;
     assert(viewCache->GetSidechain(scId, sidechain));
 
-    CCertProofVerifierInput input = CScProofVerifier::CertificateToVerifierItem(res, sidechain.fixedParams, nullptr);
+    CCertProofVerifierInput input = CScProofVerifier::CertificateToVerifierItem(res, sidechain.fixedParams, nullptr, viewCache.get());
     res.scProof = GenerateTestCertificateProof(input, provingSystem);
 
     return res;
@@ -745,12 +749,17 @@ CScCertificate BlockchainTestManager::GenerateCertificate(uint256 scId, int epoc
  * @param provingSystem The proving system whose parameters have to be created
  * @param circuitType The type of circuit whose parameters have to be created
  */
-void BlockchainTestManager::GenerateSidechainTestParameters(ProvingSystem provingSystem, TestCircuitType circuitType) const
+void BlockchainTestManager::GenerateSidechainTestParameters(ProvingSystem provingSystem, TestCircuitType circuitType, bool key_rotation) const
 {
     CctpErrorCode errorCode;
-    zendoo_generate_mc_test_params(
-        circuitType, provingSystem, 1 << 10,
-        (path_char_t*)tempFolderPath.string().c_str(), strlen(tempFolderPath.string().c_str()), &errorCode);
+    zendoo_generate_mc_test_params(circuitType,
+                                   provingSystem,
+                                   1 << 10,
+                                   key_rotation,
+                                   (path_char_t*)tempFolderPath.string().c_str(),
+                                   tempFolderPath.string().size(),
+                                   &errorCode
+                                   );
 }
 
 /**
@@ -769,6 +778,7 @@ CScProof BlockchainTestManager::GenerateTestCertificateProof(
 
     wrappedFieldPtr sptrConst = certificate.constant.GetFieldElement();
     wrappedFieldPtr sptrCum   = certificate.endEpochCumScTxCommTreeRoot.GetFieldElement();
+    wrappedFieldPtr sptrPHash   = certificate.lastCertHash.GetFieldElement();
 
     std::string certProofPath = GetTestFilePath(provingSystem, circuitType) + "proof";
     sc_pk_t* provingKey = GetTestProvingKey(provingSystem, circuitType);
@@ -818,6 +828,7 @@ CScProof BlockchainTestManager::GenerateTestCertificateProof(
                                   (path_char_t*)certProofPath.c_str(),
                                   strlen(certProofPath.c_str()),
                                   1 << 10,
+                                  sptrPHash.get(),
                                   &errorCode);
 
     zendoo_sc_pk_free(provingKey);
@@ -939,6 +950,8 @@ bool BlockchainTestManager::VerifyCertificateProof(CCertProofVerifierInput certi
     wrappedScProofPtr sptrProof  = certificate.proof.GetProofPtr();
     wrappedScVkeyPtr  sptrCertVk = certificate.verificationKey.GetVKeyPtr();
 
+    wrappedFieldPtr sptrPHash   = certificate.lastCertHash.GetFieldElement();
+
     int customFieldsLen = certificate.vCustomFields.size(); 
 
     std::unique_ptr<const field_t*[]> customFields(new const field_t*[customFieldsLen]);
@@ -983,7 +996,9 @@ bool BlockchainTestManager::VerifyCertificateProof(CCertProofVerifierInput certi
                                            certificate.forwardTransferScFee,
                                            sptrProof.get(),
                                            sptrCertVk.get(),
-                                           &errorCode);
+                                           sptrPHash.get(),
+                                           &errorCode
+                                           );
 }
 
 /**
@@ -1120,6 +1135,9 @@ std::string BlockchainTestManager::GetTestFilePath(ProvingSystem provingSystem, 
         case TestCircuitType::CSWNoConstant:
             filename += "csw_no_const_test_";
             break;
+        case TestCircuitType::Undefined:
+        default:
+            assert(false);
     }
 
     return tempFolderPath.string() + filename;

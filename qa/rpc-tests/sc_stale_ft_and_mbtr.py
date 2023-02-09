@@ -287,7 +287,7 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         mark_logs("\nNode 0 creates a new certificate updating FT and McBTR fees", self.nodes, DEBUG_MODE)
 
         quality = 1
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[1], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[1], EPOCH_LENGTH)
         addr_node1 = self.nodes[1].getnewaddress()
         cert_amount = Decimal("1.0")
         amount_cert_1 = [{"address": addr_node1, "amount": cert_amount}]
@@ -296,9 +296,16 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         mbtrScFee = MBTR_SC_FEES[2]
         scid_swapped = str(swap_bytes(scid))
 
-        proof = mcTest.create_test_proof(
-            vk_tag, scid_swapped, epoch_number, quality, mbtrScFee, ftScFee, epoch_cum_tree_hash,
-            constant, [addr_node1], [cert_amount])
+        proof = mcTest.create_test_proof(vk_tag,
+                                         scid_swapped,
+                                         epoch_number,
+                                         quality,
+                                         mbtrScFee,
+                                         ftScFee,
+                                         epoch_cum_tree_hash,
+                                         constant = constant,
+                                         pks      = [addr_node1],
+                                         amounts  = [cert_amount])
 
         cert = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
             epoch_cum_tree_hash, proof, amount_cert_1, ftScFee, mbtrScFee, CERT_FEE)
@@ -335,9 +342,16 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         ftScFee   = FT_SC_FEES[3]
         mbtrScFee = MBTR_SC_FEES[3]
 
-        proof = mcTest.create_test_proof(
-            vk_tag, scid_swapped, epoch_number, quality, mbtrScFee, ftScFee, epoch_cum_tree_hash,
-            constant, [addr_node1], [cert_amount])
+        proof = mcTest.create_test_proof(vk_tag,
+                                         scid_swapped,
+                                         epoch_number,
+                                         quality,
+                                         mbtrScFee,
+                                         ftScFee,
+                                         epoch_cum_tree_hash,
+                                         constant = constant,
+                                         pks      = [addr_node1],
+                                         amounts  = [cert_amount])
 
         cert = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
             epoch_cum_tree_hash, proof, amount_cert_1, ftScFee, mbtrScFee, CERT_FEE)

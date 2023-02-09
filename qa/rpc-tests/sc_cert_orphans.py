@@ -4,7 +4,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
+from test_framework.test_framework import ForkHeights, MINER_REWARD_POST_H200
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_equal, initialize_chain_clean, get_epoch_data, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, dump_ordered_tips, \
@@ -74,8 +74,8 @@ class sc_cert_orphans(BitcoinTestFramework):
         # cross chain transfer amounts
         creation_amount = Decimal("10.0")
 
-        mark_logs("Node0 generates {} block".format(MINIMAL_SC_HEIGHT), self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(MINIMAL_SC_HEIGHT)
+        mark_logs("Node0 generates {} block".format(ForkHeights['MINIMAL_SC']), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(ForkHeights['MINIMAL_SC'])
         self.sync_all()
 
         # (1) node0 create sidechains with 10.0 coins each
@@ -121,7 +121,7 @@ class sc_cert_orphans(BitcoinTestFramework):
         prev_epoch_block_hash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
         self.nodes[0].generate(5)
         self.sync_all()
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid_1, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid_1, self.nodes[0], EPOCH_LENGTH)
 
         # (2) node0 sends fund to node1, the resulting tx1 is in mempool
         taddr1 = self.nodes[1].getnewaddress()
@@ -139,7 +139,16 @@ class sc_cert_orphans(BitcoinTestFramework):
         #Create proof for WCert
         quality = 0
         scid1_swapped = str(swap_bytes(scid_1))
-        proof = mcTest.create_test_proof("sc1", scid1_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant_1, [addr_node2], [bwt_amount])
+        proof = mcTest.create_test_proof("sc1",
+                                         scid1_swapped,
+                                         epoch_number,
+                                         quality,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         epoch_cum_tree_hash,
+                                         constant = constant_1,
+                                         pks      = [addr_node2],
+                                         amounts  = [bwt_amount])
 
         mark_logs("Node1 sends a certificate for SC {} using unconfirmed UTXO from tx1".format(scid_1), self.nodes, DEBUG_MODE)
         try:
@@ -195,7 +204,14 @@ class sc_cert_orphans(BitcoinTestFramework):
         #Create proof for WCert
         quality = 0
         scid2_swapped = str(swap_bytes(scid_2))
-        proof = mcTest.create_test_proof("sc2", scid2_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant_2, [], [])
+        proof = mcTest.create_test_proof("sc2",
+                                         scid2_swapped,
+                                         epoch_number,
+                                         quality,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         epoch_cum_tree_hash,
+                                         constant = constant_2)
 
         mark_logs("Node1 tries to sends a certificate for SC {} using unconfirmed change from cert1".format(scid_2), self.nodes, DEBUG_MODE)
         try:

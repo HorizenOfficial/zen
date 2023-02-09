@@ -3,7 +3,7 @@
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
-from test_framework.test_framework import SC_VERSION_FORK_HEIGHT, BitcoinTestFramework
+from test_framework.test_framework import ForkHeights, BitcoinTestFramework
 from test_framework.util import assert_equal, initialize_chain_clean, start_nodes, mark_logs
 
 NUMB_OF_NODES = 1
@@ -71,7 +71,7 @@ class FundAddressesTest(BitcoinTestFramework):
         self.check_block_fund_addresses(blocks[current_fork_height], ["zrQWJd1fhtkQtrjbYPXfHFF1c61DUtiXcCD", "zrQG6x9j33DLbCfzAqu3qKMe7z1VDL1z2L7", "zrMasbhB1yyfQ5RBUm7NPcEjGWZdRneWCEx"])
         self.check_block_fund_addresses(blocks[current_fork_height + 1], ["zrQWJd1fhtkQtrjbYPXfHFF1c61DUtiXcCD", "zrQG6x9j33DLbCfzAqu3qKMe7z1VDL1z2L7", "zrMasbhB1yyfQ5RBUm7NPcEjGWZdRneWCEx"])
 
-        current_fork_height = SC_VERSION_FORK_HEIGHT - 1 # sidechain version fork
+        current_fork_height = ForkHeights['SC_VERSION'] - 1 # sidechain version fork
         mark_logs("Check sidechain version fork addresses [height = {}]".format(current_fork_height + 1), self.nodes, DEBUG_MODE)
         self.check_block_fund_addresses(blocks[current_fork_height - 1], ["zrQWJd1fhtkQtrjbYPXfHFF1c61DUtiXcCD", "zrQG6x9j33DLbCfzAqu3qKMe7z1VDL1z2L7", "zrMasbhB1yyfQ5RBUm7NPcEjGWZdRneWCEx"])
         self.check_block_fund_addresses(blocks[current_fork_height], ["zrLaR63UYCHVvo5BJHoMUTuZFPmcUu866wB", "zrPaU1KWpNrg5fcLsSk17z7cc71FvnVnXxi", "zrMna8FbuTyrvFikAsmQMyAfufF3WoGksFu"])

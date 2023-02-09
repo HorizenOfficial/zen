@@ -321,7 +321,7 @@ CScCertificate::MakeShared() const {
 
 CFieldElement CScCertificate::GetDataHash(const Sidechain::ScFixedParameters& scFixedParams) const
 {
-    CCertProofVerifierInput input = CScProofVerifier::CertificateToVerifierItem(*this, scFixedParams, nullptr);
+    CCertProofVerifierInput input = CScProofVerifier::CertificateToVerifierItem(*this, scFixedParams, nullptr, nullptr);
 
     int custom_fields_len = input.vCustomFields.size(); 
     std::unique_ptr<const field_t*[]> custom_fields(new const field_t*[custom_fields_len]);
