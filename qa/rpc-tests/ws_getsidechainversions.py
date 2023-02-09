@@ -4,7 +4,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-from test_framework.test_framework import SC_VERSION_FORK_HEIGHT, BitcoinTestFramework
+from test_framework.test_framework import ForkHeights, BitcoinTestFramework
 from test_framework.util import assert_equal, initialize_chain_clean, start_nodes, mark_logs
 from test_framework.blockchainhelper import BlockchainHelper
 from test_framework.wsproxy import JSONWSException
@@ -41,8 +41,8 @@ class ws_messages(BitcoinTestFramework):
         test_helper = BlockchainHelper(self)
 
         # Node 0 generates blocks to reach the sidechain version fork point
-        mark_logs("Node 1 generates {} block".format(SC_VERSION_FORK_HEIGHT), self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(SC_VERSION_FORK_HEIGHT)
+        mark_logs("Node 1 generates {} block".format(ForkHeights['NON_CEASING_SC']), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(ForkHeights['NON_CEASING_SC'])
         self.sync_all()
 
         mark_logs("Node 0 creates sidechain 1 with version 0", self.nodes, DEBUG_MODE)
@@ -79,15 +79,40 @@ class ws_messages(BitcoinTestFramework):
         self.nodes[0].generate(1)
         self.sync_all()
 
-        mark_logs("Retrieve sidechain versions from node 0", self.nodes, DEBUG_MODE)
+        mark_logs("Node 0 creates sidechain 3 with version 2 - non-ceasing", self.nodes, DEBUG_MODE)
+        test_helper.create_sidechain("sc4", 2, optional_parameters={"withdrawalEpochLength": 0, "wCeasedVk": ""})
+        scid4 = test_helper.get_sidechain_id("sc4")
+
+        # Node 0 isn't considered from the WS GetSidechainVersions API since it's in the mempool (unconfirmed)
+        mark_logs("Retrieve sidechain versions from node 0 (expecting invalid parameter for scid4)", self.nodes, DEBUG_MODE)
+        try:
+            sidechainVersions = self.nodes[0].ws_get_sidechain_versions([scid1, scid2, scid3, scid4])
+            assert(False)
+        except JSONWSException as e:
+            assert("Invalid parameter" in e.error)
+
+        mark_logs("Retrieve (confirmed) sidechain versions from node 0", self.nodes, DEBUG_MODE)
         try:
             sidechainVersions = self.nodes[0].ws_get_sidechain_versions([scid1, scid2, scid3])
+        except JSONWSException as e:
+            assert(False)
+
+        mark_logs("Generate one block to confirm the sidechain 4", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(1)
+        self.sync_all()
+
+
+        mark_logs("Retrieve sidechain versions from node 0", self.nodes, DEBUG_MODE)
+        try:
+            sidechainVersions = self.nodes[0].ws_get_sidechain_versions([scid1, scid2, scid3, scid4])
         except JSONWSException as e:
             assert(False)
 
         for sidechainVersion in sidechainVersions:
             if (sidechainVersion['scId'] == scid3):
                 assert_equal(sidechainVersion['version'], 1)
+            elif (sidechainVersion['scId'] == scid4):
+                assert_equal(sidechainVersion['version'], 2)
             else:
                 assert_equal(sidechainVersion['version'], 0)
 

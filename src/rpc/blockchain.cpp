@@ -1570,11 +1570,9 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
         return false;
 
     sc.pushKV("scid", scId.GetHex());
-    if (!info.IsNull() )
+    if (!info.IsNull())
     {
-        int currentEpoch = (scState == CSidechain::State::ALIVE)?
-                info.EpochFor(chainActive.Height()):
-                info.EpochFor(info.GetScheduledCeasingHeight());
+        int currentEpoch = info.GetCurrentEpoch(scView);
  
         sc.pushKV("balance", ValueFromAmount(info.balance));
         sc.pushKV("epoch", currentEpoch);
@@ -1590,6 +1588,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
         sc.pushKV("createdAtBlockHeight", info.creationBlockHeight);
         sc.pushKV("lastCertificateEpoch", info.lastTopQualityCertReferencedEpoch);
         sc.pushKV("lastCertificateHash", info.lastTopQualityCertHash.GetHex());
+        sc.pushKV("lastCertificateDataHash", info.GetActiveCertView(scView).certDataHash.GetHexRepr());
         sc.pushKV("lastCertificateQuality", info.lastTopQualityCertQuality);
         sc.pushKV("lastCertificateAmount", ValueFromAmount(info.lastTopQualityCertBwtAmount));
 
@@ -1651,18 +1650,24 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             UniValue o(UniValue::VOBJ);
             o.pushKV("maturityHeight", entry.first);
             o.pushKV("amount", ValueFromAmount(entry.second));
-            ia.push_back(o);
+            ia.push_back(std::move(o));
         }
         sc.pushKV("immatureAmounts", ia);
 
         UniValue sf(UniValue::VARR);
+
         for(const auto& entry: info.scFees)
         {
             UniValue o(UniValue::VOBJ);
-            o.pushKV("forwardTxScFee", ValueFromAmount(entry.forwardTxScFee));
-            o.pushKV("mbtrTxScFee", ValueFromAmount(entry.mbtrTxScFee));
-            sf.push_back(o);
+            o.pushKV("forwardTxScFee", ValueFromAmount(entry->forwardTxScFee));
+            o.pushKV("mbtrTxScFee", ValueFromAmount(entry->mbtrTxScFee));
+            std::shared_ptr<Sidechain::ScFeeData_v2> casted_entry = dynamic_pointer_cast<Sidechain::ScFeeData_v2>(entry);
+            if (casted_entry) {
+                o.pushKV("submissionHeight", casted_entry->submissionHeight);
+            }
+            sf.push_back(std::move(o));
         }
+
         sc.pushKV("scFees", sf);
 
         // get unconfirmed data if any
@@ -1671,10 +1676,11 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             const uint256& topQualCertHash    = mempool.mapSidechains.at(scId).GetTopQualityCert()->second;
             const CScCertificate& topQualCert = mempool.mapCertificate.at(topQualCertHash).GetCertificate();
  
-            sc.pushKV("unconfTopQualityCertificateEpoch",   topQualCert.epochNumber);
-            sc.pushKV("unconfTopQualityCertificateHash",    topQualCertHash.GetHex());
-            sc.pushKV("unconfTopQualityCertificateQuality", topQualCert.quality);
-            sc.pushKV("unconfTopQualityCertificateAmount",  ValueFromAmount(topQualCert.GetValueOfBackwardTransfers()));
+            sc.pushKV("unconfTopQualityCertificateEpoch",    topQualCert.epochNumber);
+            sc.pushKV("unconfTopQualityCertificateHash",     topQualCertHash.GetHex());
+            sc.pushKV("unconfTopQualityCertificateQuality",  topQualCert.quality);
+            sc.pushKV("unconfTopQualityCertificateAmount",   ValueFromAmount(topQualCert.GetValueOfBackwardTransfers()));
+            sc.pushKV("unconfTopQualityCertificateDataHash", topQualCert.GetDataHash(info.fixedParams).GetHexRepr());
         }
 
         addScUnconfCcData(scId, sc);
@@ -1766,7 +1772,7 @@ bool FillScRecord(const uint256& scId, UniValue& scRecord, bool bOnlyAlive, bool
     if (!scView.GetSidechain(scId, sidechain)) {
         LogPrint("sc", "%s():%d - scid[%s] not yet created\n", __func__, __LINE__, scId.ToString() );
     }
-    CSidechain::State scState = scView.GetSidechainState(scId);
+    CSidechain::State scState = sidechain.GetState(scView);
 
     return FillScRecordFromInfo(scId, sidechain, scState, scView, scRecord, bOnlyAlive, bVerbose);
 }

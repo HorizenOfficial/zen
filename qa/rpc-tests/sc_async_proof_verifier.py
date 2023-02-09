@@ -13,7 +13,7 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
      start_nodes, connect_nodes_bi, assert_true, assert_false, mark_logs, \
      get_epoch_data, advance_epoch, swap_bytes, stop_node
 from test_framework.mc_test.mc_test import CertTestUtils, CSWTestUtils, generate_random_field_element_hex
-from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
+from test_framework.test_framework import ForkHeights, MINER_REWARD_POST_H200
 
 NUMB_OF_NODES = 3
 DEBUG_MODE = 1
@@ -94,11 +94,11 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
         '''
 
         # Prepare some coins
-        self.nodes[0].generate(MINIMAL_SC_HEIGHT//2+1)
+        self.nodes[0].generate(ForkHeights['MINIMAL_SC']//2+1)
         self.sync_all()
 
         # Generate some coins on node 2
-        self.nodes[2].generate(MINIMAL_SC_HEIGHT//2+1)
+        self.nodes[2].generate(ForkHeights['MINIMAL_SC']//2+1)
         self.sync_all()
 
         sc_address = "0000000000000000000000000000000000000000000000000000000000000abc"
@@ -159,7 +159,7 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
         assert_false(cert1 in self.nodes[0].getrawmempool())
         assert_false(cert1 in self.nodes[1].getrawmempool())
 
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], sc_epoch_len)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], sc_epoch_len)
         cert_quality = 1
         cert_fee = Decimal("0.00001")
         ft_fee = 0
@@ -169,8 +169,14 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
         # mark_logs("\nTest the node ban mechanism by sending a certificate with invalid proof", self.nodes, DEBUG_MODE)
 
         # Create an invalid proof by providing the wrong epoch_number
-        proof = cert_mc_test.create_test_proof(
-            "sc", scid_swapped, epoch_number + 1, cert_quality, mbtr_fee, ft_fee, epoch_cum_tree_hash, constant, [], [])
+        proof = cert_mc_test.create_test_proof("sc",
+                                               scid_swapped,
+                                               epoch_number + 1,
+                                               cert_quality,
+                                               mbtr_fee,
+                                               ft_fee,
+                                               epoch_cum_tree_hash,
+                                               constant = constant)
 
         try:
             # The send_certificate call must be ok since the proof verification is disabled on node 2
@@ -210,8 +216,14 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
         self.sync_all()
 
         # Create the valid proof
-        proof = cert_mc_test.create_test_proof(
-            "sc", scid_swapped, epoch_number, cert_quality, mbtr_fee, ft_fee, epoch_cum_tree_hash, constant, [], [])
+        proof = cert_mc_test.create_test_proof("sc",
+                                               scid_swapped,
+                                               epoch_number,
+                                               cert_quality,
+                                               mbtr_fee,
+                                               ft_fee,
+                                               epoch_cum_tree_hash,
+                                               constant = constant)
 
         try:
             cert2 = self.nodes[0].sc_send_certificate(scid, epoch_number, cert_quality, epoch_cum_tree_hash,
@@ -290,12 +302,30 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
         ceasing_cum_cc_tx_comm_tree = self.nodes[0].getceasingcumsccommtreehash(scid)['ceasingCumScTxCommTree']
         pprint.pprint(act_cert_data)
 
-        sc_proof_1 = csw_mc_test.create_test_proof("sc", sc_csw_amount, str(scid_swapped), null_1, csw_mc_address,
-                                                   ceasing_cum_cc_tx_comm_tree, act_cert_data, constant)
-        sc_proof_2 = csw_mc_test.create_test_proof("sc", sc_csw_amount, str(scid_swapped), null_2, csw_mc_address,
-                                                   ceasing_cum_cc_tx_comm_tree, act_cert_data, constant)
-        sc_proof_3 = csw_mc_test.create_test_proof("sc", sc_csw_amount, str(scid_swapped), null_3, csw_mc_address,
-                                                   ceasing_cum_cc_tx_comm_tree, act_cert_data, constant)
+        sc_proof_1 = csw_mc_test.create_test_proof("sc",
+                                                   sc_csw_amount,
+                                                   str(scid_swapped),
+                                                   null_1,
+                                                   csw_mc_address,
+                                                   ceasing_cum_cc_tx_comm_tree,
+                                                   act_cert_data,
+                                                   constant)
+        sc_proof_2 = csw_mc_test.create_test_proof("sc",
+                                                   sc_csw_amount,
+                                                   str(scid_swapped),
+                                                   null_2,
+                                                   csw_mc_address,
+                                                   ceasing_cum_cc_tx_comm_tree,
+                                                   act_cert_data,
+                                                   constant)
+        sc_proof_3 = csw_mc_test.create_test_proof("sc",
+                                                   sc_csw_amount,
+                                                   str(scid_swapped),
+                                                   null_3,
+                                                   csw_mc_address,
+                                                   ceasing_cum_cc_tx_comm_tree,
+                                                   act_cert_data,
+                                                   constant)
 
         sc_csws = [
             {

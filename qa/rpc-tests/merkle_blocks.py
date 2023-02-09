@@ -14,7 +14,7 @@ from test_framework.util import assert_equal, assert_raises, \
     assert_true, assert_false, mark_logs, \
     disconnect_nodes, advance_epoch, swap_bytes
 
-from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
+from test_framework.test_framework import ForkHeights, MINER_REWARD_POST_H200
 from test_framework.mc_test.mc_test import *
 
 from decimal import Decimal
@@ -102,7 +102,7 @@ class MerkleBlockTest(BitcoinTestFramework):
         self.nodes[0].sendrawtransaction(self.nodes[0].signrawtransaction(tx0)["hex"])
 
         # reach sc fork and create a SC
-        self.nodes[0].generate(MINIMAL_SC_HEIGHT-105)
+        self.nodes[0].generate(ForkHeights['MINIMAL_SC']-105)
         self.sync_all()
         prev_epoch_hash = self.nodes[0].getbestblockhash()
 

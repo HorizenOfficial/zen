@@ -9,7 +9,7 @@ from test_framework.util import initialize_chain_clean, assert_equal, assert_tru
     start_nodes, stop_nodes, get_epoch_data, \
     sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, mark_logs, \
     get_total_amount_from_listaddressgroupings, swap_bytes
-from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
+from test_framework.test_framework import ForkHeights, MINER_REWARD_POST_H200
 from test_framework.mc_test.mc_test import *
 import os
 from decimal import Decimal
@@ -79,8 +79,8 @@ class sc_bwt_request(BitcoinTestFramework):
         blocks.extend(self.nodes[1].generate(1))
         self.sync_all()
 
-        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT), self.nodes, DEBUG_MODE)
-        blocks.extend(self.nodes[0].generate(MINIMAL_SC_HEIGHT))
+        mark_logs("Node 0 generates {} block".format(ForkHeights['MINIMAL_SC']), self.nodes, DEBUG_MODE)
+        blocks.extend(self.nodes[0].generate(ForkHeights['MINIMAL_SC']))
         self.sync_all()
 
         #generate wCertVk and constant
@@ -437,7 +437,7 @@ class sc_bwt_request(BitcoinTestFramework):
         mark_logs("Check btr is still in mempool", self.nodes, DEBUG_MODE)
         assert_true(bwt3 in self.nodes[0].getrawmempool())
 
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid1, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid1, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)
 
         #empty sc1 balance
@@ -445,8 +445,16 @@ class sc_bwt_request(BitcoinTestFramework):
         amounts = [{"address": mc_dest_addr2, "amount": bwt_amount}]
         scid1_swapped = str(swap_bytes(scid1))
 
-        proof = mcTest.create_test_proof(
-            "sc1", scid1_swapped, epoch_number, 0, mbtrScFee, ftScFee, epoch_cum_tree_hash, c1, [mc_dest_addr2], [bwt_amount])
+        proof = mcTest.create_test_proof("sc1",
+                                         scid1_swapped,
+                                         epoch_number,
+                                         0,
+                                         mbtrScFee,
+                                         ftScFee,
+                                         epoch_cum_tree_hash,
+                                         constant = c1,
+                                         pks      = [mc_dest_addr2],
+                                         amounts  = [bwt_amount])
 
         mark_logs("Node1 sends a cert withdrawing the contribution of the creation amount to the sc balance", self.nodes, DEBUG_MODE)
         try:
@@ -569,7 +577,7 @@ class sc_bwt_request(BitcoinTestFramework):
 
         # 1) send a cert
         mark_logs("\nNode0 sends a certificate to SC2", self.nodes, DEBUG_MODE)
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid2, self.nodes[0], epoch_len_2)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid2, self.nodes[0], epoch_len_2)
         sc_creating_height = self.nodes[0].getscinfo(scid2)['items'][0]['createdAtBlockHeight']
         epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * epoch_len_2))
 
@@ -578,8 +586,16 @@ class sc_bwt_request(BitcoinTestFramework):
         quality = 10
         scid2_swapped = str(swap_bytes(scid2))
 
-        proof = mcTest.create_test_proof(
-            "sc2", scid2_swapped, epoch_number, quality, mbtrScFee, ftScFee, epoch_cum_tree_hash, c2, [addr_node1], [bt_amount])
+        proof = mcTest.create_test_proof("sc2",
+                                         scid2_swapped,
+                                         epoch_number,
+                                         quality,
+                                         mbtrScFee,
+                                         ftScFee,
+                                         epoch_cum_tree_hash,
+                                         constant = c2,
+                                         pks      = [addr_node1],
+                                         amounts  = [bt_amount])
  
         amount_cert = [{"address": addr_node1, "amount": bt_amount}]
         try:

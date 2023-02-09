@@ -15,6 +15,7 @@
 #include "util.h"
 #include "utilmoneystr.h"
 #include "utilstrencodings.h"
+#include "main.h"
 
 #include <stdio.h>
 
@@ -23,6 +24,7 @@
 
 using namespace std;
 
+ScCumTreeRootMap mapCumtreeHeight;
 static bool fCreateBlank;
 static map<string,UniValue> registers;
 

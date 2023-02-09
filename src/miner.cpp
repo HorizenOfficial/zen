@@ -59,9 +59,9 @@ uint64_t nLastBlockTxPartitionSize = 0;
 
 bool TxPriorityCompare::operator()(const TxPriority& a, const TxPriority& b)
 {
-    // first of all, if we are comparing two certs, we must be sure they are ordered by
-    // quality if they refer to the same scid and epoch; this criterion is a consensus rule
-    // and overrides the others two
+    // If we are comparing two certs, we must be sure they are ordered by
+    // quality if they refer to the same scid and epoch.
+    // This criterion is a consensus rule and overrides the others two
     if (a.get<2>()->IsCertificate() && b.get<2>()->IsCertificate() )
     {
         // dynamic casting throws an exception upon failure
@@ -116,13 +116,14 @@ bool VerifyCertificatesDependencies(const CScCertificate& cert)
         return false;
     }
 
-    if (mempool.mapSidechains.at(cert.GetScId()).mBackwardCertificates.count(cert.quality) == 0)
+    const auto& sidechainFromMap = mempool.mapSidechains[cert.GetScId()];
+    if (sidechainFromMap.mBackwardCertificates.count(cert.quality) == 0)
     {
         if (fDebug) assert("cert is in mempool but not duly registered  in mapSidechains." == 0);
         return false;
     }
 
-    if (mempool.mapSidechains.at(cert.GetScId()).mBackwardCertificates.at(cert.quality) != cert.GetHash())
+    if (sidechainFromMap.mBackwardCertificates.at(cert.quality) != cert.GetHash())
     {
         if (fDebug) assert("a different cert with the same scId and quality is in mempool" == 0);
         return false;
@@ -137,7 +138,7 @@ bool VerifyCertificatesDependencies(const CScCertificate& cert)
         const CScCertificate& depCert = mempool.mapCertificate.at(dep).GetCertificate();
         if (depCert.GetScId() != cert.GetScId())
             continue;
-        if (depCert.quality >= cert.quality)
+        if (depCert.quality >= cert.quality && depCert.epochNumber == cert.epochNumber)
         {
             if (fDebug) assert("cert spends outputs of an higher quality cert of same scId" == 0);
             return false;
@@ -618,6 +619,9 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
         int nBlockSigOps = 100;
         bool fSortedByFee = (nBlockPrioritySize <= 0);
 
+        // Order transactions and certificates.
+        // Note that vecPriority might not contain all the transactions/certificates in mempool as there might be input dependencies
+        // in which case the depending transactions/certificates are placed in mapDependers to be sorted later according to input spending.
         TxPriorityCompare comparer(fSortedByFee);
         std::make_heap(vecPriority.begin(), vecPriority.end(), comparer);
 

@@ -57,10 +57,141 @@ void Sidechain::ClearSidechainsFolder()
     }
 }
 
+CSidechain::State CSidechain::GetState(const CCoinsViewCache& view) const
+{
+    if (!isCreationConfirmed())
+        return State::UNCONFIRMED;
+
+    if (view.GetHeight() >= GetScheduledCeasingHeight())
+        return State::CEASED;
+
+    return State::ALIVE;
+}
+
+const CScCertificateView& CSidechain::GetActiveCertView(const CCoinsViewCache& view) const
+{
+    // For SC v2 non-ceaseable, we always return the last cert view
+    if (isNonCeasing())
+        return lastTopQualityCertView;
+
+    if (GetState(view) == State::CEASED)
+        return pastEpochTopQualityCertView;
+
+    if (GetState(view) == State::UNCONFIRMED)
+        return lastTopQualityCertView;
+
+    int certReferencedEpoch = EpochFor(view.GetHeight() + 1 - GetCertSubmissionWindowLength()) - 1;
+
+    if (lastTopQualityCertReferencedEpoch == certReferencedEpoch)
+        return lastTopQualityCertView;
+
+    // We are in the submission window and no cert for EpochFor(currentHeight) epoch was recv yet
+    if (lastTopQualityCertReferencedEpoch - 1 == certReferencedEpoch)
+        return pastEpochTopQualityCertView;
+
+    assert(false);
+}
+
+int CSidechain::getInitScCoinsMaturity()
+{
+    if (Params().NetworkIDString() == "regtest")
+    {
+        int val = (int)(GetArg("-sccoinsmaturity", Params().ScCoinsMaturity()));
+        LogPrint("sc", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString().c_str(), val);
+        return val;
+    }
+    return Params().ScCoinsMaturity();
+}
+
+int CSidechain::getScCoinsMaturity()
+{
+    // gets constructed just one time
+    static int retVal(getInitScCoinsMaturity());
+    return isNonCeasing() ? 0 : retVal;
+}
+
+bool CSidechain::CheckQuality(const CScCertificate& cert) const
+{
+
+    if (lastTopQualityCertHash != cert.GetHash() &&
+        lastTopQualityCertReferencedEpoch == cert.epochNumber &&
+        lastTopQualityCertQuality >= cert.quality)
+    {
+        LogPrint("cert", "%s.%s():%d - NOK, cert %s q=%d : a cert q=%d for same sc/epoch is already in blockchain\n",
+            __FILE__, __func__, __LINE__, cert.GetHash().ToString(), cert.quality, lastTopQualityCertQuality);
+        return false;
+    }
+
+    return true;
+}
+
+bool CSidechain::CheckCertTiming(int certEpoch, int referencedHeight, const CCoinsViewCache& view) const {
+    if (GetState(view) != State::ALIVE)
+    {
+        return error("%s():%d - ERROR: certificate cannot be accepted, sidechain not alive\n",
+            __func__, __LINE__);
+    }
+
+    // The epoch number must be consistent with the sc certificate history
+    // (no old epoch allowed for ceasing, only consecutive epochs for non ceasing)
+    if (isNonCeasing())
+    {
+        if (certEpoch != lastTopQualityCertReferencedEpoch + 1)
+        {
+                return error("%s():%d - ERROR: non ceasing sidechain certificate cannot be accepted, wrong epoch. Certificate Epoch %d (expected: %d)\n",
+                    __func__, __LINE__, certEpoch, lastTopQualityCertReferencedEpoch + 1);
+        }
+
+        // Check that every certificate references a block whose commitment tree includes the previous certificate.
+        // This also implies referencedHeight > ref_height_of_last_certificate
+        if (referencedHeight < lastInclusionHeight)
+        {
+            return error("%s():%d - ERROR: certificate cannot be accepted, cert reference height (%d) less than last certificate inclusion height (%d)\n",
+                __func__, __LINE__, referencedHeight, lastInclusionHeight);
+        }
+    }
+    else
+    {
+        // Adding handling of quality, we can have also certificates for the same epoch of the last certificate.
+        if (certEpoch != lastTopQualityCertReferencedEpoch &&
+            certEpoch != lastTopQualityCertReferencedEpoch + 1)
+        {
+            return error("%s():%d - ERROR: sidechain certificate cannot be accepted, wrong epoch. Certificate Epoch %d (expected: %d, or %d)\n",
+                __func__, __LINE__, certEpoch, lastTopQualityCertReferencedEpoch, lastTopQualityCertReferencedEpoch+1);
+        }
+    }
+
+    int inclusionHeight = view.GetHeight() + 1;
+
+    int certWindowStartHeight = isNonCeasing() ? lastInclusionHeight : GetCertSubmissionWindowStart(certEpoch);
+    int certWindowEndHeight   = isNonCeasing() ? INT_MAX : GetCertSubmissionWindowEnd(certEpoch);
+
+    if (inclusionHeight < certWindowStartHeight || inclusionHeight > certWindowEndHeight)
+    {
+        return error("%s():%d - ERROR: certificate cannot be accepted, cert received outside safeguard\n",
+            __func__, __LINE__);
+    }
+
+    return true;
+}
+
+int CSidechain::GetCurrentEpoch(const CCoinsViewCache& view) const
+{
+    if (isNonCeasing())
+        // Before the first certificate arrives, lastTopQualityCertReferencedEpoch is set to -1
+        return lastTopQualityCertReferencedEpoch + 1;
+
+    return (GetState(view) == State::ALIVE) ?
+        EpochFor(view.GetHeight()) :
+        EpochFor(GetScheduledCeasingHeight());
+}
+
 int CSidechain::EpochFor(int targetHeight) const
 {
     if (!isCreationConfirmed()) //default value
         return CScCertificate::EPOCH_NULL;
+
+    assert(!isNonCeasing());
 
     return (targetHeight - creationBlockHeight) / fixedParams.withdrawalEpochLength;
 }
@@ -75,7 +206,7 @@ int CSidechain::GetStartHeightForEpoch(int targetEpoch) const
 
 int CSidechain::GetEndHeightForEpoch(int targetEpoch) const
 {
-    if (!isCreationConfirmed()) //default value
+    if (!isCreationConfirmed() || isNonCeasing()) //default value
         return -1;
 
     return GetStartHeightForEpoch(targetEpoch) + fixedParams.withdrawalEpochLength - 1;
@@ -99,20 +230,24 @@ int CSidechain::GetCertSubmissionWindowEnd(int certEpoch) const
 
 int CSidechain::GetCertSubmissionWindowLength() const
 {
-    return std::max(2,fixedParams.withdrawalEpochLength/5);
-}
+    if (isNonCeasing())
+        return 0;
 
-int CSidechain::GetCertMaturityHeight(int certEpoch) const
+    return std::max(2,fixedParams.withdrawalEpochLength/5);
+} 
+
+int CSidechain::GetCertMaturityHeight(int certEpoch, int includingBlockHeight) const
 {
     if (!isCreationConfirmed()) //default value
         return -1;
 
-    return GetCertSubmissionWindowEnd(certEpoch+1);
+    //return GetCertSubmissionWindowEnd(certEpoch+1);
+    return isNonCeasing() ? includingBlockHeight : GetCertSubmissionWindowEnd(certEpoch + 1);
 }
 
 int CSidechain::GetScheduledCeasingHeight() const
 {
-    return GetCertSubmissionWindowEnd(lastTopQualityCertReferencedEpoch+1);
+    return isNonCeasing() ? INT_MAX : GetCertSubmissionWindowEnd(lastTopQualityCertReferencedEpoch+1);
 }
 
 std::string CSidechain::stateToString(State s)
@@ -133,7 +268,9 @@ std::string CSidechain::ToString() const
                       " creationTxHash=%s\n pastEpochTopQualityCertView=%s\n"
                       " lastTopQualityCertView=%s\n"
                       " lastTopQualityCertHash=%s\n lastTopQualityCertReferencedEpoch=%d\n"
-                      " lastTopQualityCertQuality=%d\n lastTopQualityCertBwtAmount=%s\n balance=%s\n"
+                      " lastTopQualityCertQuality=%d\n"
+                      " lastInclusionHeight=%d\n"
+                      " lastTopQualityCertBwtAmount=%s\n balance=%s\n"
                       " fixedParams=[NOT PRINTED CURRENTLY]\n mImmatureAmounts=[NOT PRINTED CURRENTLY])",
         fixedParams.version
         , creationBlockHeight
@@ -143,6 +280,7 @@ std::string CSidechain::ToString() const
         , lastTopQualityCertHash.ToString()
         , lastTopQualityCertReferencedEpoch
         , lastTopQualityCertQuality
+        , lastInclusionHeight
         , FormatMoney(lastTopQualityCertBwtAmount)
         , FormatMoney(balance)
     );
@@ -163,7 +301,7 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
 bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state) { return true; }
 bool CSidechain::GetCeasingCumTreeHash(CFieldElement& ceasedBlockCum) const { return true; }
 void CSidechain::InitScFees() {}
-void CSidechain::UpdateScFees(const CScCertificateView& certView) {}
+void CSidechain::UpdateScFees(const CScCertificateView& certView, int blockHeight) {}
 #else
 bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state)
 {
@@ -204,10 +342,20 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
     {
         if (sc.withdrawalEpochLength < SC_MIN_WITHDRAWAL_EPOCH_LENGTH)
         {
-            return state.DoS(100,
+            // This handles the special case when we requested a non-ceasing sc with version != 2
+            if (!CSidechain::isNonCeasingSidechain(sc.version, sc.withdrawalEpochLength)) {
+                return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], sc creation withdrawalEpochLength %d is less than min value %d\n",
                     __func__, __LINE__, txHash.ToString(), sc.withdrawalEpochLength, SC_MIN_WITHDRAWAL_EPOCH_LENGTH),
                     CValidationState::Code::INVALID, "sidechain-sc-creation-epoch-too-short");
+            }
+            else if (sc.version != 2 && sc.withdrawalEpochLength == 0)
+            {
+                return state.DoS(100,
+                    error("%s():%d -  ERROR: Invalid tx[%s] : requested a non-v2 sidechain with withdrawal epoch length == 0\n",
+                    __func__, __LINE__, txHash.ToString()),
+                    CValidationState::Code::INVALID, "sidechain-sc-creation-bad-version");
+            }
         }
 
         if (sc.withdrawalEpochLength > SC_MAX_WITHDRAWAL_EPOCH_LENGTH)
@@ -266,21 +414,50 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     CValidationState::Code::INVALID, "sidechain-sc-creation-invalid-constant");
         }
 
-        if (sc.wCeasedVk.is_initialized() )
+        if (CSidechain::isNonCeasingSidechain(sc.version, sc.withdrawalEpochLength))
         {
-            if (!sc.wCeasedVk.get().IsValid())
+            // Non ceasing sidechain
+            if (sc.wCeasedVk.is_initialized())
             {
                 return state.DoS(100,
-                    error("%s():%d - ERROR: Invalid tx[%s], invalid wCeasedVk verification key\n",
+                    error("%s():%d - ERROR: Invalid tx[%s], wCeasedVk should not be initialized on non-ceasing sidechains\n",
                     __func__, __LINE__, txHash.ToString()),
-                    CValidationState::Code::INVALID, "sidechain-sc-creation-invalid-wcsw-vk");
+                    CValidationState::Code::INVALID, "sidechain-sc-creation-wcvk-is-initialized");
             }
-            if (!Sidechain::IsValidProvingSystemType(sc.wCeasedVk.get().getProvingSystemType()))
+            if (sc.mainchainBackwardTransferRequestDataLength > 0)
             {
                 return state.DoS(100,
-                    error("%s():%d - ERROR: Invalid tx[%s], invalid csw proving system\n",
+                    error("%s():%d - ERROR: Invalid tx[%s], mainchainBackwardTransferRequestDataLength should be 0 for non-ceasing sidechains\n",
                     __func__, __LINE__, txHash.ToString()),
-                    CValidationState::Code::INVALID, "sidechain-sc-creation-invalid-wcsw-provingsystype");
+                    CValidationState::Code::INVALID, "bad-cert-mbtr-data-length-not-zero");
+            }
+        }
+        else
+        {
+            // Ceasing sidechain
+            if (sc.wCeasedVk.is_initialized())
+            {
+                if (!sc.wCeasedVk.get().IsValid())
+                {
+                    return state.DoS(100,
+                        error("%s():%d - ERROR: Invalid tx[%s], invalid wCeasedVk verification key\n",
+                        __func__, __LINE__, txHash.ToString()),
+                        CValidationState::Code::INVALID, "sidechain-sc-creation-invalid-wcsw-vk");
+                }
+                if (!Sidechain::IsValidProvingSystemType(sc.wCeasedVk.get().getProvingSystemType()))
+                {
+                    return state.DoS(100,
+                        error("%s():%d - ERROR: Invalid tx[%s], invalid csw proving system\n",
+                        __func__, __LINE__, txHash.ToString()),
+                        CValidationState::Code::INVALID, "sidechain-sc-creation-invalid-wcsw-provingsystype");
+                }
+            }
+            if (sc.mainchainBackwardTransferRequestDataLength < 0 || sc.mainchainBackwardTransferRequestDataLength > MAX_SC_MBTR_DATA_LEN)
+            {
+                return state.DoS(100,
+                        error("%s():%d - ERROR: Invalid tx[%s], mainchainBackwardTransferRequestDataLength out of range [%d, %d]\n",
+                        __func__, __LINE__, txHash.ToString(), 0, MAX_SC_MBTR_DATA_LEN),
+                        CValidationState::Code::INVALID, "bad-cert-mbtr-data-length-out-of-range");
             }
         }
 
@@ -298,14 +475,6 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     error("%s():%d - ERROR: Invalid tx[%s], mainchainBackwardTransferRequestScFee out of range [%d, %d]\n",
                     __func__, __LINE__, txHash.ToString(), 0, MAX_MONEY),
                     CValidationState::Code::INVALID, "bad-cert-mbtr-fee-out-of-range");
-        }
-
-        if (sc.mainchainBackwardTransferRequestDataLength < 0 || sc.mainchainBackwardTransferRequestDataLength > MAX_SC_MBTR_DATA_LEN)
-        {
-            return state.DoS(100,
-                    error("%s():%d - ERROR: Invalid tx[%s], mainchainBackwardTransferRequestDataLength out of range [%d, %d]\n",
-                    __func__, __LINE__, txHash.ToString(), 0, MAX_SC_MBTR_DATA_LEN),
-                    CValidationState::Code::INVALID, "bad-cert-mbtr-data-length-out-of-range");
         }
     }
 
@@ -522,28 +691,40 @@ int CSidechain::getNumBlocksForScFeeCheck()
         int val = (int)(GetArg("-blocksforscfeecheck", Params().ScNumBlocksForScFeeCheck() ));
         if (val >= 0)
         {
-            LogPrint("sc", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
+            LogPrint("sc", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString().c_str(), val);
             return val;
         }
         LogPrint("sc", "%s():%d - %s: val %d is negative, using default %d\n",
-            __func__, __LINE__, Params().NetworkIDString(), val, Params().ScNumBlocksForScFeeCheck());
+            __func__, __LINE__, Params().NetworkIDString().c_str(), val, Params().ScNumBlocksForScFeeCheck());
     }
     return Params().ScNumBlocksForScFeeCheck();
 }
 
 int CSidechain::getMaxSizeOfScFeesContainers()
 {
-    int epochLength = fixedParams.withdrawalEpochLength;
-
-    assert(epochLength > 0);
-    
-    int numBlocks = getNumBlocksForScFeeCheck();
-    maxSizeOfScFeesContainers = numBlocks / epochLength;
-    if (maxSizeOfScFeesContainers == 0 || (numBlocks % epochLength != 0) )
-    {
-        maxSizeOfScFeesContainers++;
+    if (maxSizeOfScFeesContainers == -1) {
+        const int numBlocks = getNumBlocksForScFeeCheck();
+        if (!isNonCeasing()) {
+            const int epochLength = fixedParams.withdrawalEpochLength;
+            assert(epochLength > 0);
+            maxSizeOfScFeesContainers = (numBlocks + epochLength - 1) / epochLength;
+            // CSidechain::getNumBlocksForScFeeCheck() may return 0 for regtest...
+            // This was managed in the same way in the old version
+            maxSizeOfScFeesContainers = std::max(maxSizeOfScFeesContainers, 1);
+        } else {
+            // maxSizeOfScFeesContainers value is copied from the numBlocksForScFeeCheck variable defined in
+            // chainparams.cpp. Currently is se at 200 for mainnet and testnet, and 10 for regtest. For regtest,
+            // this value can be overridden with the command line option -blocksforscfeecheck=<n>. In this case,
+            // we provide a safe guard of five slots for the scFees size.
+            // This value has been chosen as it was the max possible size obtainable by the previous
+            // implementation: by default, nScNumBlocksForScFeeCheck is set to 10, and withdrawal epoch
+            // length ranges from 2 to 4032. This allows scFees size to range from 1 to 5, as evaluated by
+            // numBlocks / epochLength.
+            LogPrint("sc", "%s():%d - Warning: the value specified with -blocksforscfeecheck was too low; \
+                maxSizeOfScFeesContainers has been set to 5\n", __func__, __LINE__);
+            maxSizeOfScFeesContainers = std::max(numBlocks, 5);
+        }
     }
-
     return maxSizeOfScFeesContainers;
 }
 
@@ -557,13 +738,17 @@ void CSidechain::InitScFees()
 
         assert(scFees.empty());
 
-        Sidechain::ScFeeData defaultData(
-            lastTopQualityCertView.forwardTransferScFee, lastTopQualityCertView.mainchainBackwardTransferRequestScFee);
-        scFees.push_back(defaultData);
+        if (!isNonCeasing()) {
+            scFees.emplace_back(new Sidechain::ScFeeData(lastTopQualityCertView.forwardTransferScFee,
+                                lastTopQualityCertView.mainchainBackwardTransferRequestScFee));
+        } else {
+            scFees.emplace_back(new Sidechain::ScFeeData_v2(lastTopQualityCertView.forwardTransferScFee,
+                                lastTopQualityCertView.mainchainBackwardTransferRequestScFee, lastInclusionHeight));
+        }
     }
 }
 
-void CSidechain::UpdateScFees(const CScCertificateView& certView)
+void CSidechain::UpdateScFees(const CScCertificateView& certView, int blockHeight)
 {
     // this is mostly for new UTs which need to call InitScFees() beforehand, should never happen otherwise
     assert(maxSizeOfScFeesContainers > 0);
@@ -574,38 +759,70 @@ void CSidechain::UpdateScFees(const CScCertificateView& certView)
     LogPrint("sc", "%s():%d - pushing f=%d/m=%d into list with size %d\n",
         __func__, __LINE__, ftScFee, mbtrScFee, scFees.size());
 
-    scFees.push_back(Sidechain::ScFeeData(ftScFee, mbtrScFee));
+    // Ceasable sidechain
+    if (!isNonCeasing()) {
+        scFees.emplace_back(new Sidechain::ScFeeData(ftScFee, mbtrScFee));
 
-    // check if we are past the buffer size
-    int delta = scFees.size() - maxSizeOfScFeesContainers;
-    if (delta > 0)
-    {
         // remove from the front as many elements are needed to be within the circular buffer size
         // --
         // usually this is just one element, but in regtest a node can set the max size via a startup option
         // therefore such size might be lesser than scFee size after a node restart
-        while (delta > 0)
+        const size_t max_size { static_cast<size_t>(maxSizeOfScFeesContainers) };
+        while (scFees.size() > max_size)
         {
-            if (scFees.empty())
-                break;
-
             const auto& entry = scFees.front();
-            LogPrint("sc", "%s():%d - popping f=%d, m=%d from list\n",
-                __func__, __LINE__, entry.forwardTxScFee, entry.mbtrTxScFee);
+            LogPrint("sc", "%s():%d - popping %s from list, as scFees maxsize has been reached\n",
+                __func__, __LINE__, entry->ToString());
             scFees.pop_front();
-            delta--;
         }
+    }
+    // Non-ceasable sidechain
+    else {
+        auto scFeeIt = std::find_if(scFees.begin(), scFees.end(),
+            [&blockHeight](const std::shared_ptr<Sidechain::ScFeeData> & scFeeElem) {
+                const std::shared_ptr<Sidechain::ScFeeData_v2> casted_entry = std::dynamic_pointer_cast<Sidechain::ScFeeData_v2>(scFeeElem);
+                assert(casted_entry);
+                return casted_entry->submissionHeight == blockHeight;
+            });
+
+        // We have not found a scFeeData for the current height, so we add a new one and perform all the checks
+        // on the container size / element age
+        if (scFeeIt == scFees.end()) {
+            scFees.emplace_back(new Sidechain::ScFeeData_v2(ftScFee, mbtrScFee, blockHeight));
+
+            // As for ceasable sidechains
+            const size_t max_size { static_cast<size_t>(maxSizeOfScFeesContainers) };
+
+            // Also purge all elements submitted within a block that now are too old to be considered
+            const auto threshold{blockHeight - this->maxSizeOfScFeesContainers};
+            scFees.remove_if([threshold](std::shared_ptr<Sidechain::ScFeeData> entry) {
+                const std::shared_ptr<Sidechain::ScFeeData_v2> casted_entry = std::dynamic_pointer_cast<Sidechain::ScFeeData_v2>(entry);
+                assert(casted_entry);
+                const bool testCondition = (casted_entry->submissionHeight <= threshold);
+                if (testCondition)
+                    LogPrint("sc", "%s():%d - popping %s from list, as entry is too old (threshold height was %d)\n",
+                        __func__, __LINE__, casted_entry->ToString(), threshold);
+                return testCondition;
+            });
+
+        }
+        // On the other hand, if we found a scFeeData element for the current height, we just update it with lower
+        // ft and/or mbtr fee rates. All the checks on the container size and element age have been performed
+        // at the moment of the element insertion, hence their are not required here
+        else {
+            auto scFeeEntry = scFeeIt->get();
+            scFeeEntry->forwardTxScFee = std::min(scFeeEntry->forwardTxScFee, ftScFee);
+            scFeeEntry->mbtrTxScFee    = std::min(scFeeEntry->mbtrTxScFee, mbtrScFee);
+        }
+
     }
 }
 
 void CSidechain::DumpScFees() const
 {
-    for (const auto& entry : scFees)
-    {
-        std::cout << "[" << std::setw(2) << entry.forwardTxScFee
-                  << "/" << std::setw(2) << entry.mbtrTxScFee << "]";
+    for (const auto& entry : scFees) {
+        std::cout << entry->ToString() << std::endl;
     }
-    std::cout << std::endl;
 }
 
 CAmount CSidechain::GetMinFtScFee() const
@@ -614,8 +831,10 @@ CAmount CSidechain::GetMinFtScFee() const
 
     CAmount minScFee = std::min_element(
         scFees.begin(), scFees.end(),
-        [] (const Sidechain::ScFeeData& a, const Sidechain::ScFeeData& b) { return a.forwardTxScFee < b.forwardTxScFee; }
-    )->forwardTxScFee;
+        [] (const std::shared_ptr<Sidechain::ScFeeData> &a, const std::shared_ptr<Sidechain::ScFeeData> &b) {
+            return a->forwardTxScFee < b->forwardTxScFee;
+        }
+    )->get()->forwardTxScFee;
 
     LogPrint("sc", "%s():%d - returning min=%lld\n", __func__, __LINE__, minScFee);
     return minScFee;
@@ -627,8 +846,10 @@ CAmount CSidechain::GetMinMbtrScFee() const
 
     CAmount minScFee = std::min_element(
         scFees.begin(), scFees.end(),
-        [] (const Sidechain::ScFeeData& a, const Sidechain::ScFeeData& b) { return a.mbtrTxScFee < b.mbtrTxScFee; }
-    )->mbtrTxScFee;
+        [] (const std::shared_ptr<Sidechain::ScFeeData> &a, const std::shared_ptr<Sidechain::ScFeeData> &b) {
+            return a->mbtrTxScFee < b->mbtrTxScFee;
+        }
+    )->get()->mbtrTxScFee;
 
     LogPrint("sc", "%s():%d - returning min=%lld\n", __func__, __LINE__, minScFee);
     return minScFee;

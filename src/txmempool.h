@@ -119,7 +119,7 @@ struct CSidechainMemPoolEntry
 {
     uint256 scCreationTxHash;
     std::set<uint256> fwdTxHashes; 
-    std::map<int64_t, uint256> mBackwardCertificates; //quality -> certHash
+    std::map<int64_t, uint256> mBackwardCertificates; // quality -> certHash
     std::set<uint256> mcBtrsTxHashes;
     std::map<CFieldElement, uint256> cswNullifiers; // csw nullifier -> containing Tx hash
     CAmount cswTotalAmount;
@@ -212,11 +212,12 @@ public:
 
     bool checkCswInputsPerScLimit(const CTransaction& incomingTx) const;
     bool checkIncomingTxConflicts(const CTransaction& incomingTx) const;
+    bool certificateExists(const uint256& scId) const;
     bool checkIncomingCertConflicts(const CScCertificate& incomingCert) const;
 
     void setSanityCheck(bool _fSanityCheck) { fSanityCheck = _fSanityCheck; }
 
-    std::pair<uint256, CAmount> FindCertWithQuality(const uint256& scId, int64_t certQuality);
+    std::pair<uint256, CAmount> FindCertWithQuality(const uint256& scId, int64_t certQuality) const;
     bool RemoveCertAndSync(const uint256& certToRmHash);
 
     bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
@@ -261,6 +262,8 @@ public:
     void removeConflicts(const CScCertificate &cert,
                          std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
     void removeStaleCertificates(const CCoinsViewCache * const pCoinsView,
+                                 std::list<CScCertificate>& outdatedCerts);
+    void removeCertificatesWithoutRef(const CCoinsViewCache * const pCoinsView,
                                  std::list<CScCertificate>& outdatedCerts);
     // END OF UNCONFIRMED CERTIFICATES CLEANUP METHODS
 

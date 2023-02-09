@@ -7,6 +7,7 @@
 
 class CValidationState;
 class CTransaction;
+class CCoinsViewCache;
 
 namespace Sidechain
 {
@@ -50,13 +51,18 @@ public:
 };
 
 class CSidechain {
+private:
+    int getInitScCoinsMaturity();
+    int EpochFor(int targetHeight) const;
+
 public:
     CSidechain():
         creationBlockHeight(-1), creationTxHash(),
         pastEpochTopQualityCertView(), lastTopQualityCertView(), lastTopQualityCertHash(),
         lastTopQualityCertReferencedEpoch(CScCertificate::EPOCH_NULL),
         lastTopQualityCertQuality(CScCertificate::QUALITY_NULL), lastTopQualityCertBwtAmount(0),
-        balance(0), maxSizeOfScFeesContainers(-1) {}
+        balance(0), maxSizeOfScFeesContainers(-1),
+        lastInclusionHeight(-1) {}
 
     bool IsNull() const
     {
@@ -71,8 +77,8 @@ public:
              lastTopQualityCertBwtAmount == 0                                 &&
              balance == 0                                                     &&
              fixedParams.IsNull()                                             &&
-             mImmatureAmounts.empty())                                        &&
-             scFees.empty();
+             mImmatureAmounts.empty()                                         &&
+             scFees.empty());
     }
 
     // We can not serialize a pointer value to block index, but can retrieve it from chainActive if we have height
@@ -91,6 +97,8 @@ public:
     int64_t lastTopQualityCertQuality;
     CAmount lastTopQualityCertBwtAmount;
 
+    int lastInclusionHeight;
+
     // total amount given by sum(fw transfer)-sum(bkw transfer)
     CAmount balance;
 
@@ -106,7 +114,7 @@ public:
     int maxSizeOfScFeesContainers;
     // the last ftScFee and mbtrScFee values, as set by the active certificates
     // it behaves like a circular buffer once the max size is reached
-    std::list<Sidechain::ScFeeData> scFees;
+    std::list<std::shared_ptr<Sidechain::ScFeeData>> scFees;
 
     // compute the max size of the sc fee list
     int getMaxSizeOfScFeesContainers();
@@ -120,6 +128,13 @@ public:
         ALIVE,
         CEASED
     };
+
+    State GetState(const CCoinsViewCache& view) const;
+    int getScCoinsMaturity();
+    const CScCertificateView& GetActiveCertView(const CCoinsViewCache& view) const;
+    int GetCurrentEpoch(const CCoinsViewCache& view) const;
+    bool CheckQuality(const CScCertificate& cert) const;
+    bool CheckCertTiming(int certEpoch, int referencedHeight, const CCoinsViewCache& view) const;
 
     static std::string stateToString(State s);
 
@@ -152,13 +167,18 @@ public:
         READWRITE(balance);
         READWRITE(fixedParams);
         READWRITE(mImmatureAmounts);
-        READWRITE(scFees);
+
         if (ser_action.ForRead())
         {
-            if (!scFees.empty())
-            {
-                maxSizeOfScFeesContainers = getMaxSizeOfScFeesContainers();
-            }
+            maxSizeOfScFeesContainers = getMaxSizeOfScFeesContainers();
+        }
+
+        if (isNonCeasing()) {
+            READWRITE_POLYMORPHIC(scFees, Sidechain::ScFeeData, Sidechain::ScFeeData_v2);
+            READWRITE(VARINT(lastInclusionHeight));
+        }
+        else {
+            READWRITE_POLYMORPHIC(scFees, Sidechain::ScFeeData, Sidechain::ScFeeData);
         }
     }
 
@@ -179,22 +199,32 @@ public:
     }
     inline bool operator!=(const CSidechain& rhs) const { return !(*this == rhs); }
 
-    int EpochFor(int targetHeight) const;
     int GetStartHeightForEpoch(int targetEpoch) const;
     int GetEndHeightForEpoch(int targetEpoch) const;
     int GetCertSubmissionWindowStart(int certEpoch) const;
     int GetCertSubmissionWindowEnd(int certEpoch) const;
     int GetCertSubmissionWindowLength() const;
-    int GetCertMaturityHeight(int certEpoch) const;
+    int GetCertMaturityHeight(int certEpoch, int includingBlockHeight) const;
     int GetScheduledCeasingHeight() const;
     bool GetCeasingCumTreeHash(CFieldElement& ceasedBlockCum) const;
 
     bool isCreationConfirmed() const {
-        return this->creationBlockHeight != -1;
+        return creationBlockHeight != -1;
+    }
+
+    static bool isNonCeasingSidechain(int version, int withdrawalEpochLength) {
+        // SC v2 can be either ceasing (as v0 and v1), or non-ceasing.
+        // Non ceasing sidechains are identified by fixedParams.withdrawalEpochLength == 0, which is not allowed for
+        // other sidechain versions.
+        return version == 2 && withdrawalEpochLength == 0;
+    }
+
+    bool isNonCeasing() const {
+        return isNonCeasingSidechain(fixedParams.version, fixedParams.withdrawalEpochLength);
     }
 
     void InitScFees();
-    void UpdateScFees(const CScCertificateView& certView);
+    void UpdateScFees(const CScCertificateView& certView, int blockHeight);
     void DumpScFees() const;
 
     CAmount GetMinFtScFee() const;

@@ -7,7 +7,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_equal, bytes_to_hex_str, get_field_element_with_padding, hex_str_to_bytes, initialize_chain_clean, \
     start_nodes, stop_nodes, wait_bitcoinds, connect_nodes_bi, mark_logs, get_epoch_data, get_spendable, swap_bytes
-from test_framework.test_framework import MINIMAL_SC_HEIGHT, SC_VERSION_FORK_HEIGHT
+from test_framework.test_framework import ForkHeights
 from test_framework.mc_test.mc_test import CertTestUtils, generate_random_field_element_hex
 import os
 from decimal import Decimal
@@ -67,8 +67,8 @@ class sc_cert_customfields(BitcoinTestFramework):
         self.sync_all()
 
 
-        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT), self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(MINIMAL_SC_HEIGHT)
+        mark_logs("Node 0 generates {} block".format(ForkHeights['MINIMAL_SC']), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(ForkHeights['MINIMAL_SC'])
         self.sync_all()
 
         #generate wCertVk and constant
@@ -334,7 +334,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         self.nodes[0].generate(EPOCH_LENGTH - 1)
         self.sync_all()
 
-        epoch_number_1, epoch_cum_tree_hash_1 = get_epoch_data(scid1, self.nodes[0], EPOCH_LENGTH)
+        epoch_number_1, epoch_cum_tree_hash_1, _ = get_epoch_data(scid1, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number_1, epoch_cum_tree_hash_1), self.nodes, DEBUG_MODE)
 
         #-------------------------------------------------------
@@ -357,8 +357,16 @@ class sc_cert_customfields(BitcoinTestFramework):
         vCmt = ["1111", "0660101a"]
 
         # this proof would be invalid but we expect an early failure
-        scProof2 = mcTest.create_test_proof(
-            'sc2', scid2_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant2, [addr_node1], [bwt_amount])
+        scProof2 = mcTest.create_test_proof('sc2',
+                                            scid2_swapped,
+                                            epoch_number_1,
+                                            10,
+                                            MBTR_SC_FEE,
+                                            FT_SC_FEE,
+                                            epoch_cum_tree_hash_1,
+                                            constant = constant2,
+                                            pks      = [addr_node1],
+                                            amounts  = [bwt_amount])
 
         params = {
             'scid': scid2,
@@ -389,9 +397,17 @@ class sc_cert_customfields(BitcoinTestFramework):
         # serialized fe for the proof has 32 byte size, here we use the wrong endianness (version 1 instead of version 0)
         fe1 = get_field_element_with_padding("0100", 1)
 
-        scProof3 = mcTest.create_test_proof(
-            'sc2', scid2_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant2, [addr_node1], [bwt_amount],
-            [fe1])
+        scProof3 = mcTest.create_test_proof('sc2',
+                                            scid2_swapped,
+                                            epoch_number_1,
+                                            10,
+                                            MBTR_SC_FEE,
+                                            FT_SC_FEE,
+                                            epoch_cum_tree_hash_1,
+                                            constant = constant2,
+                                            pks      = [addr_node1],
+                                            amounts  = [bwt_amount],
+                                            custom_fields = [fe1])
 
         print("cum =", epoch_cum_tree_hash_1)
         params = {
@@ -427,9 +443,17 @@ class sc_cert_customfields(BitcoinTestFramework):
         # serialized fe for the proof has 32 byte size
         fe1 = get_field_element_with_padding("0100", 0)
 
-        scProof3 = mcTest.create_test_proof(
-            'sc2', scid2_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant2, [addr_node1], [bwt_amount],
-            [fe1])
+        scProof3 = mcTest.create_test_proof('sc2',
+                                            scid2_swapped,
+                                            epoch_number_1,
+                                            10,
+                                            MBTR_SC_FEE,
+                                            FT_SC_FEE,
+                                            epoch_cum_tree_hash_1,
+                                            constant = constant2,
+                                            pks      = [addr_node1],
+                                            amounts  = [bwt_amount],
+                                            custom_fields = [fe1])
 
         print("cum =", epoch_cum_tree_hash_1)
         params = {
@@ -470,7 +494,16 @@ class sc_cert_customfields(BitcoinTestFramework):
         vCmt = ["1111"]
 
         # this proof would not be valid, but we expect an early failure
-        scProof1 = mcTest.create_test_proof('sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant1, [addr_node1], [bwt_amount])
+        scProof1 = mcTest.create_test_proof('sc1',
+                                            scid1_swapped,
+                                            epoch_number_1,
+                                            10,
+                                            MBTR_SC_FEE,
+                                            FT_SC_FEE,
+                                            epoch_cum_tree_hash_1,
+                                            constant = constant1,
+                                            pks      = [addr_node1],
+                                            amounts  = [bwt_amount])
 
         params = {
             'scid': scid1,
@@ -510,9 +543,17 @@ class sc_cert_customfields(BitcoinTestFramework):
         fe3 = get_field_element_with_padding("0100", 0)
         fe4 = BIT_VECTOR_FE
 
-        scProof3 = mcTest.create_test_proof(
-            'sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant1, epoch_cum_tree_hash_1, [addr_node1], [bwt_amount],
-            [fe1, fe2, fe3, fe4])
+        scProof3 = mcTest.create_test_proof('sc1',
+                                            scid1_swapped,
+                                            epoch_number_1,
+                                            10,
+                                            MBTR_SC_FEE,
+                                            FT_SC_FEE,
+                                            epoch_cum_tree_hash_1,
+                                            constant = constant1,
+                                            pks      = [addr_node1],
+                                            amounts  = [bwt_amount],
+                                            custom_fields = [fe1, fe2, fe3, fe4])
 
         params = {
             'scid': scid1,
@@ -550,9 +591,17 @@ class sc_cert_customfields(BitcoinTestFramework):
         fe3 = get_field_element_with_padding("0100", 0)
         fe4 = BIT_VECTOR_FE
 
-        scProof3 = mcTest.create_test_proof(
-            'sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant1, epoch_cum_tree_hash_1, [addr_node1], [bwt_amount],
-            [fe1, fe2, fe3, fe4])
+        scProof3 = mcTest.create_test_proof('sc1',
+                                            scid1_swapped,
+                                            epoch_number_1,
+                                            10,
+                                            MBTR_SC_FEE,
+                                            FT_SC_FEE,
+                                            epoch_cum_tree_hash_1,
+                                            constant = constant1,
+                                            pks      = [addr_node1],
+                                            amounts  = [bwt_amount],
+                                            custom_fields = [fe1, fe2, fe3, fe4])
 
         params = {
             'scid': scid1,
@@ -589,9 +638,17 @@ class sc_cert_customfields(BitcoinTestFramework):
         fe3 = get_field_element_with_padding("0100", 0)
         fe4 = BIT_VECTOR_FE
 
-        scProof3 = mcTest.create_test_proof(
-            'sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant1, [addr_node1], [bwt_amount],
-            [fe1, fe2, fe3, fe4])
+        scProof3 = mcTest.create_test_proof('sc1',
+                                            scid1_swapped,
+                                            epoch_number_1,
+                                            10,
+                                            MBTR_SC_FEE,
+                                            FT_SC_FEE,
+                                            epoch_cum_tree_hash_1,
+                                            constant = constant1,
+                                            pks      = [addr_node1],
+                                            amounts  = [bwt_amount],
+                                            custom_fields = [fe1, fe2, fe3, fe4])
 
         params = {
             'scid': scid1,
@@ -649,7 +706,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         assert_true(cert in self.nodes[1].getblock(bestHash, True)['cert'])
 
         # Generate some blocks to reach the sidechain version fork point
-        self.nodes[0].generate(SC_VERSION_FORK_HEIGHT - self.nodes[0].getblockcount())
+        self.nodes[0].generate(ForkHeights['SC_VERSION'] - self.nodes[0].getblockcount())
         self.sync_all()
 
         # Create a sidechain v1 and test the validation of custom fields (endianness)
@@ -702,7 +759,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         self.nodes[0].generate(EPOCH_LENGTH - 1)
         self.sync_all()
 
-        epoch_number_4, epoch_cum_tree_hash_4 = get_epoch_data(scid4, self.nodes[0], EPOCH_LENGTH)
+        epoch_number_4, epoch_cum_tree_hash_4, _ = get_epoch_data(scid4, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number_4, epoch_cum_tree_hash_4), self.nodes, DEBUG_MODE)
 
         # get another UTXO
@@ -720,9 +777,17 @@ class sc_cert_customfields(BitcoinTestFramework):
         # serialized fe for the proof has 32 byte size, here we use the wrong endianness (version 0 instead of version 1)
         fe1 = get_field_element_with_padding("00110100", 0)
 
-        scProof4 = mcTest.create_test_proof(
-            'sc4', scid4_swapped, epoch_number_4, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_4, constant2, [addr_node1], [bwt_amount],
-            [fe1])
+        scProof4 = mcTest.create_test_proof('sc4',
+                                            scid4_swapped,
+                                            epoch_number_4,
+                                            10,
+                                            MBTR_SC_FEE,
+                                            FT_SC_FEE,
+                                            epoch_cum_tree_hash_4,
+                                            constant = constant2,
+                                            pks      = [addr_node1],
+                                            amounts  = [bwt_amount],
+                                            custom_fields = [fe1])
 
         print("cum =", epoch_cum_tree_hash_4)
         params = {
@@ -754,9 +819,17 @@ class sc_cert_customfields(BitcoinTestFramework):
         # serialized fe for the proof has 32 byte size
         fe1 = get_field_element_with_padding("00110100", 1)
 
-        scProof4 = mcTest.create_test_proof(
-            'sc4', scid4_swapped, epoch_number_4, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_4, constant2, [addr_node1], [bwt_amount],
-            [fe1])
+        scProof4 = mcTest.create_test_proof('sc4',
+                                            scid4_swapped,
+                                            epoch_number_4,
+                                            10,
+                                            MBTR_SC_FEE,
+                                            FT_SC_FEE,
+                                            epoch_cum_tree_hash_4,
+                                            constant = constant2,
+                                            pks      = [addr_node1],
+                                            amounts  = [bwt_amount],
+                                            custom_fields = [fe1])
 
         print("cum =", epoch_cum_tree_hash_4)
         params = {

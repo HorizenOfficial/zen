@@ -4,7 +4,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.test_framework import MINIMAL_SC_HEIGHT
+from test_framework.test_framework import ForkHeights
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import COIN, assert_true, assert_false, assert_equal, mark_logs, swap_bytes
 from test_framework.mininode import hash256, ser_string
@@ -142,7 +142,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         self.doTest(sc_fork_reached)
 
         # reach the height where the next block is the last before the fork point where certificates are supported
-        delta = MINIMAL_SC_HEIGHT - currentHeight - 2;
+        delta = ForkHeights['MINIMAL_SC'] - currentHeight - 2;
         self.nodes[0].generate(delta) 
         self.sync_all()
 
@@ -193,7 +193,16 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         fee = 0.000023
 
         scid_swapped = str(swap_bytes(scid))
-        proof = mcTest.create_test_proof("sc1", scid_swapped, 0, 0, mbtrScFee, ftScFee, epoch_cum_tree_hash, constant, [addr_node0], [SC_CERT_AMOUNT])
+        proof = mcTest.create_test_proof("sc1",
+                                         scid_swapped,
+                                         0,
+                                         0,
+                                         mbtrScFee,
+                                         ftScFee,
+                                         epoch_cum_tree_hash,
+                                         constant = constant,
+                                         pks      = [addr_node0],
+                                         amounts  = [SC_CERT_AMOUNT])
         cert = self.nodes[0].sc_send_certificate(scid, 0, 0, epoch_cum_tree_hash, proof, amounts, ftScFee, mbtrScFee, fee)
         self.sync_all()
         assert_true(cert in self.nodes[0].getrawmempool() ) 

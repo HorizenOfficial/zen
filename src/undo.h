@@ -138,7 +138,8 @@ struct CSidechainUndoData
         CROSS_EPOCH_CERT_DATA   = 2,
         ANY_EPOCH_CERT_DATA     = 4,
         SUPERSEDED_CERT_DATA    = 8,
-        CEASED_CERT_DATA        = 16
+        CEASED_CERT_DATA        = 16,
+        NONCEASING_CERT_DATA    = 32
     };
     uint8_t contentBitMask;
 
@@ -147,7 +148,7 @@ struct CSidechainUndoData
 
     // CROSS_EPOCH_CERT_DATA section
     CScCertificateView pastEpochTopQualityCertView;
-    std::list<Sidechain::ScFeeData> scFees;
+    std::list<std::shared_ptr<Sidechain::ScFeeData>> scFees;
 
     // ANY_EPOCH_CERT_DATA section
     uint256 prevTopCommittedCertHash;
@@ -162,8 +163,11 @@ struct CSidechainUndoData
     // CEASED_CERTIFICATE_DATA
     std::vector<CTxInUndo> ceasedBwts;
 
+    // NONCEASING_CERT_DATA
+    int prevInclusionHeight;
+
     CSidechainUndoData(): sidechainUndoDataVersion(0), contentBitMask(AvailableSections::UNDEFINED),
-        appliedMaturedAmount(0), pastEpochTopQualityCertView(), scFees(), 
+        appliedMaturedAmount(0), pastEpochTopQualityCertView(), scFees(),
         prevTopCommittedCertHash(), prevTopCommittedCertReferencedEpoch(CScCertificate::EPOCH_NULL),
         prevTopCommittedCertQuality(CScCertificate::QUALITY_NULL), prevTopCommittedCertBwtAmount(0),
         lastTopQualityCertView(), lowQualityBwts(), ceasedBwts() {}
@@ -179,6 +183,8 @@ struct CSidechainUndoData
         if (contentBitMask & AvailableSections::CROSS_EPOCH_CERT_DATA)
         {
             totalSize += ::GetSerializeSize(pastEpochTopQualityCertView, nType, nVersion);
+            // TODO: fix this condition for counting scFees list size
+            // totalSize += ::GetSerializeSize(scFees, nType, nVersion);
         }
         if (contentBitMask & AvailableSections::ANY_EPOCH_CERT_DATA)
         {
@@ -196,6 +202,10 @@ struct CSidechainUndoData
         {
             totalSize += ::GetSerializeSize(ceasedBwts, nType, nVersion);
         }
+        if (contentBitMask & AvailableSections::NONCEASING_CERT_DATA)
+        {
+            totalSize += ::GetSerializeSize(prevInclusionHeight,  nType, nVersion);
+        }
         return totalSize;
     }
 
@@ -211,7 +221,12 @@ struct CSidechainUndoData
         if (contentBitMask & AvailableSections::CROSS_EPOCH_CERT_DATA)
         {
             ::Serialize(s, pastEpochTopQualityCertView, nType, nVersion);
-            ::Serialize(s, scFees,                      nType, nVersion);
+            if (contentBitMask & AvailableSections::NONCEASING_CERT_DATA) {
+                ::Serialize<decltype(s), Sidechain::ScFeeData, decltype(scFees), Sidechain::ScFeeData_v2>(s, scFees, nType, nVersion);
+            }
+            else {
+                ::Serialize<decltype(s), Sidechain::ScFeeData, decltype(scFees), Sidechain::ScFeeData>(s, scFees, nType, nVersion);
+            }
         }
         if (contentBitMask & AvailableSections::ANY_EPOCH_CERT_DATA)
         {
@@ -229,6 +244,10 @@ struct CSidechainUndoData
         {
             ::Serialize(s, ceasedBwts, nType, nVersion);
         }
+        if (contentBitMask & AvailableSections::NONCEASING_CERT_DATA)
+        {
+            ::Serialize(s, prevInclusionHeight,  nType, nVersion);
+        }
         return;
     }
 
@@ -244,7 +263,13 @@ struct CSidechainUndoData
         if (contentBitMask & AvailableSections::CROSS_EPOCH_CERT_DATA)
         {
             ::Unserialize(s, pastEpochTopQualityCertView, nType, nVersion);
-            ::Unserialize(s, scFees,                      nType, nVersion);
+            if (contentBitMask & AvailableSections::NONCEASING_CERT_DATA) {
+                ::Unserialize<decltype(s), Sidechain::ScFeeData, decltype(scFees), Sidechain::ScFeeData_v2>(s, scFees, nType, nVersion);
+            }
+            else {
+                ::Unserialize<decltype(s), Sidechain::ScFeeData, decltype(scFees), Sidechain::ScFeeData>(s, scFees, nType, nVersion);
+            }
+
         }
         if (contentBitMask & AvailableSections::ANY_EPOCH_CERT_DATA)
         {
@@ -262,6 +287,10 @@ struct CSidechainUndoData
         {
             ::Unserialize(s, ceasedBwts, nType, nVersion);
         }
+        if (contentBitMask & AvailableSections::NONCEASING_CERT_DATA)
+        {
+            ::Unserialize(s, prevInclusionHeight, nType, nVersion);
+        }
         return;
     }
 
@@ -273,7 +302,19 @@ struct CSidechainUndoData
              res += strprintf("appliedMaturedAmount=%d.%08d\n", appliedMaturedAmount / COIN, appliedMaturedAmount % COIN);
 
         if (contentBitMask & AvailableSections::CROSS_EPOCH_CERT_DATA)
+        {
             res += strprintf("pastEpochTopQualityCertView=%s\n", pastEpochTopQualityCertView.ToString());
+            res += strprintf("scFees.size()=%u\n", scFees.size());
+            for(const auto& entry: scFees) {
+                res += strprintf("scFtFee=%d.%08d - ", entry->forwardTxScFee / COIN, entry->forwardTxScFee % COIN);
+                res += strprintf("scMbtrFee=%d.%08d\n", entry->mbtrTxScFee / COIN, entry->mbtrTxScFee % COIN);
+                // Only for v2 non-ceasable sidechains
+                std::shared_ptr<Sidechain::ScFeeData_v2> casted_entry = std::dynamic_pointer_cast<Sidechain::ScFeeData_v2>(entry);
+                if (casted_entry) {
+                    res += strprintf("submissionHeight=%d\n", casted_entry->submissionHeight);
+                }
+            }
+        }
 
         if (contentBitMask & AvailableSections::ANY_EPOCH_CERT_DATA)
         {
@@ -282,13 +323,7 @@ struct CSidechainUndoData
             res += strprintf("prevTopCommittedCertQuality=%d\n", prevTopCommittedCertQuality);
             res += strprintf("prevTopCommittedCertBwtAmount=%d.%08d\n", prevTopCommittedCertBwtAmount / COIN, prevTopCommittedCertBwtAmount % COIN);
             res += strprintf("lastTopQualityCertView=%s\n", lastTopQualityCertView.ToString());
-        }
-
-        res += strprintf("scFees.size()=%u\n", scFees.size());
-        for(const auto& entry: scFees)
-        {
-           res += strprintf("scFtFee=%d.%08d - ", entry.forwardTxScFee / COIN, entry.forwardTxScFee % COIN);
-           res += strprintf("scMbtrFee=%d.%08d\n", entry.mbtrTxScFee / COIN, entry.mbtrTxScFee % COIN);
+            res += strprintf("prevInclusionHeight=%d\n", prevInclusionHeight);
         }
 
         res += strprintf("ceasedBwts.size()=%u\n", ceasedBwts.size());

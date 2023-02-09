@@ -4,7 +4,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
+from test_framework.test_framework import ForkHeights, MINER_REWARD_POST_H200
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
@@ -68,8 +68,8 @@ class ScRpcCmdsFeeHandling(BitcoinTestFramework):
         self.nodes[1].generate(2)
         self.sync_all()
 
-        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT),self.nodes,DEBUG_MODE)
-        self.nodes[0].generate(MINIMAL_SC_HEIGHT)
+        mark_logs("Node 0 generates {} block".format(ForkHeights['MINIMAL_SC']),self.nodes,DEBUG_MODE)
+        self.nodes[0].generate(ForkHeights['MINIMAL_SC'])
         self.sync_all()
 
         # send some very small amount to node 2, which will use them as input
@@ -199,7 +199,7 @@ class ScRpcCmdsFeeHandling(BitcoinTestFramework):
         # advance epoch
         self.nodes[0].generate(EPOCH_LENGTH - 2)
         self.sync_all()
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
         # send some certificate 
         scid_swapped = str(swap_bytes(scid))
@@ -209,9 +209,16 @@ class ScRpcCmdsFeeHandling(BitcoinTestFramework):
 
         #==============================================================
         q = 10
-        proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-            constant, addr_array, bwt_amount_array)
+        proof = mcTest.create_test_proof("sc1",
+                                         scid_swapped,
+                                         epoch_number,
+                                         q,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         epoch_cum_tree_hash,
+                                         constant = constant,
+                                         pks      = addr_array,
+                                         amounts  = bwt_amount_array)
 
         # explicitly setting a fee high enough is OK
         try:
@@ -232,9 +239,16 @@ class ScRpcCmdsFeeHandling(BitcoinTestFramework):
 
         #==============================================================
         q = 9
-        proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-            constant, addr_array, bwt_amount_array)
+        proof = mcTest.create_test_proof("sc1",
+                                         scid_swapped,
+                                         epoch_number,
+                                         q,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         epoch_cum_tree_hash,
+                                         constant = constant,
+                                         pks      = addr_array,
+                                         amounts  = bwt_amount_array)
 
         # explicitly setting a fee too low is NOT OK
         try:
@@ -247,9 +261,16 @@ class ScRpcCmdsFeeHandling(BitcoinTestFramework):
 
         #==============================================================
         q = 11
-        proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-            constant, addr_array, bwt_amount_array)
+        proof = mcTest.create_test_proof("sc1",
+                                         scid_swapped,
+                                         epoch_number,
+                                         q,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         epoch_cum_tree_hash,
+                                         constant = constant,
+                                         pks      = addr_array,
+                                         amounts  = bwt_amount_array)
 
         # null fee set by user is OK
         try:
@@ -271,9 +292,16 @@ class ScRpcCmdsFeeHandling(BitcoinTestFramework):
 
         #==============================================================
         q = 12
-        proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-            constant, addr_array, bwt_amount_array)
+        proof = mcTest.create_test_proof("sc1",
+                                         scid_swapped,
+                                         epoch_number,
+                                         q,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         epoch_cum_tree_hash,
+                                         constant = constant,
+                                         pks      = addr_array,
+                                         amounts  = bwt_amount_array)
 
         mark_logs("Sending certificate without specifying fee amount (aoutom comp)", self.nodes, DEBUG_MODE)
         # automatic fee computation is OK. Automatic computation takes place if the user does not specify the fee...
@@ -296,9 +324,16 @@ class ScRpcCmdsFeeHandling(BitcoinTestFramework):
 
         #==============================================================
         q = 13
-        proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-            constant, addr_array, bwt_amount_array)
+        proof = mcTest.create_test_proof("sc1",
+                                         scid_swapped,
+                                         epoch_number,
+                                         q,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         epoch_cum_tree_hash,
+                                         constant = constant,
+                                         pks      = addr_array,
+                                         amounts  = bwt_amount_array)
 
         mark_logs("Sending certificate with a negative fee amount (aoutom comp)", self.nodes, DEBUG_MODE)
         # ...or set it as a negative value

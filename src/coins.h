@@ -686,10 +686,10 @@ public:
     bool GetSidechain(const uint256 & scId, CSidechain& targetSidechain) const override;
     void GetScIds(std::set<uint256>& scIdsList)                       const override;
 
-    CValidationState::Code IsScTxApplicableToState(const CTransaction& tx, Sidechain::ScFeeCheckFlag scCheckType, bool* banSenderNode = nullptr) const;
+    CValidationState::Code IsScTxApplicableToState(const CTransaction& tx, Sidechain::ScFeeCheckFlag scCheckTypeconst, const CCoinsViewCache* pcoinsView = nullptr) const;
     bool CheckScTxTiming(const uint256& scId) const;
 
-    bool IsFtScFeeApplicable(const CTxForwardTransferOut& ftOutput) const;
+    bool IsFtScFeeApplicable(const CTxForwardTransferOut& ftOutput, const CCoinsViewCache* pcoinsView) const;
     bool IsMbtrScFeeApplicable(const CBwtRequestOut& mbtrOutput) const;
 
     bool CheckMinimumFtScFee(const CTxForwardTransferOut& ftOutput, CAmount* minVal = nullptr) const;
@@ -697,16 +697,14 @@ public:
 
     bool UpdateSidechain(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
-    int getScCoinsMaturity();
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
-    CValidationState::Code IsCertApplicableToState(const CScCertificate& cert, bool* banSenderNode = nullptr) const;
+    CValidationState::Code IsCertApplicableToState(const CScCertificate& cert) const;
 
     CValidationState::Code CheckEndEpochCumScTxCommTreeRoot(
-        const CSidechain& sidechain, int epochNumber, const CFieldElement& endCumScTxCommTreeRoot) const;
+        const CSidechain& sidechain, int epochNumber, const CFieldElement& endCumScTxCommTreeRoot, int &referencedHeight) const;
 
-    bool CheckCertTiming(const uint256& scId, int certEpoch) const;
-    bool UpdateSidechain(const CScCertificate& cert, CBlockUndo& blockUndo);
+    bool UpdateSidechain(const CScCertificate& cert, CBlockUndo& blockUndo, int nHeight);
     bool RestoreSidechain(const CScCertificate& certToRevert, const CSidechainUndoData& sidechainUndo);
     bool CheckQuality(const CScCertificate& cert)  const override;
     void NullifyBackwardTransfers(const uint256& certHash, std::vector<CTxInUndo>& nullifiedOuts);

@@ -5,7 +5,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.test_framework import MINIMAL_SC_HEIGHT
+from test_framework.test_framework import ForkHeights
 from test_framework.util import assert_true, assert_equal, initialize_chain_clean, \
     start_nodes, stop_nodes, wait_bitcoinds, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
     dump_sc_info, dump_sc_info_record, get_epoch_data, get_spendable, swap_bytes, advance_epoch
@@ -83,8 +83,8 @@ class sc_block_partitions(BitcoinTestFramework):
         self.nodes[1].generate(100)
         self.sync_all()
 
-        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT-100), self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(MINIMAL_SC_HEIGHT-100)
+        mark_logs("Node 0 generates {} block".format(ForkHeights['MINIMAL_SC']-100), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(ForkHeights['MINIMAL_SC']-100)
         self.sync_all()
         
         #generate Vks and constant
@@ -114,7 +114,7 @@ class sc_block_partitions(BitcoinTestFramework):
         # advance epoch
         self.nodes[0].generate(EPOCH_LENGTH)
         self.sync_all()
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
         mark_logs("Creating certs...", self.nodes, DEBUG_MODE)
         proofs = []
@@ -125,9 +125,14 @@ class sc_block_partitions(BitcoinTestFramework):
 
         while True:
             t0 = time.time()
-            proof = certMcTest.create_test_proof(
-                "scs", scid_swapped, epoch_number, (q+tot_num_cert), MBTR_SC_FEE, FT_SC_FEE,
-                epoch_cum_tree_hash, constant, [], [], [])
+            proof = certMcTest.create_test_proof("scs",
+                                                 scid_swapped,
+                                                 epoch_number,
+                                                 (q+tot_num_cert),
+                                                 MBTR_SC_FEE,
+                                                 FT_SC_FEE,
+                                                 epoch_cum_tree_hash,
+                                                 constant = constant)
             assert_true(proof != None)
             t1 = time.time()
             print("...proof generated: {} secs".format(t1-t0))

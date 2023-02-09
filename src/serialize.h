@@ -20,6 +20,8 @@
 #include <string.h>
 #include <utility>
 #include <vector>
+#include <memory>
+#include <type_traits> // void_t
 
 #include <boost/array.hpp>
 #include <boost/optional.hpp>
@@ -189,7 +191,8 @@ enum
     SER_GETHASH         = (1 << 2),
 };
 
-#define READWRITE(obj)      (::SerReadWrite(s, (obj), nType, nVersion, ser_action))
+#define READWRITE(obj)                            (::SerReadWrite(s, (obj), nType, nVersion, ser_action))
+#define READWRITE_POLYMORPHIC(obj, base, derived) (::SerReadWrite<decltype(s), base, decltype(obj), derived>(s, (obj), nType, nVersion, ser_action))
 
 #define READWRITE_VARINT_WITH_SIGN(obj)                                             \
     if (ser_action.ForRead()) {                                                     \
@@ -524,6 +527,34 @@ template<typename I>
 CVarInt<I> WrapVarInt(I& n) { return CVarInt<I>(n); }
 
 /**
+ * Smart pointers, optionally used for polymorphic types
+ */
+
+template<typename Stream, typename Base, typename Derived>
+void Unserialize(Stream& os, const std::shared_ptr<Base>& p, int nType, int nVersion)
+{
+    std::shared_ptr<Derived> d = std::dynamic_pointer_cast<Derived>(p);
+    if (d) {
+        Unserialize(os, *d, nType, nVersion);
+    }
+    else {
+        Unserialize(os, *p, nType, nVersion);
+    }
+}
+
+template<typename Stream, typename Base, typename Derived>
+void Serialize(Stream& os, const std::shared_ptr<Base>& p, int nType, int nVersion)
+{
+    std::shared_ptr<Derived> d = std::dynamic_pointer_cast<Derived>(p);
+    if (d) {
+        Serialize(os, *d, nType, nVersion);
+    }
+    else {
+        Serialize(os, *p, nType, nVersion);
+    }
+}
+
+/**
  * Forward declarations
  */
 
@@ -543,7 +574,7 @@ template<typename T, typename A, typename V> unsigned int GetSerializeSize_impl(
 template<typename T, typename A> inline unsigned int GetSerializeSize(const std::vector<T, A>& v, int nType, int nVersion);
 template<typename Stream, typename T, typename A> void Serialize_impl(Stream& os, const std::vector<T, A>& v, int nType, int nVersion, const unsigned char&);
 template<typename Stream, typename T, typename A, typename V> void Serialize_impl(Stream& os, const std::vector<T, A>& v, int nType, int nVersion, const V&);
-template<typename Stream, typename T, typename A> inline void Serialize(Stream& os, const std::vector<T, A>& v, int nType, int nVersion);
+template<typename Stream, typename T, typename A> inline std::enable_if_t<std::is_same_v<typename A::value_type,T>> Serialize(Stream& os, const std::vector<T, A>& v, int nType, int nVersion);
 template<typename Stream, typename T, typename A> void Unserialize_impl(Stream& is, std::vector<T, A>& v, int nType, int nVersion, const unsigned char&);
 template<typename Stream, typename T, typename A, typename V> void Unserialize_impl(Stream& is, std::vector<T, A>& v, int nType, int nVersion, const V&);
 template<typename Stream, typename T, typename A> inline void Unserialize(Stream& is, std::vector<T, A>& v, int nType, int nVersion);
@@ -591,14 +622,14 @@ template<typename Stream, typename K, typename T, typename Pred, typename A> voi
  * set
  */
 template<typename K, typename Pred, typename A> unsigned int GetSerializeSize(const std::set<K, Pred, A>& m, int nType, int nVersion);
-template<typename Stream, typename K, typename Pred, typename A> void Serialize(Stream& os, const std::set<K, Pred, A>& m, int nType, int nVersion);
+template<typename Stream, typename K, typename Pred, typename A> std::enable_if_t<std::is_same_v<typename A::value_type,K>> Serialize(Stream& os, const std::set<K, Pred, A>& m, int nType, int nVersion);
 template<typename Stream, typename K, typename Pred, typename A> void Unserialize(Stream& is, std::set<K, Pred, A>& m, int nType, int nVersion);
 
 /**
  * list
  */
 template<typename T, typename A> unsigned int GetSerializeSize(const std::list<T, A>& m, int nType, int nVersion);
-template<typename Stream, typename T, typename A> void Serialize(Stream& os, const std::list<T, A>& m, int nType, int nVersion);
+template<typename Stream, typename T, typename A> std::enable_if_t<std::is_same_v<typename A::value_type,T>> Serialize(Stream& os, const std::list<T, A>& m, int nType, int nVersion);
 template<typename Stream, typename T, typename A> void Unserialize(Stream& is, std::list<T, A>& m, int nType, int nVersion);
 
 
@@ -707,7 +738,7 @@ void Serialize_impl(Stream& os, const std::vector<T, A>& v, int nType, int nVers
 }
 
 template<typename Stream, typename T, typename A>
-inline void Serialize(Stream& os, const std::vector<T, A>& v, int nType, int nVersion)
+inline std::enable_if_t<std::is_same_v<typename A::value_type,T>> Serialize(Stream& os, const std::vector<T, A>& v, int nType, int nVersion)
 {
     Serialize_impl(os, v, nType, nVersion, T());
 }
@@ -962,7 +993,7 @@ unsigned int GetSerializeSize(const std::set<K, Pred, A>& m, int nType, int nVer
 }
 
 template<typename Stream, typename K, typename Pred, typename A>
-void Serialize(Stream& os, const std::set<K, Pred, A>& m, int nType, int nVersion)
+std::enable_if_t<std::is_same_v<typename A::value_type,K>> Serialize(Stream& os, const std::set<K, Pred, A>& m, int nType, int nVersion)
 {
     WriteCompactSize(os, m.size());
     for (typename std::set<K, Pred, A>::const_iterator it = m.begin(); it != m.end(); ++it)
@@ -998,7 +1029,8 @@ unsigned int GetSerializeSize(const std::list<T, A>& l, int nType, int nVersion)
 }
 
 template<typename Stream, typename T, typename A>
-void Serialize(Stream& os, const std::list<T, A>& l, int nType, int nVersion)
+std::enable_if_t<std::is_same_v<typename A::value_type,T>> // try to enforce that A is an allocator for type T
+Serialize(Stream& os, const std::list<T, A>& l, int nType, int nVersion)
 {
     WriteCompactSize(os, l.size());
     for (typename std::list<T, A>::const_iterator it = l.begin(); it != l.end(); ++it)
@@ -1019,6 +1051,32 @@ void Unserialize(Stream& is, std::list<T, A>& l, int nType, int nVersion)
     }
 }
 
+
+/**
+ * Collections w/ iterators (vector, list, dequeue...) with type casting.
+ * For example, this is useful in combination with smart pointers for polymorphism.
+ */
+
+template<typename Stream, typename Base, typename Container, typename Derived>
+void Serialize(Stream& os, const Container& l, int nType, int nVersion)
+{
+    WriteCompactSize(os, l.size());
+    for (typename Container::const_iterator it = l.begin(); it != l.end(); ++it) {
+        Serialize<Stream, Base, Derived>(os, (*it), nType, nVersion);
+    }
+}
+
+template<typename Stream, typename Base, typename Container, typename Derived>
+std::void_t<typename Container::value_type> // enforce that C has member value_type, as it happens for STL collections
+Unserialize(Stream& is, Container& l, int nType, int nVersion)
+{
+    l.clear();
+    unsigned int nSize = ReadCompactSize(is);
+    for (unsigned int i = 0; i < nSize; ++i) {
+        l.emplace_back(new Derived());
+        Unserialize<Stream, Base, Derived>(is, l.back(), nType, nVersion);
+    }
+}
 
 
 /**
@@ -1043,6 +1101,19 @@ template<typename Stream, typename T>
 inline void SerReadWrite(Stream& s, T& obj, int nType, int nVersion, CSerActionUnserialize ser_action)
 {
     ::Unserialize(s, obj, nType, nVersion);
+}
+
+
+template<typename Stream, typename Base, typename Container, typename Derived>
+inline void SerReadWrite(Stream& s, const Container& obj, int nType, int nVersion, CSerActionSerialize ser_action)
+{
+    ::Serialize<Stream, Base, Container, Derived>(s, obj, nType, nVersion);
+}
+
+template<typename Stream, typename Base, typename Container, typename Derived>
+inline void SerReadWrite(Stream& s, Container& obj, int nType, int nVersion, CSerActionUnserialize ser_action)
+{
+    ::Unserialize<Stream, Base, Container, Derived>(s, obj, nType, nVersion);
 }
 
 
