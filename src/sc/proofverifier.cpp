@@ -33,7 +33,13 @@ std::string ProofVerificationResultToString(ProofVerificationResult res)
  * 
  * @return CCertProofVerifierInput The structure containing all the data needed for the proof verification of the certificate.
  */
-CCertProofVerifierInput CScProofVerifier::CertificateToVerifierItem(const CScCertificate& certificate, const Sidechain::ScFixedParameters& scFixedParams, CNode* pfrom)
+#ifdef BITCOIN_TX
+CCertProofVerifierInput CScProofVerifier::CertificateToVerifierItem(const CScCertificate& certificate, const Sidechain::ScFixedParameters& scFixedParams, CNode* pfrom, const CCoinsViewCache* view)
+{
+    return CCertProofVerifierInput();
+}
+#else
+CCertProofVerifierInput CScProofVerifier::CertificateToVerifierItem(const CScCertificate& certificate, const Sidechain::ScFixedParameters& scFixedParams, CNode* pfrom, const CCoinsViewCache* view)
 {
     CCertProofVerifierInput certData;
 
@@ -81,8 +87,13 @@ CCertProofVerifierInput CScProofVerifier::CertificateToVerifierItem(const CScCer
     certData.proof = certificate.scProof;
     certData.verificationKey = scFixedParams.wCertVk;
 
+    if (view && scFixedParams.version >= 2) {
+        auto const& cdh = view->GetActiveCertView(certData.scId).certDataHash;
+        certData.lastCertHash = cdh.IsNull() ? CFieldElement::GetPhantomHash() : cdh;
+    }
     return certData;
 }
+#endif
 
 /**
  * @brief Creates the proof verifier input of a CSW transaction for the proof verifier.
@@ -149,7 +160,7 @@ void CScProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& view, 
     item.parentPtr = std::make_shared<CScCertificate>(scCert);
     item.node = pfrom;
     item.result = ProofVerificationResult::Unknown;
-    item.proofInput = CertificateToVerifierItem(scCert, sidechain.fixedParams, pfrom);
+    item.proofInput = CertificateToVerifierItem(scCert, sidechain.fixedParams, pfrom, &view);
     proofQueue.insert(std::make_pair(scCert.GetHash(), item));
 }
 
@@ -236,7 +247,7 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
         return true;
     }
 
-    // The paramenter in the ctor is a boolean telling mc-crypto lib if the rust verifier executing thread
+    // The parameter in the ctor is a boolean telling mc-crypto lib if the rust verifier executing thread
     // will be a high-priority one (default is false)
     ZendooBatchProofVerifier batchVerifier(verificationPriority == Priority::High);
     bool addFailure = false;
@@ -326,10 +337,13 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
             wrappedFieldPtr sptrScId = CFieldElement(certInput.scId).GetFieldElement();
             field_t* scidFe = sptrScId.get();
 
-            wrappedFieldPtr   sptrConst  = certInput.constant.GetFieldElement();
-            wrappedFieldPtr   sptrCum    = certInput.endEpochCumScTxCommTreeRoot.GetFieldElement();
-            wrappedScProofPtr sptrProof  = certInput.proof.GetProofPtr();
-            wrappedScVkeyPtr  sptrCertVk = certInput.verificationKey.GetVKeyPtr();
+            wrappedFieldPtr   sptrConst    = certInput.constant.GetFieldElement();
+            wrappedFieldPtr   sptrCum      = certInput.endEpochCumScTxCommTreeRoot.GetFieldElement();
+            wrappedScProofPtr sptrProof    = certInput.proof.GetProofPtr();
+            wrappedScVkeyPtr  sptrCertVk   = certInput.verificationKey.GetVKeyPtr();
+
+            // wrappedFieldPtr can be nullptr, which is expected for the optional parameter
+            wrappedFieldPtr   sptrPrevHash = certInput.lastCertHash.GetFieldElement();
 
             bool ret = batchVerifier.add_certificate_proof(
                 certInput.proofId,
@@ -346,6 +360,7 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
                 certInput.forwardTransferScFee,
                 sptrProof.get(),
                 sptrCertVk.get(),
+                sptrPrevHash.get(),
                 &code
             );
             //dumpBtArr((backward_transfer_t*)bt_list_ptr, bt_list_len, "bwt list");
@@ -479,10 +494,14 @@ ProofVerificationResult CScProofVerifier::NormalVerifyCertificate(CCertProofVeri
     wrappedFieldPtr sptrScId = CFieldElement(input.scId).GetFieldElement();
     field_t* scidFe = sptrScId.get();
 
-    wrappedFieldPtr   sptrConst  = input.constant.GetFieldElement();
-    wrappedFieldPtr   sptrCum    = input.endEpochCumScTxCommTreeRoot.GetFieldElement();
-    wrappedScProofPtr sptrProof  = input.proof.GetProofPtr();
-    wrappedScVkeyPtr  sptrCertVk = input.verificationKey.GetVKeyPtr();
+    wrappedFieldPtr   sptrConst    = input.constant.GetFieldElement();
+    wrappedFieldPtr   sptrCum      = input.endEpochCumScTxCommTreeRoot.GetFieldElement();
+    wrappedScProofPtr sptrProof    = input.proof.GetProofPtr();
+    wrappedScVkeyPtr  sptrCertVk   = input.verificationKey.GetVKeyPtr();
+
+    // wrappedFieldPtr can be nullptr, which is expected for the optional parameter
+    wrappedFieldPtr   sptrPrevHash = input.lastCertHash.GetFieldElement();
+
 
     bool ret = zendoo_verify_certificate_proof(
         sptrConst.get(),
@@ -498,6 +517,7 @@ ProofVerificationResult CScProofVerifier::NormalVerifyCertificate(CCertProofVeri
         input.forwardTransferScFee,
         sptrProof.get(),
         sptrCertVk.get(),
+        sptrPrevHash.get(),
         &code
     );
 

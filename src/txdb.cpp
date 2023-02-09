@@ -790,6 +790,8 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
                 if (!CheckProofOfWork(pindexNew->GetBlockHash(), pindexNew->nBits, Params().GetConsensus()))
                     return error("LoadBlockIndex(): CheckProofOfWork failed: %s", pindexNew->ToString());
 
+                if (!pindexNew->scCumTreeHash.IsNull() && ForkManager::getInstance().isNonCeasingSidechainActive(pindexNew->nHeight))
+                    mapCumtreeHeight.insert(std::make_pair(pindexNew->scCumTreeHash.GetLegacyHash(), pindexNew->nHeight));
                 pcursor->Next();
             } else {
                 break; // if shutdown requested or finished loading block index

@@ -20,8 +20,8 @@ zcash_CreateJoinSplit_SOURCES = \
     primitives/transaction.cpp \
     primitives/certificate.cpp \
     sc/sidechaintypes.cpp \
-    sc/proofverifier.cpp \
-    sc/sidechain.cpp
+    sc/proofverifier.cpp
+
 zcash_CreateJoinSplit_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) -DBITCOIN_TX
 zcash_CreateJoinSplit_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) -DBITCOIN_TX
 zcash_CreateJoinSplit_LDADD = \

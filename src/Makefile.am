@@ -622,6 +622,7 @@ libzencash_a_SOURCES = \
     zen/forks/fork7_replayprotectionfixfork.cpp\
     zen/forks/fork8_sidechainfork.cpp\
     zen/forks/fork9_sidechainversionfork.cpp\
+    zen/forks/fork10_nonceasingsidechainfork.cpp\
     zen/tlsmanager.cpp\
     zen/delay.cpp \
     zen/websocket_server.cpp
@@ -643,11 +644,10 @@ noinst_PROGRAMS += \
   
 # tool for testing sidechain
 zendoo_mcTest_SOURCES = \
-    zendoo/mcTestCall.cpp \
+    zendoo/mcTestCallMain.cpp \
     base58_codec.cpp \
     crypto/sha256.cpp \
-    uint256.cpp \
-    utilstrencodings.cpp
+    uint256.cpp
 
 zendoo_mcTest_CPPFLAGS = $(AM_CPPFLAGS) $(EVENT_CFLAGS) $(PIC_FLAGS)
 zendoo_mcTest_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)

@@ -9,7 +9,7 @@ from test_framework.util import assert_true, initialize_chain_clean, \
     start_nodes, connect_nodes_bi, mark_logs, \
     get_epoch_data, get_spendable, swap_bytes, advance_epoch, \
     get_field_element_with_padding
-from test_framework.test_framework import MINIMAL_SC_HEIGHT
+from test_framework.test_framework import ForkHeights
 from test_framework.mc_test.mc_test import CSWTestUtils, CertTestUtils, generate_random_field_element_hex
 import os
 from decimal import Decimal
@@ -122,8 +122,8 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
         self.nodes[1].generate(2)
         self.sync_all()
 
-        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT), self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(MINIMAL_SC_HEIGHT)
+        mark_logs("Node 0 generates {} block".format(ForkHeights['MINIMAL_SC']), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(ForkHeights['MINIMAL_SC'])
         self.sync_all()
 
         #generate wCertVk and constant
@@ -312,7 +312,7 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
         self.nodes[0].generate(EPOCH_LENGTH - 1)
         self.sync_all()
 
-        epoch_number_1, epoch_cum_tree_hash_1 = get_epoch_data(scid1, self.nodes[0], EPOCH_LENGTH)
+        epoch_number_1, epoch_cum_tree_hash_1, _ = get_epoch_data(scid1, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number_1, epoch_cum_tree_hash_1), self.nodes, DEBUG_MODE)
 
         addr_node1a = self.nodes[1].getnewaddress()
@@ -349,9 +349,17 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
         fe1 = get_field_element_with_padding("0100", 0)
 
         quality = 72
-        scProof3 = certMcTest.create_test_proof(
-            'sc2', scid2_swapped, epoch_number_1, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant2,
-            addresses, amounts, [fe1])
+        scProof3 = certMcTest.create_test_proof('sc2',
+                                                scid2_swapped,
+                                                epoch_number_1,
+                                                quality,
+                                                MBTR_SC_FEE,
+                                                FT_SC_FEE,
+                                                epoch_cum_tree_hash_1,
+                                                constant      = constant2,
+                                                pks           = addresses,
+                                                amounts       = amounts,
+                                                custom_fields = [fe1])
 
         params = {
             'scid': scid2,
@@ -396,9 +404,17 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
         fe4 = BIT_VECTOR_FE
 
         quality = 18
-        scProof3 = certMcTest.create_test_proof(
-            'sc1', scid1_swapped, epoch_number_1, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant1,
-            addresses, amounts, [fe1, fe2, fe3, fe4])
+        scProof3 = certMcTest.create_test_proof('sc1',
+                                                scid1_swapped,
+                                                epoch_number_1,
+                                                quality,
+                                                MBTR_SC_FEE,
+                                                FT_SC_FEE,
+                                                epoch_cum_tree_hash_1,
+                                                constant      = constant1,
+                                                pks           = addresses,
+                                                amounts       = amounts,
+                                                custom_fields = [fe1, fe2, fe3, fe4])
 
         params = {
             'scid': scid1,
@@ -473,13 +489,23 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
 
         ceasingCumScTxCommTree = self.nodes[0].getceasingcumsccommtreehash(scid1)['ceasingCumScTxCommTree']
 
-        sc_proof0 = cswMcTest.create_test_proof(
-            "sc1", sc_csw_amount_0, scid1_swapped, null0, csw_mc_address,
-            ceasingCumScTxCommTree, actCertData, constant1) 
+        sc_proof0 = cswMcTest.create_test_proof("sc1",
+                                                sc_csw_amount_0,
+                                                scid1_swapped,
+                                                null0,
+                                                csw_mc_address,
+                                                ceasingCumScTxCommTree,
+                                                cert_data_hash = actCertData,
+                                                constant       = constant1) 
 
-        sc_proof1 = cswMcTest.create_test_proof(
-            "sc1", sc_csw_amount_1, scid1_swapped, null1, csw_mc_address,
-            ceasingCumScTxCommTree, actCertData, constant1) 
+        sc_proof1 = cswMcTest.create_test_proof("sc1",
+                                                sc_csw_amount_1,
+                                                scid1_swapped,
+                                                null1,
+                                                csw_mc_address,
+                                                ceasingCumScTxCommTree,
+                                                cert_data_hash = actCertData,
+                                                constant       = constant1) 
 
         sc_csws = [
             {

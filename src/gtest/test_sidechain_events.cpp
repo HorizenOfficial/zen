@@ -54,6 +54,7 @@ TEST_F(SidechainsEventsTestSuite, CertDataHash_EndWindowToEndWindows_WithoutCert
 
     initialScState.creationBlockHeight = 1;
     initialScState.fixedParams.withdrawalEpochLength = 5;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertReferencedEpoch = initialEpochReferencedByCert;
 
     initialScState.pastEpochTopQualityCertView.certDataHash = CFieldElement{std::vector<unsigned char>(CFieldElement::ByteSize(), 'a')};
@@ -89,6 +90,7 @@ TEST_F(SidechainsEventsTestSuite, CertDataHash_EndWindowToEndWindows_WithCert) {
 
     sidechain.creationBlockHeight = 1;
     sidechain.fixedParams.withdrawalEpochLength = 100;
+    sidechain.fixedParams.version = 0;
     sidechain.lastTopQualityCertReferencedEpoch = initialEpochReferencedByCert;
     sidechain.InitScFees();
 
@@ -167,6 +169,7 @@ TEST_F(SidechainsEventsTestSuite, SidechainInItsFirstEpochIsNotCeased) {
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1912;
     initialScState.fixedParams.withdrawalEpochLength = 9;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertReferencedEpoch = CScCertificate::EPOCH_NULL;
     initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
@@ -193,6 +196,7 @@ TEST_F(SidechainsEventsTestSuite, SidechainIsNotCeasedBeforeNextEpochSafeguard) 
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1912;
     initialScState.fixedParams.withdrawalEpochLength = 9;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
@@ -219,6 +223,7 @@ TEST_F(SidechainsEventsTestSuite, SidechainIsCeasedAtNextEpochSafeguard) {
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1912;
     initialScState.fixedParams.withdrawalEpochLength = 9;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
@@ -246,6 +251,7 @@ TEST_F(SidechainsEventsTestSuite, FullCertMovesSidechainTerminationToNextEpochSa
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1912;
     initialScState.fixedParams.withdrawalEpochLength = 9;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
@@ -263,7 +269,7 @@ TEST_F(SidechainsEventsTestSuite, FullCertMovesSidechainTerminationToNextEpochSa
     CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch,
         CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0),
         /*numBwt*/2, /*ftScFee*/0, /*mbtrScFee*/0);
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     CSidechain sidechainAfterCert;
     ASSERT_TRUE(view->GetSidechain(scId, sidechainAfterCert));
@@ -287,6 +293,7 @@ TEST_F(SidechainsEventsTestSuite, PureBwtCertificateMovesSidechainTerminationToN
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1912;
     initialScState.fixedParams.withdrawalEpochLength = 9;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.balance = CAmount{100};
     initialScState.InitScFees();
@@ -305,7 +312,7 @@ TEST_F(SidechainsEventsTestSuite, PureBwtCertificateMovesSidechainTerminationToN
     CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch,
         CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtAmount*/CAmount(10), /*numBwt*/1,
         /*ftScFee*/0, /*mbtrScFee*/0);
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     CSidechain sidechainAfterCert;
     ASSERT_TRUE(view->GetSidechain(scId, sidechainAfterCert));
@@ -329,6 +336,7 @@ TEST_F(SidechainsEventsTestSuite, NoBwtCertificateMovesSidechainTerminationToNex
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1912;
     initialScState.fixedParams.withdrawalEpochLength = 9;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
@@ -346,7 +354,7 @@ TEST_F(SidechainsEventsTestSuite, NoBwtCertificateMovesSidechainTerminationToNex
     CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch,
              CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(10),/*numChangeOut*/1, /*bwtAmount*/CAmount(0), /*numBwt*/0,
              /*ftScFee*/0, /*mbtrScFee*/0);
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     CSidechain sidechainAfterCert;
     ASSERT_TRUE(view->GetSidechain(scId, sidechainAfterCert));
@@ -370,6 +378,7 @@ TEST_F(SidechainsEventsTestSuite, EmptyCertificateMovesSidechainTerminationToNex
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1912;
     initialScState.fixedParams.withdrawalEpochLength = 9;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
@@ -387,7 +396,7 @@ TEST_F(SidechainsEventsTestSuite, EmptyCertificateMovesSidechainTerminationToNex
     CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch,
             CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtAmount*/CAmount(0), /*numBwt*/0,
             /*ftScFee*/0, /*mbtrScFee*/0);
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     CSidechain sidechainAfterCert;
     ASSERT_TRUE(view->GetSidechain(scId, sidechainAfterCert));
@@ -432,6 +441,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForFullCert) {
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1912;
     initialScState.fixedParams.withdrawalEpochLength = 9;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
@@ -449,7 +459,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForFullCert) {
     CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch,
             CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0), /*numBwt*/2,
             /*ftScFee*/0, /*mbtrScFee*/0);
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     CSidechain sidechainAfterCert;
     ASSERT_TRUE(view->GetSidechain(scId, sidechainAfterCert));
@@ -467,6 +477,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForPureBwtCert) {
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1912;
     initialScState.fixedParams.withdrawalEpochLength = 9;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.balance = CAmount(19);
     initialScState.InitScFees();
@@ -485,7 +496,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForPureBwtCert) {
     CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch,
             CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(0), /*numChangeOut*/0,/*bwtAmount*/CAmount(0), /*numBwt*/4,
             /*ftScFee*/0, /*mbtrScFee*/0);
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     CSidechain sidechainAfterCert;
     ASSERT_TRUE(view->GetSidechain(scId, sidechainAfterCert));
@@ -503,6 +514,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForNoBwtCert) {
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1912;
     initialScState.fixedParams.withdrawalEpochLength = 9;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
@@ -520,7 +532,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForNoBwtCert) {
     CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch,
             CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(3), /*numChangeOut*/3,/*bwtAmount*/CAmount(0), /*numBwt*/0,
             /*ftScFee*/0, /*mbtrScFee*/0);
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     CSidechain sidechainAfterCert;
     ASSERT_TRUE(view->GetSidechain(scId, sidechainAfterCert));
@@ -538,6 +550,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForEmptyCertificate) {
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1912;
     initialScState.fixedParams.withdrawalEpochLength = 9;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
@@ -555,7 +568,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForEmptyCertificate) {
     CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch,
             CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(0), /*numChangeOut*/0,/*bwtAmount*/CAmount(0), /*numBwt*/0,
             /*ftScFee*/0, /*mbtrScFee*/0);
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     CSidechain sidechainAfterCert;
     ASSERT_TRUE(view->GetSidechain(scId, sidechainAfterCert));
@@ -575,6 +588,7 @@ TEST_F(SidechainsEventsTestSuite, FullCertCoinsHaveBwtStrippedOutWhenSidechainCe
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1987;
     initialScState.fixedParams.withdrawalEpochLength = 9;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.balance = CAmount{20};
     initialScState.InitScFees();
@@ -598,7 +612,7 @@ TEST_F(SidechainsEventsTestSuite, FullCertCoinsHaveBwtStrippedOutWhenSidechainCe
     mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
     CScCertificate cert(mutCert);
 
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     //Generate coin from certificate
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
@@ -632,6 +646,7 @@ TEST_F(SidechainsEventsTestSuite, PureBwtCoinsAreRemovedWhenSidechainCeases) {
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 201;
     initialScState.fixedParams.withdrawalEpochLength = 9;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.balance = CAmount{20};
     initialScState.InitScFees();
@@ -655,7 +670,7 @@ TEST_F(SidechainsEventsTestSuite, PureBwtCoinsAreRemovedWhenSidechainCeases) {
     mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
     CScCertificate cert(mutCert);
 
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     //Generate coin from certificate
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
@@ -699,6 +714,7 @@ TEST_F(SidechainsEventsTestSuite, NoBwtCertificatesCoinsAreNotAffectedByCeasedSi
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 201;
     initialScState.fixedParams.withdrawalEpochLength = 9;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
@@ -721,7 +737,7 @@ TEST_F(SidechainsEventsTestSuite, NoBwtCertificatesCoinsAreNotAffectedByCeasedSi
     mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
     CScCertificate cert(mutCert);
 
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     //Generate coin from certificate
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
@@ -755,6 +771,7 @@ TEST_F(SidechainsEventsTestSuite, EmptyCertificatesCoinsAreNotAffectedByCeasedSi
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 201;
     initialScState.fixedParams.withdrawalEpochLength = 9;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
@@ -777,7 +794,7 @@ TEST_F(SidechainsEventsTestSuite, EmptyCertificatesCoinsAreNotAffectedByCeasedSi
     mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
     CScCertificate cert(mutCert);
 
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     //Generate coin from certificate
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
@@ -810,6 +827,7 @@ TEST_F(SidechainsEventsTestSuite, RestoreFullCertCeasedCoins) {
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1987;
     initialScState.fixedParams.withdrawalEpochLength = 9;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.balance = CAmount{20};
     initialScState.InitScFees();
@@ -833,7 +851,7 @@ TEST_F(SidechainsEventsTestSuite, RestoreFullCertCeasedCoins) {
     mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
     CScCertificate cert(mutCert);
 
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     //Generate coin from certificate
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
@@ -873,6 +891,7 @@ TEST_F(SidechainsEventsTestSuite, RestorePureBwtCeasedCoins) {
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1987;
     initialScState.fixedParams.withdrawalEpochLength = 9;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.balance = CAmount{20};
     initialScState.InitScFees();
@@ -896,7 +915,7 @@ TEST_F(SidechainsEventsTestSuite, RestorePureBwtCeasedCoins) {
     mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
     CScCertificate cert(mutCert);
 
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     //Generate coin from certificate
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
@@ -936,6 +955,7 @@ TEST_F(SidechainsEventsTestSuite, RestoreNoBwtCeasedCoins) {
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1987;
     initialScState.fixedParams.withdrawalEpochLength = 9;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
@@ -958,7 +978,7 @@ TEST_F(SidechainsEventsTestSuite, RestoreNoBwtCeasedCoins) {
     mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
     CScCertificate cert(mutCert);
 
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     //Generate coin from certificate
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
@@ -998,6 +1018,7 @@ TEST_F(SidechainsEventsTestSuite, RestoreEmptyCertCeasedCoins) {
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1987;
     initialScState.fixedParams.withdrawalEpochLength = 9;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
@@ -1020,7 +1041,7 @@ TEST_F(SidechainsEventsTestSuite, RestoreEmptyCertCeasedCoins) {
     mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
     CScCertificate cert(mutCert);
 
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     //Generate coin from certificate
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
@@ -1075,6 +1096,7 @@ TEST_F(SidechainsEventsTestSuite, UndoFullCertUpdatesToCeasingScs) {
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1987;
     initialScState.fixedParams.withdrawalEpochLength = 9;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.balance = CAmount{20};
     initialScState.InitScFees();
@@ -1100,7 +1122,7 @@ TEST_F(SidechainsEventsTestSuite, UndoFullCertUpdatesToCeasingScs) {
 
     // update sidechain with the certificate
     CBlockUndo certUndo(IncludeScAttributes::ON);
-    ASSERT_TRUE(view->UpdateSidechain(cert, certUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, certUndo, view->GetHeight()+1));
     CSidechain postCertSidechain;
     ASSERT_TRUE(view->GetSidechain(scId, postCertSidechain));
     int postCertCeasingHeight = postCertSidechain.GetScheduledCeasingHeight();
@@ -1126,6 +1148,7 @@ TEST_F(SidechainsEventsTestSuite, UndoPureBwtCertUpdatesToCeasingScs) {
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1987;
     initialScState.fixedParams.withdrawalEpochLength = 9;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.balance = CAmount{5};
     initialScState.InitScFees();
@@ -1151,7 +1174,7 @@ TEST_F(SidechainsEventsTestSuite, UndoPureBwtCertUpdatesToCeasingScs) {
 
     // update sidechain with the certificate
     CBlockUndo certUndo(IncludeScAttributes::ON);
-    ASSERT_TRUE(view->UpdateSidechain(cert, certUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, certUndo, view->GetHeight()+1));
     CSidechain postCertSidechain;
     ASSERT_TRUE(view->GetSidechain(scId, postCertSidechain));
     int postCertCeasingHeight = postCertSidechain.GetScheduledCeasingHeight();
@@ -1177,6 +1200,7 @@ TEST_F(SidechainsEventsTestSuite, UndoNoBwtCertUpdatesToCeasingScs) {
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1987;
     initialScState.fixedParams.withdrawalEpochLength = 9;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
@@ -1201,7 +1225,7 @@ TEST_F(SidechainsEventsTestSuite, UndoNoBwtCertUpdatesToCeasingScs) {
 
     // update sidechain with the certificate
     CBlockUndo certUndo(IncludeScAttributes::ON);
-    ASSERT_TRUE(view->UpdateSidechain(cert, certUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, certUndo, view->GetHeight()+1));
     CSidechain postCertSidechain;
     ASSERT_TRUE(view->GetSidechain(scId, postCertSidechain));
     int postCertCeasingHeight = postCertSidechain.GetScheduledCeasingHeight();
@@ -1227,6 +1251,7 @@ TEST_F(SidechainsEventsTestSuite, UndoEmptyCertUpdatesToCeasingScs) {
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1987;
     initialScState.fixedParams.withdrawalEpochLength = 9;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
@@ -1251,7 +1276,7 @@ TEST_F(SidechainsEventsTestSuite, UndoEmptyCertUpdatesToCeasingScs) {
 
     // update sidechain with the certificate
     CBlockUndo certUndo(IncludeScAttributes::ON);
-    ASSERT_TRUE(view->UpdateSidechain(cert, certUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, certUndo, view->GetHeight()+1));
     CSidechain postCertSidechain;
     ASSERT_TRUE(view->GetSidechain(scId, postCertSidechain));
     int postCertCeasingHeight = postCertSidechain.GetScheduledCeasingHeight();

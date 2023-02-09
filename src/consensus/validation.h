@@ -18,25 +18,26 @@ public:
     /** "reject" message codes */
     enum class Code : unsigned char
     {
-        OK = 0x00,
-        MALFORMED = 0x01,
-        INVALID = 0x10,
-        OBSOLETE = 0x11,
-        DUPLICATED = 0x12,
-        NONSTANDARD = 0x40,
-        DUST = 0x41,       //unused apparently
-        INSUFFICIENT_FEE = 0x42,
-        CHECKPOINT = 0x43, //unused apparently
+        OK                           = 0x00,
+        MALFORMED                    = 0x01,
+        INVALID                      = 0x10,
+        OBSOLETE                     = 0x11,
+        DUPLICATED                   = 0x12,
+        INVALID_AND_BAN              = 0x13,
+        NONSTANDARD                  = 0x40,
+        DUST                         = 0x41, //unused apparently
+        INSUFFICIENT_FEE             = 0x42,
+        CHECKPOINT                   = 0x43, //unused apparently
         CHECKBLOCKATHEIGHT_NOT_FOUND = 0x44,
-        SCID_NOT_FOUND = 0x45,
-        INSUFFICIENT_SCID_FUNDS = 0x46,
-        ABSURDLY_HIGH_FEE = 0x47,
-        HAS_CONFLICTS = 0x48,
-        NO_COINS_FOR_INPUT = 0x49,
-        INVALID_PROOF = 0x4a,
-        SC_CUM_COMM_TREE = 0x4b,
-        ACTIVE_CERT_DATA_HASH = 0x4c,
-        TOO_MANY_CSW_INPUTS_FOR_SC = 0x4d
+        SCID_NOT_FOUND               = 0x45,
+        INSUFFICIENT_SCID_FUNDS      = 0x46,
+        ABSURDLY_HIGH_FEE            = 0x47,
+        HAS_CONFLICTS                = 0x48,
+        NO_COINS_FOR_INPUT           = 0x49,
+        INVALID_PROOF                = 0x4a,
+        SC_CUM_COMM_TREE             = 0x4b,
+        ACTIVE_CERT_DATA_HASH        = 0x4c,
+        TOO_MANY_CSW_INPUTS_FOR_SC   = 0x4d
     };
 
     // The following makes CValidationState::Code serializable
@@ -79,7 +80,7 @@ public:
 
     bool CorruptionPossible()     const { return corruptionPossible; }
     Code GetRejectCode() const { return chRejectCode; }
-    std::string GetRejectReason() const { return strRejectReason; }
+    const std::string& GetRejectReason() const { return strRejectReason; }
 
 private:
     enum class State

@@ -10,7 +10,7 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
     wait_bitcoinds, stop_nodes, sync_mempools, sync_blocks, \
     disconnect_nodes, advance_epoch, swap_bytes
 
-from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
+from test_framework.test_framework import ForkHeights, MINER_REWARD_POST_H200
 
 from test_framework.mc_test.mc_test import *
 
@@ -49,7 +49,7 @@ class CswActCertDataTest(BitcoinTestFramework):
         '''
 
         # prepare some coins 
-        self.nodes[0].generate(MINIMAL_SC_HEIGHT)
+        self.nodes[0].generate(ForkHeights['MINIMAL_SC'])
         self.sync_all()
         prev_epoch_hash = self.nodes[0].getbestblockhash()
 
@@ -133,9 +133,14 @@ class CswActCertDataTest(BitcoinTestFramework):
         ceasingCumScTxCommTree = self.nodes[0].getceasingcumsccommtreehash(scid)['ceasingCumScTxCommTree']
 
         scid1_swapped = swap_bytes(scid)
-        sc_proof = cswMcTest.create_test_proof(
-                "sc", sc_csw_amount, str(scid1_swapped), nullifier, csw_mc_address, ceasingCumScTxCommTree,
-                actCertData, constant1)
+        sc_proof = cswMcTest.create_test_proof("sc",
+                                               sc_csw_amount,
+                                               str(scid1_swapped),
+                                               nullifier,
+                                               csw_mc_address,
+                                               ceasingCumScTxCommTree,
+                                               cert_data_hash = actCertData,
+                                               constant       = constant1)
         
         sc_csws = [
         {

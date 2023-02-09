@@ -10,7 +10,7 @@ from decimal import Decimal
 import time
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.test_framework import MINIMAL_SC_HEIGHT
+from test_framework.test_framework import ForkHeights
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_false, assert_true, assert_equal, initialize_chain_clean, \
     start_nodes, start_node, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
@@ -65,8 +65,8 @@ class ScCertDust(BitcoinTestFramework):
         self.nodes[1].generate(2)
         self.sync_all()
 
-        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT-2),self.nodes,DEBUG_MODE)
-        self.nodes[0].generate(MINIMAL_SC_HEIGHT-2)
+        mark_logs("Node 0 generates {} block".format(ForkHeights['MINIMAL_SC']-2),self.nodes,DEBUG_MODE)
+        self.nodes[0].generate(ForkHeights['MINIMAL_SC']-2)
         self.sync_all()
 
         #generate wCertVk and constant
@@ -129,13 +129,20 @@ class ScCertDust(BitcoinTestFramework):
             mark_logs("\nAdvance epoch...", self.nodes, DEBUG_MODE)
             self.nodes[0].generate(EPOCH_LENGTH - 1)
             self.sync_all()
-            epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+            epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
             mark_logs("Node 1 sends a cert with a bwd transfers of {} coins to Node2".format(bwt_amount), self.nodes, DEBUG_MODE)
             #==============================================================
-            proof = mc_test.create_test_proof(
-                "sc1", scid_swapped, epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
-                constant, addr_array, bwt_amount_array)
+            proof = mc_test.create_test_proof("sc1",
+                                              scid_swapped,
+                                              epoch_number,
+                                              q,
+                                              MBTR_SC_FEE,
+                                              FT_SC_FEE,
+                                              epoch_cum_tree_hash,
+                                              constant = constant,
+                                              pks      = addr_array,
+                                              amounts  = bwt_amount_array)
 
             try:
                 cert = self.nodes[1].sc_send_certificate(scid, epoch_number, q,
@@ -169,9 +176,16 @@ class ScCertDust(BitcoinTestFramework):
         bwt_amount_array = [dust_amount]
         addr_array = [addr_node2]
         quality = 0
-        proof = mc_test.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE,
-            epoch_cum_tree_hash, constant, addr_array, bwt_amount_array)
+        proof = mc_test.create_test_proof("sc1",
+                                          scid_swapped,
+                                          epoch_number,
+                                          quality,
+                                          MBTR_SC_FEE,
+                                          FT_SC_FEE,
+                                          epoch_cum_tree_hash,
+                                          constant = constant,
+                                          pks      = addr_array,
+                                          amounts  = bwt_amount_array)
 
         utx, change = get_spendable(self.nodes[0], CERT_FEE)
         raw_inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]

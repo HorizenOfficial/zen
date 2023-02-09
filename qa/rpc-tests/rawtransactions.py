@@ -9,7 +9,7 @@
 #
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.test_framework import MINIMAL_SC_HEIGHT
+from test_framework.test_framework import ForkHeights
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, connect_nodes_bi, assert_true, advance_epoch, mark_logs, \
@@ -61,8 +61,14 @@ class RawTransactionsTest(BitcoinTestFramework):
         scid_swapped           = swap_bytes(scid)
         nullifier              = generate_random_field_element_hex()
 
-        sc_proof = self.cswMcTest.create_test_proof(
-            tag, sc_csw_amount, scid_swapped, nullifier, csw_mc_address, ceasingCumScTxCommTree, actCertData, constant)
+        sc_proof = self.cswMcTest.create_test_proof(tag,
+                                                    sc_csw_amount,
+                                                    scid_swapped,
+                                                    nullifier,
+                                                    csw_mc_address,
+                                                    ceasingCumScTxCommTree,
+                                                    cert_data_hash = actCertData,
+                                                    constant       = constant)
         assert_true(sc_proof is not None)
         
         sc_csws = [{
@@ -194,8 +200,8 @@ class RawTransactionsTest(BitcoinTestFramework):
         #########################
         print("Testing the SC creation with createrawtransaction function")
 
-        print("Node 1 generate "+str(MINIMAL_SC_HEIGHT-self.nodes[0].getblockcount())+" blocks to reach minimal sidechain height...")
-        self.nodes[1].generate(MINIMAL_SC_HEIGHT-self.nodes[0].getblockcount())
+        print("Node 1 generate "+str(ForkHeights['MINIMAL_SC']-self.nodes[0].getblockcount())+" blocks to reach minimal sidechain height...")
+        self.nodes[1].generate(ForkHeights['MINIMAL_SC']-self.nodes[0].getblockcount())
         self.sync_all()
 
         sc_address = "0000000000000000000000000000000000000000000000000000000000000abc"

@@ -9,7 +9,7 @@ from test_framework.authproxy import JSONRPCException, AuthServiceProxy
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
     get_epoch_data, assert_false, assert_true, swap_bytes, start_node
-from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
+from test_framework.test_framework import ForkHeights, MINER_REWARD_POST_H200
 from test_framework.mc_test.mc_test import *
 import os
 from decimal import Decimal
@@ -61,8 +61,8 @@ class sc_proof_verifier_low_priority_threads(BitcoinTestFramework):
 
         self.nodes[0].getblockhash(0)
 
-        mark_logs("Node generates {} block".format(MINIMAL_SC_HEIGHT), self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(MINIMAL_SC_HEIGHT)
+        mark_logs("Node generates {} block".format(ForkHeights['MINIMAL_SC']), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(ForkHeights['MINIMAL_SC'])
 
         # SC creation
         # Generate wCertVk and constant
@@ -115,15 +115,23 @@ class sc_proof_verifier_low_priority_threads(BitcoinTestFramework):
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc balance has matured
         assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immatureAmounts']), 0)
 
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)
 
         addr_node0 = self.nodes[0].getnewaddress()
 
         #Create proof for WCert
         quality = 10
-        proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node0], [bwt_amount])
+        proof = mcTest.create_test_proof("sc1",
+                                         scid_swapped,
+                                         epoch_number,
+                                         quality,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         epoch_cum_tree_hash,
+                                         constant = constant,
+                                         pks      = [addr_node0],
+                                         amounts  = [bwt_amount])
 
         amount_cert_1 = [{"address": addr_node0, "amount": bwt_amount}]
 

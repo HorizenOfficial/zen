@@ -10,7 +10,7 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs,\
     get_epoch_data, assert_false, assert_true, swap_bytes
 
-from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
+from test_framework.test_framework import ForkHeights, MINER_REWARD_POST_H200
 
 from test_framework.mc_test.mc_test import *
 import os
@@ -123,8 +123,8 @@ class ws_messages(BitcoinTestFramework):
         self.nodes[1].generate(1)
         self.sync_all()
 
-        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT), self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(MINIMAL_SC_HEIGHT)
+        mark_logs("Node 0 generates {} block".format(ForkHeights['MINIMAL_SC']), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(ForkHeights['MINIMAL_SC'])
         self.sync_all()
 
         mark_logs("Sending an invalid ws message", self.nodes, DEBUG_MODE)
@@ -182,16 +182,23 @@ class ws_messages(BitcoinTestFramework):
         self.nodes[0].generate(3)
         self.sync_all()
 
-        epoch_number, cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, cumulative_hash = {}".format(epoch_number, cum_tree_hash), self.nodes, DEBUG_MODE)
 
         addr_node1 = self.nodes[1].getnewaddress()
 
         #Create proof for WCert
         quality = 0
-        proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE,
-            cum_tree_hash, constant, [addr_node1], [bwt_amount])
+        proof = mcTest.create_test_proof("sc1",
+                                         scid_swapped,
+                                         epoch_number,
+                                         quality,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         cum_tree_hash,
+                                         constant = constant,
+                                         pks      = [addr_node1],
+                                         amounts  = [bwt_amount])
 
         amount_cert_1 = [{"address": addr_node1, "amount": bwt_amount}]
         mark_logs("Node 0 performs a bwd transfer to Node1 address {} of {} coins via Websocket".format(amount_cert_1[0]["address"], amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)
@@ -444,7 +451,7 @@ class ws_messages(BitcoinTestFramework):
         self.nodes[0].generate(SC2_EPOCH_LENGTH - 2)
         self.sync_all()
 
-        epoch_number, cum_tree_hash = get_epoch_data(scid2, self.nodes[0], SC2_EPOCH_LENGTH)
+        epoch_number, cum_tree_hash, _ = get_epoch_data(scid2, self.nodes[0], SC2_EPOCH_LENGTH)
         mark_logs("epoch_number = {}, cum_tree_hash = {}".format(epoch_number, cum_tree_hash), self.nodes, DEBUG_MODE)
 
         addr_node1 = self.nodes[1].getnewaddress()
@@ -452,9 +459,16 @@ class ws_messages(BitcoinTestFramework):
         #Create proof for WCert
         cert1_quality = 20
         scid_swapped = str(swap_bytes(scid2))
-        proof = mcTest.create_test_proof(
-            "sc2", scid_swapped, epoch_number, cert1_quality, MBTR_SC_FEE, FT_SC_FEE,
-            cum_tree_hash, sc2_constant, [addr_node1], [bwt_amount])
+        proof = mcTest.create_test_proof("sc2",
+                                         scid_swapped,
+                                         epoch_number,
+                                         cert1_quality,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         cum_tree_hash,
+                                         constant = sc2_constant,
+                                         pks      = [addr_node1],
+                                         amounts  = [bwt_amount])
 
         amount_cert_1 = [{"address": addr_node1, "amount": bwt_amount}]
         mark_logs("Node 0 performs a bwd transfer to Node1 address {} of {} coins via Websocket".format(amount_cert_1[0]["address"], amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)
@@ -485,9 +499,16 @@ class ws_messages(BitcoinTestFramework):
 
         #Create proof for WCert
         cert_2_quality = 25
-        proof2 = mcTest.create_test_proof(
-            "sc2", scid_swapped, epoch_number, cert_2_quality, MBTR_SC_FEE, FT_SC_FEE,
-            cum_tree_hash, sc2_constant, [addr_node1], [bwt_amount])
+        proof2 = mcTest.create_test_proof("sc2",
+                                         scid_swapped,
+                                         epoch_number,
+                                         cert_2_quality,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         cum_tree_hash,
+                                         constant = sc2_constant,
+                                         pks      = [addr_node1],
+                                         amounts  = [bwt_amount])
 
         amount_cert_2 = [{"address": addr_node1, "amount": bwt_amount}]
         mark_logs("Node 0 performs a bwd transfer to Node1 address {} of {} coins via Websocket".format(amount_cert_1[0]["address"], amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)
@@ -507,7 +528,7 @@ class ws_messages(BitcoinTestFramework):
         assert_equal(cert_1_epoch_0, chain_cert_['certHash'])
         
         self.nodes[0].generate(SC2_EPOCH_LENGTH)
-        epoch_number, cum_tree_hash = get_epoch_data(scid2, self.nodes[0], SC2_EPOCH_LENGTH)
+        epoch_number, cum_tree_hash, _ = get_epoch_data(scid2, self.nodes[0], SC2_EPOCH_LENGTH)
         self.sync_all()
         assert_equal(1, epoch_number)
 
