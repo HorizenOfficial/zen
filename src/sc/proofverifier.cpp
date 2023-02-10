@@ -504,30 +504,28 @@ ProofVerificationResult CScProofVerifier::NormalVerifyCertificate(CCertProofVeri
 
 
     bool ret = zendoo_verify_certificate_proof(
-        sptrConst.get(),
-        scidFe,
-        input.epochNumber,
-        input.quality,
-        bt_list_ptr,
-        bt_list_len,
-        custom_fields.get(),
-        custom_fields_len,
-        sptrCum.get(),
-        input.mainchainBackwardTransferRequestScFee,
-        input.forwardTransferScFee,
-        sptrProof.get(),
-        sptrCertVk.get(),
-        sptrPrevHash.get(),
-        &code
-    );
+               sptrConst.get(),
+               scidFe,
+               input.epochNumber,
+               input.quality,
+               bt_list_ptr,
+               bt_list_len,
+               custom_fields.get(),
+               custom_fields_len,
+               sptrCum.get(),
+               input.mainchainBackwardTransferRequestScFee,
+               input.forwardTransferScFee,
+               sptrProof.get(),
+               sptrCertVk.get(),
+               &code);
 
-    if (!ret || code != CctpErrorCode::OK)
+    if (!ret)
     {
         LogPrintf("ERROR: %s():%d - certificate proof with ID [%d] does not verify: code [0x%x]\n",
-            __func__, __LINE__, input.proofId, code);
+                  __func__, __LINE__, input.proofId, code);
+        return ProofVerificationResult::Failed;
     }
-
-    return ret ? ProofVerificationResult::Passed : ProofVerificationResult::Failed;
+    return ProofVerificationResult::Passed;
 }
 
 /**
@@ -557,21 +555,21 @@ ProofVerificationResult CScProofVerifier::NormalVerifyCsw(std::vector<CCswProofV
 
         CctpErrorCode code;
         bool ret = zendoo_verify_csw_proof(
-                    input.nValue,
-                    sptrConst.get(),
-                    scid_fe, 
-                    sptrNullifier.get(),
-                    &bws_csw_pk_hash,
-                    sptrCdh.get(),
-                    sptrCum.get(),
-                    sptrProof.get(),
-                    sptrCeasedVk.get(),
-                    &code);
+                   input.nValue,
+                   sptrConst.get(),
+                   scid_fe,
+                   sptrNullifier.get(),
+                   &bws_csw_pk_hash,
+                   sptrCdh.get(),
+                   sptrCum.get(),
+                   sptrProof.get(),
+                   sptrCeasedVk.get(),
+                   &code);
 
-        if (!ret || code != CctpErrorCode::OK)
+        if (!ret)
         {
-            LogPrintf("ERROR: %s():%d - Tx proof with ID [%d] does not verify: ret[%d], code [0x%x]\n",
-                __func__, __LINE__, input.proofId, (int)ret, code);
+            LogPrintf("ERROR: %s():%d - Tx proof with ID [%d] does not verify: code [0x%x]\n",
+                      __func__, __LINE__, input.proofId, code);
             return ProofVerificationResult::Failed;
         }
     }
