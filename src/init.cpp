@@ -679,47 +679,32 @@ void CleanupBlockRevFiles()
 
 void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
 {
+    CImportingNow imp; // Signal the import thread is running - It stays on for the whole duration
     RenameThread("horizen-loadblk");
-
-    // -reindex or -reindexfast
-    if (fReindex || fReindexFast)
-    {
-        CImportingNow imp;
-        int nFile = 0;
-        if (fReindexFast) uiInterface.InitMessage(_("Reindexing block headers from files..."));
-        while (fReindexFast)
-        {
-            CDiskBlockPos pos(nFile, 0);
-            if (!boost::filesystem::exists(GetBlockPosFilename(pos, "blk")))
-                break; // No block files left to reindex
-            FILE *file = OpenBlockFile(pos, true);
-            if (!file) break; // This error is logged in OpenBlockFile
-            LogPrintf("Reindexing block file blk%05u.dat, headers-only...\n", (unsigned int)nFile);
-            LoadBlocksFromExternalFile(file, &pos, /*loadHeadersOnly*/true);
-            nFile++;
+    
+    // Reindex loops (in reverse order)
+    // + -- Import with headers only == true (loop #2)
+    // + -- Import with headers only == false (loop #1)
+    const int reindex_loops = static_cast<int>(fReindex) + static_cast<int>(fReindexFast);
+    CDiskBlockPos pos(0, 0);
+    for (int loop{reindex_loops}; loop > 0; --loop) {
+        const std::string format_label = loop == 2 ? _("Reindexing block headers from files... ") : _("Reindexing blocks from files... ");
+        const bool headers_only = loop == 2;
+        while (boost::filesystem::exists(GetBlockPosFilename(pos, "blk"))) {
+            FILE* file = OpenBlockFile(pos, true); // File must exist ...
+            assert(file != NULL);                  // hence on error we must assert
+            uiInterface.InitMessage(tfm::format(format_label + "[blk%05i.dat]", pos.nFile));
+            LoadBlocksFromExternalFile(file, &pos, headers_only);
+            ++pos.nFile;
+            pos.nPos = 0;
         }
-        if (fReindexFast)
-            LogPrintf("Headers-only reindexing finished. Going on with blocks\n");
-
-        nFile = 0;
-        uiInterface.InitMessage(_("Reindexing block from files..."));
-        while (true)
-        {
-            CDiskBlockPos pos(nFile, 0);
-            if (!boost::filesystem::exists(GetBlockPosFilename(pos, "blk")))
-                break; // No block files left to reindex
-            FILE *file = OpenBlockFile(pos, true);
-            if (!file) break; // This error is logged in OpenBlockFile
-            LogPrintf("Reindexing block file blk%05u.dat...\n", (unsigned int)nFile);
-            LoadBlocksFromExternalFile(file, &pos, /*loadHeadersOnly*/false);
-            nFile++;
-        }
-
-        pblocktree->WriteReindexing(false);
+        pos.nFile = 0;
+    }
+    if (reindex_loops) {
         fReindex = false;
-        pblocktree->WriteFastReindexing(false);
         fReindexFast = false;
-        LogPrintf("Reindexing finished\n");
+        pblocktree->WriteReindexing(fReindex);
+        pblocktree->WriteFastReindexing(fReindexFast);
         uiInterface.InitMessage(_("Reindexing finished"));
 
         // To avoid ending up in a situation without genesis block, re-try initializing (no-op if reindexing worked):
@@ -731,7 +716,6 @@ void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
     if (boost::filesystem::exists(pathBootstrap)) {
         FILE *file = fopen(pathBootstrap.string().c_str(), "rb");
         if (file) {
-            CImportingNow imp;
             boost::filesystem::path pathBootstrapOld = GetDataDir() / "bootstrap.dat.old";
             LogPrintf("Importing bootstrap.dat...\n");
             LoadBlocksFromExternalFile(file, nullptr, /*loadHeadersOnly*/false);
@@ -745,7 +729,6 @@ void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
     BOOST_FOREACH(const boost::filesystem::path& path, vImportFiles) {
         FILE *file = fopen(path.string().c_str(), "rb");
         if (file) {
-            CImportingNow imp;
             LogPrintf("Importing blocks file %s...\n", path.string());
             LoadBlocksFromExternalFile(file, nullptr, /*loadHeadersOnly*/false);
         } else {
