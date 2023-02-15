@@ -17,6 +17,8 @@
 #include <sc/proofverifier.h>
 #include "txdb.h"
 
+#include <fstream>
+
 CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & creationTxAmount, int epochLength,
                                                 int sidechainVersion,
                                                 const CAmount& ftScFee, const CAmount& mbtrScFee, int mbtrDataLength)
