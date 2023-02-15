@@ -644,12 +644,6 @@ fi
 
 if test x$use_boost = xyes; then
 
-dnl Prevent use of std::unary_function, which was removed in C++17,
-dnl and will generate warnings with newer compilers.
-dnl See: https://github.com/boostorg/container_hash/issues/22.
-BOOST_CPPFLAGS="$BOOST_CPPFLAGS -DBOOST_NO_CXX98_FUNCTION_BASE -DBOOST_BIND_GLOBAL_PLACEHOLDERS"
-CPPFLAGS="$CPPFLAGS $BOOST_CPPFLAGS"
-
 dnl Check for boost libs
 dnl We need Boost >= 1.62 to fix a potential security bug (https://github.com/zcash/zcash/issues/1241)
 AX_BOOST_BASE([1.62])
@@ -658,6 +652,7 @@ AX_BOOST_FILESYSTEM
 AX_BOOST_PROGRAM_OPTIONS
 AX_BOOST_THREAD
 AX_BOOST_CHRONO
+AC_DEFINE(BOOST_BIND_GLOBAL_PLACEHOLDERS, [1], [Suppress Boost warning]) # See https://www.boost.org/doc/libs/1_81_0/boost/bind.hpp
 
 fi
 

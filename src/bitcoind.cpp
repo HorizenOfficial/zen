@@ -18,6 +18,7 @@
 #include <boost/thread.hpp>
 
 #include <stdio.h>
+#include <fstream>
 
 /* Introduction text for doxygen: */
 
