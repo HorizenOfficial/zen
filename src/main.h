@@ -87,8 +87,6 @@ static const unsigned int DEFAULT_BLOCK_PRIORITY_SIZE_BEFORE_SC = MAX_BLOCK_SIZE
 
 /** Default for -blockmaxcomplexity, which control the maximum comlexity of the block during template creation **/
 static const unsigned int DEFAULT_BLOCK_MAX_COMPLEXITY_SIZE = 0;
-/** Default for accepting alerts from the P2P network. */
-static const bool DEFAULT_ALERTS = true;
 /** Minimum alert priority for enabling safe mode. */
 static const int ALERT_PRIORITY_SAFE_MODE = 4000;
 /** Maximum number of signature check operations in an IsStandard() P2SH script */
@@ -179,7 +177,6 @@ extern bool fCheckpointsEnabled;
 extern bool fRegtestAllowDustOutput;
 extern size_t nCoinCacheUsage;
 extern CFeeRate minRelayTxFee;
-extern bool fAlerts;
 
 /** Comparison function for sorting the getchaintips heads.  */
 struct CompareBlocksByHeight

@@ -57,7 +57,6 @@ public:
         pchMessageStart[1] = 0x61;
         pchMessageStart[2] = 0x73;
         pchMessageStart[3] = 0x68;
-        vAlertPubKey = ParseHex("04911f70151e622b5a168fd75b0d6e429b43f3a3e13a2e2945d39dfb07237020f92bada3f8bc2660653ece44c9ce5759f76273763752580acb0a4e137cbc1efa00");
         nDefaultPort = 9033;
 //       nMinerThreads = 0;
         nMaxTipAge = 24 * 60 * 60;
@@ -193,7 +192,6 @@ public:
         pchMessageStart[1] = 0xf2;
         pchMessageStart[2] = 0xcd;
         pchMessageStart[3] = 0xe6;
-        vAlertPubKey = ParseHex("048679fb891b15d0cada9692047fd0ae26ad8bfb83fabddbb50334ee5bc0683294deb410be20513c5af6e7b9cec717ade82b27080ee6ef9a245c36a795ab044bb3");
         nDefaultPort = 19033;
 //        nMinerThreads = 0;
         nPruneAfterHeight = 1000;
