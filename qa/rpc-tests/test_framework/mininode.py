@@ -796,82 +796,6 @@ class CBlock(CBlockHeader):
                self.hashReserved, time.ctime(self.nTime), self.nBits,
                self.nNonce, repr(self.nSolution), repr(self.vtx))
 
-
-class CUnsignedAlert(object):
-    def __init__(self):
-        self.nVersion = 1
-        self.nRelayUntil = 0
-        self.nExpiration = 0
-        self.nID = 0
-        self.nCancel = 0
-        self.setCancel = []
-        self.nMinVer = 0
-        self.nMaxVer = 0
-        self.setSubVer = []
-        self.nPriority = 0
-        self.strComment = ""
-        self.strStatusBar = ""
-        self.strReserved = ""
-
-    def deserialize(self, f):
-        self.nVersion = struct.unpack("<i", f.read(4))[0]
-        self.nRelayUntil = struct.unpack("<q", f.read(8))[0]
-        self.nExpiration = struct.unpack("<q", f.read(8))[0]
-        self.nID = struct.unpack("<i", f.read(4))[0]
-        self.nCancel = struct.unpack("<i", f.read(4))[0]
-        self.setCancel = deser_int_vector(f)
-        self.nMinVer = struct.unpack("<i", f.read(4))[0]
-        self.nMaxVer = struct.unpack("<i", f.read(4))[0]
-        self.setSubVer = deser_string_vector(f)
-        self.nPriority = struct.unpack("<i", f.read(4))[0]
-        self.strComment = deser_string(f)
-        self.strStatusBar = deser_string(f)
-        self.strReserved = deser_string(f)
-
-    def serialize(self):
-        r = b""
-        r += struct.pack("<i", self.nVersion)
-        r += struct.pack("<q", self.nRelayUntil)
-        r += struct.pack("<q", self.nExpiration)
-        r += struct.pack("<i", self.nID)
-        r += struct.pack("<i", self.nCancel)
-        r += ser_int_vector(self.setCancel)
-        r += struct.pack("<i", self.nMinVer)
-        r += struct.pack("<i", self.nMaxVer)
-        r += ser_string_vector(self.setSubVer)
-        r += struct.pack("<i", self.nPriority)
-        r += ser_string(self.strComment)
-        r += ser_string(self.strStatusBar)
-        r += ser_string(self.strReserved)
-        return r
-
-    def __repr__(self):
-        return "CUnsignedAlert(nVersion %d, nRelayUntil %d, nExpiration %d, nID %d, nCancel %d, nMinVer %d, nMaxVer %d, nPriority %d, strComment %s, strStatusBar %s, strReserved %s)" \
-            % (self.nVersion, self.nRelayUntil, self.nExpiration, self.nID,
-               self.nCancel, self.nMinVer, self.nMaxVer, self.nPriority,
-               self.strComment, self.strStatusBar, self.strReserved)
-
-
-class CAlert(object):
-    def __init__(self):
-        self.vchMsg = ""
-        self.vchSig = ""
-
-    def deserialize(self, f):
-        self.vchMsg = deser_string(f)
-        self.vchSig = deser_string(f)
-
-    def serialize(self):
-        r = ""
-        r += ser_string(self.vchMsg)
-        r += ser_string(self.vchSig)
-        return r
-
-    def __repr__(self):
-        return "CAlert(vchMsg.sz %d, vchSig.sz %d)" \
-            % (len(self.vchMsg), len(self.vchSig))
-
-
 # Objects that correspond to messages on the wire
 class msg_version(object):
     command = b"version"
@@ -958,26 +882,6 @@ class msg_addr(object):
 
     def __repr__(self):
         return "msg_addr(addrs=%s)" % (repr(self.addrs))
-
-
-class msg_alert(object):
-    command = b"alert"
-
-    def __init__(self):
-        self.alert = CAlert()
-
-    def deserialize(self, f):
-        self.alert = CAlert()
-        self.alert.deserialize(f)
-
-    def serialize(self):
-        r = b""
-        r += self.alert.serialize()
-        return r
-
-    def __repr__(self):
-        return "msg_alert(alert=%s)" % (repr(self.alert), )
-
 
 class msg_inv(object):
     command = b"inv"
@@ -1247,7 +1151,6 @@ class NodeConnCB(object):
             b"version": self.on_version,
             b"verack": self.on_verack,
             b"addr": self.on_addr,
-            b"alert": self.on_alert,
             b"inv": self.on_inv,
             b"getdata": self.on_getdata,
             b"getblocks": self.on_getblocks,
@@ -1289,7 +1192,6 @@ class NodeConnCB(object):
             conn.send_message(want)
 
     def on_addr(self, conn, message): pass
-    def on_alert(self, conn, message): pass
     def on_getdata(self, conn, message): pass
     def on_getblocks(self, conn, message): pass
     def on_tx(self, conn, message): pass
@@ -1313,7 +1215,6 @@ class NodeConn(asyncore.dispatcher):
         b"version": msg_version,
         b"verack": msg_verack,
         b"addr": msg_addr,
-        b"alert": msg_alert,
         b"inv": msg_inv,
         b"getdata": msg_getdata,
         b"getblocks": msg_getblocks,
