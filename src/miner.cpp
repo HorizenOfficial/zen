@@ -916,13 +916,6 @@ static bool ProcessBlockFound(CBlock* pblock)
         // Remove key from key pool
         reservekey.KeepKey();
     }
-
-    // Track how many getdata requests this block gets
-    if (wallet)
-    {
-        LOCK(wallet->cs_wallet);
-        wallet->mapRequestCount[pblock->GetHash()] = 0;
-    }
 #endif
 
     // Process this block the same as if we had received it from another node
