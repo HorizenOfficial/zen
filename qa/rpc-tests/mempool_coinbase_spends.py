@@ -15,8 +15,6 @@ from test_framework.util import assert_equal, start_node, connect_nodes
 # Create one-input, one-output, no-fee transaction:
 class MempoolCoinbaseTest(BitcoinTestFramework):
 
-    alert_filename = None  # Set by setup_network
-
     def setup_network(self):
         args = ["-checkmempool", "-debug=mempool"]
         self.nodes = []

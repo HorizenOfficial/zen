@@ -18,8 +18,6 @@ def sort_by_confirmations(json):
         return 0
 
 class GetBlockTemplatePriorityTest(BitcoinTestFramework):
-    
-    alert_filename = None  # Set by setup_network
 
     def setup_network(self):
         args0 = ["-printpriority"]

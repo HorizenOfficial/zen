@@ -24,14 +24,9 @@ LOW_CERT_FEE = Decimal('0.00005')
 
 class quality_mempool(BitcoinTestFramework):
 
-    alert_filename = None
-
     def setup_chain(self, split=False):
         print("Initializing test directory " + self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
-        self.alert_filename = os.path.join(self.options.tmpdir, "alert.txt")
-        with open(self.alert_filename, 'w'):
-            pass  # Just open then close to create zero-length file
 
     def setup_network(self, split=False):
         self.nodes = []

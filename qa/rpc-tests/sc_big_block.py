@@ -28,14 +28,10 @@ BIT_VECTOR_BUF = "021f8b08000000000002ff017f0080ff44c7e21ba1c7c0a29de006cb8074e2
 BIT_VECTOR_FE  = "8a7d5229f440d4700d8b0343de4e14400d1cb87428abf83bd67153bf58871721"
 
 class sc_big_block(BitcoinTestFramework):
-    alert_filename = None
 
     def setup_chain(self, split=False):
         print("Initializing test directory " + self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
-        self.alert_filename = os.path.join(self.options.tmpdir, "alert.txt")
-        with open(self.alert_filename, 'w'):
-            pass  # Just open then close to create zero-length file
 
     def setup_network(self, split=False):
 

@@ -14,8 +14,6 @@ from decimal import Decimal
 # Test -mempooltxinputlimit
 class MempoolTxInputLimitTest(BitcoinTestFramework):
 
-    alert_filename = None  # Set by setup_network
-
     def setup_network(self):
         args = ["-checkmempool", "-debug=mempool", "-mempooltxinputlimit=2"]
         self.nodes = []

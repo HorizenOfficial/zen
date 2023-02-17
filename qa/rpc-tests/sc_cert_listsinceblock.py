@@ -25,14 +25,10 @@ CUSTOM_FEE_RATE_ZAT_PER_BYTE = Decimal('20.0')
 CUSTOM_FEE_RATE_ZEN_PER_KBYTE = CUSTOM_FEE_RATE_ZAT_PER_BYTE/COIN*1000
 
 class ScCertListsinceblock(BitcoinTestFramework):
-    alert_filename = None
 
     def setup_chain(self):
         print("Initializing test directory " + self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
-        self.alert_filename = os.path.join(self.options.tmpdir, "alert.txt")
-        with open(self.alert_filename, 'w'):
-            pass  # Just open then close to create zero-length file
 
     def setup_network(self, split=False):
 
