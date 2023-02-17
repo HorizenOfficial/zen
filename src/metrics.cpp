@@ -87,7 +87,7 @@ boost::synchronized_value<std::list<uint256>> trackedBlocks;
 boost::synchronized_value<std::list<std::string>> messageBox;
 boost::synchronized_value<std::string> initMessage;
 boost::synchronized_value<std::string> initMessageAfterLoading;
-bool loaded = false;
+std::atomic<bool> loaded = false;
 
 extern int64_t GetNetworkHashPS(int lookup, int height);
 
@@ -465,8 +465,7 @@ int printInitMessage()
         msg = static_cast<std::string>(_("Init message (node already loaded): ")) + static_cast<std::string>(*initMessageAfterLoading);
     }
 
-    std::cout << msg << std::endl;
-    std::cout << std::endl;
+    std::cout << msg << "\n" << std::endl;
 
     return 2;
 }

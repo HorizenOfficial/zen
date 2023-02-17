@@ -517,6 +517,7 @@ ProofVerificationResult CScProofVerifier::NormalVerifyCertificate(CCertProofVeri
                input.forwardTransferScFee,
                sptrProof.get(),
                sptrCertVk.get(),
+               sptrPrevHash.get(),
                &code);
 
     if (!ret)
