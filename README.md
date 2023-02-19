@@ -1,4 +1,4 @@
-Zen 3.2.1-bitcore
+Zen 3.3.0-bicore
 ================
 What is Horizen?
 ----------------
