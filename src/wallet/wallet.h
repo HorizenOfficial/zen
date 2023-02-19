@@ -412,8 +412,6 @@ public:
 
     int64_t GetTxTime() const;
 
-    int GetRequestCount() const;
-
     bool IsTrusted(bool canSpendZeroConfChange = bSpendZeroConfChange) const;
 
     // virtuals
@@ -963,7 +961,6 @@ public:
     TxItems wtxOrdered;
 
     int64_t nOrderPosNext;
-    std::map<uint256, int> mapRequestCount;
 
     std::map<CTxDestination, CAddressBookData> mapAddressBook;
 
@@ -1176,16 +1173,6 @@ public:
     bool DelAddressBook(const CTxDestination& address);
 
     void UpdatedTransaction(const uint256 &hashTx) override;
-
-    void Inventory(const uint256 &hash) override
-    {
-        {
-            LOCK(cs_wallet);
-            std::map<uint256, int>::iterator mi = mapRequestCount.find(hash);
-            if (mi != mapRequestCount.end())
-                (*mi).second++;
-        }
-    }
 
     unsigned int GetKeyPoolSize()
     {
