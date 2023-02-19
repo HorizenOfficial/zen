@@ -20,7 +20,6 @@
 #include "utilstrencodings.h"
 
 #include <deque>
-#include <atomic>
 #include <stdint.h>
 
 #ifndef WIN32

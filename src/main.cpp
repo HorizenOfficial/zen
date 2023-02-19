@@ -7024,20 +7024,21 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
         uint64_t num_proc = 0;
         uint64_t num_rate_limit = 0;
-        std::mt19937 randomSeed(std::random_device{}());
-        std::shuffle(vAddr.begin(), vAddr.end(), randomSeed); // TODO: check this randomness
+        std::shuffle(vAddr.begin(), vAddr.end(), std::mt19937(std::random_device{}()));
 
         BOOST_FOREACH(CAddress& addr, vAddr)
         {
             boost::this_thread::interruption_point();
 
-            constexpr bool rate_limited = true; // TODO: do we want to expose this to the CLI?
+            static constexpr bool rate_limited = true;
              // Apply rate limiting.
-            if (rate_limited) {
-                if (pfrom->m_addr_token_bucket < 1.0) {
+            if (pfrom->m_addr_token_bucket < 1.0) {
+                if (rate_limited) {
                     ++num_rate_limit;
                     continue;
                 }
+            }
+            else {
                 pfrom->m_addr_token_bucket -= 1.0;
             }
 
