@@ -46,6 +46,10 @@ SCALABILITY
 - Secure sidechain validator's key rotation support via custom zk-SNARK proof verification
 - Support for variable epoch lengths (enabling non-ceasable sidechains) 
 
+Compatibility
+----------------
+`zend` only supports 64-bit systems, it cannot be compiled on different architectures.
+
 Building from source
 ----------------
 
