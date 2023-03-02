@@ -731,7 +731,10 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
 
         if (certSupported) {
             CCoinsViewCache view(pcoinsTip);
-            pblock->hashScTxsCommitment = pblock->BuildScTxsCommitment(view);
+            pblock->hashScTxsCommitment.SetNull();
+            // At this point, txs commitment tree should be valid
+            bool retValtxsComm = pblock->BuildScTxsCommitment(view, pblock->hashScTxsCommitment);
+            assert(retValtxsComm);
         }
 
         result.pushKV("merkleTree", pblock->hashMerkleRoot.ToString());
