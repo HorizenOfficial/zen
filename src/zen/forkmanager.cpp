@@ -15,6 +15,7 @@
 #include "forks/fork8_sidechainfork.h"
 #include "forks/fork9_sidechainversionfork.h"
 #include "forks/fork10_nonceasingsidechainfork.h"
+#include "forks/fork11_shieldedpooldeprecationfork.h"
 
 namespace zen {
 
@@ -24,7 +25,7 @@ namespace zen {
 /**
  * @brief getInstance returns the ForkManager static instance.
  * Other than for testing purposes, it should not be necessary to create any other instance of the ForkManager class
- * @return the ForkManage instance
+ * @return the ForkManager instance
  */
 ForkManager& ForkManager::getInstance() {
     static ForkManager instance;
@@ -184,6 +185,10 @@ bool ForkManager::isNonCeasingSidechainActive(int height) const {
     return getForkAtHeight(height)->isNonCeasingSidechainActive();
 }
 
+bool ForkManager::mustCoinbaseTransactionsBeShielded(int height) const {
+    return getForkAtHeight(height)->mustCoinbaseTransactionsBeShielded(currentNetwork);
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// PRIVATE MEMBERS
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -205,6 +210,7 @@ ForkManager::ForkManager() {
     registerFork(new SidechainFork());
     registerFork(new SidechainVersionFork());
     registerFork(new NonCeasingSidechainFork());
+    registerFork(new ShieldedPoolDeprecationFork());
 }
 
 /**

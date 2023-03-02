@@ -98,6 +98,11 @@ public:
      * @brief returns true is the non ceasing sidechains exist at input block height
      */
     inline virtual bool isNonCeasingSidechainActive() const { return false; };
+
+    /**
+     * @brief returns true if the coinbase transactions must be shielded (i.e. sent to a z-address)
+     */
+    virtual bool mustCoinbaseTransactionsBeShielded(CBaseChainParams::Network network) const;
 };
 
 }

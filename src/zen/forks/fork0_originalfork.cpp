@@ -62,4 +62,19 @@ bool OriginalFork::isTransactionTypeAllowed(txnouttype transactionType) const {
         return false;
     }
 }
+
+bool OriginalFork::mustCoinbaseTransactionsBeShielded(CBaseChainParams::Network network) const {
+    if (network == CBaseChainParams::Network::MAIN ||
+        network == CBaseChainParams::Network::TESTNET)
+    {
+        return true;
+    }
+    else if (network == CBaseChainParams::Network::REGTEST)
+    {
+        return false;
+    }
+
+    assert(false);
+    return true;
+}
 }

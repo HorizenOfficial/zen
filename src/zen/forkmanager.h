@@ -121,9 +121,14 @@ public:
     uint8_t getMaxSidechainVersion(int height) const;
 
     /**
-     * @brief returns true is the non ceasing sidechains exist at input block height
+     * @brief returns true if the non ceasing sidechains exist at input block height
      */
     bool isNonCeasingSidechainActive(int height) const;
+
+    /**
+     * @brief returns true if the coinbase transactions must be shielded (i.e. sent to a z-address)
+     */
+    bool mustCoinbaseTransactionsBeShielded(int height) const;
 
 private:
     
