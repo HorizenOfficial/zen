@@ -139,6 +139,8 @@ testScripts=(
   'sc_getscgenesisinfo.py'
   'fundaddresses.py'
   'sc_getcertmaturityinfo.py'
+  'sc_big_commitment_tree.py'
+  'sc_big_commitment_tree_getblockmerkleroot.py'
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py'
