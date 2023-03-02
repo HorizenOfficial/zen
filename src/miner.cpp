@@ -23,6 +23,8 @@
 #include "pow.h"
 #include "primitives/transaction.h"
 #include "random.h"
+#include "sc/sidechainTxsCommitmentBuilder.h"
+#include "sc/sidechainTxsCommitmentGuard.h"
 #include "timedata.h"
 #include "ui_interface.h"
 #include "util.h"
@@ -528,6 +530,24 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
         return NULL;
     CBlock *pblock = &pblocktemplate->block; // pointer for convenience
 
+    // We create a temporary sidechain tx commitment builder and populate it
+    // with the txs and certs that are progressively added to the candidate block.
+    // However, before adding a candidate tx / cert to the builder, we try adding that to a
+    // txsCommitmentGuard structure that keeps track of how many SC / FT / BWTR / CSW / CERT
+    // are currently in the candidate block. We do this, because adding a tx to the commitment tree
+    // is not an atomic operation and it is not possible to remove leaves in case we detect a failure.
+    // These failures may be caused by:
+    // - reaching the SC subtree limit
+    // - reaching the FT / BWT / CERT / CSW limit in each subtree
+    // - reaching the number of BWT limit per sidechain
+    // - trying to add a FT / BWT / CERT to a ceased sidechain
+    // - trying to add a CSW to an alive sidechain
+    // All the limits are defined in CommitmentBuilderGuard, and aligned with those defined in CCTPlib.
+    // Doing the add on the txsCommitmentGuard is reversible and prevents throwing away and rebuild
+    // the commitment tree in case of failure.
+    std::unique_ptr<SidechainTxsCommitmentBuilder> scCommBuilder(new SidechainTxsCommitmentBuilder);
+    SidechainTxsCommitmentGuard scCommGuard;
+
     // Add dummy coinbase tx as first transaction
     pblock->vtx.push_back(CTransaction());
     pblocktemplate->vTxFees.push_back(-1); // updated at end
@@ -707,6 +727,48 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
                 continue;
             }
 
+            // Skip transaction if we cannot add it to the sc commitment tree
+            if (pblock->nVersion == BLOCK_VERSION_SC_SUPPORT) {
+                // Check tx commitment tree limits
+                bool scCommitGuardRes;
+                if (tx.IsCertificate()) {
+                    scCommitGuardRes = scCommGuard.add(dynamic_cast<const CScCertificate&>(tx));
+                } else {
+                    // Immediately restore scCommitmentGuard to a valid state in case of failure
+                    scCommitGuardRes = scCommGuard.add(dynamic_cast<const CTransaction&>(tx), true);
+                }
+
+                if (!scCommitGuardRes) {
+                    LogPrint("sc", "%s():%d - Skipping [%s] because txs commitment tree guard failed\n",
+                            __func__, __LINE__, tx.GetHash().ToString());
+                    continue;
+                }
+
+                // Try adding to the real commitment tree if previous step was successful
+                bool scCommitmentBuilderResult;
+                if (tx.IsCertificate()) {
+                    scCommitmentBuilderResult = scCommBuilder->add(dynamic_cast<const CScCertificate&>(tx), view);
+                }
+                else {
+                    scCommitmentBuilderResult = scCommBuilder->add(dynamic_cast<const CTransaction&>(tx));
+                }
+                if (!scCommitmentBuilderResult)
+                {
+                    LogPrint("sc", "%s():%d - Skipping [%s] because we cannot add that to the sc commitment tree\n",
+                        __func__, __LINE__, tx.GetHash().ToString());
+                    // We cannot undo adding all the FT / BWTR / CERT / CSW contained in the tx that just failed,
+                    // so we have to destroy the scCommBuilder and add all the txs which are currently in the
+                    // block proposal
+                    scCommBuilder.reset(new SidechainTxsCommitmentBuilder);
+                    for (const auto& txInPBlock : pblock->vtx)
+                        scCommBuilder->add(txInPBlock);
+                    for (const auto& certInPBlock : pblock->vcert)
+                        scCommBuilder->add(certInPBlock, view);
+
+                    continue;
+                }
+            }
+
             try {
                 // Note that flags: we don't want to set mempool/IsStandard()
                 // policy here, but we still have to ensure that the block we
@@ -809,9 +871,16 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
         // Fill in header
         pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
 
-        if (pblock->nVersion == BLOCK_VERSION_SC_SUPPORT )
+        if (pblock->nVersion == BLOCK_VERSION_SC_SUPPORT)
         {
-            pblock->hashScTxsCommitment = pblock->BuildScTxsCommitment(view);
+            pblock->hashScTxsCommitment.SetNull();
+            bool retValtxsComm = pblock->BuildScTxsCommitment(view, pblock->hashScTxsCommitment);
+            assert(retValtxsComm);
+            // Additional check: this sc commitment must be equal to the one we built on the fly
+            const uint256& scTxsCommitment = scCommBuilder->getCommitment();
+            if (pblock->hashScTxsCommitment != scTxsCommitment) {
+                throw std::runtime_error("CreateNewBlock(): SCTxsCommitment verification failed");
+            }
         }
 
         UpdateTime(pblock, Params().GetConsensus(), pindexPrev);
