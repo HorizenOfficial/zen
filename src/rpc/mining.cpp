@@ -1057,7 +1057,18 @@ UniValue getblockmerkleroots(const UniValue& params, bool fHelp) {
     uint256 scTxsCommitment;
     scTxsCommitment.SetNull();
     if (certSupported) {
-        scTxsCommitment = pblock->BuildScTxsCommitment(view);
+        if (!pblock->BuildScTxsCommitmentGuard()) {
+            LogPrint("sc", "%s():%d - scTxsCommitment guard failed. Check the number of sc or txs / cert for each sc.\n",
+                __func__, __LINE__);
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "scTxsCommitment guard failed");
+        }
+
+        if (!pblock->BuildScTxsCommitment(view, scTxsCommitment))
+        {
+            LogPrint("sc", "%s():%d - scTxsCommitment evaluation failed.\n",
+                __func__, __LINE__);
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "scTxsCommitment evaluation failed");
+        }
     }
 
     UniValue result(UniValue::VOBJ);
