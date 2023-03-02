@@ -161,6 +161,14 @@ bool SidechainTxsCommitmentBuilder::add_fwt(const CTxForwardTransferOut& ccout, 
          &ret_code
     );
 
+    if (ret) {
+    LogPrint("sc", "%s():%d - scTxsCommitment builder: successfully added FT for sidechain scId[%s].\n",
+            __func__, __LINE__, ccout.GetScId().ToString());
+    } else {
+        LogPrint("sc", "%s():%d - scTxsCommitment building failed when adding FT for sidechain scId[%s] (CCTPlib error).\n",
+            __func__, __LINE__, ccout.GetScId().ToString());
+    }
+
     return ret;
 }
 
@@ -189,7 +197,7 @@ bool SidechainTxsCommitmentBuilder::add_bwtr(const CBwtRequestOut& ccout, const 
     const uint160& bwtr_pk_hash = ccout.mcDestinationAddress;
     BufferWithSize bws_bwtr_pk_hash(bwtr_pk_hash.begin(), bwtr_pk_hash.size());
 
-    return zendoo_commitment_tree_add_bwtr(const_cast<commitment_tree_t*>(_cmt),
+    bool ret = zendoo_commitment_tree_add_bwtr(const_cast<commitment_tree_t*>(_cmt),
          scid_fe,
          ccout.scFee,
          sc_req_data.get(),
@@ -199,6 +207,16 @@ bool SidechainTxsCommitmentBuilder::add_bwtr(const CBwtRequestOut& ccout, const 
          out_idx,
          &ret_code
     );
+
+    if (ret) {
+        LogPrint("sc", "%s():%d - scTxsCommitment builder: successfully added BWTR for sidechain scId[%s].\n",
+            __func__, __LINE__, ccout.GetScId().ToString());
+    } else {
+        LogPrint("sc", "%s():%d - scTxsCommitment building failed when adding BWTR for sidechain scId[%s] (CCTPlib error).\n",
+            __func__, __LINE__, ccout.GetScId().ToString());
+    }
+
+    return ret;
 }
 
 bool SidechainTxsCommitmentBuilder::add_csw(const CTxCeasedSidechainWithdrawalInput& ccin, CctpErrorCode& ret_code)
@@ -213,13 +231,23 @@ bool SidechainTxsCommitmentBuilder::add_csw(const CTxCeasedSidechainWithdrawalIn
 
     wrappedFieldPtr sptrNullifier = ccin.nullifier.GetFieldElement();
 
-    return zendoo_commitment_tree_add_csw(const_cast<commitment_tree_t*>(_cmt),
+    bool ret = zendoo_commitment_tree_add_csw(const_cast<commitment_tree_t*>(_cmt),
          scid_fe,
          ccin.nValue,
          sptrNullifier.get(),
          &bws_csw_pk_hash,
          &ret_code
     );
+
+    if (ret) {
+        LogPrint("sc", "%s():%d - scTxsCommitment builder: successfully added CSW for sidechain scId[%s].\n",
+            __func__, __LINE__, ccin.scId.ToString());
+    } else {
+        LogPrint("sc", "%s():%d - scTxsCommitment building failed when adding CSW for sidechain scId[%s] (CCTPlib error).\n",
+            __func__, __LINE__, ccin.scId.ToString());
+    }
+
+    return ret;
 }
 
 bool SidechainTxsCommitmentBuilder::add_cert(const CScCertificate& cert, const Sidechain::ScFixedParameters scFixedParams, CctpErrorCode& ret_code)
@@ -276,7 +304,7 @@ bool SidechainTxsCommitmentBuilder::add_cert(const CScCertificate& cert, const S
 
     wrappedFieldPtr sptrCum = cert.endEpochCumScTxCommTreeRoot.GetFieldElement();
 
-    return zendoo_commitment_tree_add_cert(const_cast<commitment_tree_t*>(_cmt),
+    bool ret = zendoo_commitment_tree_add_cert(const_cast<commitment_tree_t*>(_cmt),
          scid_fe,
          cert.epochNumber,
          cert.quality,
@@ -289,6 +317,16 @@ bool SidechainTxsCommitmentBuilder::add_cert(const CScCertificate& cert, const S
          cert.mainchainBackwardTransferRequestScFee,
          &ret_code
     );
+
+    if (ret) {
+        LogPrint("sc", "%s():%d - scTxsCommitment builder: successfully added CERT for sidechain scId[%s].\n",
+            __func__, __LINE__, cert.GetScId().ToString());
+    } else {
+        LogPrint("sc", "%s():%d - scTxsCommitment building failed when adding CERT for sidechain scId[%s] (CCTPlib error).\n",
+            __func__, __LINE__, cert.GetScId().ToString());
+    }
+
+    return ret;
 }
 
 bool SidechainTxsCommitmentBuilder::add(const CTransaction& tx)

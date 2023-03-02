@@ -10,6 +10,7 @@
 #include "utilstrencodings.h"
 #include "crypto/common.h"
 #include <sc/sidechainTxsCommitmentBuilder.h>
+#include <sc/sidechainTxsCommitmentGuard.h>
 #include <serialize.h>
 // uncomment for debugging mkl root hash calculations
 //#define DEBUG_MKLTREE_HASH 1
@@ -150,21 +151,53 @@ uint256 CBlock::BuildMerkleTree(std::vector<uint256>& vMerkleTreeIn, size_t vtxS
     return (vMerkleTreeIn.empty() ? uint256() : vMerkleTreeIn.back());
 }
 
-uint256 CBlock::BuildScTxsCommitment(const CCoinsViewCache& view)
+bool CBlock::BuildScTxsCommitment(const CCoinsViewCache& view, uint256& scCommitment)
 {
     SidechainTxsCommitmentBuilder scCommitmentBuilder;
+    bool result;
 
     for (const auto& tx : vtx)
     {
-        scCommitmentBuilder.add(tx);
+        result = scCommitmentBuilder.add(tx);
+        if (!result){
+            return false;
+        }
     }
 
     for (const auto& cert : vcert)
     {
-        scCommitmentBuilder.add(cert, view);
+        result = scCommitmentBuilder.add(cert, view);
+        if (!result){
+            return false;
+        }
     }
 
-    return scCommitmentBuilder.getCommitment();
+    scCommitment = scCommitmentBuilder.getCommitment();
+    return true;
+}
+
+bool CBlock::BuildScTxsCommitmentGuard()
+{
+    SidechainTxsCommitmentGuard scCommitmentGuard;
+    bool result;
+
+    for (const auto& tx : vtx)
+    {
+        result = scCommitmentGuard.add(tx);
+        if (!result){
+            return false;
+        }
+    }
+
+    for (const auto& cert : vcert)
+    {
+        result = scCommitmentGuard.add(cert);
+        if (!result){
+            return false;
+        }
+    }
+
+    return true;
 }
 
 std::vector<uint256> CBlock::GetMerkleBranch(int nIndex) const

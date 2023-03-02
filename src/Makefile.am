@@ -283,6 +283,7 @@ libbitcoin_server_a_SOURCES = \
   rpc/server.cpp \
   sc/asyncproofverifier.cpp \
   sc/sidechainTxsCommitmentBuilder.cpp \
+  sc/sidechainTxsCommitmentGuard.cpp \
   sc/sidechaintypes.cpp \
   sc/proofverifier.cpp \
   sc/sidechain.cpp \
@@ -524,6 +525,7 @@ zen_tx_SOURCES = \
     primitives/transaction.cpp \
     primitives/certificate.cpp \
     sc/sidechainTxsCommitmentBuilder.cpp \
+    sc/sidechainTxsCommitmentGuard.cpp \
     sc/sidechaintypes.cpp \
     sc/proofverifier.cpp \
     sc/sidechain.cpp \
