@@ -885,11 +885,9 @@ void ScRpcCmd::addInputs()
 
     static const bool fOnlyConfirmed = false;
     static const bool fIncludeZeroValue = false;
-    bool fProtectCoinbase = !Params().GetConsensus().fCoinbaseMustBeProtected;
-    static const bool fIncludeCoinBase = fProtectCoinbase;
-    static const bool fIncludeCommunityFund = fProtectCoinbase;
+    static const bool fIncludeCoinBaseAndCommunityFund = !ForkManager::getInstance().mustCoinBaseBeShielded(chainActive.Height());
 
-    pwalletMain->AvailableCoins(vAvailableCoins, fOnlyConfirmed, NULL, fIncludeZeroValue, fIncludeCoinBase, fIncludeCommunityFund);
+    pwalletMain->AvailableCoins(vAvailableCoins, fOnlyConfirmed, NULL, fIncludeZeroValue, fIncludeCoinBaseAndCommunityFund, fIncludeCoinBaseAndCommunityFund);
 
     for (const auto& out: vAvailableCoins)
     {

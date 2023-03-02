@@ -63,7 +63,7 @@ bool OriginalFork::isTransactionTypeAllowed(txnouttype transactionType) const {
     }
 }
 
-bool OriginalFork::mustCoinbaseTransactionsBeShielded(CBaseChainParams::Network network) const {
+bool OriginalFork::mustCoinBaseBeShielded(CBaseChainParams::Network network) const {
     if (network == CBaseChainParams::Network::MAIN ||
         network == CBaseChainParams::Network::TESTNET)
     {
@@ -71,6 +71,10 @@ bool OriginalFork::mustCoinbaseTransactionsBeShielded(CBaseChainParams::Network 
     }
     else if (network == CBaseChainParams::Network::REGTEST)
     {
+        if (mapArgs.count("-regtestprotectcoinbase"))
+        {
+            return true;
+        }
         return false;
     }
 

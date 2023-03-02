@@ -126,9 +126,9 @@ public:
     bool isNonCeasingSidechainActive(int height) const;
 
     /**
-     * @brief returns true if the coinbase transactions must be shielded (i.e. sent to a z-address)
+     * @brief returns true if the coin base transactions must be shielded (i.e. sent to a z-address)
      */
-    bool mustCoinbaseTransactionsBeShielded(int height) const;
+    bool mustCoinBaseBeShielded(int height) const;
 
 private:
     

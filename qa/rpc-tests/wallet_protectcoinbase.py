@@ -30,7 +30,7 @@ class WalletProtectCoinbaseTest (BitcoinTestFramework):
         print("Initializing test directory "+self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, 4)
 
-    # Start nodes with -regtestprotectcoinbase to set fCoinbaseMustBeProtected to true.
+    # Start nodes with -regtestprotectcoinbase to enforce coin base shielding requirement.
     def setup_network(self, split=False):
         self.nodes = start_nodes(4, self.options.tmpdir, extra_args=[['-regtestprotectcoinbase', '-debug=zrpcunsafe']] * 4 )
         connect_nodes_bi(self.nodes,0,1)

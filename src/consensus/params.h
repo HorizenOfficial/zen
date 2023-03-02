@@ -18,9 +18,6 @@ namespace Consensus {
 struct Params {
     uint256 hashGenesisBlock;
 
-    /* Don't allow to send coinbase coins to transparent addresses. They should be first sent to the shielded addr */
-    bool fCoinbaseMustBeProtected;
-
     /** Needs to evenly divide MAX_SUBSIDY to avoid rounding errors. */
     int nSubsidySlowStartInterval;
     /**

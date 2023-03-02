@@ -8,4 +8,18 @@ ShieldedPoolDeprecationFork::ShieldedPoolDeprecationFork()
                   {CBaseChainParams::Network::REGTEST,481},             // PLACEHOLDER!
                   {CBaseChainParams::Network::TESTNET,2000001}});       // PLACEHOLDER!
 }
+
+//bool OriginalFork::mustCoinBaseBeShielded(CBaseChainParams::Network network) const {
+
+bool ShieldedPoolDeprecationFork::mustCoinBaseBeShielded(CBaseChainParams::Network network) const {
+    if (network == CBaseChainParams::Network::REGTEST)
+    {
+        if (mapArgs.count("-regtestprotectcoinbase"))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
 }

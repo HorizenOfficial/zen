@@ -11,9 +11,9 @@ public:
     ShieldedPoolDeprecationFork();
 
     /**
-     * @brief returns true if the coinbase transactions must be shielded (i.e. sent to a z-address)
+     * @brief returns true if the coin base transactions must be shielded (i.e. sent to a z-address)
      */
-    virtual bool mustCoinbaseTransactionsBeShielded(CBaseChainParams::Network network) { return false; };
+    virtual bool mustCoinBaseBeShielded(CBaseChainParams::Network network) const;
 };
 
 }

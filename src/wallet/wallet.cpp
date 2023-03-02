@@ -3059,25 +3059,27 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
 bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletTransactionBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet,  bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet, const CCoinControl* coinControl) const
 {
     // If coinbase utxos can only be sent to zaddrs, exclude any coinbase utxos from coin selection.
-    bool fProtectCoinbase = Params().GetConsensus().fCoinbaseMustBeProtected;
-    bool fProtectCFCoinbase = false;
+    bool fMustShieldCoinBase = ForkManager::getInstance().mustCoinBaseBeShielded(chainActive.Height());
+    bool fMustShieldCommunityFund = false;
 
     // CF exemption allowed only after hfCommunityFundHeight hardfork
     if (!ForkManager::getInstance().canSendCommunityFundsToTransparentAddress(chainActive.Height()))
-        fProtectCFCoinbase = fProtectCoinbase;
+        fMustShieldCommunityFund = fMustShieldCoinBase;
 
+    // TODO: CHECK IF FLOW ABOVE CAN BE REMOVED (FOR CODE SIMPLIFICATION)
+
+    vector<COutput> vCoinsWithoutCoinbase, vCoinsWithCoinbaseAndCommunityFund;
+    AvailableCoins(vCoinsWithoutCoinbase, true, coinControl, false, false, !fMustShieldCommunityFund);
+    AvailableCoins(vCoinsWithCoinbaseAndCommunityFund, true, coinControl, false, true, true);
     // Output parameter fOnlyCoinbaseCoinsRet is set to true when the only available coins are coinbase utxos.
-    vector<COutput> vCoinsNoProtectedCoinbase, vCoinsWithProtectedCoinbase;
-    AvailableCoins(vCoinsNoProtectedCoinbase, true, coinControl, false, false, !fProtectCFCoinbase);
-    AvailableCoins(vCoinsWithProtectedCoinbase, true, coinControl, false, true, true);
-    fOnlyCoinbaseCoinsRet = vCoinsNoProtectedCoinbase.size() == 0 && vCoinsWithProtectedCoinbase.size() > 0;
+    fOnlyCoinbaseCoinsRet = vCoinsWithoutCoinbase.size() == 0 && vCoinsWithCoinbaseAndCommunityFund.size() > 0;
 
-    vector<COutput> vCoins = (fProtectCoinbase) ? vCoinsNoProtectedCoinbase : vCoinsWithProtectedCoinbase;
+    vector<COutput> vCoins = (fMustShieldCoinBase) ? vCoinsWithoutCoinbase : vCoinsWithCoinbaseAndCommunityFund;
 
     // Output parameter fNeedCoinbaseCoinsRet is set to true if coinbase utxos need to be spent to meet target amount
-    if (fProtectCoinbase && vCoinsWithProtectedCoinbase.size() > vCoinsNoProtectedCoinbase.size()) {
+    if (fMustShieldCoinBase && vCoinsWithCoinbaseAndCommunityFund.size() > vCoinsWithoutCoinbase.size()) {
         CAmount value = 0;
-        for (const COutput& out : vCoinsNoProtectedCoinbase) {
+        for (const COutput& out : vCoinsWithoutCoinbase) {
             if (!out.fSpendable) {
                 continue;
             }
@@ -3085,7 +3087,7 @@ bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletTra
         }
         if (value <= nTargetValue) {
             CAmount valueWithCoinbase = 0;
-            for (const COutput& out : vCoinsWithProtectedCoinbase) {
+            for (const COutput& out : vCoinsWithCoinbaseAndCommunityFund) {
                 if (!out.fSpendable) {
                     continue;
                 }
@@ -3384,9 +3386,9 @@ bool CWallet::CreateTransaction(
                 {
                     if ( !SelectCoins(nTotalValue, setCoins, nValueIn, fOnlyCoinbaseCoins, fNeedCoinbaseCoins, coinControl))
                     {
-                        if (fOnlyCoinbaseCoins && Params().GetConsensus().fCoinbaseMustBeProtected) {
+                        if (fOnlyCoinbaseCoins && ForkManager::getInstance().mustCoinBaseBeShielded(chainActive.Height())) {
                             strFailReason = _("Coinbase funds can only be sent to a zaddr");
-                        } else if (fNeedCoinbaseCoins && Params().GetConsensus().fCoinbaseMustBeProtected) {
+                        } else if (fNeedCoinbaseCoins && ForkManager::getInstance().mustCoinBaseBeShielded(chainActive.Height())) {
                             strFailReason = _("Insufficient funds, coinbase funds can only be spent after they have been sent to a zaddr");
                         } else {
                             strFailReason = _("Insufficient funds");

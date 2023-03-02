@@ -185,8 +185,8 @@ bool ForkManager::isNonCeasingSidechainActive(int height) const {
     return getForkAtHeight(height)->isNonCeasingSidechainActive();
 }
 
-bool ForkManager::mustCoinbaseTransactionsBeShielded(int height) const {
-    return getForkAtHeight(height)->mustCoinbaseTransactionsBeShielded(currentNetwork);
+bool ForkManager::mustCoinBaseBeShielded(int height) const {
+    return getForkAtHeight(height)->mustCoinBaseBeShielded(currentNetwork);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

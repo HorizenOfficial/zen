@@ -92,7 +92,6 @@ bool fPruneMode = false;
 bool fIsBareMultisigStd = true;
 bool fCheckBlockIndex = false;
 bool fCheckpointsEnabled = true;
-bool fCoinbaseEnforcedProtectionEnabled = true;
 bool fRegtestAllowDustOutput = true;
 //true in case we still have not reached the highest known block from server startup
 bool fIsStartupSyncing = true;
@@ -2499,20 +2498,22 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
         {
             // Ensure that coinbases cannot be spent to transparent outputs
             // Disabled on regtest
-            if (fCoinbaseEnforcedProtectionEnabled &&
-                consensusParams.fCoinbaseMustBeProtected &&
-                !txBase.GetVout().empty()) {
-
-            // Since HARD_FORK_HEIGHT there is an exemption for community fund coinbase coins, so it is allowed
-            // to send them to the transparent addr.
-            bool fDisableProtectionForFR = ForkManager::getInstance().canSendCommunityFundsToTransparentAddress(nSpendHeight);
-            if (!fDisableProtectionForFR || !IsCommunityFund(coins, prevout.n)) {
-                return state.Invalid(
-                    error("%s(): tried to spend coinbase with transparent outputs", __func__),
-                    CValidationState::Code::INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
+            if (ForkManager::getInstance().mustCoinBaseBeShielded(chainActive.Height()) &&
+                !txBase.GetVout().empty())
+            {
+                // Since HARD_FORK_HEIGHT there is an exemption for community fund coinbase coins, so it is allowed
+                // to send them to the transparent addr.
+                bool fMustShieldCommunityFund = !ForkManager::getInstance().canSendCommunityFundsToTransparentAddress(nSpendHeight);
+                if (fMustShieldCommunityFund || !IsCommunityFund(coins, prevout.n))
+                {
+                    return state.Invalid(
+                        error("%s(): tried to spend coinbase with transparent outputs", __func__),
+                        CValidationState::Code::INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
                 }
             }
-        } else {
+        }
+        else
+        {
             ReplayProtectionLevel rpLevel = ForkManager::getInstance().getReplayProtectionLevel(nSpendHeight);
 
             if (rpLevel >= RPLEVEL_FIXED_2)
