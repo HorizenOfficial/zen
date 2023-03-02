@@ -45,6 +45,7 @@
 #include "sc/proofverifier.h"
 #include "sc/sidechain.h"
 #include "sc/sidechainTxsCommitmentBuilder.h"
+#include "sc/sidechainTxsCommitmentGuard.h"
 
 #include "script/sigcache.h"
 #include "script/standard.h"
@@ -1254,6 +1255,20 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
 
             int nDoS = 0;
 
+            // checking txs commitment tree validity
+            if (ForkManager::getInstance().isNonCeasingSidechainActive(pcoinsTip->GetHeight())) {
+                SidechainTxsCommitmentGuard scCommitmentGuard;
+                bool retval = scCommitmentGuard.add(cert);
+                if (!retval) {
+                    nDoS = 100;
+                    state.DoS(nDoS,
+                        error("%s():%d - ERROR: Invalid cert[%s], SidechainTxsCommitmentGuard failed\n",
+                            __func__, __LINE__, certHash.ToString()),
+                        CValidationState::Code::INVALID, "bad-cert-txscommitmentguard");
+                    return MempoolReturnValue::INVALID;
+                }
+            }
+
             CValidationState::Code ret_code = view.IsCertApplicableToState(cert);
             if (ret_code != CValidationState::Code::OK)
             {
@@ -1592,6 +1607,20 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
             }
 
             int nDoS = 0;
+
+            // checking txs commitment tree validity
+            if (ForkManager::getInstance().isNonCeasingSidechainActive(pcoinsTip->GetHeight())) {
+                SidechainTxsCommitmentGuard scCommitmentGuard;
+                bool retval = scCommitmentGuard.add(tx);
+                if (!retval) {
+                    nDoS = 100;
+                    state.DoS(nDoS,
+                        error("%s():%d - ERROR: Invalid tx[%s], SidechainTxsCommitmentGuard failed\n",
+                            __func__, __LINE__, tx.GetHash().ToString()),
+                        CValidationState::Code::INVALID, "sidechain-tx-txscommitmentguard");
+                    return MempoolReturnValue::INVALID;
+                }
+            }
 
             // We pass pcoinsTip to IsScTxApplicableToState because we want to validate the fees against the last certificate
             // in the blockchain, and not against certificates in the mempool.
