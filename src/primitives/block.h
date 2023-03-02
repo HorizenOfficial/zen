@@ -181,9 +181,10 @@ public:
     // merkle root).
     uint256 BuildMerkleTree(bool* mutated = NULL) const;
 
-    // return the sc txs commitment calculated as described in zendoo paper. It is based on contribution from
-    // sidechains-related txes and certificates contained in this block
-    uint256 BuildScTxsCommitment(const CCoinsViewCache& view);
+    // Build the sc txs commitment tree as described in zendoo paper. It is based on contribution from
+    // sidechains-related txes and certificates contained in this block. Returns the txs commitment.
+    bool BuildScTxsCommitment(const CCoinsViewCache& view, uint256& scCommitment);
+    bool BuildScTxsCommitmentGuard();
     
     std::vector<uint256> GetMerkleBranch(int nIndex) const;
     std::string ToString() const;
