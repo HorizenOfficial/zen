@@ -3431,10 +3431,31 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         assert(tree.root() == old_tree_root);
     }
 
+    // Check sidechain txs commitment tree limits now. This is less expensive than populating a txsCommitmentBuilder
+    if (ForkManager::getInstance().isNonCeasingSidechainActive(pindex->nHeight)) {
+        SidechainTxsCommitmentGuard scCommGuard;
+        for (unsigned int txIdx = 0; txIdx < block.vtx.size(); ++txIdx) {
+            const CTransaction &tx = block.vtx[txIdx];
+            if (!scCommGuard.add(tx))
+                return state.DoS(100, error("%s():%d: cannot add tx to scTxsCommitment guard", __func__, __LINE__),
+                    CValidationState::Code::INVALID, "bad-blk-tx-commitguard");
+        }
+        for (unsigned int certIdx = 0; certIdx < block.vcert.size(); certIdx++) {
+            const CScCertificate &cert = block.vcert[certIdx];
+            if (!scCommGuard.add(cert))
+                return state.DoS(100, error("%s():%d: cannot add cert to scTxsCommitmentBuilder", __func__, __LINE__),
+                    CValidationState::Code::INVALID, "bad-blk-cert-commitguard");
+        }
+    }
+
     const auto scVerifierMode = fExpensiveChecks ?
                 CScProofVerifier::Verification::Strict : CScProofVerifier::Verification::Loose;
     // Set high priority to verify the proofs as soon as possible (pausing mempool verification operations if any.)
     CScProofVerifier scVerifier{scVerifierMode, CScProofVerifier::Priority::High};
+    // We check scCommitmentBuilder's status after adding each tx or cert to avoid accepting blocks
+    // having a total number of sc or ft / bwt / csw / cert per sidechain greater than currently
+    // supported by CCTPlib.
+    // We also check that the on-the-fly calculated scTxsCommitment is equal to that included in the block.
     SidechainTxsCommitmentBuilder scCommitmentBuilder;
      
     for (unsigned int txIdx = 0; txIdx < block.vtx.size(); ++txIdx) // Processing transactions loop
@@ -3585,8 +3606,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         vTxIndexValues.push_back(std::make_pair(tx.GetHash(), CTxIndexValue(pos, txIdx, 0)));
         pos.nTxOffset += ::GetSerializeSize(tx, SER_DISK, CLIENT_VERSION);
 
-        if (fScRelatedChecks == flagScRelatedChecks::ON)
-            scCommitmentBuilder.add(tx);
+        if (fScRelatedChecks == flagScRelatedChecks::ON) {
+            bool retBuilder = scCommitmentBuilder.add(tx);
+            if (!retBuilder && ForkManager::getInstance().isNonCeasingSidechainActive(pindex->nHeight))
+                return state.DoS(100, error("%s():%d: cannot add tx to scTxsCommitmentBuilder", __func__, __LINE__),
+                    CValidationState::Code::INVALID, "bad-blk-tx-commitbuild");
+        }
     }  //end of Processing transactions loop
 
 
@@ -3794,7 +3819,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         if (fScRelatedChecks == flagScRelatedChecks::ON)
         {
-            scCommitmentBuilder.add(cert, view);
+            bool retBuilder = scCommitmentBuilder.add(cert, view);
+            if (!retBuilder && ForkManager::getInstance().isNonCeasingSidechainActive(pindex->nHeight))
+                return state.DoS(100, error("%s():%d: cannot add cert to scTxsCommitmentBuilder", __func__, __LINE__),
+                    CValidationState::Code::INVALID, "bad-blk-cert-commitbuild");
         }
 
 #ifdef ENABLE_ADDRESS_INDEXING
