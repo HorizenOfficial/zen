@@ -41,7 +41,6 @@ private:
 
     bool add_csw(const CTxCeasedSidechainWithdrawalInput& ccin, CctpErrorCode& ret_code);
     bool add_cert(const CScCertificate& cert, Sidechain::ScFixedParameters scFixedParams, CctpErrorCode& ret_code);
-
 };
 
 #endif
