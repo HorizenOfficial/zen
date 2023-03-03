@@ -31,7 +31,7 @@ class BigCommitmentTree_getblockmerkleroot(BitcoinTestFramework):
         4. Check if the ScTxsCommitmentTree stops updating due to limited height
         '''
 
-        # Reach SC v2 fork height
+        # Reach SC fork height
         mark_logs("Generating enough blocks to reach SC fork", self.nodes, DEBUG_MODE, 'e')
         self.nodes[0].generate(ForkHeights['MINIMAL_SC'])
 

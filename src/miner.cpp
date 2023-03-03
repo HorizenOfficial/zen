@@ -765,6 +765,13 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
                     for (const auto& certInPBlock : pblock->vcert)
                         scCommBuilder->add(certInPBlock, view);
 
+                    // Also, remove the tx/cert from the commitment guard to keep them aligned
+                    if (tx.IsCertificate()) {
+                        scCommGuard.rewind(dynamic_cast<const CScCertificate&>(tx));
+                    } else {
+                        scCommGuard.rewind(dynamic_cast<const CTransaction&>(tx));
+                    }
+
                     continue;
                 }
             }
@@ -873,8 +880,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 
         if (pblock->nVersion == BLOCK_VERSION_SC_SUPPORT)
         {
-            pblock->hashScTxsCommitment.SetNull();
-            bool retValtxsComm = pblock->BuildScTxsCommitment(view, pblock->hashScTxsCommitment);
+            bool retValtxsComm = pblock->UpdateScTxsCommitment(view);
             assert(retValtxsComm);
             // Additional check: this sc commitment must be equal to the one we built on the fly
             const uint256& scTxsCommitment = scCommBuilder->getCommitment();

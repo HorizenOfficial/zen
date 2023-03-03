@@ -151,7 +151,7 @@ uint256 CBlock::BuildMerkleTree(std::vector<uint256>& vMerkleTreeIn, size_t vtxS
     return (vMerkleTreeIn.empty() ? uint256() : vMerkleTreeIn.back());
 }
 
-bool CBlock::BuildScTxsCommitment(const CCoinsViewCache& view, uint256& scCommitment)
+bool CBlock::UpdateScTxsCommitment(const CCoinsViewCache& view)
 {
     SidechainTxsCommitmentBuilder scCommitmentBuilder;
     bool result;
@@ -160,6 +160,7 @@ bool CBlock::BuildScTxsCommitment(const CCoinsViewCache& view, uint256& scCommit
     {
         result = scCommitmentBuilder.add(tx);
         if (!result){
+            hashScTxsCommitment.SetNull();
             return false;
         }
     }
@@ -168,11 +169,12 @@ bool CBlock::BuildScTxsCommitment(const CCoinsViewCache& view, uint256& scCommit
     {
         result = scCommitmentBuilder.add(cert, view);
         if (!result){
+            hashScTxsCommitment.SetNull();
             return false;
         }
     }
 
-    scCommitment = scCommitmentBuilder.getCommitment();
+    hashScTxsCommitment = scCommitmentBuilder.getCommitment();
     return true;
 }
 

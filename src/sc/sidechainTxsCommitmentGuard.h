@@ -24,6 +24,9 @@ public:
     bool add(const CTransaction& tx, bool autoRewind = false);
     bool add(const CScCertificate& cert);
 
+    void rewind(const CTransaction& tx);
+    void rewind(const CScCertificate& cert);
+
 private:
     bool add_fwt(const CTxForwardTransferOut& ccout);
     bool add_bwtr(const CBwtRequestOut& ccout);
@@ -31,6 +34,7 @@ private:
     bool add_cert(const CScCertificate& cert);
 
     void rewind(const CTransaction& tx, const int failingFt, const int failingBwtr, const int failingCsw);
+    void keepMapsClean();
 
     // Keeping information separated to closely mimic CCTPlib structures
     struct CommitmentBuilderStatsAliveCounter {
