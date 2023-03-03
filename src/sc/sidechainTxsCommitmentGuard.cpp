@@ -119,7 +119,7 @@ bool SidechainTxsCommitmentGuard::add_cert(const CScCertificate& cert)
     }
 
     // We have an hard limit for the total number of backward transfers inside all the certificates per sidechain
-    if (cbs.cbsaMap[cert.GetScId()].bwt + bt_list_len > cbs.BWT_LIMIT) {
+    if (bt_list_len > cbs.BWT_LIMIT) {
         LogPrint("sc", "%s():%d - scTxsCommitment guard failed: too many total BWT when adding cert for scId[%s]\n",
             __func__, __LINE__, cert.GetScId().ToString());
         return false;
@@ -131,7 +131,6 @@ bool SidechainTxsCommitmentGuard::add_cert(const CScCertificate& cert)
     // Only try to add if under the limit; increase the counter only if add was successful.
     if (counterRef.cert < cbs.CERT_LIMIT) {
         ++counterRef.cert;
-        counterRef.bwt += bt_list_len;
         return true;
     } else {
         LogPrint("sc", "%s():%d - scTxsCommitment guard failed: too many CERT for sidechain scId[%s].\n",
@@ -227,7 +226,7 @@ bool SidechainTxsCommitmentGuard::add(const CScCertificate& cert)
 void SidechainTxsCommitmentGuard::keepMapsClean() {
     auto itA = cbs.cbsaMap.begin();
     while (itA != cbs.cbsaMap.end()) {
-        if ((itA->second.bwt == 0) && (itA->second.bwtr == 0) && (itA->second.cert == 0) && (itA->second.ft == 0))
+        if ((itA->second.bwtr == 0) && (itA->second.cert == 0) && (itA->second.ft == 0))
             cbs.cbsaMap.erase(itA++);
         else
             ++itA;
@@ -281,7 +280,6 @@ void SidechainTxsCommitmentGuard::rewind(const CScCertificate& cert) {
     size_t bt_list_len = cert.GetVout().size() - cert.nFirstBwtPos;
     CommitmentBuilderStatsAliveCounter& counterRef = cbs.cbsaMap[cert.GetScId()];
     --counterRef.cert;
-    counterRef.bwt -= bt_list_len;
     keepMapsClean();
 }
 

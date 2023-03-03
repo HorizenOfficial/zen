@@ -41,7 +41,6 @@ private:
         uint32_t   ft = 0;
         uint32_t bwtr = 0;
         uint32_t cert = 0;
-        uint32_t  bwt = 0;
     };
     struct CommitmentBuilderStatsCeasedCounter {
         uint32_t  csw = 0;
@@ -55,7 +54,7 @@ private:
         static const int BWTR_LIMIT = 4095;
         static const int CERT_LIMIT = 4095;
         static const int  CSW_LIMIT = 4095;
-        static const int  BWT_LIMIT = 4096;
+        static const int  BWT_LIMIT = 4095;
 
         bool checkAvailableSpaceAliveSC(const uint256& scid) {
             if ((cbsaMap.count(scid) == 0) && ((cbsaMap.size() + cbscMap.size()) >= SC_LIMIT)) {
