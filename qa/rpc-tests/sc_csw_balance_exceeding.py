@@ -13,7 +13,7 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, connect_nodes_bi, assert_true, assert_false, mark_logs, \
     wait_bitcoinds, stop_nodes, get_epoch_data, sync_mempools, sync_blocks, \
     disconnect_nodes, advance_epoch, swap_bytes
-from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
+from test_framework.test_framework import ForkHeights, MINER_REWARD_POST_H200
 from test_framework.mc_test.mc_test import CertTestUtils, CSWTestUtils, generate_random_field_element_hex
 
 from decimal import Decimal
@@ -73,7 +73,7 @@ class CswNullifierTest(BitcoinTestFramework):
         '''
 
         # prepare some coins 
-        self.nodes[0].generate(MINIMAL_SC_HEIGHT)
+        self.nodes[0].generate(ForkHeights['MINIMAL_SC'])
         self.sync_all()
 
         sc_address = "0000000000000000000000000000000000000000000000000000000000000abc"
@@ -160,8 +160,14 @@ class CswNullifierTest(BitcoinTestFramework):
         ceasingCumScTxCommTree = self.nodes[0].getceasingcumsccommtreehash(scid)['ceasingCumScTxCommTree']
 
         scid_swapped = swap_bytes(scid)
-        sc_proof1 = cswMcTest.create_test_proof(
-                "sc1", sc_csw_amount, str(scid_swapped), null1, csw_mc_address, ceasingCumScTxCommTree, actCertData, constant)
+        sc_proof1 = cswMcTest.create_test_proof("sc1",
+                                                sc_csw_amount,
+                                                str(scid_swapped),
+                                                null1,
+                                                csw_mc_address,
+                                                ceasingCumScTxCommTree,
+                                                cert_data_hash = actCertData,
+                                                constant       = constant)
 
         sc_csws = [{
             "amount": sc_csw_amount,
@@ -196,8 +202,14 @@ class CswNullifierTest(BitcoinTestFramework):
         sc_csw_amount = sc_bal * Decimal("0.9")
         null1 = generate_random_field_element_hex()
 
-        sc_proof1 = cswMcTest.create_test_proof(
-                "sc1", sc_csw_amount, str(scid_swapped), null1, csw_mc_address, ceasingCumScTxCommTree, actCertData, constant)
+        sc_proof1 = cswMcTest.create_test_proof("sc1",
+                                                sc_csw_amount,
+                                                str(scid_swapped),
+                                                null1,
+                                                csw_mc_address,
+                                                ceasingCumScTxCommTree,
+                                                cert_data_hash = actCertData,
+                                                constant       = constant)
 
         sc_csws = [{
             "amount": sc_csw_amount,

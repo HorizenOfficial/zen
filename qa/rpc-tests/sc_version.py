@@ -3,7 +3,7 @@
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
-from test_framework.test_framework import BitcoinTestFramework, SC_VERSION_FORK_HEIGHT
+from test_framework.test_framework import BitcoinTestFramework, ForkHeights
 from test_framework.util import initialize_chain_clean, start_nodes,mark_logs
 from test_framework.blockchainhelper import BlockchainHelper, EXPECT_SUCCESS, EXPECT_FAILURE
 
@@ -35,8 +35,8 @@ class sc_version(BitcoinTestFramework):
         test_helper = BlockchainHelper(self)
 
         # We need to stop at 448 (so that the sidechain would be created in block 449)
-        mark_logs("Node 0 generates {} blocks".format(SC_VERSION_FORK_HEIGHT - 2), self.nodes,DEBUG_MODE)
-        self.nodes[0].generate(SC_VERSION_FORK_HEIGHT - 2)
+        mark_logs("Node 0 generates {} blocks".format(ForkHeights['SC_VERSION'] - 2), self.nodes,DEBUG_MODE)
+        self.nodes[0].generate(ForkHeights['SC_VERSION'] - 2)
         self.sync_all()
 
         mark_logs("Node 0 creates a v0 sidechain", self.nodes, DEBUG_MODE)
@@ -51,7 +51,7 @@ class sc_version(BitcoinTestFramework):
         self.sync_all()
 
         # Generate 1 more block to reach the sidechain version fork point
-        mark_logs("Node 0 generates 1 block (to reach height {})".format(SC_VERSION_FORK_HEIGHT - 1), self.nodes,DEBUG_MODE)
+        mark_logs("Node 0 generates 1 block (to reach height {})".format(ForkHeights['SC_VERSION'] - 1), self.nodes,DEBUG_MODE)
         self.nodes[0].generate(1)
 
         mark_logs("Node 0 creates a v0 sidechain", self.nodes, DEBUG_MODE)
@@ -62,6 +62,41 @@ class sc_version(BitcoinTestFramework):
 
         mark_logs("Node 0 creates a v2 sidechain (expecting failure)", self.nodes, DEBUG_MODE)
         assert("Invalid sidechain version" in test_helper.create_sidechain("post_fork_v2", 2, EXPECT_FAILURE))
+
+        self.nodes[0].generate(1)
+        self.sync_all()
+
+        # Generate more blocks to stop just before the sidechain version 2 fork point
+        mark_logs("Node 0 generates {} blocks (to reach height {})".format(ForkHeights['NON_CEASING_SC'] - ForkHeights['SC_VERSION'] - 2, ForkHeights['NON_CEASING_SC'] - 2), self.nodes,DEBUG_MODE)
+        self.nodes[0].generate(ForkHeights['NON_CEASING_SC'] - ForkHeights['SC_VERSION'] - 2)
+        self.sync_all()
+
+        mark_logs("Node 0 creates a v0 sidechain", self.nodes, DEBUG_MODE)
+        test_helper.create_sidechain("pre_fork2_v0", 0, EXPECT_SUCCESS)
+
+        mark_logs("Node 0 creates a v1 sidechain", self.nodes, DEBUG_MODE)
+        test_helper.create_sidechain("pre_fork2_v1", 1, EXPECT_SUCCESS)
+
+        mark_logs("Node 0 creates a v2 sidechain (expecting failure)", self.nodes, DEBUG_MODE)
+        assert("Invalid sidechain version" in test_helper.create_sidechain("pre_fork_v2", 2, EXPECT_FAILURE))
+
+        self.sync_all()
+
+        # Generate 1 more block to reach the sidechain version 2 fork point
+        mark_logs("Node 0 generates 1 block (to reach height {})".format(ForkHeights['NON_CEASING_SC'] - 1), self.nodes,DEBUG_MODE)
+        self.nodes[0].generate(1)
+
+        mark_logs("Node 0 creates a v0 sidechain", self.nodes, DEBUG_MODE)
+        test_helper.create_sidechain("post_fork2_v0", 0, EXPECT_SUCCESS)
+
+        mark_logs("Node 0 creates a v1 sidechain", self.nodes, DEBUG_MODE)
+        test_helper.create_sidechain("post_fork2_v1", 1, EXPECT_SUCCESS)
+
+        mark_logs("Node 0 creates a v2 sidechain", self.nodes, DEBUG_MODE)
+        test_helper.create_sidechain("post_fork2_v2", 2, EXPECT_SUCCESS)
+
+        mark_logs("Node 0 creates a v3 sidechain (expecting failure)", self.nodes, DEBUG_MODE)
+        assert("Invalid sidechain version" in test_helper.create_sidechain("post_fork2_v3", 3, EXPECT_FAILURE))
 
         self.sync_all()
 

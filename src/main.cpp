@@ -45,6 +45,7 @@
 #include "sc/proofverifier.h"
 #include "sc/sidechain.h"
 #include "sc/sidechainTxsCommitmentBuilder.h"
+#include "sc/sidechainTxsCommitmentGuard.h"
 
 #include "script/sigcache.h"
 #include "script/standard.h"
@@ -66,6 +67,7 @@ BlockSet sGlobalForkTips;
 BlockTimeMap mGlobalForkTips;
 
 BlockMap mapBlockIndex;
+ScCumTreeRootMap mapCumtreeHeight;
 CChain chainActive;
 CBlockIndex *pindexBestHeader = NULL;
 int64_t nTimeBestReceived = 0;
@@ -986,7 +988,10 @@ std::map<uint256, uint256> HighQualityCertData(const CBlock& blockToConnect, con
             continue;
 
         if (itCert->epochNumber == sidechain.lastTopQualityCertReferencedEpoch)
+        {
+            assert(!sidechain.isNonCeasing());
             res[itCert->GetHash()] = sidechain.lastTopQualityCertHash;
+        }
         else
             res[itCert->GetHash()] = uint256();
 
@@ -1008,11 +1013,14 @@ std::map<uint256, uint256> HighQualityCertData(const CBlock& blockToDisconnect, 
     for (int certPos = blockToDisconnect.vcert.size() - 1; certPos >= 0; certPos--)
     {
         const CScCertificate& cert = blockToDisconnect.vcert.at(certPos);
+
         if (visitedScIds.count(cert.GetScId()) != 0)
             continue;
 
         if (cert.epochNumber == blockUndo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertReferencedEpoch)
+        {
             res[cert.GetHash()] = blockUndo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertHash;
+        }
         else
             res[cert.GetHash()] = uint256();
 
@@ -1022,6 +1030,13 @@ std::map<uint256, uint256> HighQualityCertData(const CBlock& blockToDisconnect, 
     return res;
 }
 
+// With the introduction of non-ceasing sidechains we modified this function to perform less strict checks
+// on certificate ordering.
+// This functions now checks that, for every sc, certificates in a block are ordered by increasing epochs,
+// and for each epoch, certificates are ordered by increasing quality. Originally, it also checked that
+// a block did not contain 2 or more certs referring to different epochs (invalid only for v0/v1) and that
+// for each epoch, certs were stricly ordered by quality (it was not possible to include certs with the
+// same quality)
 bool CheckCertificatesOrdering(const std::vector<CScCertificate>& certList, CValidationState& state)
 {
     std::map<uint256, std::pair<int32_t, int64_t>> mBestCertDataByScId;
@@ -1031,23 +1046,25 @@ bool CheckCertificatesOrdering(const std::vector<CScCertificate>& certList, CVal
         const uint256& scid = cert.GetScId();
         if (mBestCertDataByScId.count(scid))
         {
-            if (mBestCertDataByScId.at(scid).first != cert.epochNumber)
+            const auto & bestCertData = mBestCertDataByScId.at(scid); 
+            if (bestCertData.first > cert.epochNumber)
             {
-                LogPrint("cert", "%s():%d - cert %s / q=%d / epoch=%d has an invalid epoch in block for scid = %s\n",
+                LogPrint("cert", "%s():%d - cert %s / q=%d / epoch=%d has an incorrect epoch order in block for scid = %s\n",
                     __func__, __LINE__, cert.GetHash().ToString(), cert.quality, cert.epochNumber, scid.ToString());
-                return state.DoS(100, error("%s: certificate for the same scid with different epochs",
-                    __func__), CValidationState::Code::INVALID, "bad-cert-epoch");
+                return state.DoS(100, error("%s: incorrect certificate epoch order in block",
+                    __func__), CValidationState::Code::INVALID, "bad-cert-epoch-ordering-in-block");
             }
-            if (mBestCertDataByScId.at(scid).second >= cert.quality)
+            if ((bestCertData.first == cert.epochNumber) && (bestCertData.second > cert.quality))
             {
-                LogPrint("cert", "%s():%d - cert %s / q=%d / epoch=%d has an incorrect order in block for scid = %s\n",
+                LogPrint("cert", "%s():%d - cert %s / q=%d / epoch=%d has an incorrect quality order in block for scid = %s\n",
                     __func__, __LINE__, cert.GetHash().ToString(), cert.quality, cert.epochNumber, scid.ToString());
-                return state.DoS(100, error("%s: certificate with quality not ordered in block",
+                return state.DoS(100, error("%s: incorrect certificate quality order in block",
                     __func__), CValidationState::Code::INVALID, "bad-cert-quality-in-block");
             }
         }
         LogPrint("cert", "%s():%d - setting cert %s / q=%d / epoch=%d as current best in block for scid = %s\n",
             __func__, __LINE__, cert.GetHash().ToString(), cert.quality, cert.epochNumber, scid.ToString());
+        // As we iterate over certs, we only keep the current max combination of epoch / quality for a given sc
         mBestCertDataByScId[scid] = std::make_pair(cert.epochNumber, cert.quality);
     }
 
@@ -1236,13 +1253,26 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
                 return MempoolReturnValue::INVALID;
             }
 
-            bool banSenderNode = false;
             int nDoS = 0;
 
-            CValidationState::Code ret_code = view.IsCertApplicableToState(cert, &banSenderNode);
+            // checking txs commitment tree validity
+            if (ForkManager::getInstance().isNonCeasingSidechainActive(nextBlockHeight)) {
+                SidechainTxsCommitmentGuard scCommitmentGuard;
+                bool retval = scCommitmentGuard.add(cert);
+                if (!retval) {
+                    nDoS = 100;
+                    state.DoS(nDoS,
+                        error("%s():%d - ERROR: Invalid cert[%s], SidechainTxsCommitmentGuard failed\n",
+                            __func__, __LINE__, certHash.ToString()),
+                        CValidationState::Code::INVALID, "bad-cert-txscommitmentguard");
+                    return MempoolReturnValue::INVALID;
+                }
+            }
+
+            CValidationState::Code ret_code = view.IsCertApplicableToState(cert);
             if (ret_code != CValidationState::Code::OK)
             {
-                if (banSenderNode)
+                if (ret_code == CValidationState::Code::INVALID_AND_BAN)
                     nDoS = 100;
 
                 state.DoS(nDoS, error("%s():%d - certificate not applicable: ret_code[0x%x]",
@@ -1273,17 +1303,33 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
                 return MempoolReturnValue::INVALID;
             }
 
-            // Bring the best block into scope: it's gonna be needed for CheckInputsTx hereinafter
-            view.GetBestBlock();
             nFees = cert.GetFeeAmount(view.GetValueIn(cert));
 
-            if (!conflictingCertData.first.IsNull() && conflictingCertData.second >= nFees)
+            CSidechain sc;
+            if (!view.GetSidechain(cert.GetScId(), sc))
+            {
+                LogPrint("mempool", "%s():%d - ERROR: cert[%s] refers to a non existing sidechain[%s]\n", __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
+                return MempoolReturnValue::INVALID;
+            }
+
+            if (sc.isNonCeasing() && pool.certificateExists(cert.GetScId()))
             {
                 state.Invalid(
-                    error("%s():%d - Dropping cert %s : low fee and same quality as other cert in mempool\n",
+                    error("%s():%d - Dropping cert %s : conflicting with another cert in mempool for non ceasing SC\n",
                         __func__, __LINE__, certHash.ToString()),
-                    CValidationState::Code::INVALID, "bad-sc-cert-quality");
+                    CValidationState::Code::INVALID, "bad-sc-cert-conflict");
                 return MempoolReturnValue::INVALID;
+            }
+            else if (!sc.isNonCeasing())
+            {
+                if (!conflictingCertData.first.IsNull() && conflictingCertData.second >= nFees)
+                {
+                    state.Invalid(
+                        error("%s():%d - Dropping cert %s : low fee and same quality as other cert in mempool\n",
+                            __func__, __LINE__, certHash.ToString()),
+                        CValidationState::Code::INVALID, "bad-sc-cert-quality");
+                    return MempoolReturnValue::INVALID;
+                }
             }
 
             // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
@@ -1560,13 +1606,28 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
                 return MempoolReturnValue::INVALID;
             }
 
-            bool banSenderNode = false;
             int nDoS = 0;
 
-            CValidationState::Code ret_code = view.IsScTxApplicableToState(tx, Sidechain::ScFeeCheckFlag::LATEST_VALUE, &banSenderNode);
+            // checking txs commitment tree validity
+            if (ForkManager::getInstance().isNonCeasingSidechainActive(pcoinsTip->GetHeight())) {
+                SidechainTxsCommitmentGuard scCommitmentGuard;
+                bool retval = scCommitmentGuard.add(tx);
+                if (!retval) {
+                    nDoS = 100;
+                    state.DoS(nDoS,
+                        error("%s():%d - ERROR: Invalid tx[%s], SidechainTxsCommitmentGuard failed\n",
+                            __func__, __LINE__, tx.GetHash().ToString()),
+                        CValidationState::Code::INVALID, "sidechain-tx-txscommitmentguard");
+                    return MempoolReturnValue::INVALID;
+                }
+            }
+
+            // We pass pcoinsTip to IsScTxApplicableToState because we want to validate the fees against the last certificate
+            // in the blockchain, and not against certificates in the mempool.
+            CValidationState::Code ret_code = view.IsScTxApplicableToState(tx, Sidechain::ScFeeCheckFlag::LATEST_VALUE, pcoinsTip);
             if (ret_code != CValidationState::Code::OK)
             {
-                if (banSenderNode)
+                if (ret_code == CValidationState::Code::INVALID_AND_BAN)
                     nDoS = 100;
 
                 state.DoS(nDoS,
@@ -2339,7 +2400,7 @@ void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo &t
     // add outputs
     CSidechain sidechain;
     assert(inputs.GetSidechain(cert.GetScId(), sidechain));
-    int bwtMaturityHeight = sidechain.GetCertMaturityHeight(cert.epochNumber);
+    int bwtMaturityHeight = sidechain.GetCertMaturityHeight(cert.epochNumber, nHeight);
     inputs.ModifyCoins(cert.GetHash())->From(cert, nHeight, bwtMaturityHeight, isBlockTopQualityCert);
     return;
 }
@@ -2771,6 +2832,13 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         uint256 hash = cert.GetHash();
         bool isBlockTopQualityCert = highQualityCertData.count(cert.GetHash()) != 0;
 
+        CSidechain sidechain;
+        assert(view.GetSidechain(cert.GetScId(), sidechain));
+        if (sidechain.isNonCeasing())   // For non-ceasing SC cert should always be top quality
+        {
+            assert(isBlockTopQualityCert);
+        }
+
         LogPrint("cert", "%s():%d - reverting outs of cert[%s]\n", __func__, __LINE__, hash.ToString());
 
         if (explorerIndexesWrite == flagLevelDBIndexesWrite::ON)
@@ -2815,9 +2883,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             CCoinsModifier outs = view.ModifyCoins(hash);
             outs->ClearUnspendable();
 
-            CSidechain sidechain;
-            assert(view.GetSidechain(cert.GetScId(), sidechain));
-            int bwtMaturityHeight = sidechain.GetCertMaturityHeight(cert.epochNumber);
+            int bwtMaturityHeight = sidechain.GetCertMaturityHeight(cert.epochNumber, pindex->nHeight);
             CCoins outsBlock(cert, pindex->nHeight, bwtMaturityHeight, isBlockTopQualityCert);
 
             // The CCoins serialization does not serialize negative numbers.
@@ -2848,11 +2914,14 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             //Used only if fMaturityHeightIndex == true
             int certMaturityHeight = -1;
 
+            // prevBlockTopQualityCertHash should always be null in v2 non-ceasing sc
+            if (!prevBlockTopQualityCertHash.IsNull()) {
+                assert(!sidechain.isNonCeasing());
+            }
+
             //Remove the current certificate from the MaturityHeight DB
             if (fMaturityHeightIndex && explorerIndexesWrite == flagLevelDBIndexesWrite::ON) {
-                CSidechain sidechain;
-                assert(view.GetSidechain(cert.GetScId(), sidechain));
-                certMaturityHeight = sidechain.GetCertMaturityHeight(cert.epochNumber);
+                certMaturityHeight = sidechain.GetCertMaturityHeight(cert.epochNumber, pindex->nHeight);
                 CMaturityHeightKey maturityHeightKey = CMaturityHeightKey(certMaturityHeight, cert.GetHash());
                 maturityHeightValues.push_back(make_pair(maturityHeightKey, CMaturityHeightValue()));
             }
@@ -2896,7 +2965,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                                            CScCertificateStatusUpdateInfo::BwtState::BWT_ON));
             }
 
-            if (!view.RestoreSidechain(cert, blockUndo.scUndoDatabyScId.at(cert.GetScId())) )
+            if (!view.RestoreSidechain(cert, blockUndo.scUndoDatabyScId.at(cert.GetScId())))
             {
                 LogPrint("sc", "%s():%d - ERROR undoing certificate\n", __func__, __LINE__);
                 return error("DisconnectBlock(): certificate can not be reverted: data inconsistent");
@@ -3360,10 +3429,31 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         assert(tree.root() == old_tree_root);
     }
 
+    // Check sidechain txs commitment tree limits now. This is less expensive than populating a txsCommitmentBuilder
+    if (ForkManager::getInstance().isNonCeasingSidechainActive(pindex->nHeight)) {
+        SidechainTxsCommitmentGuard scCommGuard;
+        for (unsigned int txIdx = 0; txIdx < block.vtx.size(); ++txIdx) {
+            const CTransaction &tx = block.vtx[txIdx];
+            if (!scCommGuard.add(tx))
+                return state.DoS(100, error("%s():%d: cannot add tx to scTxsCommitment guard", __func__, __LINE__),
+                    CValidationState::Code::INVALID, "bad-blk-tx-commitguard");
+        }
+        for (unsigned int certIdx = 0; certIdx < block.vcert.size(); certIdx++) {
+            const CScCertificate &cert = block.vcert[certIdx];
+            if (!scCommGuard.add(cert))
+                return state.DoS(100, error("%s():%d: cannot add cert to scTxsCommitmentBuilder", __func__, __LINE__),
+                    CValidationState::Code::INVALID, "bad-blk-cert-commitguard");
+        }
+    }
+
     const auto scVerifierMode = fExpensiveChecks ?
                 CScProofVerifier::Verification::Strict : CScProofVerifier::Verification::Loose;
     // Set high priority to verify the proofs as soon as possible (pausing mempool verification operations if any.)
     CScProofVerifier scVerifier{scVerifierMode, CScProofVerifier::Priority::High};
+    // We check scCommitmentBuilder's status after adding each tx or cert to avoid accepting blocks
+    // having a total number of sc or ft / bwt / csw / cert per sidechain greater than currently
+    // supported by CCTPlib.
+    // We also check that the on-the-fly calculated scTxsCommitment is equal to that included in the block.
     SidechainTxsCommitmentBuilder scCommitmentBuilder;
      
     for (unsigned int txIdx = 0; txIdx < block.vtx.size(); ++txIdx) // Processing transactions loop
@@ -3514,8 +3604,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         vTxIndexValues.push_back(std::make_pair(tx.GetHash(), CTxIndexValue(pos, txIdx, 0)));
         pos.nTxOffset += ::GetSerializeSize(tx, SER_DISK, CLIENT_VERSION);
 
-        if (fScRelatedChecks == flagScRelatedChecks::ON)
-            scCommitmentBuilder.add(tx);
+        if (fScRelatedChecks == flagScRelatedChecks::ON) {
+            bool retBuilder = scCommitmentBuilder.add(tx);
+            if (!retBuilder && ForkManager::getInstance().isNonCeasingSidechainActive(pindex->nHeight))
+                return state.DoS(100, error("%s():%d: cannot add tx to scTxsCommitmentBuilder", __func__, __LINE__),
+                    CValidationState::Code::INVALID, "bad-blk-tx-commitbuild");
+        }
     }  //end of Processing transactions loop
 
 
@@ -3627,13 +3721,18 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
 #endif // ENABLE_ADDRESS_INDEXING
 
-        blockundo.vtxundo.push_back(CTxUndo());
-        bool isBlockTopQualityCert = highQualityCertData.count(cert.GetHash()) != 0;
-        UpdateCoins(cert, view, blockundo.vtxundo.back(), pindex->nHeight, isBlockTopQualityCert);
-
         CSidechain sidechain;
         assert(view.GetSidechain(cert.GetScId(), sidechain));
-        int certMaturityHeight = sidechain.GetCertMaturityHeight(cert.epochNumber);
+
+        blockundo.vtxundo.push_back(CTxUndo());
+        bool isBlockTopQualityCert = highQualityCertData.count(cert.GetHash()) != 0;
+        if (sidechain.isNonCeasing())   // For non-ceasing SC cert should always be top quality
+        {
+            assert(isBlockTopQualityCert);
+        }
+        UpdateCoins(cert, view, blockundo.vtxundo.back(), pindex->nHeight, isBlockTopQualityCert);
+        
+        int certMaturityHeight = sidechain.GetCertMaturityHeight(cert.epochNumber, pindex->nHeight);
 
         if (!isBlockTopQualityCert) {
             certMaturityHeight *= -1;   // A negative maturity height indicates that the certificate is superseded
@@ -3647,7 +3746,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 maturityHeightValues.push_back(std::make_pair(maturityHeightKey, CMaturityHeightValue(static_cast<char>(1))));
             }
 
-            if (!view.UpdateSidechain(cert, blockundo) )
+            if (!view.UpdateSidechain(cert, blockundo, pindex->nHeight))
             {
                 return state.DoS(100, error("%s():%d: could not add in scView: cert[%s]",__func__, __LINE__, cert.GetHash().ToString()),
                                  CValidationState::Code::INVALID, "bad-sc-cert-not-updated");
@@ -3656,8 +3755,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             const uint256& prevBlockTopQualityCertHash = highQualityCertData.at(cert.GetHash());
             if (!prevBlockTopQualityCertHash.IsNull())
             {
-                // if prevBlockTopQualityCertHash is not null, it has same scId/epochNumber as cert
+                // prevBlockTopQualityCertHash should always be null in v2 non-ceasing sc
+                assert(!sidechain.isNonCeasing());
 
+                // if prevBlockTopQualityCertHash is not null, it has same scId/epochNumber as cert
                 if (explorerIndexesWrite == flagLevelDBIndexesWrite::ON)
                 {
                     if (fTxIndex)
@@ -3716,7 +3817,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         if (fScRelatedChecks == flagScRelatedChecks::ON)
         {
-            scCommitmentBuilder.add(cert, view);
+            bool retBuilder = scCommitmentBuilder.add(cert, view);
+            if (!retBuilder && ForkManager::getInstance().isNonCeasingSidechainActive(pindex->nHeight))
+                return state.DoS(100, error("%s():%d: cannot add cert to scTxsCommitmentBuilder", __func__, __LINE__),
+                    CValidationState::Code::INVALID, "bad-blk-cert-commitbuild");
         }
 
 #ifdef ENABLE_ADDRESS_INDEXING
@@ -4109,14 +4213,24 @@ bool static DisconnectTip(CValidationState &state) {
         assert(view.Flush());
     }
     LogPrint("bench", "- Disconnect block: %.2fms\n", (GetTimeMicros() - nStart) * 0.001);
+
+    std::list<CTransaction> dummyTxs;
+    std::list<CScCertificate> dummyCerts;
+
+    size_t erased = mapCumtreeHeight.erase(pindexDelete->scCumTreeHash.GetLegacyHash());
+    if (erased) {
+        LogPrint("sc", "- Removed %zu entries from mapCumtreeHeight\n", erased);
+        mempool.removeCertificatesWithoutRef(pcoinsTip, dummyCerts);
+    }
+    dummyTxs.clear();
+    dummyCerts.clear();
+
     uint256 anchorAfterDisconnect = pcoinsTip->GetBestAnchor();
     // Write the chain state to disk, if necessary.
     if (!FlushStateToDisk(state, FLUSH_STATE_IF_NEEDED))
         return false;
 
     // Resurrect mempool transactions and certificates from the disconnected block.
-    std::list<CTransaction> dummyTxs;
-    std::list<CScCertificate> dummyCerts;
     for(const CTransaction &tx: block.vtx) {
         // ignore validation errors in resurrected transactions
         CValidationState stateDummy;
@@ -4141,7 +4255,7 @@ bool static DisconnectTip(CValidationState &state) {
         LogPrint("sc", "%s():%d - resurrecting certificate [%s] to mempool\n", __func__, __LINE__, cert.GetHash().ToString());
         CValidationState stateDummy;
         if (MempoolReturnValue::VALID != AcceptCertificateToMemoryPool(mempool, stateDummy, cert,
-                LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, MempoolProofVerificationFlag::DISABLED))
+                LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, MempoolProofVerificationFlag::DISABLED, nullptr))
         {
             LogPrint("sc", "%s():%d - removing certificate [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, cert.GetHash().ToString(), cert.ToString());
@@ -4231,6 +4345,7 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
         LogPrint("bench", "  - Connect total: %.2fms [%.2fs]\n", (nTime3 - nTime2) * 0.001, nTimeConnectTotal * 0.000001);
         assert(view.Flush());
     }
+    mapCumtreeHeight.insert(std::make_pair(pindexNew->scCumTreeHash.GetLegacyHash(), pindexNew->nHeight));
     int64_t nTime4 = GetTimeMicros(); nTimeFlush += nTime4 - nTime3;
     LogPrint("bench", "  - Flush: %.2fms [%.2fs]\n", (nTime4 - nTime3) * 0.001, nTimeFlush * 0.000001);
     // Write the chain state to disk, if necessary.
@@ -4270,7 +4385,7 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     for(const CScCertificate &cert: pblock->vcert) {
         CSidechain sidechain;
         assert(pcoinsTip->GetSidechain(cert.GetScId(), sidechain));
-        int bwtMaturityDepth = sidechain.GetCertMaturityHeight(cert.epochNumber) - chainActive.Height();
+        int bwtMaturityDepth = sidechain.GetCertMaturityHeight(cert.epochNumber, pindexNew->nHeight) - chainActive.Height();
         LogPrint("cert", "%s():%d - sync with wallet confirmed cert[%s], bwtMaturityDepth[%d]\n",
             __func__, __LINE__, cert.GetHash().ToString(), bwtMaturityDepth);
         SyncWithWallets(cert, pblock, bwtMaturityDepth);
@@ -4743,12 +4858,13 @@ CBlockIndex* AddToBlockIndex(const CBlockHeader& block)
         LogPrintf("%s: Block belong to a chain under punishment Delay VAL: %i BLOCKHEIGHT: %d\n",__func__, pindexNew->nChainDelay, pindexNew->nHeight);
     }
 
-    if (pindexNew->pprev && pindexNew->nVersion == BLOCK_VERSION_SC_SUPPORT )
+    if (pindexNew->pprev && pindexNew->nVersion == BLOCK_VERSION_SC_SUPPORT)
     {
         const CFieldElement& prevScCumTreeHash =
                 (pindexNew->pprev->nVersion == BLOCK_VERSION_SC_SUPPORT) ?
-                        pindexNew->pprev->scCumTreeHash : CBlockIndex::defaultScCumTreeHash;
+                        pindexNew->pprev->scCumTreeHash : CFieldElement::GetZeroHash();
         pindexNew->scCumTreeHash = CFieldElement::ComputeHash(prevScCumTreeHash, CFieldElement{block.hashScTxsCommitment});
+        mapCumtreeHeight.insert(std::make_pair(pindexNew->scCumTreeHash.GetLegacyHash(), pindexNew->nHeight));
     }
 
     pindexNew->RaiseValidity(BLOCK_VALID_TREE);

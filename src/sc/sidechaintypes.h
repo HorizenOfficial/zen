@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <mutex>
+#include <iomanip> // std::setw
 
 #include <boost/unordered_map.hpp>
 #include <boost/variant.hpp>
@@ -150,6 +151,7 @@ public:
 
     static CFieldElement ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs);
     static const CFieldElement& GetPhantomHash();
+    static const CFieldElement& GetZeroHash();
 
     // SERIALIZATION SECTION
     ADD_SERIALIZE_METHODS;
@@ -461,12 +463,12 @@ enum class ScFeeCheckFlag {
     MINIMUM_IN_A_RANGE
 };
 
-typedef struct sScFeeData_tag
+struct ScFeeData
 {
     CAmount forwardTxScFee;
     CAmount mbtrTxScFee;
-    sScFeeData_tag(): forwardTxScFee(0), mbtrTxScFee(0) {}
-    sScFeeData_tag(CAmount f, CAmount m): forwardTxScFee(f), mbtrTxScFee(m) {}
+    ScFeeData(): forwardTxScFee(0), mbtrTxScFee(0) {}
+    ScFeeData(CAmount f, CAmount m): forwardTxScFee(f), mbtrTxScFee(m) {}
 
     ADD_SERIALIZE_METHODS;
 
@@ -476,12 +478,46 @@ typedef struct sScFeeData_tag
         READWRITE(mbtrTxScFee);
     }
 
-    inline bool operator==(const sScFeeData_tag& rhs) const
+    virtual inline bool operator==(const ScFeeData& rhs) const
     {
         return (forwardTxScFee == rhs.forwardTxScFee && mbtrTxScFee == rhs.mbtrTxScFee);
     }
 
-} ScFeeData;
+    virtual std::string ToString() const
+    {
+        std::stringstream res;
+        res << "[" << std::setw(2) << forwardTxScFee << "/" << std::setw(2) << mbtrTxScFee << "]";
+        return res.str();
+    }
+};
+
+struct ScFeeData_v2 : public ScFeeData {
+    int submissionHeight;
+    ScFeeData_v2() : ScFeeData(), submissionHeight(-1) {};
+    ScFeeData_v2(CAmount f, CAmount m, int submHeight) : ScFeeData(f, m), submissionHeight(submHeight) {};
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        ScFeeData::SerializationOp(s, ser_action, nType, nVersion);
+        READWRITE(submissionHeight);
+    }
+
+    inline bool operator==(const ScFeeData_v2& rhs) const
+    {
+        return ScFeeData::operator==(rhs) && submissionHeight == rhs.submissionHeight;
+    }
+
+    std::string ToString() const override
+    {
+        std::stringstream res;
+        res << ScFeeData::ToString();
+        res.seekp(-1, std::ios_base::end); // overwrite closing ]
+        res << " /" << std::setw(2) << submissionHeight << "]";
+        return res.str();
+    }
+};
 
 static const std::string PROVING_SYS_TYPE_COBOUNDARY_MARLIN = "CoboundaryMarlin";
 static const std::string PROVING_SYS_TYPE_DARLIN            = "Darlin";

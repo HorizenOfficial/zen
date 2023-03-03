@@ -4,6 +4,7 @@
 #include <primitives/transaction.h>
 #include <primitives/certificate.h>
 #include <sc/sidechainTxsCommitmentBuilder.h>
+#include <sc/sidechainTxsCommitmentGuard.h>
 #include "tx_creation_utils.h"
 
 #include <gtest/libzendoo_test_files.h>
@@ -24,6 +25,13 @@
 extern unsigned char ReverseBitsInByte(unsigned char input);
 
 using namespace blockchain_test_utils;
+
+// Keep them aligned with those defined in CCTPlib!
+constexpr int CCTP_COMMITMENT_BUILDER_SC_LIMIT   = 4096;
+constexpr int CCTP_COMMITMENT_BUILDER_FT_LIMIT   = 4095;
+constexpr int CCTP_COMMITMENT_BUILDER_BWTR_LIMIT = 4095;
+constexpr int CCTP_COMMITMENT_BUILDER_CERT_LIMIT = 4095;
+constexpr int CCTP_COMMITMENT_BUILDER_CSW_LIMIT  = 4095;
 
 /**
  * @brief Custom field randomly generated from seed 1641809674 using the rand() function.
@@ -107,7 +115,7 @@ static CMutableScCertificate CreateDefaultCert()
     return mcert;
 }
 
-static CCertProofVerifierInput CreateDefaultCertInput(TestCircuitType circuitType = TestCircuitType::Certificate)
+static CCertProofVerifierInput CreateDefaultCertInput(bool keyrot, TestCircuitType circuitType = TestCircuitType::Certificate)
 {
     CCertProofVerifierInput certInput;
 
@@ -128,7 +136,7 @@ static CCertProofVerifierInput CreateDefaultCertInput(TestCircuitType circuitTyp
     certInput.endEpochCumScTxCommTreeRoot = CFieldElement(SAMPLE_FIELD);
     certInput.mainchainBackwardTransferRequestScFee = 1;
     certInput.forwardTransferScFee = 1;
-
+    certInput.lastCertHash = keyrot ? CFieldElement(SAMPLE_FIELD) : CFieldElement();
     return certInput;
 }
 
@@ -574,7 +582,7 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
     //fPrintToConsole = true;
 
     //Add txes containing scCreation and fwd transfer + a certificate
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10), /*height*/10);
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10), 10);
 
     CMutableTransaction mutTx = scCreationTx;
 
@@ -687,10 +695,10 @@ TEST(SidechainsField, CommitmentComputationFromSerializedBlock)
     }
 
     // Check the commitment tree
-    uint256 scTxCommitmentHash = block.BuildScTxsCommitment(testManager.CoinsViewCache().get());
+    block.UpdateScTxsCommitment(testManager.CoinsViewCache().get());
 
-    EXPECT_TRUE(scTxCommitmentHash == uint256S("2a94ae04f2dcb25b274510a4611e1443b088ed2eac9211535105b35cfbd1c543"))
-        << scTxCommitmentHash.ToString();
+    EXPECT_TRUE(block.hashScTxsCommitment == uint256S("2a94ae04f2dcb25b274510a4611e1443b088ed2eac9211535105b35cfbd1c543"))
+        << block.hashScTxsCommitment.ToString();
 }
 
 TEST(CctpLibrary, BitVectorUncompressed)
@@ -1833,44 +1841,58 @@ TEST(CctpLibrary, GetScIdFromNullInputs)
     zendoo_field_free(scid_fe);
 }
 
+void CreateAndVerifyCert(ProvingSystem ps, TestCircuitType tc, bool keyrot)
+{
+    SelectParams(CBaseChainParams::REGTEST);
+    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+    testManager.GenerateSidechainTestParameters(ps, tc, keyrot);
+
+    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
+
+    CCertProofVerifierInput certInput = CreateDefaultCertInput(keyrot, tc);
+    certInput.verificationKey = testManager.GetTestVerificationKey(ps, tc);
+    certInput.proof = testManager.GenerateTestCertificateProof(certInput, ps, tc);
+
+    ASSERT_TRUE(testManager.VerifyCertificateProof(certInput));
+}
+
+void CreateAndVerifyCSW(ProvingSystem ps, TestCircuitType tc)
+{
+    SelectParams(CBaseChainParams::REGTEST);
+    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+    testManager.GenerateSidechainTestParameters(ps, tc, false); // no key_rotation possible for CSW
+
+    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
+
+    CCswProofVerifierInput cswInput = CreateDefaultCswInput(tc);
+    cswInput.verificationKey = testManager.GetTestVerificationKey(ps, tc);
+    cswInput.proof = testManager.GenerateTestCswProof(cswInput, ps, tc);
+
+    ASSERT_TRUE(testManager.VerifyCswProof(cswInput));
+}
+
 /**
  * @brief This test is intended to generate verification parameters,
  * generate a valid certificate proof (Marlin) and verify it through the batch verifier.
  */
 TEST(CctpLibrary, CreateAndVerifyMarlinCertificateProof)
 {
-    const ProvingSystem provingSystem = ProvingSystem::CoboundaryMarlin;
-    const TestCircuitType circuitType = TestCircuitType::Certificate;
-
-    SelectParams(CBaseChainParams::REGTEST);
-    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
-    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
-
-    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
-
-    CCertProofVerifierInput certInput = CreateDefaultCertInput();
-    certInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
-    certInput.proof = testManager.GenerateTestCertificateProof(certInput, provingSystem, circuitType);
-
-    ASSERT_TRUE(testManager.VerifyCertificateProof(certInput));
+    CreateAndVerifyCert(ProvingSystem::CoboundaryMarlin, TestCircuitType::Certificate, false);
 }
 
 TEST(CctpLibrary, CreateAndVerifyMarlinCertificateNoConstantProof)
 {
-    const ProvingSystem provingSystem = ProvingSystem::CoboundaryMarlin;
-    const TestCircuitType circuitType = TestCircuitType::CertificateNoConstant;
+    CreateAndVerifyCert(ProvingSystem::CoboundaryMarlin, TestCircuitType::CertificateNoConstant, false);
+}
 
-    SelectParams(CBaseChainParams::REGTEST);
-    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
-    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
+TEST(CctpLibrary, CreateAndVerifyMarlinCertificateProofKeyrot)
+{
+    CreateAndVerifyCert(ProvingSystem::CoboundaryMarlin, TestCircuitType::Certificate, true);
+}
 
-    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
-
-    CCertProofVerifierInput certInput = CreateDefaultCertInput(circuitType);
-    certInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
-    certInput.proof = testManager.GenerateTestCertificateProof(certInput, provingSystem, circuitType);
-
-    ASSERT_TRUE(testManager.VerifyCertificateProof(certInput));
+TEST(CctpLibrary, CreateAndVerifyMarlinCertificateNoConstantProofKeyrot)
+{
+    CreateAndVerifyCert(ProvingSystem::CoboundaryMarlin, TestCircuitType::CertificateNoConstant, true);
 }
 
 /**
@@ -1879,38 +1901,22 @@ TEST(CctpLibrary, CreateAndVerifyMarlinCertificateNoConstantProof)
  */
 TEST(CctpLibrary, CreateAndVerifyDarlinCertificateProof)
 {
-    const ProvingSystem provingSystem = ProvingSystem::Darlin;
-    const TestCircuitType circuitType = TestCircuitType::Certificate;
-
-    SelectParams(CBaseChainParams::REGTEST);
-    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
-    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
-
-    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
-
-    CCertProofVerifierInput certInput = CreateDefaultCertInput();
-    certInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
-    certInput.proof = testManager.GenerateTestCertificateProof(certInput, provingSystem);
-
-    ASSERT_TRUE(testManager.VerifyCertificateProof(certInput));
+    CreateAndVerifyCert(ProvingSystem::Darlin, TestCircuitType::Certificate, false);
 }
 
 TEST(CctpLibrary, CreateAndVerifyDarlinCertificateNoConstantProof)
 {
-    const ProvingSystem provingSystem = ProvingSystem::Darlin;
-    const TestCircuitType circuitType = TestCircuitType::CertificateNoConstant;
+    CreateAndVerifyCert(ProvingSystem::Darlin, TestCircuitType::CertificateNoConstant, false);
+}
 
-    SelectParams(CBaseChainParams::REGTEST);
-    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
-    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
+TEST(CctpLibrary, CreateAndVerifyDarlinCertificateProofKeyrot)
+{
+    CreateAndVerifyCert(ProvingSystem::Darlin, TestCircuitType::Certificate, true);
+}
 
-    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
-
-    CCertProofVerifierInput certInput = CreateDefaultCertInput(circuitType);
-    certInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
-    certInput.proof = testManager.GenerateTestCertificateProof(certInput, provingSystem, circuitType);
-
-    ASSERT_TRUE(testManager.VerifyCertificateProof(certInput));
+TEST(CctpLibrary, CreateAndVerifyDarlinCertificateNoConstantProofKeyrot)
+{
+    CreateAndVerifyCert(ProvingSystem::Darlin, TestCircuitType::CertificateNoConstant, true);
 }
 
 /**
@@ -1919,78 +1925,26 @@ TEST(CctpLibrary, CreateAndVerifyDarlinCertificateNoConstantProof)
  */
 TEST(CctpLibrary, CreateAndVerifyMarlinCswProof)
 {
-    const ProvingSystem provingSystem = ProvingSystem::CoboundaryMarlin;
-    const TestCircuitType circuitType = TestCircuitType::CSW;
-
-    SelectParams(CBaseChainParams::REGTEST);
-    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
-    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
-
-    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
-
-    CCswProofVerifierInput cswInput = CreateDefaultCswInput();
-    cswInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
-    cswInput.proof = testManager.GenerateTestCswProof(cswInput, provingSystem);
-
-    ASSERT_TRUE(testManager.VerifyCswProof(cswInput));
+    CreateAndVerifyCSW(ProvingSystem::CoboundaryMarlin, TestCircuitType::CSW);
 }
 
 TEST(CctpLibrary, CreateAndVerifyMarlinCswNoConstantProof)
 {
-    const ProvingSystem provingSystem = ProvingSystem::CoboundaryMarlin;
-    const TestCircuitType circuitType = TestCircuitType::CSWNoConstant;
-
-    SelectParams(CBaseChainParams::REGTEST);
-    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
-    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
-
-    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
-
-    CCswProofVerifierInput cswInput = CreateDefaultCswInput(circuitType);
-    cswInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
-    cswInput.proof = testManager.GenerateTestCswProof(cswInput, provingSystem, circuitType);
-
-    ASSERT_TRUE(testManager.VerifyCswProof(cswInput));
+    CreateAndVerifyCSW(ProvingSystem::CoboundaryMarlin, TestCircuitType::CSWNoConstant);
 }
 
 /**
  * @brief This test is intended to generate verification parameters,
- * generate a valid CSW proof (Marlin) and verify it through the batch verifier.
+ * generate a valid CSW proof (Darlin) and verify it through the batch verifier.
  */
 TEST(CctpLibrary, CreateAndVerifyDarlinCswProof)
 {
-    const ProvingSystem provingSystem = ProvingSystem::Darlin;
-    const TestCircuitType circuitType = TestCircuitType::CSW;
-
-    SelectParams(CBaseChainParams::REGTEST);
-    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
-    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
-
-    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
-
-    CCswProofVerifierInput cswInput = CreateDefaultCswInput();
-    cswInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
-    cswInput.proof = testManager.GenerateTestCswProof(cswInput, provingSystem);
-
-    ASSERT_TRUE(testManager.VerifyCswProof(cswInput));
+    CreateAndVerifyCSW(ProvingSystem::Darlin, TestCircuitType::CSW);
 }
 
 TEST(CctpLibrary, CreateAndVerifyDarlinCswNoConstantProof)
 {
-    const ProvingSystem provingSystem = ProvingSystem::Darlin;
-    const TestCircuitType circuitType = TestCircuitType::CSWNoConstant;
-
-    SelectParams(CBaseChainParams::REGTEST);
-    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
-    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
-
-    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
-
-    CCswProofVerifierInput cswInput = CreateDefaultCswInput(circuitType);
-    cswInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
-    cswInput.proof = testManager.GenerateTestCswProof(cswInput, provingSystem, circuitType);
-
-    ASSERT_TRUE(testManager.VerifyCswProof(cswInput));
+    CreateAndVerifyCSW(ProvingSystem::Darlin, TestCircuitType::CSWNoConstant);
 }
 
 TEST(CctpLibrary, ReadWriteCmtObj)
@@ -2544,4 +2498,629 @@ TEST(CctpLibrary, TestCustomFieldsValidationFix)
     certField = FieldElementCertificateField(rawBytes);
     fe = certField.GetFieldElement(config, 1);
     ASSERT_TRUE(fe.IsValid());
+}
+
+TEST(CctpLibrary, CommitmentBuilder_toomanySC) {
+    SidechainTxsCommitmentBuilder cmtObj;
+    SidechainTxsCommitmentGuard guardObj;
+
+    CMutableTransaction mtx;
+    mtx.nVersion = SC_TX_VERSION;
+    mtx.vsc_ccout.resize(0);
+    mtx.vft_ccout.resize(0);
+    mtx.vmbtr_out.resize(0);
+    mtx.vcsw_ccin.resize(0);
+
+    // forward transfers with different sc_ids
+    for (int i = 0; i < CCTP_COMMITMENT_BUILDER_SC_LIMIT; i++)
+        mtx.vft_ccout.push_back(CTxForwardTransferOut(uint256S("abc" + std::to_string(i + 100)), CAmount(43), uint256S("abba101"), uint160S("abba101")));
+
+    CTransaction tx(mtx);
+    // We should be able to push the transaction to the builder and the guard
+    ASSERT_TRUE(cmtObj.add(tx));
+    ASSERT_TRUE(guardObj.add(tx));
+
+    CMutableTransaction mtx2;
+    mtx2.nVersion = SC_TX_VERSION;
+    mtx2.vsc_ccout.resize(0);
+    mtx2.vft_ccout.resize(0);
+    mtx2.vmbtr_out.resize(0);
+    mtx2.vcsw_ccin.resize(0);
+
+    mtx2.vft_ccout.push_back(CTxForwardTransferOut(uint256S("cccc"), CAmount(43), uint256S("abba101"), uint160S("abba101")));
+
+    CTransaction tx2(mtx2);
+    // Both must fail
+    ASSERT_FALSE(cmtObj.add(tx2));
+    ASSERT_FALSE(guardObj.add(tx2));
+
+    // check counters
+    auto cbsRef  = guardObj.getCBS();
+    ASSERT_EQ(cbsRef.cbsaMap.size(), CCTP_COMMITMENT_BUILDER_SC_LIMIT);
+
+    // Adding a FT to an already existing sidechain must not fail
+    CMutableTransaction mtx3;
+    mtx3.nVersion = SC_TX_VERSION;
+    mtx3.vsc_ccout.resize(0);
+    mtx3.vft_ccout.resize(0);
+    mtx3.vmbtr_out.resize(0);
+    mtx3.vcsw_ccin.resize(0);
+
+    mtx3.vft_ccout.push_back(CTxForwardTransferOut(uint256S("abc" + std::to_string(110)), CAmount(12), uint256S("abba101"), uint160S("abba101")));
+    CTransaction tx3(mtx3);
+    ASSERT_TRUE(cmtObj.add(tx3));
+    ASSERT_TRUE(guardObj.add(tx3));
+
+}
+
+TEST(CctpLibrary, CommitmentBuilder_toomanyFT)
+{
+    SidechainTxsCommitmentBuilder cmtObj;
+    SidechainTxsCommitmentGuard guardObj;
+
+    uint256 sidechainId = uint256S("abc");
+    CMutableTransaction mtx;
+    mtx.nVersion = SC_TX_VERSION;
+    mtx.vsc_ccout.resize(0);
+    mtx.vft_ccout.resize(0);
+    mtx.vmbtr_out.resize(0);
+    mtx.vcsw_ccin.resize(0);
+
+    // forward transfers
+    for (int i = 0; i < CCTP_COMMITMENT_BUILDER_FT_LIMIT; i++)
+        mtx.vft_ccout.push_back(CTxForwardTransferOut(sidechainId, CAmount(43), uint256S("abba101"), uint160S("abba101")));
+
+    CTransaction tx(mtx);
+    // We should be able to push the transaction to the builder and the guard
+    ASSERT_TRUE(cmtObj.add(tx));
+    ASSERT_TRUE(guardObj.add(tx));
+
+    CMutableTransaction mtx2;
+    mtx2.nVersion = SC_TX_VERSION;
+    mtx2.vsc_ccout.resize(0);
+    mtx2.vft_ccout.resize(0);
+    mtx2.vmbtr_out.resize(0);
+    mtx2.vcsw_ccin.resize(0);
+
+    mtx2.vft_ccout.push_back(CTxForwardTransferOut(sidechainId, CAmount(43), uint256S("abba101"), uint160S("abba101")));
+
+    CTransaction tx2(mtx2);
+    // Only the guard will fail
+    ASSERT_TRUE(cmtObj.add(tx2));
+    ASSERT_FALSE(guardObj.add(tx2));
+
+    // Builder will fail now
+    ASSERT_FALSE(cmtObj.add(tx2));
+
+    // check counters
+    auto cbsRef  = guardObj.getCBS();
+    ASSERT_EQ(cbsRef.cbsaMap.size(), 1);
+    ASSERT_EQ(cbsRef.cbscMap.size(), 0);
+    ASSERT_EQ(cbsRef.cbsaMap[sidechainId].ft,   CCTP_COMMITMENT_BUILDER_FT_LIMIT);
+    ASSERT_EQ(cbsRef.cbsaMap[sidechainId].bwtr, 0);
+    ASSERT_EQ(cbsRef.cbsaMap[sidechainId].cert, 0);
+}
+
+TEST(CctpLibrary, CommitmentBuilder_toomanyBWTR)
+{
+    SidechainTxsCommitmentBuilder cmtObj;
+    SidechainTxsCommitmentGuard guardObj;
+
+    uint256 sidechainId = uint256S("abc");
+    CMutableTransaction mtx;
+    mtx.nVersion = SC_TX_VERSION;
+    mtx.vsc_ccout.resize(0);
+    mtx.vft_ccout.resize(0);
+    mtx.vmbtr_out.resize(0);
+    mtx.vcsw_ccin.resize(0);
+
+    Sidechain::ScBwtRequestParameters scbwtr_params;
+    scbwtr_params.vScRequestData.push_back(CFieldElement{SAMPLE_FIELD});
+    scbwtr_params.scFee = 3;
+
+    // backward transfer requests
+    for (int i = 0; i < CCTP_COMMITMENT_BUILDER_BWTR_LIMIT; i++)
+        mtx.vmbtr_out.push_back(CBwtRequestOut(sidechainId, uint160S("abba101"), scbwtr_params));
+
+    CTransaction tx(mtx);
+    // We should be able to push the transaction to the builder and the guard
+    ASSERT_TRUE(cmtObj.add(tx));
+    ASSERT_TRUE(guardObj.add(tx));
+
+    CMutableTransaction mtx3;
+    mtx3.nVersion = SC_TX_VERSION;
+    mtx3.vsc_ccout.resize(0);
+    mtx3.vft_ccout.resize(0);
+    mtx3.vmbtr_out.resize(0);
+    mtx3.vcsw_ccin.resize(0);
+
+    mtx3.vmbtr_out.push_back(CBwtRequestOut(sidechainId, uint160S("abba101"), scbwtr_params));
+
+    CTransaction tx3(mtx3);
+    // Only the guard will fail
+    ASSERT_TRUE(cmtObj.add(tx3));
+    ASSERT_FALSE(guardObj.add(tx3));
+
+    // Builder will fail now
+    ASSERT_FALSE(cmtObj.add(tx3));
+
+    // check counters
+    auto cbsRef  = guardObj.getCBS();
+    ASSERT_EQ(cbsRef.cbsaMap.size(), 1);
+    ASSERT_EQ(cbsRef.cbscMap.size(), 0);
+    ASSERT_EQ(cbsRef.cbsaMap[sidechainId].ft,   0);
+    ASSERT_EQ(cbsRef.cbsaMap[sidechainId].bwtr, CCTP_COMMITMENT_BUILDER_BWTR_LIMIT);
+    ASSERT_EQ(cbsRef.cbsaMap[sidechainId].cert, 0);
+}
+
+TEST(CctpLibrary, CommitmentBuilder_toomanyCERT) {
+    SelectParams(CBaseChainParams::REGTEST);
+    const BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+
+    SidechainTxsCommitmentBuilder cmtObj;
+    SidechainTxsCommitmentGuard guardObj;
+
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10), 10);
+    CMutableTransaction mtx = scCreationTx;
+    mtx.nVersion = SC_TX_VERSION;
+    mtx.vsc_ccout.resize(0);
+    mtx.vft_ccout.resize(0);
+    mtx.vmbtr_out.resize(0);
+    mtx.vcsw_ccin.resize(0);
+
+    // sc creation transaction
+    auto ccout = CTxScCreationOut(CAmount(10), uint256S("aaa"), CAmount(0), CAmount(0), Sidechain::ScFixedParameters());
+    ccout.version = 0;
+    ccout.withdrawalEpochLength = 100;
+    ccout.wCertVk   = CScVKey{SAMPLE_CERT_DARLIN_VK};
+    ccout.wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
+    ccout.vFieldElementCertificateFieldConfig.push_back(44);
+    ccout.customData.push_back(0x77);
+    mtx.vsc_ccout.push_back(ccout);
+
+    uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
+
+    CScCertificate cert = txCreationUtils::createCertificate(scId,
+        /*epochNum*/12, CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/0,
+        /*numChangeOut */0, /*bwtTotalAmount*/1, /*numBwt*/1, /*ftScFee*/0, /*mbtrScFee*/0);
+
+    // We should be able to add the certificates to the builder and the guard
+    for (int i = 0; i < CCTP_COMMITMENT_BUILDER_CERT_LIMIT; i++) {
+        ASSERT_TRUE(cmtObj.add(cert, testManager.CoinsViewCache().get()));
+        ASSERT_TRUE(guardObj.add(cert));
+    }
+
+    // Only the guard will fail
+    ASSERT_TRUE(cmtObj.add(cert, testManager.CoinsViewCache().get()));
+    ASSERT_FALSE(guardObj.add(cert));
+
+    // Builder will fail now
+    ASSERT_FALSE(cmtObj.add(cert, testManager.CoinsViewCache().get()));
+
+    // check counters
+    auto cbsRef  = guardObj.getCBS();
+    ASSERT_EQ(cbsRef.cbsaMap.size(), 1);
+    ASSERT_EQ(cbsRef.cbscMap.size(), 0);
+    ASSERT_EQ(cbsRef.cbsaMap[scId].ft,   0);
+    ASSERT_EQ(cbsRef.cbsaMap[scId].bwtr, 0);
+    ASSERT_EQ(cbsRef.cbsaMap[scId].cert, CCTP_COMMITMENT_BUILDER_CERT_LIMIT);
+}
+
+TEST(CctpLibrary, CommitmentBuilder_toomanyBWT) {
+    SelectParams(CBaseChainParams::REGTEST);
+    const BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+
+    SidechainTxsCommitmentBuilder cmtObj;
+    SidechainTxsCommitmentGuard guardObj;
+
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10), 10);
+    CMutableTransaction mtx = scCreationTx;
+    mtx.nVersion = SC_TX_VERSION;
+    mtx.vsc_ccout.resize(0);
+    mtx.vft_ccout.resize(0);
+    mtx.vmbtr_out.resize(0);
+    mtx.vcsw_ccin.resize(0);
+
+    // sc creation transaction
+    auto ccout = CTxScCreationOut(CAmount(10), uint256S("aaa"), CAmount(0), CAmount(0), Sidechain::ScFixedParameters());
+    ccout.version = 0;
+    ccout.withdrawalEpochLength = 100;
+    ccout.wCertVk   = CScVKey{SAMPLE_CERT_DARLIN_VK};
+    ccout.wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
+    ccout.vFieldElementCertificateFieldConfig.push_back(44);
+    ccout.customData.push_back(0x77);
+    mtx.vsc_ccout.push_back(ccout);
+
+    uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
+
+    CScCertificate cert = txCreationUtils::createCertificate(scId,
+        /*epochNum*/12, CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/0,
+        /*numChangeOut */0, /*bwtTotalAmount*/1, /*numBwt*/4000, /*ftScFee*/0, /*mbtrScFee*/0);
+
+    ASSERT_TRUE(cmtObj.add(cert, testManager.CoinsViewCache().get()));
+    ASSERT_TRUE(guardObj.add(cert));
+
+    ASSERT_TRUE(cmtObj.add(cert, testManager.CoinsViewCache().get()));
+    ASSERT_TRUE(guardObj.add(cert));
+
+    // check counters
+    auto cbsRef  = guardObj.getCBS();
+    ASSERT_EQ(cbsRef.cbsaMap.size(), 1);
+    ASSERT_EQ(cbsRef.cbscMap.size(), 0);
+    ASSERT_EQ(cbsRef.cbsaMap[scId].ft,   0);
+    ASSERT_EQ(cbsRef.cbsaMap[scId].bwtr, 0);
+    ASSERT_EQ(cbsRef.cbsaMap[scId].cert, 2);
+}
+
+TEST(CctpLibrary, CommitmentBuilder_toomanyCSW)
+{
+    const ProvingSystem testProvingSystem = ProvingSystem::Darlin;
+
+    SelectParams(CBaseChainParams::REGTEST);
+    BlockchainTestManager::GetInstance().GenerateSidechainTestParameters(testProvingSystem, TestCircuitType::Certificate, false);
+    BlockchainTestManager::GetInstance().GenerateSidechainTestParameters(testProvingSystem, TestCircuitType::CSW, false);
+
+    uint256 sidechainId = uint256S("aabba");
+
+    CSidechain sidechain;
+    sidechain.creationBlockHeight = 100;
+    sidechain.fixedParams.withdrawalEpochLength = 20;
+    sidechain.fixedParams.constant = CFieldElement{SAMPLE_FIELD};
+    sidechain.fixedParams.version = 0;
+    sidechain.lastTopQualityCertHash = uint256S("cccc");
+    sidechain.lastTopQualityCertQuality = 100;
+    sidechain.lastTopQualityCertReferencedEpoch = -1;
+    sidechain.lastTopQualityCertBwtAmount = 50;
+    sidechain.balance = CAmount(100);
+    sidechain.fixedParams.wCertVk = BlockchainTestManager::GetInstance().GetTestVerificationKey(testProvingSystem, TestCircuitType::Certificate);
+    sidechain.fixedParams.wCeasedVk = BlockchainTestManager::GetInstance().GetTestVerificationKey(testProvingSystem, TestCircuitType::CSW);
+    
+    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+    testManager.Reset();
+
+    // Store the test sidechain and extend the blockchain to complete at least one epoch. 
+    testManager.StoreSidechainWithCurrentHeight(sidechainId, sidechain, sidechain.creationBlockHeight + sidechain.fixedParams.withdrawalEpochLength);
+
+    CTxCeasedSidechainWithdrawalInput input1 = testManager.CreateCswInput(sidechainId, 1, testProvingSystem);
+
+    SidechainTxsCommitmentBuilder cmtObj;
+    SidechainTxsCommitmentGuard guardObj;
+
+    CMutableTransaction mtx;
+    mtx.nVersion = SC_TX_VERSION;
+    mtx.vsc_ccout.resize(0);
+    mtx.vft_ccout.resize(0);
+    mtx.vmbtr_out.resize(0);
+    mtx.vcsw_ccin.resize(0);
+
+    // ceased sidechain withdrawals
+    for (int i = 0; i < CCTP_COMMITMENT_BUILDER_CSW_LIMIT; i++)
+        mtx.vcsw_ccin.push_back(input1);
+
+    CTransaction tx(mtx);
+    // We should be able to push the transaction to the builder and the guard
+    ASSERT_TRUE(cmtObj.add(tx));
+    ASSERT_TRUE(guardObj.add(tx));
+
+    CMutableTransaction mtx3;
+    mtx3.nVersion = SC_TX_VERSION;
+    mtx3.vsc_ccout.resize(0);
+    mtx3.vft_ccout.resize(0);
+    mtx3.vmbtr_out.resize(0);
+    mtx3.vcsw_ccin.resize(0);
+
+    mtx3.vcsw_ccin.push_back(input1);
+
+    CTransaction tx3(mtx3);
+    // Only the guard will fail
+    ASSERT_TRUE(cmtObj.add(tx3));
+    ASSERT_FALSE(guardObj.add(tx3));
+
+    // Builder will fail now
+    ASSERT_FALSE(cmtObj.add(tx3));
+
+    // check counters
+    auto cbsRef  = guardObj.getCBS();
+    ASSERT_EQ(cbsRef.cbsaMap.size(), 0);
+    ASSERT_EQ(cbsRef.cbscMap.size(), 1);
+    ASSERT_EQ(cbsRef.cbscMap[sidechainId].csw, CCTP_COMMITMENT_BUILDER_CSW_LIMIT);
+}
+
+TEST(CctpLibrary, CommitmentBuilder_sameSC_nevermixCSWandFT)
+{
+    const ProvingSystem testProvingSystem = ProvingSystem::Darlin;
+
+    SelectParams(CBaseChainParams::REGTEST);
+    BlockchainTestManager::GetInstance().GenerateSidechainTestParameters(testProvingSystem, TestCircuitType::Certificate, false);
+    BlockchainTestManager::GetInstance().GenerateSidechainTestParameters(testProvingSystem, TestCircuitType::CSW, false);
+
+    uint256 sidechainId = uint256S("aabba");
+
+    CSidechain sidechain;
+    sidechain.creationBlockHeight = 100;
+    sidechain.fixedParams.withdrawalEpochLength = 20;
+    sidechain.fixedParams.constant = CFieldElement{SAMPLE_FIELD};
+    sidechain.fixedParams.version = 0;
+    sidechain.lastTopQualityCertHash = uint256S("cccc");
+    sidechain.lastTopQualityCertQuality = 100;
+    sidechain.lastTopQualityCertReferencedEpoch = -1;
+    sidechain.lastTopQualityCertBwtAmount = 50;
+    sidechain.balance = CAmount(100);
+    sidechain.fixedParams.wCertVk = BlockchainTestManager::GetInstance().GetTestVerificationKey(testProvingSystem, TestCircuitType::Certificate);
+    sidechain.fixedParams.wCeasedVk = BlockchainTestManager::GetInstance().GetTestVerificationKey(testProvingSystem, TestCircuitType::CSW);
+    
+    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+    testManager.Reset();
+
+    // Store the test sidechain and extend the blockchain to complete at least one epoch. 
+    testManager.StoreSidechainWithCurrentHeight(sidechainId, sidechain, sidechain.creationBlockHeight + sidechain.fixedParams.withdrawalEpochLength);
+
+    CTxCeasedSidechainWithdrawalInput csw = testManager.CreateCswInput(sidechainId, 1, testProvingSystem);
+
+    // FT and CSW in the same tx
+    SidechainTxsCommitmentBuilder cmtObj;
+    SidechainTxsCommitmentGuard guardObj;
+
+    CMutableTransaction mtx, mtx2, mtx3;;
+    mtx.nVersion = SC_TX_VERSION;
+    mtx.vsc_ccout.resize(0);
+    mtx.vft_ccout.resize(0);
+    mtx.vmbtr_out.resize(0);
+    mtx.vcsw_ccin.resize(0);
+    mtx2.nVersion = SC_TX_VERSION;
+    mtx2.vsc_ccout.resize(0);
+    mtx2.vft_ccout.resize(0);
+    mtx2.vmbtr_out.resize(0);
+    mtx2.vcsw_ccin.resize(0);
+    mtx3.nVersion = SC_TX_VERSION;
+    mtx3.vsc_ccout.resize(0);
+    mtx3.vft_ccout.resize(0);
+    mtx3.vmbtr_out.resize(0);
+    mtx3.vcsw_ccin.resize(0);
+
+    // forward transfer
+    mtx.vft_ccout.push_back(CTxForwardTransferOut(sidechainId, CAmount(43), uint256S("abba101"), uint160S("abba101")));
+    // ceased sidechain withdrawals
+    mtx.vcsw_ccin.push_back(csw);
+
+    CTransaction tx(mtx);
+    // Both must fail
+    ASSERT_FALSE(cmtObj.add(tx));
+    ASSERT_FALSE(guardObj.add(tx));
+
+
+    // forward transfer
+    mtx2.vft_ccout.push_back(CTxForwardTransferOut(sidechainId, CAmount(43), uint256S("abba101"), uint160S("abba101")));
+    CTransaction tx2(mtx2);
+
+    // ceased sidechain withdrawals
+    mtx3.vcsw_ccin.push_back(csw);
+    CTransaction tx3(mtx3);
+
+    SidechainTxsCommitmentBuilder cmtObj2;
+    SidechainTxsCommitmentGuard guardObj2;
+    // tx with CSW after tx with FT (builder)
+    ASSERT_TRUE(cmtObj2.add(tx2));
+    ASSERT_FALSE(cmtObj2.add(tx3));
+    // tx with CSW after tx with FT (guard)
+    ASSERT_TRUE(guardObj2.add(tx2));
+    ASSERT_FALSE(guardObj2.add(tx3));
+
+    SidechainTxsCommitmentBuilder cmtObj3;
+    SidechainTxsCommitmentGuard guardObj3;
+    // tx with FT after tx with CSW (builder)
+    ASSERT_TRUE(cmtObj3.add(tx3));
+    ASSERT_FALSE(cmtObj3.add(tx2));
+    // tx with FT after tx with CSW (guard)
+    ASSERT_TRUE(guardObj3.add(tx3));
+    ASSERT_FALSE(guardObj3.add(tx2));
+
+    // Make sure that counters in CommitmentBuilderGuard are not incremented
+    auto cbsRef  = guardObj.getCBS();
+    auto cbsRef2 = guardObj2.getCBS();
+    auto cbsRef3 = guardObj3.getCBS();
+    ASSERT_EQ(cbsRef.cbsaMap[sidechainId].ft,  1);
+    ASSERT_EQ(cbsRef.cbscMap[sidechainId].csw, 0);
+    ASSERT_EQ(cbsRef2.cbsaMap[sidechainId].ft,  1);
+    ASSERT_EQ(cbsRef2.cbscMap[sidechainId].csw, 0);
+    ASSERT_EQ(cbsRef3.cbsaMap[sidechainId].ft,  0);
+    ASSERT_EQ(cbsRef3.cbscMap[sidechainId].csw, 1);
+}
+
+TEST(CctpLibrary, CommitmentBuilder_fillFTsendBWTRandCERT)
+{
+    SelectParams(CBaseChainParams::REGTEST);
+    const BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+
+    SidechainTxsCommitmentBuilder cmtObj;
+    SidechainTxsCommitmentGuard guardObj;
+
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10), 10);
+    CMutableTransaction mtx = scCreationTx;
+    mtx.nVersion = SC_TX_VERSION;
+    mtx.vsc_ccout.resize(0);
+    mtx.vft_ccout.resize(0);
+    mtx.vmbtr_out.resize(0);
+    mtx.vcsw_ccin.resize(0);
+
+    // sc creation transaction
+    auto ccout = CTxScCreationOut(CAmount(10), uint256S("aaa"), CAmount(0), CAmount(0), Sidechain::ScFixedParameters());
+    ccout.version = 0;
+    ccout.withdrawalEpochLength = 100;
+    ccout.wCertVk   = CScVKey{SAMPLE_CERT_DARLIN_VK};
+    ccout.wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
+    ccout.vFieldElementCertificateFieldConfig.push_back(44);
+    ccout.customData.push_back(0x77);
+    mtx.vsc_ccout.push_back(ccout);
+
+    uint256 sidechainId = scCreationTx.GetScIdFromScCcOut(0);
+
+
+    // forward transfers
+    for (int i = 0; i < CCTP_COMMITMENT_BUILDER_FT_LIMIT; i++)
+        mtx.vft_ccout.push_back(CTxForwardTransferOut(sidechainId, CAmount(43), uint256S("abba101"), uint160S("abba101")));
+
+    CTransaction tx(mtx);
+    ASSERT_TRUE(cmtObj.add(tx));
+    ASSERT_TRUE(guardObj.add(tx));
+
+
+    CMutableTransaction mtxbwtr;
+    mtxbwtr.nVersion = SC_TX_VERSION;
+    mtxbwtr.vsc_ccout.resize(0);
+    mtxbwtr.vft_ccout.resize(0);
+    mtxbwtr.vmbtr_out.resize(0);
+    mtxbwtr.vcsw_ccin.resize(0);
+
+    Sidechain::ScBwtRequestParameters scbwtr_params;
+    scbwtr_params.vScRequestData.push_back(CFieldElement{SAMPLE_FIELD});
+    scbwtr_params.scFee = 3;
+
+    // backward transfer requests
+    for (int i = 0; i < CCTP_COMMITMENT_BUILDER_BWTR_LIMIT; i++)
+        mtxbwtr.vmbtr_out.push_back(CBwtRequestOut(sidechainId, uint160S("abba101"), scbwtr_params));
+    CTransaction txbwtr(mtxbwtr);
+    ASSERT_TRUE(cmtObj.add(txbwtr));
+    ASSERT_TRUE(guardObj.add(txbwtr));
+
+
+    CScCertificate cert = txCreationUtils::createCertificate(sidechainId,
+        /*epochNum*/12, CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/0,
+        /*numChangeOut */0, /*bwtTotalAmount*/1, /*numBwt*/1, /*ftScFee*/0, /*mbtrScFee*/0);
+
+    for (int i = 0; i < CCTP_COMMITMENT_BUILDER_CERT_LIMIT; i++) {
+        ASSERT_TRUE(cmtObj.add(cert, testManager.CoinsViewCache().get()));
+        ASSERT_TRUE(guardObj.add(cert));
+    }
+
+    CMutableTransaction mtx3, mtx4;
+    mtx3.nVersion = SC_TX_VERSION;
+    mtx3.vsc_ccout.resize(0);
+    mtx3.vft_ccout.resize(0);
+    mtx3.vmbtr_out.resize(0);
+    mtx3.vcsw_ccin.resize(0);
+    mtx4.nVersion = SC_TX_VERSION;
+    mtx4.vsc_ccout.resize(0);
+    mtx4.vft_ccout.resize(0);
+    mtx4.vmbtr_out.resize(0);
+    mtx4.vcsw_ccin.resize(0);
+
+    mtx3.vft_ccout.push_back(CTxForwardTransferOut(sidechainId, CAmount(43), uint256S("abba101"), uint160S("abba101")));
+    CTransaction tx3(mtx3);
+    ASSERT_TRUE(cmtObj.add(tx3));
+    ASSERT_FALSE(guardObj.add(tx3));
+
+    mtx4.vmbtr_out.push_back(CBwtRequestOut(sidechainId, uint160S("abba101"), scbwtr_params));
+    CTransaction tx4(mtx4);
+    ASSERT_TRUE(cmtObj.add(tx4));
+    ASSERT_FALSE(guardObj.add(tx4));
+
+    ASSERT_TRUE(cmtObj.add(cert, testManager.CoinsViewCache().get()));
+    ASSERT_FALSE(guardObj.add(cert));
+
+    // Builder will fail now
+    ASSERT_FALSE(cmtObj.add(tx3));
+    ASSERT_FALSE(cmtObj.add(tx4));
+    ASSERT_FALSE(cmtObj.add(cert, testManager.CoinsViewCache().get()));
+
+    // check counters
+    auto cbsRef  = guardObj.getCBS();
+    ASSERT_EQ(cbsRef.cbsaMap.size(), 1);
+    ASSERT_EQ(cbsRef.cbscMap.size(), 0);
+    ASSERT_EQ(cbsRef.cbsaMap[sidechainId].ft,   CCTP_COMMITMENT_BUILDER_FT_LIMIT);
+    ASSERT_EQ(cbsRef.cbsaMap[sidechainId].bwtr, CCTP_COMMITMENT_BUILDER_BWTR_LIMIT);
+    ASSERT_EQ(cbsRef.cbsaMap[sidechainId].cert, CCTP_COMMITMENT_BUILDER_CERT_LIMIT);
+}
+
+TEST(CctpLibrary, CommitmentBuilder_rewind)
+{
+    SidechainTxsCommitmentGuard guardObj;
+
+    uint256 sidechainId = uint256S("abc");
+    uint256 sidechainId2 = uint256S("abcba");
+    CMutableTransaction mtx;
+    mtx.nVersion = SC_TX_VERSION;
+    mtx.vsc_ccout.resize(0);
+    mtx.vft_ccout.resize(0);
+    mtx.vmbtr_out.resize(0);
+    mtx.vcsw_ccin.resize(0);
+
+    const int intialFT = CCTP_COMMITMENT_BUILDER_FT_LIMIT - 3;
+
+    // forward transfers: reaching almost the limit
+    for (int i = 0; i < intialFT; i++)  // 4092
+        mtx.vft_ccout.push_back(CTxForwardTransferOut(sidechainId, CAmount(43), uint256S("abba101"), uint160S("abba101")));
+    // Also add a FT for another sidechain
+        mtx.vft_ccout.push_back(CTxForwardTransferOut(sidechainId2, CAmount(43), uint256S("abba101"), uint160S("abba101")));
+
+    CTransaction tx(mtx);
+    ASSERT_TRUE(guardObj.add(tx));
+
+    // Each transaction will go beyond the limit, so we will try to restore the guard state as before the failure
+    for (int i = 4; i < 15; i++) {
+        CMutableTransaction mtx2;
+        mtx2.nVersion = SC_TX_VERSION;
+        mtx2.vsc_ccout.resize(0);
+        mtx2.vft_ccout.resize(0);
+        mtx2.vmbtr_out.resize(0);
+        mtx2.vcsw_ccin.resize(0);
+
+        for (int j = 0; j < i; j++)
+            mtx2.vft_ccout.push_back(CTxForwardTransferOut(sidechainId, CAmount(43), uint256S("abba101"), uint160S("abba101")));
+
+        CTransaction tx2(mtx2);
+
+        // Automatically restore guardObj to a valid state
+        ASSERT_FALSE(guardObj.add(tx2, true));
+
+        auto cbsRef  = guardObj.getCBS();
+        ASSERT_EQ(cbsRef.cbsaMap[sidechainId].ft, intialFT);
+        // And the other sc should have been left intact
+        ASSERT_EQ(cbsRef.cbsaMap[sidechainId2].ft, 1);
+    }
+}
+
+TEST(CctpLibrary, CommitmentBuilder_cleanCBSafterrewind)
+{
+    SidechainTxsCommitmentGuard guardObj;
+
+    uint256 sidechainId = uint256S("abc");
+    uint256 sidechainId2 = uint256S("abcba");
+    CMutableTransaction mtx, mtx2;
+    mtx.nVersion = SC_TX_VERSION;
+    mtx.vsc_ccout.resize(0);
+    mtx.vft_ccout.resize(0);
+    mtx.vmbtr_out.resize(0);
+    mtx.vcsw_ccin.resize(0);
+    mtx2.nVersion = SC_TX_VERSION;
+    mtx2.vsc_ccout.resize(0);
+    mtx2.vft_ccout.resize(0);
+    mtx2.vmbtr_out.resize(0);
+    mtx2.vcsw_ccin.resize(0);
+
+    for (int i = 0; i < 10; i++)
+        mtx.vft_ccout.push_back(CTxForwardTransferOut(sidechainId, CAmount(43), uint256S("abba101"), uint160S("abba101")));
+
+    // forward transfers for different sidechains, sidechainId2 alone should fail
+    mtx2.vft_ccout.push_back(CTxForwardTransferOut(sidechainId, CAmount(43), uint256S("abba101"), uint160S("abba101")));
+    for (int i = 0; i < CCTP_COMMITMENT_BUILDER_FT_LIMIT + 1; i++)  // 4096
+        mtx2.vft_ccout.push_back(CTxForwardTransferOut(sidechainId2, CAmount(43), uint256S("abba101"), uint160S("abba101")));
+
+    CTransaction tx(mtx);
+    CTransaction tx2(mtx2);
+    ASSERT_TRUE(guardObj.add(tx, true));
+    // Transaction must be rejected and cbs state should be restored
+    ASSERT_FALSE(guardObj.add(tx2, true));
+
+    // Guard object must not contain anything about sidechainId2
+    ASSERT_EQ(guardObj.getCBS().cbsaMap.size(), 1);
+    ASSERT_EQ(guardObj.getCBS().cbsaMap.count(sidechainId),  1);
+    ASSERT_EQ(guardObj.getCBS().cbsaMap.count(sidechainId2), 0);
+    ASSERT_EQ(guardObj.getCBS().cbscMap.size(), 0);
+    ASSERT_EQ(guardObj.getCBS().cbscMap.count(sidechainId),  0);
+    ASSERT_EQ(guardObj.getCBS().cbscMap.count(sidechainId2), 0);
+
+    // Checking that tx2 has been rewind
+    auto cbsRef = guardObj.getCBS();
+    ASSERT_EQ(cbsRef.cbsaMap[sidechainId].ft, 10);
 }

@@ -45,6 +45,14 @@ using namespace std;
 using namespace libzcash;
 using namespace Sidechain;
 
+namespace{
+
+    int GetJoinSplitSize(int shieldedTxVersion) {
+        return JSDescription::getNewInstance(shieldedTxVersion == GROTH_TX_VERSION).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION, shieldedTxVersion);
+    }
+    
+}
+
 extern void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
 
 int64_t nWalletUnlockTime;
@@ -53,7 +61,6 @@ static CCriticalSection cs_nWalletUnlockTime;
 // transaction.h comment: spending taddr output requires CTxIn >= 148 bytes and typical taddr txout is 34 bytes
 #define CTXIN_SPEND_DUST_SIZE   148
 #define CTXOUT_REGULAR_SIZE     34
-
 
 // Private method:
 UniValue z_getoperationstatus_IMPL(const UniValue&, bool);
@@ -146,6 +153,7 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx,  UniValue& entry)
     int conf = tx.GetDepthInMainChain();
     int64_t timestamp = tx.GetTxTime();
     bool hasBlockTime = false;
+    int includingBlockHeight = -1;
 
     if (!tx.hashBlock.IsNull()) {
         BlockMap::iterator mi = mapBlockIndex.find(tx.hashBlock);
@@ -154,6 +162,7 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx,  UniValue& entry)
             if (chainActive.Contains(pindex)) {
                 timestamp = pindex->GetBlockTime();
                 hasBlockTime = true;
+                includingBlockHeight = pindex->nHeight;
             } else {
                 timestamp = tx.GetTxTime();
             }
@@ -168,7 +177,7 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx,  UniValue& entry)
         if (conf >= 0) {
             CSidechain sidechain;
             assert(pcoinsTip->GetSidechain(scid, sidechain));
-            bwtMaturityHeight = sidechain.GetCertMaturityHeight(dynamic_cast<const CScCertificate*>(tx.getTxBase())->epochNumber);
+            bwtMaturityHeight = sidechain.GetCertMaturityHeight(dynamic_cast<const CScCertificate*>(tx.getTxBase())->epochNumber, includingBlockHeight);
         }
     }
 
@@ -840,18 +849,32 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     // ---------------------------------------------------------
     char errBuf[256] = {};
     int withdrawalEpochLength = SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH;
+    bool isCeasable = true;
     if (setKeyArgs.count("withdrawalEpochLength"))
     {
         withdrawalEpochLength = find_value(inputObject, "withdrawalEpochLength").get_int();
-        if (withdrawalEpochLength < getScMinWithdrawalEpochLength())
+        isCeasable = !CSidechain::isNonCeasingSidechain(sidechainVersion, withdrawalEpochLength);
+
+        if (isCeasable)
         {
-            sprintf(errBuf, "Invalid withdrawalEpochLength: minimum value allowed=%d\n", getScMinWithdrawalEpochLength());
-            throw JSONRPCError(RPC_TYPE_ERROR, errBuf);
+            if (withdrawalEpochLength < getScMinWithdrawalEpochLength())
+            {
+                sprintf(errBuf, "Invalid withdrawalEpochLength: minimum value allowed=%d", getScMinWithdrawalEpochLength());
+                throw JSONRPCError(RPC_INVALID_PARAMETER, errBuf);
+            }
+            if (withdrawalEpochLength > getScMaxWithdrawalEpochLength())
+            {
+                sprintf(errBuf, "Invalid withdrawalEpochLength: maximum value allowed=%d", getScMaxWithdrawalEpochLength());
+                throw JSONRPCError(RPC_INVALID_PARAMETER, errBuf);
+            }
         }
-        if (withdrawalEpochLength > getScMaxWithdrawalEpochLength())
+        else
         {
-            sprintf(errBuf, "Invalid withdrawalEpochLength: maximum value allowed=%d\n", getScMaxWithdrawalEpochLength());
-            throw JSONRPCError(RPC_TYPE_ERROR, errBuf);
+            if (withdrawalEpochLength != 0)
+            {
+                sprintf(errBuf, "Invalid withdrawalEpochLength: non-ceasing sidechains must have 0\n");
+                throw JSONRPCError(RPC_INVALID_PARAMETER, errBuf);
+            }
         }
     }
 
@@ -1003,6 +1026,13 @@ UniValue sc_create(const UniValue& params, bool fHelp)
 
         if (!inputString.empty())
         {
+            // Setting a CSW verification key is not allowed for non-ceasable sidechains
+            // as such mechanism is disabled for them.
+            if (!isCeasable)
+            {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "wCeasedVk is not allowed for non-ceasable sidechains");
+            }
+
             std::vector<unsigned char> wCeasedVkVec;
             if (!Sidechain::AddScData(inputString, wCeasedVkVec, CScVKey::MaxByteSize(), Sidechain::CheckSizeMode::CHECK_UPPER_LIMIT, error))
             {
@@ -1102,6 +1132,11 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             if (mbtrDataLength < 0 || mbtrDataLength > MAX_SC_MBTR_DATA_LEN)
             {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid mainchainBackwardTransferRequestDataLength: out of range [%d, %d]", 0, MAX_SC_MBTR_DATA_LEN));
+            }
+
+            if (!isCeasable && mbtrDataLength != 0)
+            {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "mainchainBackwardTransferRequestDataLength is not allowed for non-ceasable sidechains");
             }
         }
     }
@@ -5439,8 +5474,8 @@ UniValue sc_send_certificate(const UniValue& params, bool fHelp)
     }
     cert.scId = scId;
 
-    if (scView.GetSidechainState(scId)!= CSidechain::State::ALIVE) {
-        LogPrintf("ERROR: certificate cannot be accepted, sidechain [%s] already ceased at active height = %d\n",
+    if (sidechain.GetState(&scView) != CSidechain::State::ALIVE) {
+        LogPrintf("ERROR: certificate cannot be accepted, sidechain [%s] is not alive at active height = %d\n",
             scId.ToString(), chainActive.Height());
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert height"));
     }
@@ -5487,15 +5522,23 @@ UniValue sc_send_certificate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid end cum commitment tree root field element");
     }
 
-    // sanity check of the endEpochCumScTxCommTreeRoot: it must correspond to the end-epoch block hash 
+    // Sanity check of the endEpochCumScTxCommTreeRoot: it must correspond to the end-epoch block hash.
+    // Also, for non ceasing sidechains, it must correspond to a block whose height is greater than the height of the block referenced by the last certificate.
+    int referencedHeight = -1;
     CValidationState::Code ret_code =
-        scView.CheckEndEpochCumScTxCommTreeRoot(sidechain, epochNumber, cert.endEpochCumScTxCommTreeRoot);
+        scView.CheckEndEpochCumScTxCommTreeRoot(sidechain, epochNumber, cert.endEpochCumScTxCommTreeRoot, referencedHeight);
 
     if (ret_code != CValidationState::Code::OK)
     {
-        LogPrintf("%s():%d - ERROR: endEpochCumScTxCommTreeRoot[%s]/epochNumber[%d] are not legal, ret_code[0x%x]\n",
-            __func__, __LINE__, cert.endEpochCumScTxCommTreeRoot.GetHexRepr(), epochNumber, CValidationState::CodeToChar(ret_code));
+        LogPrintf("%s():%d - ERROR: endEpochCumScTxCommTreeRoot[%s]/epochNumber[%d]/refHeight[%d] are not legal, ret_code[0x%x]\n",
+            __func__, __LINE__, cert.endEpochCumScTxCommTreeRoot.GetHexRepr(), epochNumber, referencedHeight, CValidationState::CodeToChar(ret_code));
+
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid end cum commitment tree root"));
+    }
+
+    if (!sidechain.CheckCertTiming(epochNumber, referencedHeight, scView))
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid timing for certificate"));
     }
 
     //--------------------------------------------------------------------------
@@ -5781,11 +5824,11 @@ UniValue z_shieldcoinbase(const UniValue& params, bool fHelp)
             
             "\nResult:\n"
             "{\n"
-            "  \"operationid\": xxx          (string) an operationid to pass to z_getoperationstatus to get the result of the operation.\n"
-            "  \"shieldedUTXOs\": xxx        (numeric) number of coinbase utxos being shielded.\n"
-            "  \"shieldedValue\": xxx        (numeric) value of coinbase utxos being shielded.\n"
             "  \"remainingUTXOs\": xxx       (numeric) number of coinbase utxos still available for shielding.\n"
             "  \"remainingValue\": xxx       (numeric) value of coinbase utxos still available for shielding.\n"
+            "  \"shieldingUTXOs\": xxx       (numeric) number of coinbase utxos being shielded.\n"
+            "  \"shieldingValue\": xxx       (numeric) value of coinbase utxos being shielded.\n"
+            "  \"opid\": xxx                 (string) an operation id to pass to z_getoperationstatus to get the result of the operation.\n"
             "}\n"
 
             "\nExamples:\n"
@@ -5945,8 +5988,6 @@ UniValue z_shieldcoinbase(const UniValue& params, bool fHelp)
 
 #define MERGE_TO_ADDRESS_DEFAULT_TRANSPARENT_LIMIT 50
 #define MERGE_TO_ADDRESS_DEFAULT_SHIELDED_LIMIT 10
-
-#define JOINSPLIT_SIZE JSDescription::getNewInstance(GROTH_TX_VERSION).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION, GROTH_TX_VERSION)
 
 UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
 {
@@ -6138,8 +6179,11 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
     size_t mempoolLimit = (nUTXOLimit != 0) ? nUTXOLimit : (size_t)GetArg("-mempooltxinputlimit", 0);
 
     size_t estimatedTxSize = 200;  // tx overhead + wiggle room
-    if (isToZaddr) {
-        estimatedTxSize += JOINSPLIT_SIZE;
+    if (!isToZaddr) {
+        estimatedTxSize += CTXOUT_REGULAR_SIZE;
+    }
+    else {
+        estimatedTxSize += GetJoinSplitSize(shieldedTxVersion);
     }
 
     if (useAny || useAnyUTXO || taddrs.size() > 0) {
@@ -6199,9 +6243,7 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
             if (!maxedOutNotesFlag) {
                 // If we haven't added any notes yet and the merge is to a
                 // z-address, we have already accounted for the first JoinSplit.
-                // TODO size estimation doesn't work correctly leading to oversized tx with 114 JoinSplit when nNoteLimit == 0
-                // TODO max JoinSplit per transaction is 58 since Groth16, with one JS == 1698 bytes, IIRC size estimation is also broken for z_sendmany
-                size_t increase = (noteInputs.empty() && !isToZaddr) || (noteInputs.size() % 2 == 0) ? JOINSPLIT_SIZE : 0;
+                size_t increase = (!noteInputs.empty() || !isToZaddr) ? GetJoinSplitSize(shieldedTxVersion) : 0;
                 if (estimatedTxSize + increase >= MAX_TX_SIZE ||
                     (nNoteLimit > 0 && noteCounter > nNoteLimit))
                 {

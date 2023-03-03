@@ -120,6 +120,11 @@ public:
      */
     uint8_t getMaxSidechainVersion(int height) const;
 
+    /**
+     * @brief returns true is the non ceasing sidechains exist at input block height
+     */
+    bool isNonCeasingSidechainActive(int height) const;
+
 private:
     
     /**
