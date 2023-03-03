@@ -1256,7 +1256,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
             int nDoS = 0;
 
             // checking txs commitment tree validity
-            if (ForkManager::getInstance().isNonCeasingSidechainActive(pcoinsTip->GetHeight())) {
+            if (ForkManager::getInstance().isNonCeasingSidechainActive(nextBlockHeight)) {
                 SidechainTxsCommitmentGuard scCommitmentGuard;
                 bool retval = scCommitmentGuard.add(cert);
                 if (!retval) {

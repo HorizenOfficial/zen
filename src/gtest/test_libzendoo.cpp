@@ -695,12 +695,10 @@ TEST(SidechainsField, CommitmentComputationFromSerializedBlock)
     }
 
     // Check the commitment tree
-    uint256 scTxCommitmentHash;
-    scTxCommitmentHash.SetNull();
-    block.BuildScTxsCommitment(testManager.CoinsViewCache().get(), scTxCommitmentHash);
+    block.UpdateScTxsCommitment(testManager.CoinsViewCache().get());
 
-    EXPECT_TRUE(scTxCommitmentHash == uint256S("2a94ae04f2dcb25b274510a4611e1443b088ed2eac9211535105b35cfbd1c543"))
-        << scTxCommitmentHash.ToString();
+    EXPECT_TRUE(block.hashScTxsCommitment == uint256S("2a94ae04f2dcb25b274510a4611e1443b088ed2eac9211535105b35cfbd1c543"))
+        << block.hashScTxsCommitment.ToString();
 }
 
 TEST(CctpLibrary, BitVectorUncompressed)
@@ -3075,4 +3073,8 @@ TEST(CctpLibrary, CommitmentBuilder_cleanCBSafterrewind)
     ASSERT_EQ(guardObj.getCBS().cbscMap.size(), 0);
     ASSERT_EQ(guardObj.getCBS().cbscMap.count(sidechainId),  0);
     ASSERT_EQ(guardObj.getCBS().cbscMap.count(sidechainId2), 0);
+
+    // Checking that tx2 has been rewind
+    auto cbsRef = guardObj.getCBS();
+    ASSERT_EQ(cbsRef.cbsaMap[sidechainId].ft, 10);
 }

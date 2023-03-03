@@ -29,12 +29,9 @@ bool SidechainTxsCommitmentGuard::add_fwt(const CTxForwardTransferOut& ccout)
     CommitmentBuilderStatsAliveCounter& counterRef = cbs.cbsaMap[ccout.GetScId()];
 
     // Check against the number of FT already present in the sc subtree.
-    // Only try to add if under the limit; increase the counter only if add was successful,
-    // as adding may fail for reasons different than having a full subtree.
+    // Only try to add if under the limit; increase the counter only if add was successful.
     if (counterRef.ft < cbs.FT_LIMIT) {
         ++counterRef.ft;
-        LogPrint("sc", "%s():%d - scTxsCommitment guard: successfully added FT for sidechain scId[%s] - current size: %d.\n",
-            __func__, __LINE__, ccout.GetScId().ToString(), counterRef.ft);
         return true;
     } else {
         LogPrint("sc", "%s():%d - scTxsCommitment guard failed: too many FT for sidechain scId[%s].\n",
@@ -62,12 +59,9 @@ bool SidechainTxsCommitmentGuard::add_bwtr(const CBwtRequestOut& ccout)
     CommitmentBuilderStatsAliveCounter& counterRef = cbs.cbsaMap[ccout.GetScId()];
 
     // Check against the number of BWT already present in the sc subtree.
-    // Only try to add if under the limit; increase the counter only if add was successful,
-    // as adding may fail for reasons different than having a full subtree.
+    // Only try to add if under the limit; increase the counter only if add was successful.
     if (counterRef.bwtr < cbs.BWTR_LIMIT) {
         ++counterRef.bwtr;
-        LogPrint("sc", "%s():%d - scTxsCommitment guard: successfully added BWTR for sidechain scId[%s].\n",
-            __func__, __LINE__, ccout.GetScId().ToString());
         return true;
     } else {
         LogPrint("sc", "%s():%d - scTxsCommitment guard failed: too many BWTR for sidechain scId[%s].\n",
@@ -95,12 +89,9 @@ bool SidechainTxsCommitmentGuard::add_csw(const CTxCeasedSidechainWithdrawalInpu
     CommitmentBuilderStatsCeasedCounter& counterRef = cbs.cbscMap[ccin.scId];
 
     // Check against the number of CSW already present in the sc subtree.
-    // Only try to add if under the limit; increase the counter only if add was successful,
-    // as adding may fail for reasons different than having a full subtree.
+    // Only try to add if under the limit; increase the counter only if add was successful.
     if (counterRef.csw < cbs.CSW_LIMIT) {
         ++counterRef.csw;
-        LogPrint("sc", "%s():%d - scTxsCommitment guard: successfully added CSW for sidechain scId[%s].\n",
-            __func__, __LINE__, ccin.scId.ToString());
         return true;
     } else {
         LogPrint("sc", "%s():%d - scTxsCommitment guard failed: too many CSW for sidechain scId[%s].\n",
@@ -137,13 +128,10 @@ bool SidechainTxsCommitmentGuard::add_cert(const CScCertificate& cert)
     CommitmentBuilderStatsAliveCounter& counterRef = cbs.cbsaMap[cert.GetScId()];
 
     // Check against the number of CERT already present in the sc subtree.
-    // Only try to add if under the limit; increase the counter only if add was successful,
-    // as adding may fail for reasons different than having a full subtree.
+    // Only try to add if under the limit; increase the counter only if add was successful.
     if (counterRef.cert < cbs.CERT_LIMIT) {
         ++counterRef.cert;
         counterRef.bwt += bt_list_len;
-        LogPrint("sc", "%s():%d - scTxsCommitment guard: successfully added CERT for sidechain scId[%s].\n",
-            __func__, __LINE__, cert.GetScId().ToString());
         return true;
     } else {
         LogPrint("sc", "%s():%d - scTxsCommitment guard failed: too many CERT for sidechain scId[%s].\n",
@@ -216,25 +204,9 @@ bool SidechainTxsCommitmentGuard::add(const CTransaction& tx, bool autoRewind)
     // Restore CBS to a valid state if we were not able to add any of the FT / BWTR / CSW
     if (!addOK && autoRewind) {
         rewind(tx, addedFt, addedBwtr, addedCsw);
-        
-        // Remove from the maps all the sidechains without entities
-        std::vector<uint256> aliveToBeRemoved;
-        for (auto [scid, cbsa]: cbs.cbsaMap) {
-            if ((cbsa.bwt == 0) && (cbsa.bwtr == 0) && (cbsa.cert == 0) && (cbsa.ft == 0))
-                aliveToBeRemoved.push_back(scid);
-        }
-        for (auto scid: aliveToBeRemoved)
-            cbs.cbsaMap.erase(scid);
-
-        std::vector<uint256> ceasedToBeRemoved;
-        for (auto [scid, cbsc]: cbs.cbscMap) {
-            if (cbsc.csw == 0)
-                ceasedToBeRemoved.push_back(scid);
-        }
-        for (auto scid: ceasedToBeRemoved)
-            cbs.cbscMap.erase(scid);
+        keepMapsClean();
     }
-
+    
     return addOK;
 }
 
@@ -249,6 +221,25 @@ bool SidechainTxsCommitmentGuard::add(const CScCertificate& cert)
         return false;
     }
     return true;
+}
+
+// Remove from the maps all the sidechains without entities
+void SidechainTxsCommitmentGuard::keepMapsClean() {
+    auto itA = cbs.cbsaMap.begin();
+    while (itA != cbs.cbsaMap.end()) {
+        if ((itA->second.bwt == 0) && (itA->second.bwtr == 0) && (itA->second.cert == 0) && (itA->second.ft == 0))
+            cbs.cbsaMap.erase(itA++);
+        else
+            ++itA;
+    }
+
+    auto itC = cbs.cbscMap.begin();
+    while (itC != cbs.cbscMap.end()) {
+        if (itC->second.csw == 0)
+            cbs.cbscMap.erase(itC++);
+        else
+            ++itC;
+    }
 }
 
 void SidechainTxsCommitmentGuard::rewind(const CTransaction& tx, const int addedFt, const int addedBwtr, const int addedCsw) {
@@ -276,5 +267,24 @@ void SidechainTxsCommitmentGuard::rewind(const CTransaction& tx, const int added
         counterRef.ft--;
     }
 }
+
+void SidechainTxsCommitmentGuard::rewind(const CTransaction& tx) {
+    LogPrint("sc", "%s():%d Rewind scCommitmentGuard after tx failure \n", __func__, __LINE__);
+
+    rewind(tx, tx.GetVftCcOut().size(), tx.GetVBwtRequestOut().size(), tx.GetVcswCcIn().size());
+    keepMapsClean();
+}
+
+void SidechainTxsCommitmentGuard::rewind(const CScCertificate& cert) {
+    LogPrint("sc", "%s():%d Rewind scCommitmentGuard after cert failure \n", __func__, __LINE__);
+
+    size_t bt_list_len = cert.GetVout().size() - cert.nFirstBwtPos;
+    CommitmentBuilderStatsAliveCounter& counterRef = cbs.cbsaMap[cert.GetScId()];
+    --counterRef.cert;
+    counterRef.bwt -= bt_list_len;
+    keepMapsClean();
+}
+
+
 
 #endif
