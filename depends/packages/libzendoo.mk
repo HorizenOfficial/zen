@@ -1,10 +1,10 @@
 package=libzendoo
-$(package)_version=0.2.1
+$(package)_version=0.3.0-rc1
 $(package)_download_path=https://github.com/HorizenOfficial/zendoo-mc-cryptolib/archive/
 $(package)_file_name=$(package)-$($(package)_git_commit).tar.gz
 $(package)_download_file=$($(package)_git_commit).tar.gz
-$(package)_sha256_hash=9041b23c875516202220548cb901f7a208b9a8d3a853523f3201490567941dbf
-$(package)_git_commit=4aef3bd3e53b0350216de7bdd8427865379cffa0
+$(package)_sha256_hash=5f895dde11609bfdbe822f0eb3bda3d6e24051ab970f2b21f318f93d7b7b7b89
+$(package)_git_commit=fdcef283c81d2adf31a36bf6f2577474e09c2216
 $(package)_dependencies=rust $(rust_crates_z)
 $(package)_patches=cargo.config
 
@@ -40,7 +40,7 @@ $(package)_build_opts_mingw32=--target=x86_64-pc-windows-gnu
 endef
 
 define $(package)_preprocess_cmds
-  mkdir .cargo && \
+  mkdir -p .cargo && \
   cat $($(package)_patch_dir)/cargo.config | sed 's|CRATE_REGISTRY|$(host_prefix)/$(CRATE_REGISTRY)|' | sed 's|DUMMY_LINKER|$($(package)_compiler)|g' > .cargo/config
 endef
 
