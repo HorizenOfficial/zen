@@ -161,10 +161,7 @@ bool SidechainTxsCommitmentBuilder::add_fwt(const CTxForwardTransferOut& ccout, 
          &ret_code
     );
 
-    if (ret) {
-    LogPrint("sc", "%s():%d - scTxsCommitment builder: successfully added FT for sidechain scId[%s].\n",
-            __func__, __LINE__, ccout.GetScId().ToString());
-    } else {
+    if (!ret) {
         LogPrint("sc", "%s():%d - scTxsCommitment building failed when adding FT for sidechain scId[%s] (CCTPlib error).\n",
             __func__, __LINE__, ccout.GetScId().ToString());
     }
@@ -208,10 +205,7 @@ bool SidechainTxsCommitmentBuilder::add_bwtr(const CBwtRequestOut& ccout, const 
          &ret_code
     );
 
-    if (ret) {
-        LogPrint("sc", "%s():%d - scTxsCommitment builder: successfully added BWTR for sidechain scId[%s].\n",
-            __func__, __LINE__, ccout.GetScId().ToString());
-    } else {
+    if (!ret) {
         LogPrint("sc", "%s():%d - scTxsCommitment building failed when adding BWTR for sidechain scId[%s] (CCTPlib error).\n",
             __func__, __LINE__, ccout.GetScId().ToString());
     }
@@ -239,10 +233,7 @@ bool SidechainTxsCommitmentBuilder::add_csw(const CTxCeasedSidechainWithdrawalIn
          &ret_code
     );
 
-    if (ret) {
-        LogPrint("sc", "%s():%d - scTxsCommitment builder: successfully added CSW for sidechain scId[%s].\n",
-            __func__, __LINE__, ccin.scId.ToString());
-    } else {
+    if (!ret) {
         LogPrint("sc", "%s():%d - scTxsCommitment building failed when adding CSW for sidechain scId[%s] (CCTPlib error).\n",
             __func__, __LINE__, ccin.scId.ToString());
     }
@@ -318,10 +309,7 @@ bool SidechainTxsCommitmentBuilder::add_cert(const CScCertificate& cert, const S
          &ret_code
     );
 
-    if (ret) {
-        LogPrint("sc", "%s():%d - scTxsCommitment builder: successfully added CERT for sidechain scId[%s].\n",
-            __func__, __LINE__, cert.GetScId().ToString());
-    } else {
+    if (!ret) {
         LogPrint("sc", "%s():%d - scTxsCommitment building failed when adding CERT for sidechain scId[%s] (CCTPlib error).\n",
             __func__, __LINE__, cert.GetScId().ToString());
     }
