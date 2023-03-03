@@ -462,7 +462,7 @@ TEST(ForkManager, NonCeasingSCVersionForkMainnet) {
 TEST(ForkManager, NonCeasingSCVersionForkTestnet) {
     SelectParams(CBaseChainParams::TESTNET);
 
-    int nonCeasingSCVersionForkHeight = 2000000;    // PLACEHOLDER!
+    int nonCeasingSCVersionForkHeight = 1228700;
     EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight - 1), 1);
     EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight), 2);
     EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight + 1), 2);
@@ -471,7 +471,7 @@ TEST(ForkManager, NonCeasingSCVersionForkTestnet) {
 TEST(ForkManager, NonCeasingSCVersionForkRegtest) {
     SelectParams(CBaseChainParams::REGTEST);
 
-    int nonCeasingSCVersionForkHeight = 480;    // PLACEHOLDER!
+    int nonCeasingSCVersionForkHeight = 480;
     EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight - 1), 1);
     EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight), 2);
     EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight + 1), 2);
