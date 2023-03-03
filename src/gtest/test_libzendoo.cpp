@@ -2706,6 +2706,52 @@ TEST(CctpLibrary, CommitmentBuilder_toomanyCERT) {
     ASSERT_EQ(cbsRef.cbsaMap[scId].cert, CCTP_COMMITMENT_BUILDER_CERT_LIMIT);
 }
 
+TEST(CctpLibrary, CommitmentBuilder_toomanyBWT) {
+    SelectParams(CBaseChainParams::REGTEST);
+    const BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+
+    SidechainTxsCommitmentBuilder cmtObj;
+    SidechainTxsCommitmentGuard guardObj;
+
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10), 10);
+    CMutableTransaction mtx = scCreationTx;
+    mtx.nVersion = SC_TX_VERSION;
+    mtx.vsc_ccout.resize(0);
+    mtx.vft_ccout.resize(0);
+    mtx.vmbtr_out.resize(0);
+    mtx.vcsw_ccin.resize(0);
+
+    // sc creation transaction
+    auto ccout = CTxScCreationOut(CAmount(10), uint256S("aaa"), CAmount(0), CAmount(0), Sidechain::ScFixedParameters());
+    ccout.version = 0;
+    ccout.withdrawalEpochLength = 100;
+    ccout.wCertVk   = CScVKey{SAMPLE_CERT_DARLIN_VK};
+    ccout.wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
+    ccout.vFieldElementCertificateFieldConfig.push_back(44);
+    ccout.customData.push_back(0x77);
+    mtx.vsc_ccout.push_back(ccout);
+
+    uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
+
+    CScCertificate cert = txCreationUtils::createCertificate(scId,
+        /*epochNum*/12, CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/0,
+        /*numChangeOut */0, /*bwtTotalAmount*/1, /*numBwt*/4000, /*ftScFee*/0, /*mbtrScFee*/0);
+
+    ASSERT_TRUE(cmtObj.add(cert, testManager.CoinsViewCache().get()));
+    ASSERT_TRUE(guardObj.add(cert));
+
+    ASSERT_TRUE(cmtObj.add(cert, testManager.CoinsViewCache().get()));
+    ASSERT_TRUE(guardObj.add(cert));
+
+    // check counters
+    auto cbsRef  = guardObj.getCBS();
+    ASSERT_EQ(cbsRef.cbsaMap.size(), 1);
+    ASSERT_EQ(cbsRef.cbscMap.size(), 0);
+    ASSERT_EQ(cbsRef.cbsaMap[scId].ft,   0);
+    ASSERT_EQ(cbsRef.cbsaMap[scId].bwtr, 0);
+    ASSERT_EQ(cbsRef.cbsaMap[scId].cert, 2);
+}
+
 TEST(CctpLibrary, CommitmentBuilder_toomanyCSW)
 {
     const ProvingSystem testProvingSystem = ProvingSystem::Darlin;
