@@ -46,7 +46,7 @@ CMutableTransaction GetValidTransaction(int txVersion) {
 
         CTxCeasedSidechainWithdrawalInput csw_ccin;
         csw_ccin.nValue = 2.0 * COIN;
-        csw_ccin.scId = GetRandHash();
+        csw_ccin.scId = uint256S("efefef");
         std::vector<unsigned char> nullifierStr(CFieldElement::ByteSize(), 0x0);
         GetRandBytes((unsigned char*)&nullifierStr[0], CFieldElement::ByteSize()-2);
         csw_ccin.nullifier.SetByteArray(nullifierStr);
@@ -61,11 +61,13 @@ CMutableTransaction GetValidTransaction(int txVersion) {
         cr_ccout.version = 0;
         cr_ccout.nValue = 1.0 * COIN;
         cr_ccout.withdrawalEpochLength = 111;
+        cr_ccout.wCertVk   = CScVKey{SAMPLE_CERT_DARLIN_VK};
+        cr_ccout.wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
         mtx.vsc_ccout.push_back(cr_ccout);
 
         CTxForwardTransferOut ft_ccout;
         ft_ccout.nValue = 10.0 * COIN;
-        ft_ccout.scId = GetRandHash();
+        ft_ccout.scId = uint256S("effeef");
         mtx.vft_ccout.push_back(ft_ccout);
     }
     else
