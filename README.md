@@ -1,4 +1,4 @@
-Zen 4.0.0-RC1
+Zen 4.0.0-RC1-bitcore
 ================
 What is Horizen?
 ----------------

@@ -116,6 +116,29 @@ call (default: 0)
 Maintain a maturity height index that stores for every height the
 cerficates that became mature, used by the getblockexpanded rpc call. It
 requires \fB\-txindex\fR (default: 0)
+.HP
+\fB\-addressindex\fR
+.IP
+Maintain a full address index, used to query for the balance, txids and
+unspent outputs for addresses (default: 0)
+.HP
+\fB\-timestampindex\fR
+.IP
+Maintain a timestamp index for block hashes, used to query blocks hashes
+by a range of timestamps (default: 0)
+.HP
+\fB\-spentindex\fR
+.IP
+Maintain a full spent index, used to query the spending txid and input
+index for an outpoint (default: 0)
+.HP
+\fB\-blocktreedbmaxopenfiles\fR
+.IP
+Maximum number of open files for the Block Tree LevelDB (default: 1000)
+.HP
+\fB\-blocktreedbcompression\fR
+.IP
+Enable compression for the Block Tree LevelDB (default: 1)
 .PP
 Connection options:
 .HP
