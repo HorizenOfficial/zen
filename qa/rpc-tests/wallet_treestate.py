@@ -37,7 +37,7 @@ class WalletTreeStateTest (BitcoinTestFramework):
         mytaddr = self.nodes[0].getnewaddress()     # where coins were mined
         myzaddr = self.nodes[0].z_getnewaddress()
 
-        # Spend coinbase utxos to create three notes of 9.99990000 each
+        # Spend coinbase utxos to create three notes of 11.4374 each
         recipients = []
         recipients.append({"address":myzaddr, "amount":Decimal('11.4375') - Decimal('0.0001')})
         myopid = self.nodes[0].z_sendmany(mytaddr, recipients)

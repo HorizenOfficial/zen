@@ -94,8 +94,7 @@ class WalletShieldCoinbaseTest (BitcoinTestFramework):
         try:
             self.nodes[2].z_shieldcoinbase(mytaddr, myzaddr)
         except JSONRPCException as e:
-            errorString = e.error['message']
-        assert_equal("Could not find any coinbase funds to shield" in errorString, True)
+            assert_equal(e.error["code"], -6) # RPC_WALLET_INSUFFICIENT_FUNDS
 
         # Shielding will fail because fee is negative
         try:

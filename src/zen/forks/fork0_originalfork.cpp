@@ -69,16 +69,12 @@ bool OriginalFork::mustCoinBaseBeShielded(CBaseChainParams::Network network) con
     {
         return true;
     }
-    else if (network == CBaseChainParams::Network::REGTEST)
+    
+    if (mapArgs.count("-regtestprotectcoinbase"))
     {
-        if (mapArgs.count("-regtestprotectcoinbase"))
-        {
-            return true;
-        }
-        return false;
+        return true;
     }
 
-    assert(false);
-    return true;
+    return false;
 }
 }

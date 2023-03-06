@@ -4,10 +4,10 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import BitcoinTestFramework, ForkHeights
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, initialize_chain_clean, \
-    start_nodes, connect_nodes_bi, wait_and_assert_operationid_status
+from test_framework.util import assert_equal, assert_greater_than, initialize_chain_clean, \
+    start_nodes, stop_nodes, wait_bitcoinds, connect_nodes_bi, wait_and_assert_operationid_status
 
 import sys
 import time
@@ -26,13 +26,15 @@ def check_value_pool(node, name, total):
 
 class WalletProtectCoinbaseTest (BitcoinTestFramework):
 
+    extra_args = [['-regtestprotectcoinbase', '-debug=zrpcunsafe']] * 4
+
     def setup_chain(self):
         print("Initializing test directory "+self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, 4)
 
     # Start nodes with -regtestprotectcoinbase to enforce coin base shielding requirement.
     def setup_network(self, split=False):
-        self.nodes = start_nodes(4, self.options.tmpdir, extra_args=[['-regtestprotectcoinbase', '-debug=zrpcunsafe']] * 4 )
+        self.nodes = start_nodes(4, self.options.tmpdir, self.extra_args)
         connect_nodes_bi(self.nodes,0,1)
         connect_nodes_bi(self.nodes,1,2)
         connect_nodes_bi(self.nodes,0,2)
@@ -410,6 +412,78 @@ class WalletProtectCoinbaseTest (BitcoinTestFramework):
         notes = self.nodes[0].z_listunspent(1, 99999, False, [myzaddr])
         sum_of_notes = sum([note["amount"] for note in notes])
         assert_equal(Decimal(resp), sum_of_notes)
+        
+
+        # tests associated to shielded pool depraction hard fork
+
+        block_count = self.nodes[0].getblockcount()
+        assert_greater_than(ForkHeights['SHIELDED_POOL_DEPRECATION'], block_count) # otherwise following tests would make no sense
+
+        # restart (before fork, with -regtestprotectcoinbase)
+        stop_nodes(self.nodes)
+        wait_bitcoinds()
+        self.extra_args = [['-regtestprotectcoinbase', '-debug=zrpcunsafe']] * 4
+        self.setup_network()
+        balance_0 = self.nodes[0].getbalance() # there are some coin base in the wallet
+        # Send will fail because we are enforcing the consensus rule that coinbase utxos
+        # can only be sent to a zaddr (and we are before shielded pool deprecation fork)
+        try:
+            self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), balance_0, "", "", True)
+            print("The RPC command succeded unexpectedly")
+            assert(False)
+        except JSONRPCException as e:
+            assert_equal(e.error["code"], -4) # RPC_WALLET_ERROR
+
+        # restart (before fork, without -regtestprotectcoinbase)
+        stop_nodes(self.nodes)
+        wait_bitcoinds()
+        self.extra_args = [['-debug=zrpcunsafe']] * 4
+        self.setup_network()
+        balance_0 = self.nodes[0].getbalance() # there are some coin base in the wallet
+        # Send will not fail because we are not enforcing the consensus rule that coinbase utxos
+        # can only be sent to a zaddr (and we are before shielded pool deprecation fork)
+        try:
+            self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), balance_0, "", "", True)
+        except JSONRPCException as e:
+            print("Unexpected exception caught during testing: " + str(sys.exc_info()[0]))
+            assert(False)
+        
+        self.nodes[1].generate(ForkHeights['SHIELDED_POOL_DEPRECATION'] - block_count + 1) # overcame hard fork mining blocks on another node
+        self.sync_all()
+        block_count = self.nodes[0].getblockcount()
+        assert_greater_than(block_count, ForkHeights['SHIELDED_POOL_DEPRECATION']) # otherwise following tests would make no sense
+        self.nodes[0].generate(101)
+        self.sync_all()
+
+        # restart (after fork, with -regtestprotectcoinbase)
+        stop_nodes(self.nodes)
+        wait_bitcoinds()
+        self.extra_args = [['-regtestprotectcoinbase', '-debug=zrpcunsafe']] * 4
+        self.setup_network()
+        balance_0 = self.nodes[0].getbalance() # there are some coin base in the wallet
+        # Send will not fail because we overcame the shielded pool deprecation hard fork ('-regtestprotectcoinbase' is indifferent)
+        try:
+            self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), balance_0, "", "", True)
+        except JSONRPCException as e:
+            print("Unexpected exception caught during testing: " + str(sys.exc_info()[0]))
+            assert(False)
+
+        self.nodes[0].generate(1)
+        self.sync_all()
+
+        # restart (after fork, without -regtestprotectcoinbase)
+        stop_nodes(self.nodes)
+        wait_bitcoinds()
+        self.extra_args = [['-debug=zrpcunsafe']] * 4
+        self.setup_network()
+        balance_0 = self.nodes[0].getbalance() # there are some coin base in the wallet
+        # Send will not fail because we overcame the shielded pool deprecation hard fork ('-regtestprotectcoinbase' is indifferent)
+        try:
+            self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), balance_0, "", "", True)
+        except JSONRPCException as e:
+            print("Unexpected exception caught during testing: " + str(sys.exc_info()[0]))
+            assert(False)
+
 
 if __name__ == '__main__':
     WalletProtectCoinbaseTest().main()
