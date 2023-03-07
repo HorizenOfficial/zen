@@ -508,7 +508,7 @@ TEST(ForkManager, ShieldedPoolDeprecationForkRegtest) {
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight), false);
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight + 1), false);
     if (!alreadyPresent)
-        mapArgs.erase({"-regtestprotectcoinbase", ""});
+        mapArgs.erase("-regtestprotectcoinbase");
 }
 
 //TODO: ADD TESTS

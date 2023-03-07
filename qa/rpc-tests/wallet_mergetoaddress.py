@@ -239,24 +239,24 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
         assert_equal(self.nodes[1].z_getbalance(n1taddr), Decimal('91.49990000'))
         assert_equal(self.nodes[2].getbalance(), 0)
 
-        # Generate 800 regular UTXOs on node 0, and 20 regular UTXOs on node 2
+        # Generate 700 regular UTXOs on node 0, and 20 regular UTXOs on node 2
         mytaddr = self.nodes[0].getnewaddress()
         n2taddr = self.nodes[2].getnewaddress()
-        self.nodes[1].generate(1000)
+        self.nodes[1].generate(900)
         self.sync_all()
-        for i in range(800):
+        for i in range(700):
             self.nodes[1].sendtoaddress(mytaddr, 1)
         for i in range(20):
             self.nodes[1].sendtoaddress(n2taddr, 1)
         self.nodes[1].generate(1)
         self.sync_all()
 
-        # Merging the 800 UTXOs will occur over two transactions, since max tx size is 100,000 bytes.
+        # Merging the 700 UTXOs will occur over two transactions, since max tx size is 100,000 bytes.
         # We don't verify mergingTransparentValue as UTXOs are not selected in any specific order, so value can change on each test run.
         # We set an unrealistically high limit parameter of 99999, to verify that max tx size will constrain the number of UTXOs.
         result = self.nodes[0].z_mergetoaddress([mytaddr], myzaddr, 0, 99999)
         assert_equal(result["mergingUTXOs"], Decimal('662'))
-        assert_equal(result["remainingUTXOs"], Decimal('138'))
+        assert_equal(result["remainingUTXOs"], Decimal('38'))
         assert_equal(result["mergingNotes"], Decimal('0'))
         assert_equal(result["mergingShieldedValue"], Decimal('0'))
         assert_equal(result["remainingNotes"], Decimal('0'))
@@ -266,7 +266,7 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
 
         # Verify that UTXOs are locked (not available for selection) by queuing up another merging operation
         result = self.nodes[0].z_mergetoaddress([mytaddr], myzaddr, 0, 0)
-        assert_equal(result["mergingUTXOs"], Decimal('138'))
+        assert_equal(result["mergingUTXOs"], Decimal('38'))
         assert_equal(result["mergingTransparentValue"], Decimal(remainingTransparentValue))
         assert_equal(result["remainingUTXOs"], Decimal('0'))
         assert_equal(result["remainingTransparentValue"], Decimal('0'))
