@@ -134,6 +134,7 @@ def util_test():
 STAGES = [
     'btest',
     'gtest',
+    'b-gtest_with_coverage'
     'sec-hard',
     'no-dot-so',
     'util-test',
@@ -146,6 +147,7 @@ STAGES = [
 STAGE_COMMANDS = {
     'btest': [repofile('src/test/test_bitcoin'), '-p'],
     'gtest': [repofile('src/zen-gtest')],
+    'b-gtest_with_coverage': ['make','cov_ci'],
     'sec-hard': check_security_hardening,
     'no-dot-so': ensure_no_dot_so_in_depends,
     'util-test': util_test,
