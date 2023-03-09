@@ -1107,24 +1107,15 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
             // check for shielded pool deprecation as per ZenIP42204
             if (ForkManager::getInstance().isShieldingForbidden(nHeight))
             {
-                bool reject = false;
-                if (vin.size() > 0)
-                    reject = true; //maybe this can be dropped for being more permissive
-                else
+                for (int index = 0; index < vjoinsplit.size(); ++index)
                 {
-                    for (int index = 0; index < vjoinsplit.size(); ++index)
+                    if (vjoinsplit[index].vpub_old > 0)
                     {
-                        if (vjoinsplit[index].vpub_old > 0)
-                        {
-                            reject = true;
-                            break;
-                        }
+                        return state.DoS(dosLevel,
+                                         error("ContextualCheck(): tx conflicting with shielded pool deprecation"),
+                                         CValidationState::Code::INVALID, "bad-tx-shielded-pool-deprecation-conflict");
                     }
                 }
-                if (reject)
-                    return state.DoS(dosLevel,
-                                     error("ContextualCheck(): tx conflicting with shielded pool deprecation"),
-                                     CValidationState::Code::INVALID, "bad-tx-shielded-pool-deprecation-conflict");
             }
         }
 
