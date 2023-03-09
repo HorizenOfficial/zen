@@ -3066,8 +3066,6 @@ bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletTra
     if (!ForkManager::getInstance().canSendCommunityFundsToTransparentAddress(chainActive.Height()))
         fMustShieldCommunityFund = fMustShieldCoinBase;
 
-    // TODO: CHECK IF FLOW ABOVE CAN BE REMOVED (FOR CODE SIMPLIFICATION)
-
     vector<COutput> vCoinsWithoutCoinbase, vCoinsWithCoinbaseAndCommunityFund;
     AvailableCoins(vCoinsWithoutCoinbase, true, coinControl, false, false, !fMustShieldCommunityFund);
     AvailableCoins(vCoinsWithCoinbaseAndCommunityFund, true, coinControl, false, true, true);

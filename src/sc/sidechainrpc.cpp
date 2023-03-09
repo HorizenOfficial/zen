@@ -885,9 +885,13 @@ void ScRpcCmd::addInputs()
 
     static const bool fOnlyConfirmed = false;
     static const bool fIncludeZeroValue = false;
-    static const bool fIncludeCoinBaseAndCommunityFund = !ForkManager::getInstance().mustCoinBaseBeShielded(chainActive.Height());
+    static bool fMustShieldCoinBase = ForkManager::getInstance().mustCoinBaseBeShielded(chainActive.Height());
+    static bool fMustShieldCommunityFund = false;
+    // CF exemption allowed only after hfCommunityFundHeight hardfork
+    if (!ForkManager::getInstance().canSendCommunityFundsToTransparentAddress(chainActive.Height()))
+        fMustShieldCommunityFund = fMustShieldCoinBase;
 
-    pwalletMain->AvailableCoins(vAvailableCoins, fOnlyConfirmed, NULL, fIncludeZeroValue, fIncludeCoinBaseAndCommunityFund, fIncludeCoinBaseAndCommunityFund);
+    pwalletMain->AvailableCoins(vAvailableCoins, fOnlyConfirmed, NULL, fIncludeZeroValue, !fMustShieldCoinBase, !fMustShieldCommunityFund);
 
     for (const auto& out: vAvailableCoins)
     {

@@ -6253,7 +6253,14 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
     if (useAny || useAnyUTXO || taddrs.size() > 0) {
         // Get available utxos
         vector<COutput> vecOutputs;
-        pwalletMain->AvailableCoins(vecOutputs, true, NULL, false, false);
+
+        bool fMustShieldCoinBase = ForkManager::getInstance().mustCoinBaseBeShielded(chainActive.Height());
+        bool fMustShieldCommunityFund = false;
+        // CF exemption allowed only after hfCommunityFundHeight hardfork
+        if (!ForkManager::getInstance().canSendCommunityFundsToTransparentAddress(chainActive.Height()))
+            fMustShieldCommunityFund = fMustShieldCoinBase;
+
+        pwalletMain->AvailableCoins(vecOutputs, true, NULL, false, !fMustShieldCoinBase, !fMustShieldCommunityFund);
 
         // Find unspent utxos and update estimated size
         for (const COutput& out : vecOutputs) {

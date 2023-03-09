@@ -26,28 +26,61 @@ class ShieldedPoolDeprecationTest (BitcoinTestFramework):
         self.is_network_split=False
         self.sync_all()
 
+    def make_all_mature(self):
+        self.sync_all()
+        self.nodes[0].generate(1)
+        self.sync_all()
+
     def run_test (self):
 
         ForkHeight = ForkHeights['SHIELDED_POOL_DEPRECATION']
 
         print("Mining blocks...")
 
-        self.nodes[0].generate(ForkHeight - 10)
+        self.nodes[0].generate(ForkHeight - 100)
         self.sync_all()
 
         node0_taddr0 = self.nodes[0].getnewaddress()
+        node0_taddr1 = self.nodes[0].getnewaddress()
+        node0_taddr2 = self.nodes[0].getnewaddress()
         node0_zaddr0 = self.nodes[0].z_getnewaddress()
+        node0_zaddr1 = self.nodes[0].z_getnewaddress()
 
         # first round pre-fork, second round post-fork
         pre_fork_round = 0
         post_fork_round = 1
         for round in range(2):
+
+            # z_shieldcoinbase
+
             try:
-                # shielding coinbase
-                opid = self.nodes[0].z_shieldcoinbase(node0_taddr0, node0_zaddr0, 0.0001, 2)["opid"]
+                # shielding coinbase (multiple times during pre-fork round, the resulting notes will be usefull throughout the test)
+                for repeat in range(10 if round == pre_fork_round else 1):
+                    opid = self.nodes[0].z_shieldcoinbase(node0_taddr0, node0_zaddr0, 0.0001, 2)["opid"]
+                    if (round == post_fork_round):
+                        assert(False)
+                    wait_and_assert_operationid_status(self.nodes[0], opid)
+                    self.make_all_mature()
+            except JSONRPCException as e:
+                if (round == pre_fork_round):
+                    print("Unexpected exception caught during testing: " + str(sys.exc_info()[0]))
+                    assert(False)
+                else:
+                    print("Expected exception caught during testing due to deprecation (error=" + str(e.error["code"]) + ")")
+                    assert_equal(e.error["code"], RPC_HARD_FORK_DEPRECATION)
+
+            # z_mergetoaddress
+
+            try:
+                # moving transparent funds between node0 t-addresses (before merging)
+                self.nodes[0].sendmany("", {node0_taddr1: 1.0, node0_taddr2: 1.0})
+                self.make_all_mature()
+                # merging transparent funds to z-address (shielding)
+                opid = self.nodes[0].z_mergetoaddress(["*"], node0_zaddr0, 0.0001, 2, 2)["opid"]
                 if (round == post_fork_round):
                     assert(False)
                 wait_and_assert_operationid_status(self.nodes[0], opid)
+                self.make_all_mature()
             except JSONRPCException as e:
                 if (round == pre_fork_round):
                     print("Unexpected exception caught during testing: " + str(sys.exc_info()[0]))
@@ -58,16 +91,14 @@ class ShieldedPoolDeprecationTest (BitcoinTestFramework):
 
             try:
                 # moving transparent funds between node0 t-addresses (before merging)
-                node0_taddr1 = self.nodes[0].getnewaddress()
-                node0_taddr2 = self.nodes[0].getnewaddress()
-                self.nodes[0].generate(1)
-                self.sync_all()
                 self.nodes[0].sendmany("", {node0_taddr1: 1.0, node0_taddr2: 1.0})
+                self.make_all_mature()
                 # merging transparent funds to z-address (shielding)
-                opid = self.nodes[0].z_mergetoaddress(["ANY_TADDR"], node0_zaddr0, 0.0001, 2)["opid"]
+                opid = self.nodes[0].z_mergetoaddress(["ANY_TADDR"], node0_zaddr0, 0.0001, 2, 2)["opid"]
                 if (round == post_fork_round):
                     assert(False)
                 wait_and_assert_operationid_status(self.nodes[0], opid)
+                self.make_all_mature()
             except JSONRPCException as e:
                 if (round == pre_fork_round):
                     print("Unexpected exception caught during testing: " + str(sys.exc_info()[0]))
@@ -77,15 +108,47 @@ class ShieldedPoolDeprecationTest (BitcoinTestFramework):
                     assert_equal(e.error["code"], RPC_HARD_FORK_DEPRECATION)
 
             try:
+                # moving transparent funds between node0 t-addresses (before merging)
+                self.nodes[0].sendmany("", {node0_taddr1: 1.0, node0_taddr2: 1.0})
+                self.make_all_mature()
+                # merging transparent funds to t-address
+                opid = self.nodes[0].z_mergetoaddress(["ANY_TADDR"], node0_taddr0, 0.0001, 2, 2)["opid"]
+                wait_and_assert_operationid_status(self.nodes[0], opid)
+                self.make_all_mature()
+            except JSONRPCException as e:
+                    print("Unexpected exception caught during testing: " + str(sys.exc_info()[0]))
+                    assert(False)
+
+            try:
+                # merging shielded funds to z-address (shielded)
+                opid = self.nodes[0].z_mergetoaddress(["ANY_ZADDR"], node0_zaddr0, 0.0001, 2, 2)["opid"]
+                wait_and_assert_operationid_status(self.nodes[0], opid)
+                self.make_all_mature()
+            except JSONRPCException as e:
+                    print("Unexpected exception caught during testing: " + str(sys.exc_info()[0]))
+                    assert(False)
+
+            try:
+                # merging shielded funds to z-address (unshielding)
+                opid = self.nodes[0].z_mergetoaddress(["ANY_ZADDR"], node0_taddr0, 0.0001, 2, 2)["opid"]
+                wait_and_assert_operationid_status(self.nodes[0], opid)
+                self.make_all_mature()
+            except JSONRPCException as e:
+                    print("Unexpected exception caught during testing: " + str(sys.exc_info()[0]))
+                    assert(False)
+
+            # z_sendmany
+
+            try:
                 # moving transparent funds between node0 t-addresses (before sending to z-address)
-                self.nodes[0].generate(1)
-                self.sync_all()
                 self.nodes[0].sendmany("", {node0_taddr1: 1.0})
+                self.make_all_mature()
                 # sending transparent funds to z-address (shielding)
-                opid = self.nodes[0].z_sendmany(node0_taddr1, [{"address":node0_zaddr0, "amount": 1.0}], 0, 0)
+                opid = self.nodes[0].z_sendmany(node0_taddr1, [{"address": node0_zaddr0, "amount": 1.0}], 1, 0)
                 if (round == post_fork_round):
                     assert(False)
                 wait_and_assert_operationid_status(self.nodes[0], opid)
+                self.make_all_mature()
             except JSONRPCException as e:
                 if (round == pre_fork_round):
                     print("Unexpected exception caught during testing: " + str(sys.exc_info()[0]))
@@ -93,6 +156,36 @@ class ShieldedPoolDeprecationTest (BitcoinTestFramework):
                 else:
                     print("Expected exception caught during testing due to deprecation (error=" + str(e.error["code"]) + ")")
                     assert_equal(e.error["code"], RPC_HARD_FORK_DEPRECATION)
+            
+            try:
+                # moving transparent funds between node0 t-addresses (before sending to z-address)
+                self.nodes[0].sendmany("", {node0_taddr1: 1.0})
+                self.make_all_mature()
+                # sending transparent funds to t-address
+                opid = self.nodes[0].z_sendmany(node0_taddr1, [{"address": node0_taddr0, "amount": 1.0}], 1, 0)
+                wait_and_assert_operationid_status(self.nodes[0], opid)
+                self.make_all_mature()
+            except JSONRPCException as e:
+                print("Unexpected exception caught during testing: " + str(sys.exc_info()[0]))
+                assert(False)
+
+            try:
+                # sending shielded funds to z-address (shielded)
+                opid = self.nodes[0].z_sendmany(node0_zaddr0, [{"address": node0_zaddr1, "amount": 1.0}], 1, 0)
+                wait_and_assert_operationid_status(self.nodes[0], opid)
+                self.make_all_mature()
+            except JSONRPCException as e:
+                print("Unexpected exception caught during testing: " + str(sys.exc_info()[0]))
+                assert(False)
+
+            try:
+                # sending shielded funds to z-address (unshielding)
+                opid = self.nodes[0].z_sendmany(node0_zaddr0, [{"address": node0_taddr0, "amount": 1.0}], 1, 0)
+                wait_and_assert_operationid_status(self.nodes[0], opid)
+                self.make_all_mature()
+            except JSONRPCException as e:
+                print("Unexpected exception caught during testing: " + str(sys.exc_info()[0]))
+                assert(False)
 
             if (round == pre_fork_round):
                 blockcount = self.nodes[0].getblockcount()

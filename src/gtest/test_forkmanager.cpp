@@ -511,8 +511,6 @@ TEST(ForkManager, ShieldedPoolDeprecationForkRegtest) {
         mapArgs.erase("-regtestprotectcoinbase");
 }
 
-//TODO: ADD TESTS
-
 TEST(ForkManager, HighestFork) {
     SelectParams(CBaseChainParams::MAIN);
     const Fork* highestFork = ForkManager::getInstance().getHighestFork();
