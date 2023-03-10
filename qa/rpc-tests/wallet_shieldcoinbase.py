@@ -204,22 +204,22 @@ class WalletShieldCoinbaseTest (BitcoinTestFramework):
         self.nodes[1].generate(1)
         self.sync_all()
 
-        # Verify maximum number of utxos which node 0 can shield is set by default limit parameter of 50
-        self.nodes[0].generate(153)
-        self.sync_all()
-        mytaddr = self.nodes[0].getnewaddress()
-        result = self.nodes[0].z_shieldcoinbase(mytaddr, myzaddr, Decimal('0.0001'))
+        # Verify maximum number of utxos which node 1 can shield is set by default limit parameter of 50
+        # (there are 105 utxos at this point on node 1)
+        mytaddr1 = self.nodes[1].getnewaddress()
+        myzaddr1 = self.nodes[1].z_getnewaddress()
+        result = self.nodes[1].z_shieldcoinbase(mytaddr1, myzaddr1, Decimal('0.0001'))
         assert_equal(result["shieldingUTXOs"], Decimal('50'))
-        assert_equal(result["remainingUTXOs"], Decimal('3'))
-        self.wait_and_assert_operationid_status(0, result['opid'])
+        assert_equal(result["remainingUTXOs"], Decimal('55'))
+        self.wait_and_assert_operationid_status(1, result['opid'])
         sync_blocks(self.nodes[:2])
         sync_mempools(self.nodes[:2])
 
-        # Verify maximum number of utxos which node 0 can shield can be set by the limit parameter
-        result = self.nodes[0].z_shieldcoinbase(mytaddr, myzaddr, Decimal('0.0001'), 2)
+        # Verify maximum number of utxos which node 1 can shield can be set by the limit parameter
+        result = self.nodes[1].z_shieldcoinbase(mytaddr1, myzaddr1, Decimal('0.0001'), 2)
         assert_equal(result["shieldingUTXOs"], Decimal('2'))
-        assert_equal(result["remainingUTXOs"], Decimal('1'))
-        self.wait_and_assert_operationid_status(0, result['opid'])        
+        assert_equal(result["remainingUTXOs"], Decimal('53'))
+        self.wait_and_assert_operationid_status(1, result['opid'])        
         sync_blocks(self.nodes[:2])
         sync_mempools(self.nodes[:2])
         self.nodes[1].generate(1)
