@@ -270,7 +270,7 @@ os: linux
       - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/build/build_${TRAVIS_CPU_ARCH}_${DOCKER_TARGET_OS}_${DOCKER_FROM}.sh"
       - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/push_archive.sh ${B2_UL_COMPRESS_FOLDER} ${B2_UL_FILENAME}"
   - &test_docker_amd64
-    if: env(SKIP_TESTS) != true
+    if: NOT env(SKIP_TESTS)
     os: linux
     dist: focal
     cache:
@@ -281,7 +281,7 @@ os: linux
       - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/travis_stay_alive.sh"
       - bash -c '${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/test/run_test.sh "${TEST_CMD}" "${TEST_ARGS}"'
   - &test_docker_amd64_x-large
-    if: env(SKIP_TESTS) != true
+    if: NOT env(SKIP_TESTS)
     os: linux
     dist: focal
     vm:
@@ -294,7 +294,7 @@ os: linux
       - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/travis_stay_alive.sh"
       - bash -c '${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/test/run_test.sh "${TEST_CMD}" "${TEST_ARGS}"'
   - &test_osx_xcode9_4
-    if: (env(SKIP_TESTS) != true) AND (env(SKIP_OSX) != true)
+    if: (NOT env(SKIP_TESTS)) AND (NOT env(SKIP_OSX))
     os: osx
     osx_image: xcode9.4
     cache:
@@ -329,7 +329,7 @@ jobs:
 
     # build zencash-apple toolchain
     - stage: Prepare
-      if: env(SKIP_OSX) != true
+      if: NOT env(SKIP_OSX)
       os: osx
       osx_image: xcode9.4
       cache: false
@@ -361,7 +361,7 @@ jobs:
       <<: *docker_amd64_windows_ubuntu_bionic_legacy_cpu
     # osx build
     - stage: Build
-      if: env(SKIP_OSX) != true
+      if: NOT env(SKIP_OSX)
       os: osx
       osx_image: xcode9.4
       env:
@@ -432,50 +432,50 @@ jobs:
       <<: *docker_amd64_linux_ubuntu_focal_rpc-tests_4
     # osx based tests
     - stage: Test
-      if: env(SKIP_OSX) != true
+      if: NOT env(SKIP_OSX)
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_unit-tests
     - stage: Test
-      if: env(SKIP_OSX) != true
+      if: NOT env(SKIP_OSX)
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_1
     - stage: Test
-      if: env(SKIP_OSX) != true
+      if: NOT env(SKIP_OSX)
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_2
     - stage: Test
-      if: env(SKIP_OSX) != true
+      if: NOT env(SKIP_OSX)
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_3
     - stage: Test
-      if: env(SKIP_OSX) != true
+      if: NOT env(SKIP_OSX)
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_4
     - stage: Test
-      if: env(SKIP_OSX) != true
+      if: NOT env(SKIP_OSX)
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_5
     - stage: Test
-      if: env(SKIP_OSX) != true
+      if: NOT env(SKIP_OSX)
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_6
     - stage: Test
-      if: env(SKIP_OSX) != true
+      if: NOT env(SKIP_OSX)
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_7
     - stage: Test
-      if: env(SKIP_OSX) != true
+      if: NOT env(SKIP_OSX)
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_8
     - stage: Test
-      if: env(SKIP_OSX) != true
+      if: NOT env(SKIP_OSX)
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_9
     - stage: Test
-      if: env(SKIP_OSX) != true
+      if: NOT env(SKIP_OSX)
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_10
     - stage: Test
-      if: env(SKIP_OSX) != true
+      if: NOT env(SKIP_OSX)
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_11
