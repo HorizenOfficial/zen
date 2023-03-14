@@ -294,7 +294,7 @@ os: linux
       - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/travis_stay_alive.sh"
       - bash -c '${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/test/run_test.sh "${TEST_CMD}" "${TEST_ARGS}"'
   - &test_osx_xcode9_4
-    if: (NOT env(SKIP_TESTS)) AND (NOT env(SKIP_OSX))
+    if: (NOT env(SKIP_TESTS)) AND (NOT env(SKIP_OSX)) OR tag IS present # Never skip MacOS when running the CI for a tag
     os: osx
     osx_image: xcode9.4
     cache:
@@ -329,7 +329,7 @@ jobs:
 
     # build zencash-apple toolchain
     - stage: Prepare
-      if: NOT env(SKIP_OSX)
+      if: NOT env(SKIP_OSX) OR tag IS present
       os: osx
       osx_image: xcode9.4
       cache: false
@@ -361,7 +361,7 @@ jobs:
       <<: *docker_amd64_windows_ubuntu_bionic_legacy_cpu
     # osx build
     - stage: Build
-      if: NOT env(SKIP_OSX)
+      if: NOT env(SKIP_OSX) OR tag IS present
       os: osx
       osx_image: xcode9.4
       env:
@@ -432,50 +432,50 @@ jobs:
       <<: *docker_amd64_linux_ubuntu_focal_rpc-tests_4
     # osx based tests
     - stage: Test
-      if: NOT env(SKIP_OSX)
+      if: NOT env(SKIP_OSX) OR tag IS present
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_unit-tests
     - stage: Test
-      if: NOT env(SKIP_OSX)
+      if: NOT env(SKIP_OSX) OR tag IS present
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_1
     - stage: Test
-      if: NOT env(SKIP_OSX)
+      if: NOT env(SKIP_OSX) OR tag IS present
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_2
     - stage: Test
-      if: NOT env(SKIP_OSX)
+      if: NOT env(SKIP_OSX) OR tag IS present
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_3
     - stage: Test
-      if: NOT env(SKIP_OSX)
+      if: NOT env(SKIP_OSX) OR tag IS present
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_4
     - stage: Test
-      if: NOT env(SKIP_OSX)
+      if: NOT env(SKIP_OSX) OR tag IS present
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_5
     - stage: Test
-      if: NOT env(SKIP_OSX)
+      if: NOT env(SKIP_OSX) OR tag IS present
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_6
     - stage: Test
-      if: NOT env(SKIP_OSX)
+      if: NOT env(SKIP_OSX) OR tag IS present
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_7
     - stage: Test
-      if: NOT env(SKIP_OSX)
+      if: NOT env(SKIP_OSX) OR tag IS present
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_8
     - stage: Test
-      if: NOT env(SKIP_OSX)
+      if: NOT env(SKIP_OSX) OR tag IS present
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_9
     - stage: Test
-      if: NOT env(SKIP_OSX)
+      if: NOT env(SKIP_OSX) OR tag IS present
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_10
     - stage: Test
-      if: NOT env(SKIP_OSX)
+      if: NOT env(SKIP_OSX) OR tag IS present
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_11
