@@ -2,10 +2,6 @@
 
 set -euo pipefail
 
-cd "${B2_DL_DECOMPRESS_FOLDER}"
-# shellcheck disable=SC1091
-source environment
-
 cd "${TRAVIS_BUILD_DIR}"
 export MAKEFLAGS="${MAKEFLAGS:-} -j $(($(nproc)+1))"
 export LIBTOOLIZE=glibtoolize
