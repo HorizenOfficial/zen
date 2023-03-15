@@ -294,7 +294,7 @@ os: linux
       - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/travis_stay_alive.sh"
       - bash -c '${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/test/run_test.sh "${TEST_CMD}" "${TEST_ARGS}"'
   - &test_osx_xcode9_4
-    if: (NOT env(SKIP_TESTS)) AND (NOT env(SKIP_OSX)) OR tag IS present # Never skip MacOS when running the CI for a tag
+    if: NOT env(SKIP_TESTS) AND NOT env(SKIP_OSX) OR tag IS present # Never skip MacOS when running the CI for a tag
     os: osx
     osx_image: xcode9.4
     cache:
