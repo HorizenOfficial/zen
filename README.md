@@ -2,33 +2,53 @@ Zen 3.3.1
 ================
 What is Horizen?
 ----------------
-Horizen is an inclusive and scalable platform where everyone is empowered and rewarded for their contributions. Horizen’s sidechain platform enables real-world applications mapped onto a public blockchain architecture with the largest node network in the industry. Horizen’s Sidechain-SDK provides developers with all necessary components to deploy their own fully customizable blockchains on Horizen’s open sidechain protocol, Zendoo.
+Horizen is an inclusive and scalable platform where everyone is empowered and rewarded for their contributions. Horizen's sidechain platform enables real-world applications mapped onto a public blockchain architecture with the largest node network in the industry. Horizen's Sidechain-SDK provides developers with all the necessary components to deploy their own fully customizable blockchains on Horizen's open sidechain protocol, Zendoo.
 
-Zend_oo - the Zendoo-powered Sidechain Platform
+`zend` - the Zendoo-powered node implementation for Horizen ($ZEN).
 ----------------
-Zend_oo is the new version of zend allowing the Horizen mainchain to manage and interact with any number of sidechains. 
-This version of zend implements the Zendoo verifiable Cross-Chain Transfer Protocol (CCTP) that allows the creation of ad-hoc sidechains with independently customizable business logic. Additionally, it enables the transfer of coins from the mainchain to sidechains and from sidechains back to the mainchain through SNARK verifiable withdrawal certificates.
+`zend` is the official Horizen mainchain client, fully supporting Horizen's sidechains system. 
+It implements the Zendoo verifiable Cross-Chain Transfer Protocol (CCTP) that allows the creation of ad-hoc sidechains with independent and customizable business logic.
 
-Horizen Sidechains are fully scalable and decentralized:
+Horizen Sidechains are fully scalable, secure, and decentralized:
 ----------------
-- The Cross-Chain Transfer Protocol (CCTP) enables coin transferring between sidechains and the mainchain without the need for the mainchain to follow them and to know their internal structure. The coin transfers from sidechains to the mainchain are performed using cryptographically authenticated certificates received from the sidechains.
-- Certificate authentication and validation are achieved through the innovative use of SNARK technology, which enables constant-sized proofs of arbitrary computations, without involving a trusted third party and keeps the mainchain totally agnostic from any sidechain rules.
+- The Cross-Chain Transfer Protocol (CCTP) enables coin transfers between the sidechains and the mainchain without knowing their internal structure and without additional software to track them. Those transfers are performed using cryptographically authenticated certificates received from the sidechains.
+- Certificate authentication and validation are achieved through the innovative use of zk-SNARKs.
+Thanks to this technology, the resulting zero-knowledge proofs have a constant and succinct size. 
+Horizen can verify proofs of arbitrary computations and can remain agnostic of the sidechains' use-cases and rules.
+- This technology makes Horizen's sidechain system trustless.
 
-The main feature of our construction is the high degree of generalization. Sidechains are allowed to use their own rules and data, defining custom SNARKs to let the mainchain authenticate their certificates without any knowledge of the sidechain internals.
+You can read more about the Zendoo protocol in our [whitepaper](https://www.horizen.io/assets/files/Horizen-Sidechain-Zendoo-A_zk-SNARK-Verifiable-Cross-Chain-Transfer-Protocol.pdf), and explore a reference sidechain implementation in our [Sidechains-SDK](https://github.com/HorizenOfficial/Sidechains-SDK).
 
-You can read more about the Zendoo protocol in our [whitepaper](https://www.horizen.io/assets/files/Horizen-Sidechain-Zendoo-A_zk-SNARK-Verifiable-Cross-Chain-Transfer-Protocol.pdf), and explore our default sidechain implementation and SDK in our [Sidechains-SDK](https://github.com/HorizenOfficial/Sidechains-SDK).
-
-New features
+Top features
 ----------------
-- Sidechain declaration with customizable SNARK verification key
-- Forward transfers from mainchain to sidechain
-- Sidechain backward transfers from sidechain to mainchain by means of withdrawal certificates
+INTERACTION 
+- RPC interface for general access to data and all available functions
+
+
+SECURITY
+- Proof-of-Work, the most secure consensus, ensured by one of the largest node networks in the industry
+- Base58 address check, protecting from money getting lost in case of typos
+- 51% attack protection
+- Replay attack protection
+- Sidechains state provability, powered by zk-SNARKs
+- TLS end-to-end encryption - Available for Secure and Super nodes
+
+PRIVACY 
+- Shielded transactions, powered by zk-SNARKs
+- Privacy-preserving sidechains supported out-of-the-box, powered by zk-SNARKs
+
+SCALABILITY 
+- Extended RPC interface to create and dispatch sidechain declaration, forward transfers, mainchain backward transfer requests, ceased sidechain withdrawals, and certificates.
+- Sidechain declaration with customizable zk-SNARK verification key
 - Sidechain epoch management with liveness monitoring and ceasing procedure
-- Mainchain backward transfer request from sidechain to mainchain
-- Ceased sidechain withdrawals
-- Agnostic withdrawal certificate validation via custom SNARK proof verification (powered by [ginger-lib](https://github.com/HorizenOfficial/ginger-lib))
-- Extended RPC interface to create and dispatch sidechain declaration, forward transfer transactions, mainchain backward transfer requests, ceased sidechain withdrawal requests and withdrawal certificates.
-- Extensive unit tests and integration tests for verifying sidechain functionality
+- Mainchain backward transfer request support for sidechains, to collect Zen back on a mainchain address
+- Agnostic certificate validation via custom zk-SNARK proof verification (powered by [ginger-lib](https://github.com/HorizenOfficial/ginger-lib))
+- Secure sidechain validator's key rotation support via custom zk-SNARK proof verification
+- Support for variable epoch lengths (enabling non-ceasable sidechains) 
+
+Compatibility
+----------------
+`zend` only supports 64-bit systems, it cannot be compiled on different architectures.
 
 Building from source
 ----------------
@@ -116,11 +136,11 @@ Security Warnings
 
 See important security warnings in [doc/security-warnings.md](doc/security-warnings.md).
 
-**Zend_oo is experimental and a work in progress.** Use at your own risk.
+**`zend` is experimental and a work in progress.** Use at your own risk.
 
 Need Help?
 ----------------
-Help is available at [Horizen’s Discord](https://www.horizen.io/invite/discord) #zendoo channel.
+Help is available at [Horizen's Discord](https://www.horizen.io/invite/discord) #open-a-ticket channel.
 
 Want to Participate in Development?
 ----------------

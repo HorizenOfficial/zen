@@ -9,7 +9,7 @@ Copyright Zen Blockchain Foundation, 2019
 
 The Zen Blockchain Foundation is committed to working with researchers who submit security vulnerability notifications to us to resolve those issues on an appropriate timeline and perform a coordinated release, giving credit to the reporter if they would like.
 
-Please submit sensitive issues through our [Hackerone Bug Bounty Program](https://hackerone.com/horizen) or email to security@horizen.io, using the following PGP key:
+Please email sensitive issues to security@horizen.io, using the following PGP key:
 
 ```
 -----BEGIN PGP PUBLIC KEY BLOCK-----
