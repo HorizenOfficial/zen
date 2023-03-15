@@ -142,6 +142,7 @@ STAGES = [
     'libsnark',
     'univalue',
     'rpc',
+    'clang-tidy',
 ]
 
 STAGE_COMMANDS = {
@@ -155,6 +156,7 @@ STAGE_COMMANDS = {
     'libsnark': ['make', '-C', repofile('src'), 'libsnark-tests'],
     'univalue': ['make', '-C', repofile('src/univalue'), 'check'],
     'rpc': [repofile('qa/pull-tester/rpc-tests.sh')],
+    'clang-tidy': [repofile('contrib/ci-horizen/scripts/test/clang-tidy-launcher.sh')],
 }
 
 

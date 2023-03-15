@@ -105,6 +105,15 @@ os: linux
       - MAKEFLAGS="--enable-lcov"
       - TEST_CMD="./qa/zcash/full_test_suite.py"
       - TEST_ARGS="btest gtest sec-hard no-dot-so util-test secp256k1 libsnark univalue --coverage"
+  - &docker_amd64_linux_ubuntu_jammy_clang-tidy
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_jammy
+      - DOCKER_IS_DEB=true
+      - MAKEFLAGS="--enable-lcov"
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="clang-tidy"
   - &docker_amd64_linux_ubuntu_jammy_rpc-tests_1
     env:
       - DOCKER_ARCH=amd64
@@ -424,6 +433,9 @@ jobs:
     - stage: Test
       <<: *test_docker_amd64_x-large
       <<: *docker_amd64_linux_ubuntu_jammy_rpc-tests_4
+    - stage: Test
+      <<: *test_docker_amd64_x-large
+      <<: *docker_amd64_linux_ubuntu_jammy_clang-tidy
     - stage: Test
       <<: *test_docker_amd64
       <<: *docker_amd64_linux_ubuntu_jammy_test-fetch-params
