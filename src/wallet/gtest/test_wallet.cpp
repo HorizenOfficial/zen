@@ -45,7 +45,8 @@ template void CWallet::SetBestChainINTERNAL<MockWalletDB>(
 
 class TestWallet : public CWallet {
 public:
-    TestWallet() : CWallet() { }
+    TestWallet() : CWallet(),
+                   csWalletLock(cs_wallet, "cs_wallet", __FILE__, __LINE__) {}
 
     bool EncryptKeys(CKeyingMaterial& vMasterKeyIn) {
         return CCryptoKeyStore::EncryptKeys(vMasterKeyIn);
@@ -72,6 +73,9 @@ public:
     void MarkAffectedTransactionsDirty(const CTransaction& tx) {
         CWallet::MarkAffectedTransactionsDirty(tx);
     }
+
+private:
+    CCriticalBlock csWalletLock;
 };
 
 CWalletTx GetValidReceive(const libzcash::SpendingKey& sk, CAmount value, bool randomInputs) {
@@ -114,14 +118,23 @@ JSOutPoint CreateValidBlock(TestWallet& wallet,
     return jsoutpt;
 }
 
-TEST(wallet_tests, setup_datadir_location_run_as_first_test) {
+class WalletTest: public ::testing::Test {
+
+protected:
+
+    WalletTest() : csMainLock(cs_main, "cs_main", __FILE__, __LINE__) {}
+
+    CCriticalBlock csMainLock;
+};
+
+TEST_F(WalletTest, setup_datadir_location_run_as_first_test) {
     // Get temporary and unique path for file.
     boost::filesystem::path pathTemp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
     boost::filesystem::create_directories(pathTemp);
     mapArgs["-datadir"] = pathTemp.string();
 }
 
-TEST(wallet_tests, note_data_serialisation) {
+TEST_F(WalletTest, note_data_serialisation) {
     auto sk = libzcash::SpendingKey::random();
     auto wtx = GetValidReceive(sk, 10, true);
     auto note = GetNote(sk, wtx.getWrappedTx(), 0, 1);
@@ -145,7 +158,8 @@ TEST(wallet_tests, note_data_serialisation) {
 }
 
 
-TEST(wallet_tests, find_unspent_notes) {
+TEST_F(WalletTest, find_unspent_notes) {
+
     SelectParams(CBaseChainParams::TESTNET);
     CWallet wallet;
     auto sk = libzcash::SpendingKey::random();
@@ -304,7 +318,7 @@ TEST(wallet_tests, find_unspent_notes) {
 }
 
 
-TEST(wallet_tests, set_note_addrs_in_cwallettx) {
+TEST_F(WalletTest, set_note_addrs_in_cwallettx) {
     auto sk = libzcash::SpendingKey::random();
     auto wtx = GetValidReceive(sk, 10, true);
     auto note = GetNote(sk, wtx.getWrappedTx(), 0, 1);
@@ -320,7 +334,7 @@ TEST(wallet_tests, set_note_addrs_in_cwallettx) {
     EXPECT_EQ(noteData, wtx.mapNoteData);
 }
 
-TEST(wallet_tests, set_invalid_note_addrs_in_cwallettx) {
+TEST_F(WalletTest, set_invalid_note_addrs_in_cwallettx) {
     CWalletTx wtx;
     EXPECT_EQ(0, wtx.mapNoteData.size());
 
@@ -333,7 +347,7 @@ TEST(wallet_tests, set_invalid_note_addrs_in_cwallettx) {
     EXPECT_THROW(wtx.SetNoteData(noteData), std::logic_error);
 }
 
-TEST(WalletTests, CheckNoteCommitmentAgainstNotePlaintext) {
+TEST_F(WalletTest, CheckNoteCommitmentAgainstNotePlaintext) {
     CWallet wallet;
 
     auto sk = libzcash::SpendingKey::random();
@@ -354,7 +368,7 @@ TEST(WalletTests, CheckNoteCommitmentAgainstNotePlaintext) {
         hSig, 1), libzcash::note_decryption_failed);
 }
 
-TEST(WalletTests, GetNoteNullifier) {
+TEST_F(WalletTest, GetNoteNullifier) {
     CWallet wallet;
 
     auto sk = libzcash::SpendingKey::random();
@@ -385,7 +399,7 @@ TEST(WalletTests, GetNoteNullifier) {
     EXPECT_EQ(nullifier, ret);
 }
 
-TEST(wallet_tests, FindMyNotes) {
+TEST_F(WalletTest, FindMyNotes) {
     CWallet wallet;
 
     auto sk = libzcash::SpendingKey::random();
@@ -410,7 +424,7 @@ TEST(wallet_tests, FindMyNotes) {
     EXPECT_EQ(nd, noteMap[jsoutpt]);
 }
 
-TEST(wallet_tests, FindMyNotesInEncryptedWallet) {
+TEST_F(WalletTest, FindMyNotesInEncryptedWallet) {
     TestWallet wallet;
     uint256 r {GetRandHash()};
     CKeyingMaterial vMasterKey (r.begin(), r.end());
@@ -440,8 +454,8 @@ TEST(wallet_tests, FindMyNotesInEncryptedWallet) {
     EXPECT_EQ(nd, noteMap[jsoutpt]);
 }
 
-TEST(wallet_tests, get_conflicted_notes) {
-    CWallet wallet;
+TEST_F(WalletTest, get_conflicted_notes) {
+    TestWallet wallet;
 
     auto sk = libzcash::SpendingKey::random();
     wallet.AddSpendingKey(sk);
@@ -471,7 +485,7 @@ TEST(wallet_tests, get_conflicted_notes) {
     EXPECT_EQ(std::set<uint256>({hash2, hash3}), c3);
 }
 
-TEST(wallet_tests, nullifier_is_spent) {
+TEST_F(WalletTest, nullifier_is_spent) {
     CWallet wallet;
 
     auto sk = libzcash::SpendingKey::random();
@@ -511,7 +525,7 @@ TEST(wallet_tests, nullifier_is_spent) {
     mapBlockIndex.erase(blockHash);
 }
 
-TEST(wallet_tests, navigate_from_nullifier_to_note) {
+TEST_F(WalletTest, navigate_from_nullifier_to_note) {
     CWallet wallet;
 
     auto sk = libzcash::SpendingKey::random();
@@ -537,7 +551,7 @@ TEST(wallet_tests, navigate_from_nullifier_to_note) {
     EXPECT_EQ(1, wallet.mapNullifiersToNotes[nullifier].n);
 }
 
-TEST(wallet_tests, spent_note_is_from_me) {
+TEST_F(WalletTest, spent_note_is_from_me) {
     CWallet wallet;
 
     auto sk = libzcash::SpendingKey::random();
@@ -565,7 +579,7 @@ TEST(wallet_tests, spent_note_is_from_me) {
     EXPECT_TRUE(wallet.IsFromMe(wtx2.getWrappedTx()));
 }
 
-TEST(wallet_tests, cached_witnesses_empty_chain) {
+TEST_F(WalletTest, cached_witnesses_empty_chain) {
     TestWallet wallet;
 
     auto sk = libzcash::SpendingKey::random();
@@ -615,7 +629,7 @@ TEST(wallet_tests, cached_witnesses_empty_chain) {
                  "Assertion( `| failed: \()nWitnessCacheSize > 0");*/
 }
 
-TEST(wallet_tests, cached_witnesses_chain_tip) {
+TEST_F(WalletTest, cached_witnesses_chain_tip) {
     TestWallet wallet;
     uint256 anchor1;
     CBlock block1;
@@ -696,7 +710,7 @@ TEST(wallet_tests, cached_witnesses_chain_tip) {
     }
 }
 
-TEST(wallet_tests, CachedWitnessesDecrementFirst) {
+TEST_F(WalletTest, CachedWitnessesDecrementFirst) {
     TestWallet wallet;
     uint256 anchor2;
     CBlock block2;
@@ -765,7 +779,7 @@ TEST(wallet_tests, CachedWitnessesDecrementFirst) {
     }
 }
 
-TEST(wallet_tests, CachedWitnessesCleanIndex) {
+TEST_F(WalletTest, CachedWitnessesCleanIndex) {
     TestWallet wallet;
     std::vector<CBlock> blocks;
     std::vector<CBlockIndex> indices;
@@ -841,7 +855,7 @@ TEST(wallet_tests, CachedWitnessesCleanIndex) {
     }
 }
 
-TEST(wallet_tests, ClearNoteWitnessCache) {
+TEST_F(WalletTest, ClearNoteWitnessCache) {
     TestWallet wallet;
 
     auto sk = libzcash::SpendingKey::random();
@@ -888,7 +902,7 @@ TEST(wallet_tests, ClearNoteWitnessCache) {
     EXPECT_EQ(0, wallet.nWitnessCacheSize);
 }
 
-TEST(wallet_tests, WriteWitnessCache) {
+TEST_F(WalletTest, WriteWitnessCache) {
     TestWallet wallet;
     MockWalletDB walletdb;
     CBlockLocator loc;
@@ -975,7 +989,7 @@ TEST(wallet_tests, WriteWitnessCache) {
     wallet.SetBestChain(walletdb, loc);
 }
 
-TEST(wallet_tests, UpdateNullifierNoteMap) {
+TEST_F(WalletTest, UpdateNullifierNoteMap) {
     TestWallet wallet;
     uint256 r {GetRandHash()};
     CKeyingMaterial vMasterKey (r.begin(), r.end());
@@ -1010,7 +1024,7 @@ TEST(wallet_tests, UpdateNullifierNoteMap) {
     EXPECT_EQ(1, wallet.mapNullifiersToNotes[nullifier].n);
 }
 
-TEST(wallet_tests, UpdatedNoteData) {
+TEST_F(WalletTest, UpdatedNoteData) {
     TestWallet wallet;
 
     auto sk = libzcash::SpendingKey::random();
@@ -1057,7 +1071,7 @@ TEST(wallet_tests, UpdatedNoteData) {
     // TODO: The new note should get witnessed (but maybe not here) (#1350)
 }
 
-TEST(wallet_tests, MarkAffectedTransactionsDirty) {
+TEST_F(WalletTest, MarkAffectedTransactionsDirty) {
     TestWallet wallet;
 
     auto sk = libzcash::SpendingKey::random();
@@ -1088,7 +1102,7 @@ TEST(wallet_tests, MarkAffectedTransactionsDirty) {
     EXPECT_FALSE(wallet.getMapWallet().at(hash)->GetfDebitCached());
 }
 
-TEST(wallet_tests, SetBestChainIgnoresTxsWithoutShieldedData) {
+TEST_F(WalletTest, SetBestChainIgnoresTxsWithoutShieldedData) {
     SelectParams(CBaseChainParams::REGTEST);
 
     TestWallet wallet;
@@ -1096,8 +1110,8 @@ TEST(wallet_tests, SetBestChainIgnoresTxsWithoutShieldedData) {
     CBlockLocator loc;
 
     // Set up transparent address
-	CKey tsk;
-	tsk.MakeNewKey(true);
+    CKey tsk;
+    tsk.MakeNewKey(true);
     wallet.AddKey(tsk);
     auto scriptPubKey = GetScriptForDestination(tsk.GetPubKey().GetID());
 
@@ -1146,7 +1160,7 @@ TEST(wallet_tests, SetBestChainIgnoresTxsWithoutShieldedData) {
     wallet.SetBestChain(walletdb, loc);
 }
 
-TEST(wallet_tests, NoteLocking) {
+TEST_F(WalletTest, NoteLocking) {
     TestWallet wallet;
 
     auto sk = libzcash::SpendingKey::random();
