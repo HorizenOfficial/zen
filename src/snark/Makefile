@@ -12,7 +12,7 @@ OPTFLAGS = -O2 -march=native -mtune=native
 FEATUREFLAGS = -DUSE_ASM -DMONTGOMERY_OUTPUT
 
 # Initialize this using "CXXFLAGS=... make". The makefile appends to that.
-CXXFLAGS += -std=c++11 -Wall -Wextra -Wno-unused-parameter -Wno-comment -Wfatal-errors $(OPTFLAGS) $(FEATUREFLAGS) -DCURVE_$(CURVE)
+CXXFLAGS += -std=c++17 -Wall -Wextra -Wno-unused-parameter -Wno-comment -Wfatal-errors $(OPTFLAGS) $(FEATUREFLAGS) -DCURVE_$(CURVE)
 
 DEPSRC = depsrc
 DEPINST = depinst

@@ -327,7 +327,7 @@ bool AsyncRPCOperation_mergetoaddress::main_impl()
             JSOutPoint jso = std::get<0>(t);
             std::vector<JSOutPoint> vOutPoints = {jso};
             uint256 inputAnchor;
-            std::vector<boost::optional<ZCIncrementalWitness>> vInputWitnesses;
+            std::vector<std::optional<ZCIncrementalWitness>> vInputWitnesses;
             pwalletMain->GetNoteWitnesses(vOutPoints, vInputWitnesses, inputAnchor);
             jsopWitnessAnchorMap[jso.ToString()] = MergeToAddressWitnessAnchorData{vInputWitnesses[0], inputAnchor};
         }
@@ -391,7 +391,7 @@ bool AsyncRPCOperation_mergetoaddress::main_impl()
 
         CAmount jsInputValue = 0;
         uint256 jsAnchor;
-        std::vector<boost::optional<ZCIncrementalWitness>> witnesses;
+        std::vector<std::optional<ZCIncrementalWitness>> witnesses;
 
         JSDescription prevJoinSplit;
 
@@ -422,7 +422,7 @@ bool AsyncRPCOperation_mergetoaddress::main_impl()
             }
 
             assert(changeOutputIndex != -1);
-            boost::optional<ZCIncrementalWitness> changeWitness;
+            std::optional<ZCIncrementalWitness> changeWitness;
             int n = 0;
             for (const uint256& commitment : prevJoinSplit.commitments) {
                 tree.append(commitment);
@@ -430,7 +430,7 @@ bool AsyncRPCOperation_mergetoaddress::main_impl()
                 if (!changeWitness && changeOutputIndex == n++) {
                     changeWitness = tree.witness();
                 } else if (changeWitness) {
-                    changeWitness.get().append(commitment);
+                    changeWitness.value().append(commitment);
                 }
             }
             if (changeWitness) {
@@ -472,7 +472,7 @@ bool AsyncRPCOperation_mergetoaddress::main_impl()
         std::vector<Note> vInputNotes;
         std::vector<SpendingKey> vInputZKeys;
         std::vector<JSOutPoint> vOutPoints;
-        std::vector<boost::optional<ZCIncrementalWitness>> vInputWitnesses;
+        std::vector<std::optional<ZCIncrementalWitness>> vInputWitnesses;
         uint256 inputAnchor;
         int numInputsNeeded = (jsChange > 0) ? 1 : 0;
         while (numInputsNeeded++ < ZC_NUM_JS_INPUTS && zInputsDeque.size() > 0) {
@@ -677,7 +677,7 @@ void AsyncRPCOperation_mergetoaddress::sign_send_raw_transaction(const UniValue&
 
 UniValue AsyncRPCOperation_mergetoaddress::perform_joinsplit(MergeToAddressJSInfo& info)
 {
-    std::vector<boost::optional<ZCIncrementalWitness>> witnesses;
+    std::vector<std::optional<ZCIncrementalWitness>> witnesses;
     uint256 anchor;
     {
         LOCK(cs_main);
@@ -689,7 +689,7 @@ UniValue AsyncRPCOperation_mergetoaddress::perform_joinsplit(MergeToAddressJSInf
 
 UniValue AsyncRPCOperation_mergetoaddress::perform_joinsplit(MergeToAddressJSInfo& info, std::vector<JSOutPoint>& outPoints)
 {
-    std::vector<boost::optional<ZCIncrementalWitness>> witnesses;
+    std::vector<std::optional<ZCIncrementalWitness>> witnesses;
     uint256 anchor;
     {
         LOCK(cs_main);
@@ -700,7 +700,7 @@ UniValue AsyncRPCOperation_mergetoaddress::perform_joinsplit(MergeToAddressJSInf
 
 UniValue AsyncRPCOperation_mergetoaddress::perform_joinsplit(
     MergeToAddressJSInfo& info,
-    std::vector<boost::optional<ZCIncrementalWitness>> witnesses,
+    std::vector<std::optional<ZCIncrementalWitness>> witnesses,
     uint256 anchor)
 {
     if (anchor.IsNull()) {

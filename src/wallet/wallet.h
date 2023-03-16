@@ -226,7 +226,7 @@ public:
      * transactions they are spent in. This is the same security semantics as
      * for transparent addresses.
      */
-    boost::optional<uint256> nullifier;
+    std::optional<uint256> nullifier;
 
     /**
      * Cached incremental witnesses for spendable Notes.
@@ -1081,7 +1081,7 @@ public:
     void EraseFromWallet(const uint256 &hash) override;
     void WitnessNoteCommitment(
          std::vector<uint256> commitments,
-         std::vector<boost::optional<ZCIncrementalWitness>>& witnesses,
+         std::vector<std::optional<ZCIncrementalWitness>>& witnesses,
          uint256 &final_anchor);
     int ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate);
     void ReacceptWalletTransactions();
@@ -1133,7 +1133,7 @@ public:
 
     std::set<CTxDestination> GetAccountAddresses(const std::string& strAccount) const;
 
-    boost::optional<uint256> GetNoteNullifier(
+    std::optional<uint256> GetNoteNullifier(
         const JSDescription& jsdesc,
         const libzcash::PaymentAddress& address,
         const ZCNoteDecryption& dec,
@@ -1143,7 +1143,7 @@ public:
     bool IsFromMe(const uint256& nullifier) const;
     void GetNoteWitnesses(
          std::vector<JSOutPoint> notes,
-         std::vector<boost::optional<ZCIncrementalWitness>>& witnesses,
+         std::vector<std::optional<ZCIncrementalWitness>>& witnesses,
          uint256 &final_anchor);
 
     isminetype IsMine(const CTxIn& txin) const;

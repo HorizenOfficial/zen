@@ -32,6 +32,8 @@
 #ifdef ENABLE_WALLET
 #include "wallet/wallet.h"
 #endif
+#include "init.h"
+#include "undo.h"
 
 #include "sodium.h"
 
@@ -41,8 +43,6 @@
 #include <functional>
 #endif
 #include <mutex>
-#include <init.h>
-#include <undo.h>
 
 using namespace std;
 
@@ -903,9 +903,9 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 }
 
 #ifdef ENABLE_WALLET
-boost::optional<CScript> GetMinerScriptPubKey(CReserveKey& reservekey)
+std::optional<CScript> GetMinerScriptPubKey(CReserveKey& reservekey)
 #else
-boost::optional<CScript> GetMinerScriptPubKey()
+std::optional<CScript> GetMinerScriptPubKey()
 #endif
 {
     CKeyID keyID;
@@ -916,11 +916,11 @@ boost::optional<CScript> GetMinerScriptPubKey()
 #ifdef ENABLE_WALLET
         CPubKey pubkey;
         if (!reservekey.GetReservedKey(pubkey)) {
-            return boost::optional<CScript>();
+            return std::optional<CScript>();
         }
         keyID = pubkey.GetID();
 #else
-        return boost::optional<CScript>();
+        return std::optional<CScript>();
 #endif
     }
 
@@ -931,11 +931,11 @@ boost::optional<CScript> GetMinerScriptPubKey()
 #ifdef ENABLE_WALLET
 CBlockTemplate* CreateNewBlockWithKey(CReserveKey& reservekey)
 {
-    boost::optional<CScript> scriptPubKey = GetMinerScriptPubKey(reservekey);
+    std::optional<CScript> scriptPubKey = GetMinerScriptPubKey(reservekey);
 #else
 CBlockTemplate* CreateNewBlockWithKey()
 {
-    boost::optional<CScript> scriptPubKey = GetMinerScriptPubKey();
+    std::optional<CScript> scriptPubKey = GetMinerScriptPubKey();
 #endif
 
     if (!scriptPubKey) {

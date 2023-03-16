@@ -406,7 +406,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                 CValidationState::Code::INVALID, "sidechain-sc-creation-invalid-wcert-provingsystype");
         }
 
-        if(sc.constant.is_initialized() && !sc.constant->IsValid())
+        if(sc.constant.has_value() && !sc.constant->IsValid())
         {
             return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], invalid constant\n",
@@ -417,7 +417,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
         if (CSidechain::isNonCeasingSidechain(sc.version, sc.withdrawalEpochLength))
         {
             // Non ceasing sidechain
-            if (sc.wCeasedVk.is_initialized())
+            if (sc.wCeasedVk.has_value())
             {
                 return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], wCeasedVk should not be initialized on non-ceasing sidechains\n",
@@ -435,16 +435,16 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
         else
         {
             // Ceasing sidechain
-            if (sc.wCeasedVk.is_initialized())
+            if (sc.wCeasedVk.has_value())
             {
-                if (!sc.wCeasedVk.get().IsValid())
+                if (!sc.wCeasedVk.value().IsValid())
                 {
                     return state.DoS(100,
                         error("%s():%d - ERROR: Invalid tx[%s], invalid wCeasedVk verification key\n",
                         __func__, __LINE__, txHash.ToString()),
                         CValidationState::Code::INVALID, "sidechain-sc-creation-invalid-wcsw-vk");
                 }
-                if (!Sidechain::IsValidProvingSystemType(sc.wCeasedVk.get().getProvingSystemType()))
+                if (!Sidechain::IsValidProvingSystemType(sc.wCeasedVk.value().getProvingSystemType()))
                 {
                     return state.DoS(100,
                         error("%s():%d - ERROR: Invalid tx[%s], invalid csw proving system\n",

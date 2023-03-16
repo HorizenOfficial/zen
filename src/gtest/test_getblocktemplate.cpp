@@ -15,7 +15,6 @@
 #include "main.h"
 #include "consensus/validation.h"
 #include "miner.h"
-#include <pow.h>
 #include "wallet/wallet.h"
 #include "rpc/server.h"
 #include "pow.h"
@@ -23,6 +22,8 @@
 #include <vector>
 #include <map>
 #include <utility>
+#include <optional>
+
 #include <boost/chrono.hpp>
 #include <boost/filesystem.hpp>
 
@@ -302,7 +303,7 @@ void TestMaxWeight(int maxWeight, std::map<int,int> expectedInputTx)
     TestReserveKey reserveKey;
     boost::chrono::steady_clock::time_point startTime = boost::chrono::steady_clock::now();
 
-    boost::optional<CScript> scriptPubKey = GetMinerScriptPubKey(reserveKey);
+    std::optional<CScript> scriptPubKey = GetMinerScriptPubKey(reserveKey);
 
     CBlockTemplate* pblocktemplate = CreateNewBlock(*scriptPubKey, maxWeight);
     boost::chrono::steady_clock::time_point endTime = boost::chrono::steady_clock::now();

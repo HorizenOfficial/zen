@@ -339,8 +339,8 @@ std::string CTxScCreationOut::ToString() const
                                        "mainchainBackwardTransferRequestDataLength=%u",
         generatedScId.ToString(), version, withdrawalEpochLength, nValue / COIN,
         nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData),
-        constant.is_initialized()? constant->GetHexRepr(): CFieldElement{}.GetHexRepr(),
-        wCertVk.GetHexRepr(), wCeasedVk ? wCeasedVk.get().GetHexRepr() : "",
+        constant.has_value()? constant->GetHexRepr(): CFieldElement{}.GetHexRepr(),
+        wCertVk.GetHexRepr(), wCeasedVk ? wCeasedVk.value().GetHexRepr() : "",
         VecToStr(vFieldElementCertificateFieldConfig),
         VecToStr(vBitVectorCertificateFieldConfig),
         forwardTransferScFee, mainchainBackwardTransferRequestScFee, mainchainBackwardTransferRequestDataLength );

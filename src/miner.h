@@ -8,8 +8,9 @@
 
 #include "primitives/block.h"
 
-#include <boost/optional.hpp>
 #include <boost/tuple/tuple.hpp>
+
+#include <optional>
 #include <stdint.h>
 
 class CBlockIndex;
@@ -73,10 +74,10 @@ void GetBlockCertPriorityData(const CCoinsViewCache& view, int nHeight,
 CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn);
 CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlockMaxComplexitySize);
 #ifdef ENABLE_WALLET
-boost::optional<CScript> GetMinerScriptPubKey(CReserveKey& reservekey);
+std::optional<CScript> GetMinerScriptPubKey(CReserveKey& reservekey);
 CBlockTemplate* CreateNewBlockWithKey(CReserveKey& reservekey);
 #else
-boost::optional<CScript> GetMinerScriptPubKey();
+std::optional<CScript> GetMinerScriptPubKey();
 CBlockTemplate* CreateNewBlockWithKey();
 #endif
 

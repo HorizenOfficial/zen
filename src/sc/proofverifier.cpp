@@ -47,8 +47,8 @@ CCertProofVerifierInput CScProofVerifier::CertificateToVerifierItem(const CScCer
     certData.certHash = certificate.GetHash();
     certData.scId = certificate.GetScId();
 
-    if (scFixedParams.constant.is_initialized())
-        certData.constant = scFixedParams.constant.get();
+    if (scFixedParams.constant.has_value())
+        certData.constant = scFixedParams.constant.value();
     else
         certData.constant = CFieldElement{};
 
@@ -118,15 +118,15 @@ CCswProofVerifierInput CScProofVerifier::CswInputToVerifierItem(const CTxCeasedS
     cswData.nullifier = cswInput.nullifier;
     cswData.proof = cswInput.scProof;
 
-    if (scFixedParams.constant.is_initialized())
-        cswData.constant = scFixedParams.constant.get();
+    if (scFixedParams.constant.has_value())
+        cswData.constant = scFixedParams.constant.value();
     else
         cswData.constant = CFieldElement{};
 
     // The ceased verification key must be initialized to allow CSW. This check is already performed inside IsScTxApplicableToState().
-    assert(scFixedParams.wCeasedVk.is_initialized());
+    assert(scFixedParams.wCeasedVk.has_value());
     
-    cswData.verificationKey = scFixedParams.wCeasedVk.get();
+    cswData.verificationKey = scFixedParams.wCeasedVk.value();
 
     return cswData;
 }

@@ -360,7 +360,7 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
             sc_out.withdrawalEpochLength = insecure_rand() % 100;
             RandomData(sc_out.customData);
             sc_out.constant = CFieldElement{};
-            RandomSidechainField(sc_out.constant.get());
+            RandomSidechainField(sc_out.constant.value());
             RandomScVk(sc_out.wCertVk);
             CScVKey wCeasedVk;
             RandomScVk(wCeasedVk);
