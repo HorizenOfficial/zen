@@ -22,8 +22,8 @@ RUN set -euxo pipefail \
     && DPKG_ARCH="$(dpkg --print-architecture | awk -F- '{ print $NF }')" \
     && curl -o /usr/local/bin/gosu -SL "${BASEURL}/${GOSU_VERSION}/gosu-${DPKG_ARCH}" \
     && curl -o /usr/local/bin/gosu.asc -SL "${BASEURL}/${GOSU_VERSION}/gosu-${DPKG_ARCH}.asc" \
-    && curl -o /usr/local/bin/codacy-clang-tidy-linux-1.3.5 -SL https://github.com/codacy/codacy-clang-tidy/releases/download/1.3.5/codacy-clang-tidy-linux-1.3.5 \
-    && chmod +x /usr/local/bin/codacy-clang-tidy-linux-1.3.5 \
+    && curl -o /usr/local/bin/codacy-clang-tidy-linux-1.3.7 -SL https://github.com/codacy/codacy-clang-tidy/releases/download/1.3.7/codacy-clang-tidy-linux-1.3.7 \
+    && chmod +x /usr/local/bin/codacy-clang-tidy-linux-1.3.7 \
     && export GNUPGHOME="$(mktemp -d)" \
     && ( gpg2 --batch --keyserver hkps://keys.openpgp.org --recv-keys B42F6819007F00F88E364FD4036A9C25BF357DD4 || \
        gpg2 --batch --keyserver hkps://keyserver.ubuntu.com:443 --recv-keys B42F6819007F00F88E364FD4036A9C25BF357DD4 || \

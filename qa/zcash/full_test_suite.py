@@ -216,6 +216,7 @@ def main():
 
     # Run the stages
     passed = True
+    b_or_g_tests_with_covereage_done = False
     for s in args.stage:
         # Check for rpc test args
         if s == 'rpc':
@@ -233,6 +234,13 @@ def main():
             if args.enable_cov:
                 options.append('-coverage')
             passed &= run_stage(s, options)
+        # When running tests with coverage enabled, normal calls to btest and gtest are superseded
+        # by those defined into the Makefile, as they also include report filtering and submission
+        # to Codacy
+        elif args.enable_cov and (s == 'btest' or s == 'gtest'):
+            if not b_or_g_tests_with_covereage_done:
+                passed &= run_stage('b-gtest_with_coverage')
+                b_or_g_tests_with_covereage_done = True # "make cov_ci" runs both btest and gtest!
         else:
             passed &= run_stage(s)
 

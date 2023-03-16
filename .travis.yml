@@ -96,7 +96,6 @@ os: linux
       - DOCKER_FROM=ubuntu_bionic
       - DOCKER_IS_DEB=true
       - TEST_CMD="./qa/zen/test-fetch-params.sh"
-
   - &docker_amd64_linux_ubuntu_jammy_unit-tests
     env:
       - DOCKER_ARCH=amd64
@@ -105,16 +104,7 @@ os: linux
       - DOCKER_IS_DEB=true
       - MAKEFLAGS="--enable-lcov"
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="btest gtest sec-hard no-dot-so util-test secp256k1 libsnark univalue"
-  - &docker_amd64_linux_ubuntu_jammy_unit-tests_with_coverage
-    env:
-      - DOCKER_ARCH=amd64
-      - DOCKER_TARGET_OS=linux
-      - DOCKER_FROM=ubuntu_jammy
-      - DOCKER_IS_DEB=true
-      - MAKEFLAGS="--enable-lcov"
-      - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="b-gtest_with_coverage"
+      - TEST_ARGS="btest gtest sec-hard no-dot-so util-test secp256k1 libsnark univalue --coverage"
   - &docker_amd64_linux_ubuntu_jammy_rpc-tests_1
     env:
       - DOCKER_ARCH=amd64
@@ -159,7 +149,6 @@ os: linux
       - DOCKER_IS_DEB=true
       - MAKEFLAGS="--enable-lcov"
       - TEST_CMD="./qa/zen/test-fetch-params.sh"
-
   - &docker_amd64_linux_ubuntu_focal_unit-tests
     env:
       - DOCKER_ARCH=amd64
@@ -423,9 +412,6 @@ jobs:
     - stage: Test
       <<: *test_docker_amd64_x-large
       <<: *docker_amd64_linux_ubuntu_jammy_unit-tests
-    - stage: Test
-      <<: *test_docker_amd64_x-large
-      <<: *docker_amd64_linux_ubuntu_jammy_unit-tests_with_coverage
     - stage: Test
       <<: *test_docker_amd64_x-large
       <<: *docker_amd64_linux_ubuntu_jammy_rpc-tests_1

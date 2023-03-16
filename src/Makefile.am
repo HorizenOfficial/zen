@@ -358,7 +358,6 @@ crypto_libbitcoin_crypto_a_SOURCES = \
   crypto/sha256.h \
   crypto/sha512.cpp \
   crypto/sha512.h
-crypto_libbitcoin_crypto_a_LDFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) $(COVERAGE_FLAGS)
 
 if ENABLE_MINING
 EQUIHASH_TROMP_SOURCES = \
@@ -428,7 +427,6 @@ libbitcoin_util_a_SOURCES = \
   utiltime.cpp \
   $(BITCOIN_CORE_H) \
   $(LIBZCASH_H)
-libbitcoin_util_a_LDFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) $(COVERAGE_FLAGS)
 
 
 if GLIBC_BACK_COMPAT
@@ -598,7 +596,7 @@ if GLIBC_BACK_COMPAT
   libzcashconsensus_la_SOURCES += compat/glibc_compat.cpp
 endif
 
-libzcashconsensus_la_LDFLAGS = $(AM_LDFLAGS) -no-undefined $(RELDFLAGS) $(COVERAGE_FLAGS)
+libzcashconsensus_la_LDFLAGS = $(AM_LDFLAGS) -no-undefined $(RELDFLAGS)
 libzcashconsensus_la_LIBADD = $(LIBSECP256K1)
 libzcashconsensus_la_CPPFLAGS = $(AM_CPPFLAGS) -I$(builddir)/obj -I$(srcdir)/secp256k1/include -DBUILD_BITCOIN_INTERNAL
 libzcashconsensus_la_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) $(COVERAGE_FLAGS)
@@ -633,7 +631,7 @@ libzencash_a_CPPFLAGS := $(libzencash_a_CPPFLAGS) -fPIC -DBINARY_OUTPUT -DCURVE_
 
 libzencash_a_CXXFLAGS = $(HARDENED_CXXFLAGS) -fwrapv -fno-strict-aliasing $(COVERAGE_FLAGS)
 
-libzencash_a_LDFLAGS = $(HARDENED_LDFLAGS) $(COVERAGE_FLAGS)
+libzencash_a_LDFLAGS = $(HARDENED_LDFLAGS)
 
 libzencash_a_CPPFLAGS += -DMONTGOMERY_OUTPUT
 

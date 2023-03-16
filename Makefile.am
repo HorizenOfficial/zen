@@ -284,8 +284,6 @@ install-exec-hook:
 
 CLEANFILES = $(OSX_DMG) $(BITCOIN_WIN_INSTALLER)
 
-#.INTERMEDIATE: $(COVERAGE_INFO)
-
 DISTCHECK_CONFIGURE_FLAGS = --enable-man
 
 clean-local:
