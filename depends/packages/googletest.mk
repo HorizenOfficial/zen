@@ -13,8 +13,8 @@ endef
 define $(package)_build_cmds
   mkdir -p ./build && \
   cd ./build && \
-  cmake .. && \
-  $(MAKE) CC="$($(package)_cc)" CXX="$($(package)_cxx)" AR="$($(package)_ar)" CXXFLAGS="$($(package)_cxxflags)"
+  $($(package)_cmake) -DCMAKE_CXX_FLAGS="$($(package)_cxxflags)" ..  && \
+  $(MAKE)
 endef
 
 define $(package)_stage_cmds
