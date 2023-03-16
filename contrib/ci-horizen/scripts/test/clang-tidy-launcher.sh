@@ -1,46 +1,52 @@
 #!/bin/bash
 
 # Get the current commit hash
-export COMMIT=`git log -1 --format="%H"`
-# Get the names of the files touched by this commit
-export FILELIST=`git diff-tree --no-commit-id --name-only -r $COMMIT`
+export COMMIT=$(git log -1 --format="%H")
 
-# Filter out all files which do not end with .cpp, .h and .cc
-FILTEREDFILELIST=()
-for i in $FILELIST;
-do
-    if ([[ $i =~ .*\.cpp$ ]] || [[ $i =~ .*\.h$ ]] || [[ $i =~ .*\.tcc$ ]]) && ! ([[ $i =~ .*src\/gtest.*$ ]] || [[ $i =~ .*src\/test.*$ ]]);
-    then
-        FILTEREDFILELIST+=($i)
-    fi
-done
+declare FILTEREDFILELIST
 
-echo "°°°°°°°°°°°°°°°°°°°°"
-echo "Starting static analysis with clang-tidy for commit $COMMIT on the following files:"
-for i in ${FILTEREDFILELIST[@]}
-do
-    echo $i
-done
-echo "°°°°°°°°°°°°°°°°°°°°"
+echo "°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°"
+echo "  Starting code linting with clang-tidy for commit $COMMIT."
+echo "°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°"
+echo ""
 
-# Run Clang-Tidy on the filtered list
-# Recommended checks - amongs those available
-# --checks='modernize*, readability*, hicpp*, cppcoreguidelines*, bugprone*, performance*'
-clang-tidy --checks='cppcoreguidelines*, performance*, bugprone*' ${FILTEREDFILELIST[@]} | \
-# Convert the Clang-Tidy output to a format that the Codacy API accepts
-codacy-clang-tidy-linux-1.3.5 | \
-# Send the results to Codacy
-curl -v -XPOST -L -H "project-token: $CODACY_TOKEN" \
-    -H "Content-type: application/json" -d @- \
-    "https://api.codacy.com/2.0/commit/$COMMIT/issuesRemoteResults"
+# Call clang-tidy_getFileList.py to extract a list of meaningful file
+originalIFS="$IFS"; IFS='|'
+read -a FILTEREDFILELIST <<< $(./contrib/ci-horizen/scripts/test/clang-tidy_getFileList.py "${CODACY_API_TOKEN_COVERAGE}" "${COMMIT}")
+IFS="$originalIFS"
 
-### Moved to code-coverage-finalizer-launcher.sh
-# Signal that Codacy can use the sent results and start a new analysis
-# curl -v -XPOST -L -H "project-token: $CODACY_TOKEN" \
-# 	-H "Content-type: application/json" \
-# 	"https://api.codacy.com/2.0/commit/$COMMIT/resultsFinal"
+if [ -n "$FILTEREDFILELIST" ] ;
+then
+    echo "Analyzing the following files:"
+    for i in ${FILTEREDFILELIST[@]}
+    do
+        echo "${i}"
+    done
+    echo ""
+
+    declare headerList
+    # Build the list of header file to be included in the analysis. Note that currently the logic
+    # behind '-header-filter' regex is broken, so it is not possible to exclude a path.
+    # The purpose of this workaround is to avoid analyzing the majority of headers belonging to
+    # external libraries, i.e. those in the ./depends folder
+    read headerList <<< $(./contrib/ci-horizen/scripts/test/clang-tidy_getHeaders.py)
+
+    # Run clang-tidy on the filtered list
+    # Recommended checks - amongs those available
+    # --checks='modernize*, readability*, hicpp*, cppcoreguidelines*, bugprone*, performance*'
+    run-clang-tidy -header-filter="${headerList}" -checks='cppcoreguidelines*, performance*, bugprone*' "${FILTEREDFILELIST[@]}" | \
+    # Convert the Clang-Tidy output to a format that the Codacy API accepts
+    codacy-clang-tidy-linux-1.3.7 | \
+    # Send the results to Codacy
+    curl -v -XPOST -L -H "project-token: $CODACY_TOKEN" \
+       -H "Content-type: application/json" -d @- \
+       "https://api.codacy.com/2.0/commit/$COMMIT/issuesRemoteResults"
+else
+    # Skip clang-tidy if there are no meaningful files
+    echo "Skipping clang-tidy: no files to be analyzed"
+fi
 
 echo
-echo "°°°°°°°°°°°°°°°°°°°°"
-echo "Static analysis done"
-echo "°°°°°°°°°°°°°°°°°°°°"
+echo "°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°"
+echo "                     Code linting done"
+echo "°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°"
