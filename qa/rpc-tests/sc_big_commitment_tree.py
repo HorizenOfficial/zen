@@ -10,7 +10,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, initialize_chain_clean, \
      start_nodes, connect_nodes_bi, assert_true, assert_false, mark_logs
 from test_framework.test_framework import ForkHeights, JSONRPCException
-from test_framework.blockchainhelper import BlockchainHelper
+from test_framework.blockchainhelper import BlockchainHelper, SidechainParameters
 
 NUMB_OF_NODES = 2
 DEBUG_MODE = 1
@@ -101,7 +101,7 @@ class BigCommitmentTree(BitcoinTestFramework):
         test_helper = BlockchainHelper(self)
 
         mark_logs("Node 0 creates a v2 sidechain (ceasing)", self.nodes, DEBUG_MODE, 'e')
-        test_helper.create_sidechain("test_sidechain", 2)
+        test_helper.create_sidechain("test_sidechain", SidechainParameters["DEFAULT_SC_V2_CEASABLE"])
         sc_id = test_helper.get_sidechain_id("test_sidechain")
         mark_logs(f"Sidechain {sc_id} has been created", self.nodes, DEBUG_MODE, 'e')
 

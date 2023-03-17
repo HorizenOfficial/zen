@@ -59,7 +59,7 @@ class MCTestUtils(object):
     def _generate_params(self, id, circuit_type, constant, keyrot, ps_type, file_prefix, num_constraints, segment_size):
         params_dir = self._get_params_dir(id)
         if os.path.isfile(params_dir + file_prefix + "test_pk") and os.path.isfile(params_dir + file_prefix + "test_vk"):
-            return
+            return self._get_vk(params_dir + file_prefix + "test_vk")
 
         args = self._get_args("generate", circuit_type, constant, keyrot, ps_type, params_dir, num_constraints, segment_size)
         subprocess.check_call(args)

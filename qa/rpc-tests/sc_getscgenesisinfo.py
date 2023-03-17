@@ -7,7 +7,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.test_framework import ForkHeights
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs
-from test_framework.blockchainhelper import BlockchainHelper
+from test_framework.blockchainhelper import BlockchainHelper, SidechainParameters
 
 DEBUG_MODE = 1
 NUMB_OF_NODES = 2
@@ -97,19 +97,19 @@ class sc_getscgenesisinfo(BitcoinTestFramework):
 
         mark_logs("Node 0 creates a v0 sidechain", self.nodes, DEBUG_MODE)
         v0_sc1_name = "v0_sc1"
-        test_helper.create_sidechain(v0_sc1_name, 0)
+        test_helper.create_sidechain(v0_sc1_name, SidechainParameters["DEFAULT_SC_V0"])
 
         mark_logs("Node 0 creates a v1 sidechain", self.nodes, DEBUG_MODE)
         v1_sc2_name = "v1_sc2"
-        test_helper.create_sidechain(v1_sc2_name, 1)
+        test_helper.create_sidechain(v1_sc2_name, SidechainParameters["DEFAULT_SC_V1"])
 
         mark_logs("Node 0 creates a v2 ceasing sidechain", self.nodes, DEBUG_MODE)
         v2_sc3_name = "v2_sc3_ceasing"
-        test_helper.create_sidechain(v2_sc3_name, 2)
+        test_helper.create_sidechain(v2_sc3_name, SidechainParameters["DEFAULT_SC_V2_CEASABLE"])
 
         mark_logs("Node 0 creates a v2 non-ceasing sidechain", self.nodes, DEBUG_MODE)
         v2_sc4_name = "v2_sc4_non_ceasing"
-        test_helper.create_sidechain(v2_sc4_name, 2, { "withdrawalEpochLength": 0, "wCeasedVk": "" })
+        test_helper.create_sidechain(v2_sc4_name, SidechainParameters["DEFAULT_SC_V2_NON_CEASABLE"])
 
         self.sync_all()
 
@@ -125,12 +125,12 @@ class sc_getscgenesisinfo(BitcoinTestFramework):
 
         mark_logs("Node 0 creates a fifth sidechain (v1)", self.nodes, DEBUG_MODE)
         v1_sc5_name = "v1_sc5"
-        test_helper.create_sidechain(v1_sc5_name, 1)
+        test_helper.create_sidechain(v1_sc5_name, SidechainParameters["DEFAULT_SC_V1"])
         self.sync_all()
 
         mark_logs("Node 0 creates a sixth sidechain (v2 non-ceasing)", self.nodes, DEBUG_MODE)
         v2_sc6_name = "v2_sc6_non_ceasing"
-        test_helper.create_sidechain(v2_sc6_name, 2, { "withdrawalEpochLength": 0, "wCeasedVk": "" })
+        test_helper.create_sidechain(v2_sc6_name, SidechainParameters["DEFAULT_SC_V2_NON_CEASABLE"])
         self.sync_all()
 
         mark_logs("Node 0 creates a certificate for sidechain 1, 2, and 3", self.nodes, DEBUG_MODE)

@@ -8,7 +8,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.test_framework import ForkHeights
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, mark_logs
-from test_framework.blockchainhelper import BlockchainHelper
+from test_framework.blockchainhelper import BlockchainHelper, SidechainParameters
 
 DEBUG_MODE = 1
 NUMB_OF_NODES = 1
@@ -49,15 +49,15 @@ class sc_getcertmaturityinfo(BitcoinTestFramework):
 
         mark_logs("Node 0 creates a v1 sidechain", self.nodes, DEBUG_MODE)
         v1_sc1_name: str = "v1_sc1"
-        test_helper.create_sidechain(v1_sc1_name, 1)
+        test_helper.create_sidechain(v1_sc1_name, SidechainParameters["DEFAULT_SC_V1"])
 
         mark_logs("Node 0 creates a v2 ceasing sidechain", self.nodes, DEBUG_MODE)
         v2_ceasing_sc2_name: str = "v2_ceasing_sc2"
-        test_helper.create_sidechain(v2_ceasing_sc2_name, 2)
+        test_helper.create_sidechain(v2_ceasing_sc2_name, SidechainParameters["DEFAULT_SC_V2_CEASABLE"])
 
         mark_logs("Node 0 creates a v2 non-ceasing sidechain", self.nodes, DEBUG_MODE)
         v2_non_ceasing_sc3_name: str = "v2_non_ceasing_sc3"
-        test_helper.create_sidechain(v2_non_ceasing_sc3_name, 2, { "withdrawalEpochLength": 0, "wCeasedVk": "" })
+        test_helper.create_sidechain(v2_non_ceasing_sc3_name, SidechainParameters["DEFAULT_SC_V2_NON_CEASABLE"])
 
         # Now we have 3 sidechains in mempool:
         # - sc1 with version 1 and normal ceasing behavior

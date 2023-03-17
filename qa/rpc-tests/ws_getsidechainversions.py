@@ -6,7 +6,7 @@
 
 from test_framework.test_framework import ForkHeights, BitcoinTestFramework
 from test_framework.util import assert_equal, initialize_chain_clean, start_nodes, mark_logs
-from test_framework.blockchainhelper import BlockchainHelper
+from test_framework.blockchainhelper import BlockchainHelper, SidechainParameters
 from test_framework.wsproxy import JSONWSException
 
 DEBUG_MODE = 1
@@ -46,11 +46,11 @@ class ws_messages(BitcoinTestFramework):
         self.sync_all()
 
         mark_logs("Node 0 creates sidechain 1 with version 0", self.nodes, DEBUG_MODE)
-        test_helper.create_sidechain("sc1", 0)
+        test_helper.create_sidechain("sc1", SidechainParameters["DEFAULT_SC_V0"])
         scid1 = test_helper.get_sidechain_id("sc1")
 
         mark_logs("Node 0 creates sidechain 2 with version 0", self.nodes, DEBUG_MODE)
-        test_helper.create_sidechain("sc2", 0)
+        test_helper.create_sidechain("sc2", SidechainParameters["DEFAULT_SC_V0"])
         scid2 = test_helper.get_sidechain_id("sc2")
 
         mark_logs("Node 0 generates 1 block to confirm the two sidechains", self.nodes, DEBUG_MODE)
@@ -58,7 +58,7 @@ class ws_messages(BitcoinTestFramework):
         self.sync_all()
 
         mark_logs("Node 0 creates sidechain 3 with version 1", self.nodes, DEBUG_MODE)
-        test_helper.create_sidechain("sc3", 1)
+        test_helper.create_sidechain("sc3", SidechainParameters["DEFAULT_SC_V1"])
         scid3 = test_helper.get_sidechain_id("sc3")
 
         # Node 0 isn't considered from the WS GetSidechainVersions API since it's in the mempool (unconfirmed)
@@ -72,7 +72,7 @@ class ws_messages(BitcoinTestFramework):
         mark_logs("Retrieve (confirmed) sidechain versions from node 0", self.nodes, DEBUG_MODE)
         try:
             sidechainVersions = self.nodes[0].ws_get_sidechain_versions([scid1, scid2])
-        except JSONWSException as e:
+        except JSONWSException:
             assert(False)
 
         mark_logs("Generate one block to confirm the sidechain 3", self.nodes, DEBUG_MODE)
@@ -80,7 +80,7 @@ class ws_messages(BitcoinTestFramework):
         self.sync_all()
 
         mark_logs("Node 0 creates sidechain 3 with version 2 - non-ceasing", self.nodes, DEBUG_MODE)
-        test_helper.create_sidechain("sc4", 2, optional_parameters={"withdrawalEpochLength": 0, "wCeasedVk": ""})
+        test_helper.create_sidechain("sc4", SidechainParameters["DEFAULT_SC_V2_NON_CEASABLE"])
         scid4 = test_helper.get_sidechain_id("sc4")
 
         # Node 0 isn't considered from the WS GetSidechainVersions API since it's in the mempool (unconfirmed)
