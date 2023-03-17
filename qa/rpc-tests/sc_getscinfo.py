@@ -11,7 +11,7 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
     sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, mark_logs, \
     assert_true, swap_bytes
 from test_framework.mc_test.mc_test import CertTestUtils, generate_random_field_element_hex
-from test_framework.blockchainhelper import BlockchainHelper
+from test_framework.blockchainhelper import BlockchainHelper, SidechainParameters
 import pprint
 from decimal import Decimal
 from random import randrange
@@ -316,16 +316,16 @@ class sc_getscinfo(BitcoinTestFramework):
         self.nodes[0].generate(ForkHeights['NON_CEASING_SC'] - self.nodes[0].getblockcount())
 
         mark_logs("Node 0 creates a v0 sidechain", self.nodes, DEBUG_MODE)
-        test_helper.create_sidechain("v0", 0)
+        test_helper.create_sidechain("v0", SidechainParameters["DEFAULT_SC_V0"])
 
         mark_logs("Node 0 creates a v1 sidechain", self.nodes, DEBUG_MODE)
-        test_helper.create_sidechain("v1", 1)
+        test_helper.create_sidechain("v1", SidechainParameters["DEFAULT_SC_V1"])
 
         mark_logs("Node 0 creates a v2 sidechain (ceasing)", self.nodes, DEBUG_MODE)
-        test_helper.create_sidechain("v2-ceasing", 2)
+        test_helper.create_sidechain("v2-ceasing", SidechainParameters["DEFAULT_SC_V2_CEASABLE"])
 
         mark_logs("Node 0 creates a v2 sidechain (non-ceasing)", self.nodes, DEBUG_MODE)
-        test_helper.create_sidechain("v2-non-ceasing", 2, { "withdrawalEpochLength": 0, "wCeasedVk": "" })
+        test_helper.create_sidechain("v2-non-ceasing", SidechainParameters["DEFAULT_SC_V2_NON_CEASABLE"])
 
         self.sync_all()
 

@@ -27,6 +27,16 @@ FIELD_MODULUS = 0x40000000000000000000000000000000038aa1276c3f59b9a14064e2000000
 """ Number of bits used to represent the field modulus """
 MODULUS_BITS = 255
 
+"""
+Dictionary of default parameters that can be used when calling 'create_sidechain'.
+"""
+SidechainParameters = {
+    "DEFAULT_SC_V0":                { "version": 0 },
+    "DEFAULT_SC_V1":                { "version": 1 },
+    "DEFAULT_SC_V2_CEASABLE":       { "version": 2, "withdrawalEpochLength": 10 },
+    "DEFAULT_SC_V2_NON_CEASABLE":   { "version": 2, "withdrawalEpochLength": 0 }
+}
+
 # TODO: move this function to a proper place.
 # Maybe it can take the place of generate_random_field_element_hex
 # function in the MC_Test class.
@@ -89,7 +99,11 @@ class SidechainCreationInput:
     def is_non_ceasable(self) -> bool:
         return self.version == 2 and self.withdrawalEpochLength == 0
 
-    def from_rpc_args(blockchainHelper, name, version, args):
+    @staticmethod
+    def from_rpc_args(blockchainHelper, name, args):
+
+        # "Version" is a mandatory field
+        assert("version" in args)
 
         # Check that optional_parameters contains only valid keys
         for key in args:
@@ -106,10 +120,7 @@ class SidechainCreationInput:
             ]:
                 raise JSONRPCException("Invalid key in args: " + key)
 
-        creation_input = SidechainCreationInput(blockchainHelper, name, version)
-
-        if "version" in args:
-            creation_input.version = args["version"]
+        creation_input = SidechainCreationInput(blockchainHelper, name, args["version"])
 
         if "withdrawalEpochLength" in args:
             creation_input.withdrawalEpochLength = args["withdrawalEpochLength"]
@@ -125,6 +136,9 @@ class SidechainCreationInput:
 
         if "wCeasedVk" in args:
             creation_input.cswVerificationKey = args["wCeasedVk"]
+        elif creation_input.is_non_ceasable():
+            # Setting the CSW verification key is not allowed for non-ceasable sidechains
+            creation_input.cswVerificationKey = ""
 
         if "constant" in args:
             creation_input.constant = args["constant"]
@@ -165,15 +179,19 @@ class BlockchainHelper:
     # but an identifier used to:
     # 1) search for the sidechain in the sidechain map
     # 2) generate the certificate and CSW verification keys
-    def create_sidechain(self, sc_name, sidechain_version, optional_parameters = {}, should_fail = False):
+    def create_sidechain(self, sc_name, creation_arguments, should_fail = False):
         """
-        Creates a sidechain with the optional parameters
-        (or the default ones if not provided),
-        only the name (used to store it locally in a map)
-        and the version are mandatory.
+        Creates a sidechain with the given name
+        (used to store it locally in a map) and
+        the creation arguments provided.
+        Note that among these arguments, only
+        "version" is mandatory.
         """
 
-        sc_input = SidechainCreationInput.from_rpc_args(self, sc_name, sidechain_version, optional_parameters)
+        # "version" is a mandatory argument
+        assert("version" in creation_arguments)
+
+        sc_input = SidechainCreationInput.from_rpc_args(self, sc_name, creation_arguments)
 
         return self.create_sidechain_from_args(sc_input, should_fail)
 
