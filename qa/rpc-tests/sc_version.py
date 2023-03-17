@@ -5,7 +5,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework, ForkHeights
 from test_framework.util import initialize_chain_clean, start_nodes,mark_logs
-from test_framework.blockchainhelper import BlockchainHelper, EXPECT_SUCCESS, EXPECT_FAILURE
+from test_framework.blockchainhelper import BlockchainHelper, SidechainParameters, EXPECT_SUCCESS, EXPECT_FAILURE
 
 NUMB_OF_NODES = 1
 DEBUG_MODE = 1
@@ -40,13 +40,13 @@ class sc_version(BitcoinTestFramework):
         self.sync_all()
 
         mark_logs("Node 0 creates a v0 sidechain", self.nodes, DEBUG_MODE)
-        test_helper.create_sidechain("pre_fork_v0", 0, EXPECT_SUCCESS)
+        test_helper.create_sidechain("pre_fork_v0", SidechainParameters["DEFAULT_SC_V0"], EXPECT_SUCCESS)
 
         mark_logs("Node 0 creates a v1 sidechain (expecting failure)", self.nodes, DEBUG_MODE)
-        assert("Invalid sidechain version" in test_helper.create_sidechain("pre_fork_v1", 1, EXPECT_FAILURE))
+        assert("Invalid sidechain version" in test_helper.create_sidechain("pre_fork_v1", SidechainParameters["DEFAULT_SC_V1"], EXPECT_FAILURE))
 
         mark_logs("Node 0 creates a v2 sidechain (expecting failure)", self.nodes, DEBUG_MODE)
-        assert("Invalid sidechain version" in test_helper.create_sidechain("pre_fork_v2", 2, EXPECT_FAILURE))
+        assert("Invalid sidechain version" in test_helper.create_sidechain("pre_fork_v2", SidechainParameters["DEFAULT_SC_V2_CEASABLE"], EXPECT_FAILURE))
 
         self.sync_all()
 
@@ -55,13 +55,13 @@ class sc_version(BitcoinTestFramework):
         self.nodes[0].generate(1)
 
         mark_logs("Node 0 creates a v0 sidechain", self.nodes, DEBUG_MODE)
-        test_helper.create_sidechain("post_fork_v0", 0, EXPECT_SUCCESS)
+        test_helper.create_sidechain("post_fork_v0", SidechainParameters["DEFAULT_SC_V0"], EXPECT_SUCCESS)
 
         mark_logs("Node 0 creates a v1 sidechain", self.nodes, DEBUG_MODE)
-        test_helper.create_sidechain("post_fork_v1", 1, EXPECT_SUCCESS)
+        test_helper.create_sidechain("post_fork_v1", SidechainParameters["DEFAULT_SC_V1"], EXPECT_SUCCESS)
 
         mark_logs("Node 0 creates a v2 sidechain (expecting failure)", self.nodes, DEBUG_MODE)
-        assert("Invalid sidechain version" in test_helper.create_sidechain("post_fork_v2", 2, EXPECT_FAILURE))
+        assert("Invalid sidechain version" in test_helper.create_sidechain("post_fork_v2", SidechainParameters["DEFAULT_SC_V2_CEASABLE"], EXPECT_FAILURE))
 
         self.nodes[0].generate(1)
         self.sync_all()
@@ -72,13 +72,13 @@ class sc_version(BitcoinTestFramework):
         self.sync_all()
 
         mark_logs("Node 0 creates a v0 sidechain", self.nodes, DEBUG_MODE)
-        test_helper.create_sidechain("pre_fork2_v0", 0, EXPECT_SUCCESS)
+        test_helper.create_sidechain("pre_fork2_v0", SidechainParameters["DEFAULT_SC_V0"], EXPECT_SUCCESS)
 
         mark_logs("Node 0 creates a v1 sidechain", self.nodes, DEBUG_MODE)
-        test_helper.create_sidechain("pre_fork2_v1", 1, EXPECT_SUCCESS)
+        test_helper.create_sidechain("pre_fork2_v1", SidechainParameters["DEFAULT_SC_V1"], EXPECT_SUCCESS)
 
         mark_logs("Node 0 creates a v2 sidechain (expecting failure)", self.nodes, DEBUG_MODE)
-        assert("Invalid sidechain version" in test_helper.create_sidechain("pre_fork_v2", 2, EXPECT_FAILURE))
+        assert("Invalid sidechain version" in test_helper.create_sidechain("pre_fork_v2", SidechainParameters["DEFAULT_SC_V2_CEASABLE"], EXPECT_FAILURE))
 
         self.sync_all()
 
@@ -87,16 +87,17 @@ class sc_version(BitcoinTestFramework):
         self.nodes[0].generate(1)
 
         mark_logs("Node 0 creates a v0 sidechain", self.nodes, DEBUG_MODE)
-        test_helper.create_sidechain("post_fork2_v0", 0, EXPECT_SUCCESS)
+        test_helper.create_sidechain("post_fork2_v0", SidechainParameters["DEFAULT_SC_V0"], EXPECT_SUCCESS)
 
         mark_logs("Node 0 creates a v1 sidechain", self.nodes, DEBUG_MODE)
-        test_helper.create_sidechain("post_fork2_v1", 1, EXPECT_SUCCESS)
+        test_helper.create_sidechain("post_fork2_v1", SidechainParameters["DEFAULT_SC_V1"], EXPECT_SUCCESS)
 
         mark_logs("Node 0 creates a v2 sidechain", self.nodes, DEBUG_MODE)
-        test_helper.create_sidechain("post_fork2_v2", 2, EXPECT_SUCCESS)
+        test_helper.create_sidechain("post_fork2_v2", SidechainParameters["DEFAULT_SC_V2_CEASABLE"], EXPECT_SUCCESS)
 
         mark_logs("Node 0 creates a v3 sidechain (expecting failure)", self.nodes, DEBUG_MODE)
-        assert("Invalid sidechain version" in test_helper.create_sidechain("post_fork2_v3", 3, EXPECT_FAILURE))
+        v3_sidechain_arguments = { "version": 3 }
+        assert("Invalid sidechain version" in test_helper.create_sidechain("post_fork2_v3", v3_sidechain_arguments, EXPECT_FAILURE))
 
         self.sync_all()
 
