@@ -34,7 +34,7 @@ SidechainParameters = {
     "DEFAULT_SC_V0":                { "version": 0 },
     "DEFAULT_SC_V1":                { "version": 1 },
     "DEFAULT_SC_V2_CEASABLE":       { "version": 2, "withdrawalEpochLength": 10 },
-    "DEFAULT_SC_V2_NON_CEASABLE":   { "version": 2, "withdrawalEpochLength": 0 }
+    "DEFAULT_SC_V2_NON_CEASABLE":   { "version": 2, "withdrawalEpochLength": 0, "wCeasedVk": "" }
 }
 
 # TODO: move this function to a proper place.
@@ -136,9 +136,6 @@ class SidechainCreationInput:
 
         if "wCeasedVk" in args:
             creation_input.cswVerificationKey = args["wCeasedVk"]
-        elif creation_input.is_non_ceasable():
-            # Setting the CSW verification key is not allowed for non-ceasable sidechains
-            creation_input.cswVerificationKey = ""
 
         if "constant" in args:
             creation_input.constant = args["constant"]
@@ -185,11 +182,9 @@ class BlockchainHelper:
         (used to store it locally in a map) and
         the creation arguments provided.
         Note that among these arguments, only
-        "version" is mandatory.
+        "version" is mandatory as required by
+        "SidechainCreationInput.from_rpc_args".
         """
-
-        # "version" is a mandatory argument
-        assert("version" in creation_arguments)
 
         sc_input = SidechainCreationInput.from_rpc_args(self, sc_name, creation_arguments)
 
