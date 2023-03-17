@@ -8,20 +8,9 @@ $(package)_git_commit=273e6998d5454208dd889a12a0c41525d6647492
 $(package)_dependencies=rust $(rust_crates_z)
 $(package)_patches=cargo.config
 
-ifeq ($(CLANG_ARG),true)
-$(package)_compiler=$(CT_PREFIX)clang
-else
-$(package)_compiler=$(CT_PREFIX)gcc
-endif
-
-RUST_CC=CC=$($(package)_compiler)
-
 ifeq ($(host_os),mingw32)
 $(package)_library_file=target/x86_64-pc-windows-gnu/release/libzendoo_mc.a
 # libmcTestCall.a must be compiled with the host compiler
-LIB_CXX=CXX=$(HOST)-g++
-# Unset custom CC
-RUST_CC=
 else
 $(package)_library_file=target/release/libzendoo_mc.a
 endif
@@ -34,6 +23,11 @@ else
 $(package)_target_feature=-C target-feature=+bmi2,+adx
 endif
 
+ifeq ($(host_os),darwin)
+DOWNSTREAM_CARGO_FLAGS=MACOSX_DEPLOYMENT_TARGET=$(OSX_MIN_VERSION)
+$(package)_target_feature+=-C link-arg=-mmacosx-version-min=$(OSX_MIN_VERSION)
+endif
+
 define $(package)_set_vars
 $(package)_build_opts=  --release  --all-features
 $(package)_build_opts_mingw32=--target=x86_64-pc-windows-gnu
@@ -41,12 +35,12 @@ endef
 
 define $(package)_preprocess_cmds
   mkdir -p .cargo && \
-  cat $($(package)_patch_dir)/cargo.config | sed 's|CRATE_REGISTRY|$(host_prefix)/$(CRATE_REGISTRY)|' | sed 's|DUMMY_LINKER|$($(package)_compiler)|g' > .cargo/config
+  cat $($(package)_patch_dir)/cargo.config | sed 's|CRATE_REGISTRY|$(host_prefix)/$(CRATE_REGISTRY)|' | sed 's|DUMMY_LINKER|$(default_build_CC)|g' > .cargo/config
 endef
 
 define $(package)_build_cmds
-  $(RUST_CC) RUSTFLAGS="$($(package)_target_feature)" cargo build $($(package)_build_opts) && \
-  $(LIB_CXX) $($(package)_build_env) make mcTestLib -C mc_test
+  $(DOWNSTREAM_CARGO_FLAGS) RUSTFLAGS="$($(package)_target_feature)" cargo build $($(package)_build_opts) && \
+  CXX="$($(package)_cxx)" $($(package)_build_env) make mcTestLib -C mc_test
 endef
 
 

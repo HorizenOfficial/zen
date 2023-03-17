@@ -45,6 +45,7 @@ public:
      * (See the function get_evaluation_domain below.)
      */
     evaluation_domain(const size_t m) : m(m) {};
+    virtual ~evaluation_domain() {};
 
     /**
      * Get the idx-th element in S.
