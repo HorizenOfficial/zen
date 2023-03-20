@@ -1055,13 +1055,11 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected positive integer in the range [1,..,255]");
         }
-        // TODO as soon as CSW are supported, check against wCeasedVk presence: in that case must be size() > 0
     }
 
     // ---------------------------------------------------------
     if (setKeyArgs.count("vBitVectorCertificateFieldConfig"))
     {
-        // TODO as soon as CSW are supported, check against wCeasedVk presence: in that case must be size() > 0
         UniValue PairsArray = find_value(inputObject, "vBitVectorCertificateFieldConfig").get_array();
         if (!PairsArray.isNull())
         {
