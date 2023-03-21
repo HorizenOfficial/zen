@@ -324,15 +324,11 @@ if [ "x${ENABLE_BITCOIND}${ENABLE_UTILS}${ENABLE_WALLET}" = "x111" ]; then
         "*/src/wallet/test/*" \
         -o py_test_coverage_after_filtered.info
     lcov -a py_test_coverage_base_filtered.info -a py_test_coverage_after_filtered.info -o py_test_coverage_"${chunk}".info
-    export CODACY_API_TOKEN="${CODACY_API_TOKEN_COVERAGE}"
-    export CODACY_ORGANIZATION_PROVIDER="gh"
-    export CODACY_USERNAME="HorizenOfficial"
-    export CODACY_PROJECT_NAME="zen"
     COMMIT=$(git log -1 --format="%H")
-    bash <(curl -Ls https://coverage.codacy.com/get.sh) report --partial -l CPP \
-        --commit-uuid "${COMMIT}" -r py_test_coverage_"${chunk}".info
-    bash <(curl -Ls https://coverage.codacy.com/get.sh) report --partial -l C \
-        --commit-uuid "${COMMIT}" -r py_test_coverage_"${chunk}".info
+    bash <(curl -Ls https://coverage.codacy.com/get.sh) report --partial -l CPP --commit-uuid "${COMMIT}" \
+        --project-token ${CODACY_PROJECT_TOKEN} -r py_test_coverage_"${chunk}".info
+    bash <(curl -Ls https://coverage.codacy.com/get.sh) report --partial -l C   --commit-uuid "${COMMIT}" \
+        --project-token ${CODACY_PROJECT_TOKEN} -r py_test_coverage_"${chunk}".info
   fi
 
   total=$(($successCount + ${#failures[@]}))

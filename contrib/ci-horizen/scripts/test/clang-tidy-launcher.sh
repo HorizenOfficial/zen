@@ -38,9 +38,9 @@ then
     # Convert the Clang-Tidy output to a format that the Codacy API accepts
     codacy-clang-tidy-linux-1.3.7 | \
     # Send the results to Codacy
-    curl -v -XPOST -L -H "project-token: $CODACY_TOKEN" \
+    curl -v -XPOST -L -H "project-token: ${CODACY_PROJECT_TOKEN}" \
        -H "Content-type: application/json" -d @- \
-       "https://api.codacy.com/2.0/commit/$COMMIT/issuesRemoteResults"
+       "https://api.codacy.com/2.0/commit/${COMMIT}/issuesRemoteResults"
 else
     # Skip clang-tidy if there are no meaningful files
     echo "Skipping clang-tidy: no files to be analyzed"
