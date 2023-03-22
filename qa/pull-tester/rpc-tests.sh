@@ -33,6 +33,9 @@ done
 
 #Run the tests
 
+# When adding new tests, do NOT introduce spaces between the filename, comma separator, and weight!
+# Also, note that comma ',' is used as delimiter. Please modify loadbalancer.py if in the future we
+# need to use this character in the filename field.
 testScripts=(
   'paymentdisclosure.py',99
   'prioritisetransaction.py',47
@@ -40,7 +43,7 @@ testScripts=(
   'wallet_protectcoinbase.py',294
   'wallet_shieldcoinbase.py',214
   'wallet_mergetoaddress.py',491
-  'wallet_mergetoaddress_2.py',1002
+  'wallet_mergetoaddress_2.py',975
   'wallet.py',131
   'wallet_nullifiers.py',109
   'wallet_1941.py',53
@@ -68,7 +71,7 @@ testScripts=(
   'decodescript.py',6
   'disablewallet.py',6
   'zcjoinsplit.py',45
-  'zcjoinsplitdoublespend.py',162
+  'zcjoinsplitdoublespend.py',199
   'zkey_import_export.py',381
   'getblocktemplate.py',12
   'bip65-cltv-p2p.py',6
@@ -120,7 +123,7 @@ testScripts=(
   'cbh_rpfix.py',45
   'cbh_rpcheck.py',26
   'tlsprotocols.py',12
-  'mempool_double_spend.py',30
+  'mempool_double_spend.py',21
   'getblockmerkleroots.py',67
   'sc_block_partitions.py',60
   'sc_cert_bwt_amount_rounding.py',30
@@ -137,12 +140,12 @@ testScripts=(
   'txindex.py',28
   'getblockexpanded.py',191
   'sc_rpc_cmds_json_output.py',68
-  'sc_version.py',34
+  'sc_version.py',104
   'sc_getscgenesisinfo.py',86
   'fundaddresses.py',12
   'sc_getcertmaturityinfo.py',68
-  'sc_big_commitment_tree.py',55
-  'sc_big_commitment_tree_getblockmerkleroot.py',20
+  'sc_big_commitment_tree.py',63
+  'sc_big_commitment_tree_getblockmerkleroot.py',11
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py',120
@@ -157,9 +160,9 @@ testScriptsExt=(
   'receivedby.py',30
   'rpcbind_test.py',60
   #  'script_test.py'
-  'smartfees.py',183
+  'smartfees.py',158
   'maxblocksinflight.py',14
-  'invalidblockrequest.py',51
+  'invalidblockrequest.py',40
   'invalidblockposthalving.py',113
   'p2p-acceptblock.py',202
   'replay_protection.py',22
@@ -217,9 +220,13 @@ else
   chunks='1'
   chunk='1'
 fi
-# Temporary replace the array delimiter from ' ' to '|'
+
+# call the load balancer script and save the result into a '|'-delimited string
+testList=$(${BUILDDIR}/qa/pull-tester/loadbalancer.py "${chunks}" "${chunk}" "${testScripts[@]}")
+
+# convert back the load balancer output into an array. Spaces in filename are preserved
 originalIFS="$IFS"; IFS='|'
-read -a testScripts <<< $(${BUILDDIR}/qa/pull-tester/loadbalancer.py $chunks $chunk ${testScripts[@]})
+read -a testScripts <<< ${testList}
 IFS="$originalIFS"
 
 successCount=0

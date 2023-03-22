@@ -8,25 +8,11 @@ selectedChunk = int(sys.argv[2])        # bash style, they go from 1 to workers
 selectedChunk = min(selectedChunk, workers)
 selectedChunk = max(selectedChunk, 1)
 
-## STEP-BY-STEP example
-## sys.argv:
-## ['prova1.py', '4', '1', 'paymentdisclosure.py,63', 'txn_doublespend.py,15', 'txn_doublespend.py', '--mineblock,16', 'getchaintips.py,48', 'rawtransactions.py,101']
-
-## join the parameter list and get a single string
-## newstr: paymentdisclosure.py,63 txn_doublespend.py,15 txn_doublespend.py --mineblock,16 getchaintips.py,48 rawtransactions.py,101
-newstr = ' '.join(sys.argv[3:])
-
-## divide the string, using comma (',') as separator
-## split1str: ['paymentdisclosure.py', '63 txn_doublespend.py', '15 txn_doublespend.py --mineblock', '16 getchaintips.py', '48 rawtransactions.py', '101']
-split1str = newstr.split(',')
-
-## A tuple is made by all the chars following the number of the n-th element in split1str, and the number of the n+1-th element
-## tuplelist: [('paymentdisclosure.py', 63), ('txn_doublespend.py', 15), ('txn_doublespend.py --mineblock', 16), ('getchaintips.py', 48), ('rawtransactions.py', 101)]
-tuplelist = [(split1str[0], int(split1str[1].split(' ')[0]))]
-for i in range(1, len(split1str)-1):
-    name = ' '.join(split1str[i].split(' ')[1:])
-    numb = int(split1str[i+1].split(' ')[0])
-    tuplelist.append((name, numb))
+# Parse the list of tests from argv and arrange them in a list of (filename, weight) tuples
+tuplelist = []
+for i in range(3, len(sys.argv)):
+    tuple = sys.argv[i].split(',')
+    tuplelist.append((tuple[0], int(tuple[1])))
 
 ## Longest-processing-time-first (LPT) algorithm
 work = [[] for _ in range(workers)]
