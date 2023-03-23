@@ -14,6 +14,11 @@ public:
      * @brief returns true if the coin base transactions must be shielded (i.e. sent to a z-address)
      */
     inline virtual bool mustCoinBaseBeShielded(CBaseChainParams::Network network) const { return false; }
+
+    /**
+     * @brief returns true if the shielding (t->z) transactions are forbidden
+     */
+    virtual bool isShieldingForbidden() const { return true; };
 };
 
 }

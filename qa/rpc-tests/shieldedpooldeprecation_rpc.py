@@ -6,11 +6,10 @@
 
 from test_framework.test_framework import BitcoinTestFramework, ForkHeights
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, assert_greater_than, initialize_chain_clean, \
-    start_nodes, stop_nodes, wait_bitcoinds, connect_nodes, wait_and_assert_operationid_status
+from test_framework.util import assert_equal, initialize_chain_clean, \
+    start_nodes, connect_nodes, wait_and_assert_operationid_status
 
 import sys
-from decimal import Decimal
 
 RPC_HARD_FORK_DEPRECATION = -40
 
@@ -100,8 +99,6 @@ class ShieldedPoolDeprecationTest (BitcoinTestFramework):
                 if (blockcount < ForkHeight):
                     self.nodes[0].generate(ForkHeight - blockcount)
                     self.sync_all()
-
-        return
 
 
 if __name__ == '__main__':

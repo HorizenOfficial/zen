@@ -130,6 +130,11 @@ public:
      */
     bool mustCoinBaseBeShielded(int height) const;
 
+    /**
+     * @brief returns true if the shielding (t->z) transactions are forbidden
+     */
+    bool isShieldingForbidden(int height) const;
+
 private:
     
     /**

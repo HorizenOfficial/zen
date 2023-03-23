@@ -139,6 +139,11 @@ public:
      */
     virtual bool mustCoinBaseBeShielded(CBaseChainParams::Network network) const = 0;
 
+    /**
+     * @brief returns true if the shielding (t->z) transactions are forbidden
+     */
+    virtual bool isShieldingForbidden() const = 0;
+
 protected:
     
     /**
