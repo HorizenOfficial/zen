@@ -498,16 +498,17 @@ TEST(ForkManager, ShieldedPoolDeprecationForkTestnet) {
 TEST(ForkManager, ShieldedPoolDeprecationForkRegtest) {
     SelectParams(CBaseChainParams::REGTEST);
 
-    int shieldedPoolDeprecationForkHeight = 481;    // // TODO: MODIFY PLACEHOLDER!
+    int shieldedPoolDeprecationForkHeight = 1040;    // // TODO: MODIFY PLACEHOLDER!
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight - 1), false);
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight), false);
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight + 1), false);
 
-    mapArgs.insert({"-regtestprotectcoinbase", ""});
+    bool alreadyPresent = !mapArgs.insert({"-regtestprotectcoinbase", ""}).second;
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight - 1), true);
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight), false);
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight + 1), false);
-
+    if (!alreadyPresent)
+        mapArgs.erase({"-regtestprotectcoinbase", ""});
 }
 
 //TODO: ADD TESTS

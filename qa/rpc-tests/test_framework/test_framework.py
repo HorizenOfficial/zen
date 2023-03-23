@@ -26,7 +26,7 @@ ForkHeights = {
     'MINIMAL_SC':                420,
     'SC_VERSION':                450,
     'NON_CEASING_SC':            480,
-    'SHIELDED_POOL_DEPRECATION': 481
+    'SHIELDED_POOL_DEPRECATION': 1040
 }
 
 class BitcoinTestFramework(object):
