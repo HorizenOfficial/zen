@@ -4,7 +4,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.test_framework import MINIMAL_SC_HEIGHT
+from test_framework.test_framework import ForkHeights
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, assert_true, initialize_chain_clean, \
     mark_logs, start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, \
@@ -82,8 +82,8 @@ class sbh_rpc_cmds(BitcoinTestFramework):
         txs_node1 = []
 
         # network topology: (0)--(1)--(2)
-        mark_logs("\nNode 0 generates {} blocks".format(MINIMAL_SC_HEIGHT), self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(MINIMAL_SC_HEIGHT)
+        mark_logs("\nNode 0 generates {} blocks".format(ForkHeights['MINIMAL_SC']), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(ForkHeights['MINIMAL_SC'])
         self.sync_all()
 
         taddr_1 = self.nodes[1].getnewaddress()
@@ -194,7 +194,7 @@ class sbh_rpc_cmds(BitcoinTestFramework):
         self.nodes[0].generate(5)
         self.sync_all()
 
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("\nepoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)
 
         # node0 create a cert_1 for funding node1 
@@ -206,8 +206,16 @@ class sbh_rpc_cmds(BitcoinTestFramework):
             quality = 1
             scid_swapped = str(swap_bytes(scid))
             
-            proof = certMcTest.create_test_proof(
-                "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [bwt_address], [bwt_amount1])
+            proof = certMcTest.create_test_proof("sc1",
+                                                 scid_swapped,
+                                                 epoch_number,
+                                                 quality,
+                                                 MBTR_SC_FEE,
+                                                 FT_SC_FEE,
+                                                 epoch_cum_tree_hash,
+                                                 constant = constant,
+                                                 pks      = [bwt_address],
+                                                 amounts  = [bwt_amount1])
 
             #----------------------------------------------------------------------------------------------
             cert_1 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,

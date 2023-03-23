@@ -777,6 +777,7 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedFwtTxToCeasedSidechainsAreRemove
     int heightWhereAlive = initialScState.GetScheduledCeasingHeight() -1;
 
     storeSidechainWithCurrentHeight(sidechainsView, scId, initialScState, heightWhereAlive);
+    sidechainsView.Flush();
     ASSERT_TRUE(sidechainsView.GetSidechainState(scId) == CSidechain::State::ALIVE);
 
     CTransaction fwtTx = GenerateFwdTransferTx(scId, CAmount(10));
@@ -794,6 +795,7 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedFwtTxToCeasedSidechainsAreRemove
     // Cease sidechains
     chainSettingUtils::ExtendChainActiveToHeight(initialScState.GetScheduledCeasingHeight());
     sidechainsView.SetBestBlock(chainActive.Tip()->GetBlockHash());
+    sidechainsView.Flush();
     ASSERT_TRUE(sidechainsView.GetSidechainState(scId) == CSidechain::State::CEASED);
 
     // Sidechain State is Ceased. FT expected to be removed.
@@ -820,6 +822,7 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedCsw_LargerThanSidechainBalanceAr
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
     storeSidechainWithCurrentHeight(sidechainsView, scId, initialScState, heightWhereCeased);
+    sidechainsView.Flush();
     ASSERT_TRUE(sidechainsView.GetSidechainState(scId) == CSidechain::State::CEASED);
 
     // Create and add CSW Tx
@@ -869,6 +872,7 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedCswForAliveSidechainsAreRemovedF
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
     storeSidechainWithCurrentHeight(sidechainsView, scId, initialScState, heightWhereCeased);
+    sidechainsView.Flush();
     ASSERT_TRUE(sidechainsView.GetSidechainState(scId) == CSidechain::State::CEASED);
 
     // Create and add CSW Tx
@@ -891,6 +895,7 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedCswForAliveSidechainsAreRemovedF
     // revert sidechain state to ACTIVE
     chainSettingUtils::ExtendChainActiveToHeight(initialScState.GetScheduledCeasingHeight()-1);
     sidechainsView.SetBestBlock(chainActive.Tip()->GetBlockHash());
+    sidechainsView.Flush();
     ASSERT_TRUE(sidechainsView.GetSidechainState(scId) == CSidechain::State::ALIVE);
 
     // Mempool CSW Txs total withdrawal amount is greater than Sidechain mature balance -> both Txs expected to be removed.
@@ -1138,6 +1143,7 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedFwdsTowardAliveSidechainsAreNotDr
     int heightWhereAlive = initialScState.GetScheduledCeasingHeight() -1;
 
     storeSidechainWithCurrentHeight(sidechainsView, scId, initialScState, heightWhereAlive);
+    sidechainsView.Flush();
     ASSERT_TRUE(sidechainsView.GetSidechainState(scId) == CSidechain::State::ALIVE);
 
     // create coinbase to finance fwt
@@ -1175,6 +1181,7 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedFwdsTowardCeasedSidechainsAreDrop
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
     storeSidechainWithCurrentHeight(sidechainsView, scId, initialScState, heightWhereCeased);
+    sidechainsView.Flush();
     ASSERT_TRUE(sidechainsView.GetSidechainState(scId) == CSidechain::State::CEASED);
 
     // create coinbase to finance fwt
@@ -1212,6 +1219,7 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedMbtrTowardCeasedSidechainIsDroppe
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
     storeSidechainWithCurrentHeight(sidechainsView, scId, initialScState, heightWhereCeased);
+    sidechainsView.Flush();
     ASSERT_TRUE(sidechainsView.GetSidechainState(scId) == CSidechain::State::CEASED);
 
     // create coinbase to finance mbtr
@@ -1253,6 +1261,7 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedCertTowardAliveSidechainIsNotDrop
     initialScState.InitScFees();
     int heightWhereAlive = initialScState.GetScheduledCeasingHeight()-1;
     storeSidechainWithCurrentHeight(sidechainsView, scId, initialScState, heightWhereAlive);
+    sidechainsView.Flush();
     ASSERT_TRUE(sidechainsView.GetSidechainState(scId) == CSidechain::State::ALIVE);
 
     // set relevant heights
@@ -1295,6 +1304,7 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedCertTowardCeasedSidechainIsDroppe
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
     storeSidechainWithCurrentHeight(sidechainsView, scId, initialScState, heightWhereCeased);
+    sidechainsView.Flush();
     ASSERT_TRUE(sidechainsView.GetSidechainState(scId) == CSidechain::State::CEASED);
 
     // create coinbase to finance cert
@@ -1596,7 +1606,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewFtFeeDoesNotRemoveTxFromMempoolOnFirstCe
         /*ftScFee*/ftScFee + 1, /*mbtrScFee*/CAmount(0), /*quality*/certQuality);
     CCoinsViewCache sidechainsView(pcoinsTip);
     CBlockUndo aBlock(IncludeScAttributes::ON);
-    sidechainsView.UpdateSidechain(certificate, aBlock);
+    sidechainsView.UpdateSidechain(certificate, aBlock, sidechainsView.GetHeight()+1);
     moveSidechainToNextEpoch(scId, sidechainsView);
 
     // No transactions should be be removed.
@@ -1672,7 +1682,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewFtFeeRemovesTxFromMempool)
  
             CBlockUndo aBlock(IncludeScAttributes::ON);
  
-            sidechainsView.UpdateSidechain(certificate, aBlock);
+            sidechainsView.UpdateSidechain(certificate, aBlock, sidechainsView.GetHeight()+1);
             moveSidechainToNextEpoch(scId, sidechainsView);
  
             // the FT transaction must be removed as soon as the cert for target epoch arrives
@@ -1715,7 +1725,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewFtFeeDoesNotRemoveTxFromMempool)
         /*numBwt*/2, /*ftScFee*/ftScFee - 1, /*mbtrScFee*/CAmount(0), /*quality*/certQuality);
     CCoinsViewCache sidechainsView(pcoinsTip);
     CBlockUndo aBlock(IncludeScAttributes::ON);
-    sidechainsView.UpdateSidechain(certificate, aBlock);
+    sidechainsView.UpdateSidechain(certificate, aBlock, sidechainsView.GetHeight()+1);
     moveSidechainToNextEpoch(scId, sidechainsView);
 
     // No transaction must be removed.
@@ -1752,7 +1762,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeDoesNotRemoveTxFromMempoolOnFirst
         /*ftScFee*/CAmount(0), /*mbtrScFee*/mbtrScFee + 1, /*quality*/certQuality);
     CCoinsViewCache sidechainsView(pcoinsTip);
     CBlockUndo aBlock(IncludeScAttributes::ON);
-    sidechainsView.UpdateSidechain(certificate, aBlock);
+    sidechainsView.UpdateSidechain(certificate, aBlock, sidechainsView.GetHeight()+1);
     moveSidechainToNextEpoch(scId, sidechainsView);
 
     // No transactions should be be removed.
@@ -1828,7 +1838,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeRemovesTxFromMempool)
  
             CBlockUndo aBlock(IncludeScAttributes::ON);
  
-            sidechainsView.UpdateSidechain(certificate, aBlock);
+            sidechainsView.UpdateSidechain(certificate, aBlock, sidechainsView.GetHeight()+1);
             moveSidechainToNextEpoch(scId, sidechainsView);
  
             // the FT transaction must be removed as soon as the cert for target epoch arrives
@@ -1871,7 +1881,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeDoesNotRemoveTxFromMempool)
         /*ftScFee*/CAmount(0), /*mbtrScFee*/mbtrScFee - 1, /*quality*/certQuality);
     CCoinsViewCache sidechainsView(pcoinsTip);
     CBlockUndo aBlock(IncludeScAttributes::ON);
-    sidechainsView.UpdateSidechain(certificate, aBlock);
+    sidechainsView.UpdateSidechain(certificate, aBlock, sidechainsView.GetHeight()+1);
     moveSidechainToNextEpoch(scId, sidechainsView);
 
     // No transaction must be removed.

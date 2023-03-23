@@ -6,11 +6,11 @@
 # Exercise the listtransactions API
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.test_framework import MINIMAL_SC_HEIGHT
+from test_framework.test_framework import ForkHeights
 from decimal import Decimal
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_equal
-from test_framework.mc_test.mc_test import *
+from test_framework.mc_test.mc_test import CertTestUtils, generate_random_field_element_hex
 
 
 def check_array_result(object_array, to_match, expected):
@@ -29,11 +29,10 @@ def check_array_result(object_array, to_match, expected):
             continue
         for key, value in expected.items():
             if item[key] != value:
-                raise AssertionError("%s : expected %s=%s" % (str(item), str(key), str(value)))
+                raise AssertionError(f"{str(item)} : expected {str(key)}={str(value)}")
             num_matched = num_matched + 1
     if num_matched == 0:
-        raise AssertionError("No objects matched %s" % (str(to_match)))
-
+        raise AssertionError(f"No objects matched {str(to_match)}")
 
 class ListTransactionsTest(BitcoinTestFramework):
 
@@ -59,6 +58,7 @@ class ListTransactionsTest(BitcoinTestFramework):
 
         # send-to-self:
         txid = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 0.2)
+        self.sync_all()
         check_array_result(self.nodes[0].listtransactions(),
                            {"txid": txid, "category": "send"},
                            {"amount": Decimal("-0.2")})
@@ -100,6 +100,7 @@ class ListTransactionsTest(BitcoinTestFramework):
 
         # Below tests about filtering by address
         self.nodes[0].generate(10)
+        self.sync_all()
         address = self.nodes[1].getnewaddress()
 
         # simple send 1 to address and verify listtransaction returns this tx with address in input
@@ -326,8 +327,8 @@ class ListTransactionsTest(BitcoinTestFramework):
                                {"amount": Decimal("-"+str(i))})
 
         chain_height = self.nodes[0].getblockcount()
-        if chain_height < MINIMAL_SC_HEIGHT:
-            self.nodes[0].generate(MINIMAL_SC_HEIGHT - chain_height)
+        if chain_height < ForkHeights['MINIMAL_SC']:
+            self.nodes[0].generate(ForkHeights['MINIMAL_SC'] - chain_height)
         self.sync_all()
 
         # verify we can filter sc related transactions even with an empty vout
@@ -348,7 +349,7 @@ class ListTransactionsTest(BitcoinTestFramework):
                     break
 
         assert_true(len(fromaddr))
-        result_node1_latest = self.nodes[1].listtransactions("*", 1, 0, False, fromaddr)
+        self.nodes[1].listtransactions("*", 1, 0, False, fromaddr)
         
         sidechain_address = "0000000000000000000000000000000000000000000000000000000051dec4a1"
         fee = 0.00025

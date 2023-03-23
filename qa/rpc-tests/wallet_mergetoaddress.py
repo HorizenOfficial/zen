@@ -13,6 +13,7 @@ import time
 from decimal import Decimal
 
 class WalletMergeToAddressTest (BitcoinTestFramework):
+
     def setup_chain(self):
         print("Initializing test directory "+self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, 3)
@@ -31,6 +32,12 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
         self.sync_all()
 
     def run_test (self):
+
+        '''
+        The test checks the correct operation of utxos/notes merging feature; invalid input are checked resulting in failure of merging operation,
+        then all the possible combinations of source/destination address type are checked: t2z, z2z, z2t, t2t, tz2t and tz2z
+        '''
+
         print ("Mining blocks...")
 
         self.nodes[0].generate(1)
@@ -351,12 +358,23 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
         self.nodes[1].generate(1)
         self.sync_all()
 
+        # Shield both UTXOs and notes to a t-addr
+        result = self.nodes[0].z_mergetoaddress(["*"], mytaddr, 0, 2, 1)
+        assert_equal(result["mergingUTXOs"], Decimal('2'))
+        assert_equal(result["remainingUTXOs"], Decimal('15'))
+        assert_equal(result["mergingNotes"], Decimal('1'))
+        assert_equal(result["remainingNotes"], Decimal('2'))
+        wait_and_assert_operationid_status(self.nodes[0], result['opid'])
+        self.sync_all()
+        self.nodes[1].generate(1)
+        self.sync_all()
+
         # Shield both UTXOs and notes to a z-addr
         result = self.nodes[0].z_mergetoaddress(["*"], myzaddr, 0, 10, 2)
         assert_equal(result["mergingUTXOs"], Decimal('10'))
-        assert_equal(result["remainingUTXOs"], Decimal('7'))
+        assert_equal(result["remainingUTXOs"], Decimal('6'))
         assert_equal(result["mergingNotes"], Decimal('2'))
-        assert_equal(result["remainingNotes"], Decimal('1'))
+        assert_equal(result["remainingNotes"], Decimal('0'))
         wait_and_assert_operationid_status(self.nodes[0], result['opid'])
         # Don't sync node 2 which rejects the tx due to its mempooltxinputlimit
         sync_blocks(self.nodes[:2])

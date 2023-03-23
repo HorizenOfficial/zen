@@ -221,10 +221,10 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
     LogPrint("mempool", "%s():%d - adding cert [%s] q=%d in mapSidechain\n", __func__, __LINE__,
         cert.GetHash().ToString(), cert.quality);
 
-    if (mapSidechains.count(cert.GetScId())!= 0)
-        assert(mapSidechains.at(cert.GetScId()).mBackwardCertificates.count(cert.quality) == 0);
-    mapSidechains[cert.GetScId()].mBackwardCertificates[cert.quality] = hash;
-           
+    auto& sideChain = mapSidechains[cert.GetScId()]; // Creates new element if key does not exist
+    assert(sideChain.mBackwardCertificates.count(cert.quality) == 0);
+    sideChain.mBackwardCertificates[cert.quality] = hash;
+
     nCertificatesUpdated++;
     totalCertificateSize += entry.GetCertificateSize();
     cachedInnerUsage += entry.DynamicMemoryUsage();
@@ -265,8 +265,14 @@ void CTxMemPool::addAddressIndex(const CTransactionBase &txBase, int64_t nTime, 
         const CScCertificate* cert = dynamic_cast<const CScCertificate*>(&txBase);
         assert(cert != nullptr);
 
+        CSidechain sidechain;
+        // At this point we have a view that is NOT backed by the mempool, but we must find the sidechain
+        // in the normal chain view as no certificate can be published until the sidechain creation is
+        // included in a block (also for non-ceasing sidechains, due to the lastInclusionHeight set at creation).
+        assert(view.GetSidechain(cert->GetScId(), sidechain));
+
         const uint256& topQualHash = mapSidechains.at(cert->GetScId()).GetTopQualityCert()->second;
-        bool isTopQualityCert = (topQualHash == cert->GetHash());
+        bool isTopQualityCert = (topQualHash == cert->GetHash()) || sidechain.isNonCeasing();
 
         // set certificate bwts status
         certBwtStatus = isTopQualityCert ?
@@ -280,8 +286,8 @@ void CTxMemPool::addAddressIndex(const CTransactionBase &txBase, int64_t nTime, 
             __func__, __LINE__, cert->GetHash().ToString(), isTopQualityCert?"Y":"N", (int)certBwtStatus, certFirstBwtPos);
 
         // if we have also other certificates for this sidechain and this is the top quality, we must modify the entry which was the
-        // previous top quality cert
-        if ( (mapSidechains.at(cert->GetScId()).mBackwardCertificates.size() > 1) && isTopQualityCert)
+        // previous top quality cert (but not for non-ceasing sidechains)
+        if (!sidechain.isNonCeasing() && (mapSidechains.at(cert->GetScId()).mBackwardCertificates.size() > 1) && isTopQualityCert)
         {
             // Entries are ordered by quality, therefore the former top-quality is the second starting from the bottom
             std::map<int64_t, uint256>::const_reverse_iterator mempoolCertEntryIt =
@@ -683,7 +689,9 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
 #ifdef ENABLE_ADDRESS_INDEXING
             // are we removing a top-quality cert?
             const uint256& topQualHash = mapSidechains.at(scid).GetTopQualityCert()->second;
-            bool isTopQualityCert = (topQualHash == hash);
+            CSidechain sidechain;
+            assert(pcoinsTip->GetSidechain(scid, sidechain));
+            bool isTopQualityCert = (topQualHash == hash) || sidechain.isNonCeasing();
 #endif // ENABLE_ADDRESS_INDEXING
 
             // remove certificate hash from list
@@ -709,7 +717,7 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
             if (fAddressIndex)
             {
                 removeAddressIndex(hash);
-                if (isTopQualityCert)
+                if (isTopQualityCert && !sidechain.isNonCeasing())
                 {
                     // we have removed a top quality cert, if another one is promoted to be the next top quality, we have to
                     // set the status properly in the address index data
@@ -828,6 +836,36 @@ inline bool CTxMemPool::checkCertImmatureExpenditures(const CScCertificate& cert
     return true;
 }
 
+void CTxMemPool::removeCertificatesWithoutRef(const CCoinsViewCache * const pCoinsView,
+                                         std::list<CScCertificate>& outdatedCerts)
+{
+    LOCK(cs);
+    std::vector<uint256> certsToRemove;
+    // Remove certificates referring to this block as end epoch
+    for (const auto& [hash, certEntry]: mapCertificate)
+    {
+        const CScCertificate& cert = certEntry.GetCertificate();
+        if (mapCumtreeHeight.find(cert.endEpochCumScTxCommTreeRoot.GetLegacyHash()) == mapCumtreeHeight.end()) {
+            LogPrintf("%s():%d: cannot find reference block for cert %s, removing\n", __func__, __LINE__, cert.GetHash().ToString());
+            certsToRemove.emplace_back(cert.GetHash());
+        }
+    }
+
+    std::list<CTransaction> dummyTxs;
+    for (const auto& hash: certsToRemove)
+    {
+        // there can be dependencies also between certs, so check that a cert is still in map during the loop
+        const auto& cert_it = mapCertificate.find(hash);
+        if (cert_it != mapCertificate.end())
+        {
+            const CScCertificate& cert = cert_it->second.GetCertificate();
+            remove(cert, dummyTxs, outdatedCerts, true);
+        }
+    }
+    LogPrint("mempool", "%s():%d - removed %zu certs and %zu txes\n", __func__, __LINE__, outdatedCerts.size(), dummyTxs.size());
+
+}
+
 void CTxMemPool::removeStaleCertificates(const CCoinsViewCache * const pCoinsView,
                                          std::list<CScCertificate>& outdatedCerts)
 {
@@ -845,11 +883,36 @@ void CTxMemPool::removeStaleCertificates(const CCoinsViewCache * const pCoinsVie
             continue;
         }
 
-        if (!pCoinsView->CheckCertTiming(cert.GetScId(), cert.epochNumber))
+        CSidechain sc;
+        if (!pCoinsView->GetSidechain(cert.GetScId(), sc))
         {
             certsToRemove.insert(cert.GetHash());
             continue;
         }
+        int referencedHeight;
+
+        if (sc.isNonCeasing()) {
+            const auto map_it = mapCumtreeHeight.find(cert.endEpochCumScTxCommTreeRoot.GetLegacyHash());
+            if (map_it == mapCumtreeHeight.end()) {
+                LogPrintf("%s():%d: cannot find reference block for cert %s, removing\n", __func__, __LINE__, cert.GetHash().ToString());
+                certsToRemove.insert(cert.GetHash());
+                continue;
+            }
+            referencedHeight = map_it->second;
+        }
+        else
+        {
+            referencedHeight = sc.GetEndHeightForEpoch(cert.epochNumber);
+        }
+
+        // A certificate for a non ceasing sidechain should be kept if either it is in
+        // the correct order wrt the blochain, or with another certificate in the mempool
+        if (!sc.CheckCertTiming(cert.epochNumber, referencedHeight, *pCoinsView))
+        {
+            certsToRemove.insert(cert.GetHash());
+            continue;
+        }
+
     }
 
     std::list<CTransaction> dummyTxs;
@@ -1556,6 +1619,18 @@ bool CTxMemPool::checkIncomingTxConflicts(const CTransaction& incomingTx) const
     return true;
 }
 
+bool CTxMemPool::certificateExists(const uint256& scId) const
+{
+    LOCK(cs);
+
+    for (const auto& cert_it: mapCertificate) {
+        if (cert_it.second.GetCertificate().GetScId() == scId) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool CTxMemPool::checkIncomingCertConflicts(const CScCertificate& incomingCert) const
 {
     LOCK(cs);
@@ -1595,6 +1670,7 @@ bool CTxMemPool::checkIncomingCertConflicts(const CScCertificate& incomingCert) 
         const CScCertificate& certDep = mapCertificate.at(dep).GetCertificate();
         if (certDep.GetScId() != incomingCert.GetScId())
             continue; //no certs conflicts with certs of other sidechains
+
         if (certDep.quality >= incomingCert.quality)
         {
             return error("%s():%d - cert %s depends on better-quality ancestorCert %s\n", __func__, __LINE__,
@@ -1655,7 +1731,11 @@ void CTxMemPool::CertQualityStatusString(const CScCertificate& cert, std::string
         return;
     }
 
-    if (mapSidechains.at(scid).GetTopQualityCert()->second == cert.GetHash())
+    // If any certificate is in the mempool, the sidechain must be available in the CoinsView.
+    CSidechain sidechain;
+    assert(pcoinsTip->GetSidechain(scid, sidechain));
+
+    if (sidechain.isNonCeasing() || mapSidechains.at(scid).GetTopQualityCert()->second == cert.GetHash())
     {
         statusString = "TOP_QUALITY_MEMPOOL";
     }
@@ -1849,6 +1929,7 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
                 //info.creationBlockHash doesn't exist here!
                 info.creationBlockHeight = -1; //default null value for creationBlockHeight
                 info.creationTxHash = scCreationHash;
+                info.fixedParams.version = scCreation.version;
                 info.fixedParams.withdrawalEpochLength = scCreation.withdrawalEpochLength;
                 info.fixedParams.customData = scCreation.customData;
                 info.fixedParams.constant = scCreation.constant;
@@ -1859,15 +1940,46 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
                 info.lastTopQualityCertView.forwardTransferScFee = scCreation.forwardTransferScFee;
                 info.lastTopQualityCertView.mainchainBackwardTransferRequestScFee = scCreation.mainchainBackwardTransferRequestScFee;
                 info.fixedParams.mainchainBackwardTransferRequestDataLength = scCreation.mainchainBackwardTransferRequestDataLength;
+                // This sidechain does not appear in a block yet, use default null values
+                info.lastInclusionHeight               = -1;
+                info.lastTopQualityCertReferencedEpoch = -1;
                 break;
             }
         }
     } else if (!base->GetSidechain(scId, info))
         return false;
 
-    // Consider mempool Tx CSW amount for sidechain balance
-    if(mempool.mapSidechains.count(scId) > 0 && mempool.mapSidechains.at(scId).cswTotalAmount > 0)
-        info.balance -= mempool.mapSidechains.at(scId).cswTotalAmount;
+    // Check if there is any unconfirmed tx or certificate in the mempool
+    const auto sc_it = mempool.mapSidechains.find(scId);
+    if (sc_it != mempool.mapSidechains.end())
+    {
+        // Consider mempool Tx CSW amount for sidechain balance
+        const CSidechainMemPoolEntry& sc = sc_it->second;
+        if (sc.cswTotalAmount > 0)
+        {
+            info.balance -= sc.cswTotalAmount;
+        }
+
+        // Update sidechain info with data from the unconfirmed certificates
+        // This is useful for non-ceasing sidechains only as they can have
+        // certificates of later epochs.
+        if (info.isNonCeasing() && !sc.mBackwardCertificates.empty()) {
+            const uint256& topQualHash = sc.GetTopQualityCert()->second;
+            const CScCertificate& certTopQual = mempool.mapCertificate[topQualHash].GetCertificate();
+            info.lastTopQualityCertView.certDataHash = certTopQual.GetDataHash(info.fixedParams);
+            info.lastTopQualityCertView.forwardTransferScFee = certTopQual.forwardTransferScFee;
+            info.lastTopQualityCertView.mainchainBackwardTransferRequestScFee = certTopQual.mainchainBackwardTransferRequestScFee;
+
+            const auto map_it = mapCumtreeHeight.find(certTopQual.endEpochCumScTxCommTreeRoot.GetLegacyHash());
+            if (map_it == mapCumtreeHeight.end())
+            {
+                LogPrint("mempool", "%s():%d - could not find referenced block for certTopQual %s. This is a problem.\n", __func__, __LINE__, certTopQual.GetHash().ToString());
+                assert(false);
+            }
+
+            info.lastTopQualityCertReferencedEpoch = certTopQual.epochNumber;
+        }
+    }
 
     return true;
 }
@@ -1901,25 +2013,23 @@ size_t CTxMemPool::DynamicMemoryUsage() const {
           cachedInnerUsage);
 }
 
-std::pair<uint256, CAmount> CTxMemPool::FindCertWithQuality(const uint256& scId, int64_t certQuality)
+std::pair<uint256, CAmount> CTxMemPool::FindCertWithQuality(const uint256& scId, int64_t certQuality) const
 {
     LOCK(cs);
-    std::pair<uint256, CAmount> res = std::make_pair(uint256(),CAmount(-1));
 
-    if (mapSidechains.count(scId) == 0)
-        return res;
-
-    for(const auto& mempoolCertEntry : mapSidechains.at(scId).mBackwardCertificates)
-    {
-        const CScCertificate& mempoolCert = mapCertificate.at(mempoolCertEntry.second).GetCertificate();
-        if (mempoolCert.quality == certQuality) {
-            res.first  = mempoolCert.GetHash();
-            res.second = mapCertificate.at(mempoolCertEntry.second).GetFee();
-            break;
+    auto sc_it = mapSidechains.find(scId);
+    if (sc_it != mapSidechains.end()) {
+        for (const auto& mempoolCertEntry : sc_it->second.mBackwardCertificates)
+        {
+            const auto& certEntry = mapCertificate.at(mempoolCertEntry.second);
+            const CScCertificate& mempoolCert = certEntry.GetCertificate();
+            if (mempoolCert.quality == certQuality) {
+                return std::make_pair(mempoolCert.GetHash(), certEntry.GetFee());
+            }
         }
     }
 
-    return res;
+    return std::make_pair(uint256(), CAmount(-1));
 }
 
 bool CTxMemPool::RemoveCertAndSync(const uint256& certToRmHash)

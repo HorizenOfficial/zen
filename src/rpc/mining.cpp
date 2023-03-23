@@ -731,7 +731,9 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
 
         if (certSupported) {
             CCoinsViewCache view(pcoinsTip);
-            pblock->hashScTxsCommitment = pblock->BuildScTxsCommitment(view);
+            // At this point, txs commitment tree should be valid
+            bool retValtxsComm = pblock->UpdateScTxsCommitment(view);
+            assert(retValtxsComm);
         }
 
         result.pushKV("merkleTree", pblock->hashMerkleRoot.ToString());
@@ -1051,15 +1053,24 @@ UniValue getblockmerkleroots(const UniValue& params, bool fHelp) {
     CCoinsViewCache view(pcoinsTip);
 
     uint256 merkleTree = pblock->BuildMerkleTree();
-    uint256 scTxsCommitment;
-    scTxsCommitment.SetNull();
     if (certSupported) {
-        scTxsCommitment = pblock->BuildScTxsCommitment(view);
+        if (!pblock->BuildScTxsCommitmentGuard()) {
+            LogPrint("sc", "%s():%d - scTxsCommitment guard failed. Check the number of sc or txs / cert for each sc.\n",
+                __func__, __LINE__);
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "scTxsCommitment guard failed");
+        }
+
+        if (!pblock->UpdateScTxsCommitment(view))
+        {
+            LogPrint("sc", "%s():%d - scTxsCommitment evaluation failed.\n",
+                __func__, __LINE__);
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "scTxsCommitment evaluation failed");
+        }
     }
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("merkleTree", merkleTree.ToString());
-    result.pushKV("scTxsCommitment", scTxsCommitment.ToString());
+    result.pushKV("scTxsCommitment", pblock->hashScTxsCommitment.ToString());
 
     return result;
 }

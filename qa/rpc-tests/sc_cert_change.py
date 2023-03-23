@@ -4,7 +4,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
+from test_framework.test_framework import ForkHeights, MINER_REWARD_POST_H200
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, get_epoch_data, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, swap_bytes
@@ -66,8 +66,8 @@ class sc_cert_change(BitcoinTestFramework):
         # cross chain transfer amounts
         creation_amount = Decimal("10.0")
 
-        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT), self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(MINIMAL_SC_HEIGHT)
+        mark_logs("Node 0 generates {} block".format(ForkHeights['MINIMAL_SC']), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(ForkHeights['MINIMAL_SC'])
         self.sync_all()
 
         # (1) node0 create sidechain with 10.0 coins
@@ -98,7 +98,7 @@ class sc_cert_change(BitcoinTestFramework):
         prev_epoch_block_hash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
         self.nodes[0].generate(5)
         self.sync_all()
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_cum_tree_hash, epoch_number), self.nodes, DEBUG_MODE)
 
         # (2) node0 create a cert_ep0 for funding node1 1.0 coins
@@ -107,7 +107,16 @@ class sc_cert_change(BitcoinTestFramework):
         amounts = [{"address": addr_node1, "amount": bwt_amount}]
 
         quality = 0
-        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount])
+        proof = mcTest.create_test_proof("sc1",
+                                         scid_swapped,
+                                         epoch_number,
+                                         quality,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         epoch_cum_tree_hash,
+                                         constant = constant,
+                                         pks      = [addr_node1],
+                                         amounts  = [bwt_amount])
         
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node1 address {}".format(bwt_amount, addr_node1), self.nodes, DEBUG_MODE)
         try:
@@ -124,7 +133,7 @@ class sc_cert_change(BitcoinTestFramework):
         mark_logs("Node0 generates 5 blocks to achieve end of epoch", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(5)
         self.sync_all()
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)
 
         # (3) node0 create a cert_ep1 for funding node1 1.0 coins
@@ -133,7 +142,16 @@ class sc_cert_change(BitcoinTestFramework):
         amounts = [{"address": addr_node2, "amount": bwt_amount}]
 
         quality = 1
-        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node2], [bwt_amount])
+        proof = mcTest.create_test_proof("sc1",
+                                         scid_swapped,
+                                         epoch_number,
+                                         quality,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         epoch_cum_tree_hash,
+                                         constant = constant,
+                                         pks      = [addr_node2],
+                                         amounts  = [bwt_amount])
 
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node2 address {}".format(bwt_amount, addr_node2), self.nodes, DEBUG_MODE)
         try:
@@ -150,7 +168,7 @@ class sc_cert_change(BitcoinTestFramework):
         mark_logs("Node0 generates 5 blocks to achieve end of epoch", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(5)
         self.sync_all()
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)
 
         # (4) node1 create a cert_ep2 for funding node3 3.0 coins: he uses cert_ep0 as input, change will be obtained out of a fee=0.0001
@@ -159,7 +177,16 @@ class sc_cert_change(BitcoinTestFramework):
         amounts = [{"address": addr_node3, "amount": bwt_amount}]
 
         quality = 2
-        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node3], [bwt_amount])
+        proof = mcTest.create_test_proof("sc1",
+                                         scid_swapped,
+                                         epoch_number,
+                                         quality,
+                                         MBTR_SC_FEE,
+                                         FT_SC_FEE,
+                                         epoch_cum_tree_hash,
+                                         constant = constant,
+                                         pks      = [addr_node3],
+                                         amounts  = [bwt_amount])
 
         mark_logs("Node 1 performs a bwd transfer of {} coins to Node3 address {}".format(bwt_amount, addr_node3), self.nodes, DEBUG_MODE)
         try:

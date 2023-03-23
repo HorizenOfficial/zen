@@ -435,7 +435,8 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         char errBuf[256] = {};
         int withdrawalEpochLength = elv.get_int();
 
-        if (withdrawalEpochLength < getScMinWithdrawalEpochLength())
+        if (!CSidechain::isNonCeasingSidechain(sc.version, withdrawalEpochLength)
+            && (withdrawalEpochLength < getScMinWithdrawalEpochLength()))
         {
             sprintf(errBuf, "Invalid withdrawalEpochLength: minimum value allowed=%d\n", getScMinWithdrawalEpochLength());
             error = errBuf;

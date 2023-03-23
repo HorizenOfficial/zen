@@ -5,7 +5,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.test_framework import MINIMAL_SC_HEIGHT
+from test_framework.test_framework import ForkHeights
 from test_framework.util import assert_true, assert_equal, initialize_chain_clean, \
     start_nodes, stop_nodes, wait_bitcoinds, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
     dump_sc_info, dump_sc_info_record, get_epoch_data, get_spendable, swap_bytes, advance_epoch, \
@@ -101,15 +101,25 @@ class sc_big_block(BitcoinTestFramework):
                     self.nodes[0].generate(EPOCH_LENGTH)
                     self.sync_all()
                     # these parameters are valid for all scs since they share the same epoch length 
-                    epoch_number, epoch_cum_tree_hash = get_epoch_data(scids[i], self.nodes[0], EPOCH_LENGTH)
+                    epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scids[i], self.nodes[0], EPOCH_LENGTH)
 
                 print("Generating cert proof...")
                 t0 = time.time()
                 scid_swapped = str(swap_bytes(scids[i]))
 
-                proof = certMcTest.create_test_proof(
-                    "scs", scid_swapped, epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [], [], proofCfeArray,
-                    CERT_NUM_CONSTRAINTS, SEGMENT_SIZE)
+                proof = certMcTest.create_test_proof("scs",
+                                                     scid_swapped,
+                                                     epoch_number,
+                                                     q,
+                                                     MBTR_SC_FEE,
+                                                     FT_SC_FEE,
+                                                     epoch_cum_tree_hash,
+                                                     constant        = constant,
+                                                     pks             = [],
+                                                     amounts         = [],
+                                                     custom_fields   = proofCfeArray,
+                                                     num_constraints = CERT_NUM_CONSTRAINTS,
+                                                     segment_size    = SEGMENT_SIZE)
                 assert_true(proof != None)
                 t1 = time.time()
                 print("...proof generated: {} secs".format(t1-t0))
@@ -132,16 +142,27 @@ class sc_big_block(BitcoinTestFramework):
         self.nodes[1].generate(2)
         self.sync_all()
 
-        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT), self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(MINIMAL_SC_HEIGHT)
+        mark_logs("Node 0 generates {} block".format(ForkHeights['MINIMAL_SC']), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(ForkHeights['MINIMAL_SC'])
         self.sync_all()
 
         #generate Vks and constant
         certMcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir, CERT_PROVING_SYSTEM)
         cswMcTest = CSWTestUtils(self.options.tmpdir, self.options.srcdir, CSW_PROVING_SYSTEM)
 
-        certVk = certMcTest.generate_params('scs', 'cert', CERT_NUM_CONSTRAINTS, SEGMENT_SIZE)
-        cswVk  = cswMcTest.generate_params('scs', 'csw', CSW_NUM_CONSTRAINTS, SEGMENT_SIZE)
+        certVk = certMcTest.generate_params('scs',
+                                            'cert',
+                                            constant = True,
+                                            keyrot = False,
+                                            num_constraints = CERT_NUM_CONSTRAINTS,
+                                            segment_size = SEGMENT_SIZE)
+
+        cswVk  = cswMcTest.generate_params('scs',
+                                           'csw',
+                                           constant = True,
+                                           keyrot = False,
+                                           num_constraints = CSW_NUM_CONSTRAINTS,
+                                           segment_size = SEGMENT_SIZE)
 
         constant = generate_random_field_element_hex()
 
@@ -224,9 +245,16 @@ class sc_big_block(BitcoinTestFramework):
  
             print("Generating csw proof...")
             t0 = time.time()
-            sc_proof = cswMcTest.create_test_proof(
-                "scs", sc_csw_amount, str(scid_swapped), nullifier, csw_mc_address, ceasingCumScTxCommTree,
-                actCertData, constant, CSW_NUM_CONSTRAINTS, SEGMENT_SIZE)
+            sc_proof = cswMcTest.create_test_proof("scs",
+                                                   sc_csw_amount,
+                                                   str(scid_swapped),
+                                                   nullifier,
+                                                   csw_mc_address,
+                                                   ceasingCumScTxCommTree,
+                                                   cert_data_hash  = actCertData,
+                                                   constant        = constant,
+                                                   num_constraints = CSW_NUM_CONSTRAINTS,
+                                                   segment_size    = SEGMENT_SIZE)
             assert_true(sc_proof != None)
             t1 = time.time()
             print("...proof generated: {} secs".format(t1-t0))

@@ -73,7 +73,18 @@ public:
     }
 };
 
-TEST(Mempool, PriorityStatsDoNotCrash) {
+class MempoolTest: public ::testing::Test {
+
+protected:
+
+    MempoolTest() : csMainLock(cs_main, "cs_main", __FILE__, __LINE__) {
+        SelectParams(CBaseChainParams::REGTEST);
+    }
+
+    CCriticalBlock csMainLock;
+};
+
+TEST_F(MempoolTest, PriorityStatsDoNotCrash) {
     // Test for security issue 2017-04-11.a
     // https://z.cash/blog/security-announcement-2017-04-12.html
 
@@ -103,10 +114,10 @@ TEST(Mempool, PriorityStatsDoNotCrash) {
     EXPECT_EQ(dPriority, MAXIMUM_PRIORITY);
 }
 
-TEST(Mempool, TxInputLimit) {
+TEST_F(MempoolTest, TxInputLimit) {
+
     CTxMemPool pool(::minRelayTxFee);
 
-    SelectParams(CBaseChainParams::REGTEST);
     boost::filesystem::path pathTemp(boost::filesystem::temp_directory_path() / boost::filesystem::unique_path());
     boost::filesystem::create_directories(pathTemp);
     mapArgs["-datadir"] = pathTemp.string();
@@ -189,8 +200,7 @@ TEST(Mempool, TxInputLimit) {
 //TO BE UPDATED WITH OUR TX VERSIONS
 // Valid overwinter v3 format tx gets rejected because overwinter hasn't activated yet.
 #if 0
-TEST(Mempool, OverwinterNotActiveYet) {
-    SelectParams(CBaseChainParams::REGTEST);
+TEST_F(MempoolTest, OverwinterNotActiveYet) {
     // UpdateNetworkUpgradeParameters(Consensus::UPGRADE_OVERWINTER, Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT);
 
     CTxMemPool pool(::minRelayTxFee);
@@ -216,8 +226,7 @@ TEST(Mempool, OverwinterNotActiveYet) {
 // 1. pass CheckTransaction (and CheckTransactionWithoutProofVerification)
 // 2. fail ContextualCheckTransaction
 // -----------------3. fail IsStandardTx
-TEST(Mempool, SproutV3TxFailsAsExpected) {
-    SelectParams(CBaseChainParams::REGTEST);
+TEST_F(MempoolTest, SproutV3TxFailsAsExpected) {
     boost::filesystem::path pathTemp(boost::filesystem::temp_directory_path() / boost::filesystem::unique_path());
     boost::filesystem::create_directories(pathTemp);
     mapArgs["-datadir"] = pathTemp.string();
@@ -252,8 +261,7 @@ TEST(Mempool, SproutV3TxFailsAsExpected) {
 
 // transaction version 1 with joinsplit is rejected
 // 1. fail CheckTransaction (and CheckTransactionWithoutProofVerification)
-TEST(Mempool, SproutV3TxWhenGrothNotActive) {
-    SelectParams(CBaseChainParams::REGTEST);
+TEST_F(MempoolTest, SproutV3TxWhenGrothNotActive) {
     boost::filesystem::path pathTemp(boost::filesystem::temp_directory_path() / boost::filesystem::unique_path());
     boost::filesystem::create_directories(pathTemp);
     mapArgs["-datadir"] = pathTemp.string();
@@ -289,8 +297,7 @@ TEST(Mempool, SproutV3TxWhenGrothNotActive) {
 // Sprout transaction with negative version, rejected by the mempool in CheckTransaction
 // under Sprout consensus rules, should still be rejected under Overwinter consensus rules.
 // 1. fails CheckTransaction (specifically CheckTransactionWithoutProofVerification)
-TEST(Mempool, SproutNegativeVersionTx) {
-    SelectParams(CBaseChainParams::REGTEST);
+TEST_F(MempoolTest, SproutNegativeVersionTx) {
     boost::filesystem::path pathTemp(boost::filesystem::temp_directory_path() / boost::filesystem::unique_path());
     boost::filesystem::create_directories(pathTemp);
     mapArgs["-datadir"] = pathTemp.string();
@@ -354,14 +361,12 @@ TEST(Mempool, SproutNegativeVersionTx) {
 /**
  * @brief Tests the mempool behavior in relation to the SidechainVersionFork.
  */
-TEST(Mempool, SidechainVersionTest)
-{
-    SelectParams(CBaseChainParams::REGTEST);
+TEST_F(MempoolTest, SidechainVersionTest) {
     int sidechainVersionForkHeight = 450;
     blockchain_test_utils::BlockchainTestManager& testManager = blockchain_test_utils::BlockchainTestManager::GetInstance();
 
     // Initialize the sidechain keys
-    testManager.GenerateSidechainTestParameters(ProvingSystem::CoboundaryMarlin, TestCircuitType::Certificate);
+    testManager.GenerateSidechainTestParameters(ProvingSystem::CoboundaryMarlin, TestCircuitType::Certificate, false);
 
     // Create a Sidechain Creation transaction with version 0
     blockchain_test_utils::CTransactionCreationArguments args;
@@ -468,3 +473,4 @@ TEST(ProcessMempoolMsgTest, TxesInMempoolAreRelayed)
     EXPECT_TRUE(theNode.pushedInvList.count(CInv{MSG_TX, scTx.GetHash()}));
     EXPECT_TRUE(theNode.pushedInvList.count(CInv{MSG_TX, cert.GetHash()}));
 }
+

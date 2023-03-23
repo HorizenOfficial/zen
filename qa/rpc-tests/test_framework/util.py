@@ -603,13 +603,32 @@ def get_end_epoch_height(scid, node, epochLen):
     end_epoch_height = sc_creating_height - 1 + ((epoch_number + 1) * epochLen)
     return end_epoch_height
 
-def get_epoch_data(scid, node, epochLen):
-    sc_creating_height = node.getscinfo(scid)['items'][0]['createdAtBlockHeight']
-    current_height = node.getblockcount()
-    epoch_number = (current_height - sc_creating_height + 1) // epochLen - 1
-    end_epoch_block_hash = node.getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * epochLen))
-    epoch_cum_tree_hash = node.getblock(end_epoch_block_hash)['scCumTreeHash']
-    return epoch_number, epoch_cum_tree_hash
+def get_epoch_data(scid, node, epochLen, is_non_ceasing = False, reference_height = None):
+    sc_info = node.getscinfo(scid)['items'][0]
+    last_cert_data_hash = 'PHANTOM_PREV_CERT_HASH'
+    if sc_info['state'] == 'UNCONFIRMED':
+        return None
+
+    if is_non_ceasing:
+        # For non-ceasing sidechains
+        epoch_number = sc_info['unconfTopQualityCertificateEpoch'] + 1 if 'unconfTopQualityCertificateEpoch' in sc_info else sc_info['epoch']
+        current_reference_height = node.getblockcount() if reference_height is None else reference_height
+        epoch_cum_tree_hash = node.getblock(str(current_reference_height))['scCumTreeHash']
+        if 'unconfTopQualityCertificateDataHash' in sc_info and sc_info['unconfTopQualityCertificateDataHash'] != '':
+            last_cert_data_hash = sc_info['unconfTopQualityCertificateDataHash']
+        elif 'lastCertificateDataHash' in sc_info and sc_info['lastCertificateDataHash'] != '':
+            last_cert_data_hash = sc_info['lastCertificateDataHash']
+    else:
+        # For ceasing sidechains
+        sc_creating_height = sc_info['createdAtBlockHeight']
+        current_height = node.getblockcount()
+        epoch_number = (current_height - sc_creating_height + 1) // epochLen - 1
+        end_epoch_block_hash = node.getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * epochLen))
+        epoch_cum_tree_hash = node.getblock(end_epoch_block_hash)['scCumTreeHash']
+        if 'lastCertificateDataHash' in sc_info and sc_info['lastCertificateDataHash'] != '':
+            last_cert_data_hash = sc_info['lastCertificateDataHash']
+
+    return epoch_number, epoch_cum_tree_hash, last_cert_data_hash
 
 def get_spendable(node, min_amount):
     # get a UTXO in node's wallet with minimal amount
@@ -640,12 +659,22 @@ def advance_epoch(mcTest, node, sync_call,
 
     sync_call()
 
-    epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, node, epoch_length)
+    epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, node, epoch_length)
 
     scid_swapped = str(swap_bytes(scid))
 
-    proof = mcTest.create_test_proof(
-        sc_tag, scid_swapped, epoch_number, cert_quality, mbtrScFee, ftScFee, epoch_cum_tree_hash, constant, [], [], proofCfeArray)
+    proof = mcTest.create_test_proof(sc_tag,
+                                     scid_swapped,
+                                     epoch_number,
+                                     cert_quality,
+                                     mbtrScFee,
+                                     ftScFee,
+                                     epoch_cum_tree_hash,
+                                     prev_cert_hash = None,
+                                     constant       = constant,
+                                     pks            = [],
+                                     amounts        = [],
+                                     custom_fields  = proofCfeArray)
 
     if proof == None:
         print("could not create proof")

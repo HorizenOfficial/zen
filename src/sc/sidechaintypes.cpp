@@ -2,6 +2,12 @@
 #include "util.h"
 #include <consensus/consensus.h>
 #include <limits>
+#include <cinttypes> // PRIu64
+
+namespace {
+    CFieldElement phantom_element;
+    CFieldElement zero_element(std::vector<unsigned char>(CFieldElement::ByteSize(), 0x00));
+}
 
 CZendooLowPrioThreadGuard::CZendooLowPrioThreadGuard(bool pauseThreads): _pause(pauseThreads)
 {
@@ -217,7 +223,10 @@ wrappedFieldPtr CFieldElement::GetFieldElement() const
 
 uint256 CFieldElement::GetLegacyHash() const
 {
-    std::vector<unsigned char> tmp(this->byteVector.begin(), this->byteVector.begin()+32);
+    if (this->byteVector.size() < Sidechain::SC_FE_SIZE_IN_BYTES)
+        return uint256(); // zero
+
+    std::vector<unsigned char> tmp(this->byteVector.begin(), this->byteVector.begin()+Sidechain::SC_FE_SIZE_IN_BYTES);
     return uint256(tmp);
 }
 
@@ -270,11 +279,25 @@ CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldE
 
 const CFieldElement& CFieldElement::GetPhantomHash()
 {
-    // TODO call an utility method to retrieve from zendoo_mc_cryptolib a constant phantom hash
-    // field element and use it everywhere it is needed a constant value whose preimage has to
-    // be unknown
-    static CFieldElement ret{std::vector<unsigned char>(CFieldElement::ByteSize(), 0x00)};
-    return ret;
+    // zendoo_mc_cryptolib allocates a new buffer with static lifetime on each call to zendoo_get_phantom_cert_data_hash().
+    if (phantom_element.IsValid()) return phantom_element;
+
+    std::vector<unsigned char> buf(CFieldElement::ByteSize());
+    CctpErrorCode err_code;
+    field_t* zendoo_field = zendoo_get_phantom_cert_data_hash();
+    zendoo_serialize_field(zendoo_field, buf.data(), &err_code);
+    if (err_code != CctpErrorCode::OK) {
+        LogPrintf("%s():%d - ERROR: could not create phantom hash, code[0x%x]\n", __func__, __LINE__, err_code);
+    }
+
+    phantom_element.SetByteArray(buf);
+    zendoo_field_free(zendoo_field);
+    return phantom_element;
+}
+
+const CFieldElement& CFieldElement::GetZeroHash()
+{
+    return zero_element;
 }
 #endif
 ///////////////////////////// End of CFieldElement /////////////////////////////
@@ -786,7 +809,7 @@ void dumpBuffer(BufferWithSize* buf, const std::string& name)
 
     printf("buffer address: %p\n", buf);
     printf("     data ptr : %p\n", ptr);
-    printf("          len : %lu\n", len);
+    printf("          len : %zu\n", len);
     printf("--------------------------------------------------------------------------------\n");
 
     if (ptr == nullptr)
@@ -825,7 +848,7 @@ void dumpBvCfg(BitVectorElementsConfig* buf, size_t len, const std::string& name
 
 
     printf("buffer arr address: %p\n", buf);
-    printf("              len : %lu\n", len);
+    printf("              len : %zu\n", len);
     printf("--------------------------------------------------------------------------------\n");
 
     BitVectorElementsConfig* ptr = buf;
@@ -893,14 +916,14 @@ void dumpFeArr(field_t** feArr, size_t len, const std::string& name)
     }
 
     printf("feArray address: %p\n", feArr);
-    printf("           len : %lu\n", len);
+    printf("           len : %zu\n", len);
     printf("--------------------------------------------------------------------------------\n");
 
     static const size_t BUF_SIZE = 32;
     for (size_t i = 0; i < len; i++)
     {
         char buf[BUF_SIZE] = {};
-        snprintf(buf, BUF_SIZE, "fe %2lu)", i);
+        snprintf(buf, BUF_SIZE, "fe %2zu)", i);
         field_t* fe = feArr[i];
         dumpFe(fe, std::string(buf));
     }
@@ -923,14 +946,14 @@ void dumpBtArr(backward_transfer_t* bt_list, size_t len, const std::string& name
     }
 
     printf("bt_list address: %p\n", bt_list);
-    printf("           len : %lu\n", len);
+    printf("           len : %zu\n", len);
     printf("--------------------------------------------------------------------------------\n");
 
     static const size_t BUF_SIZE = 32;
     for (size_t i = 0; i < len; i++)
     {
         char buf[BUF_SIZE] = {};
-        snprintf(buf, BUF_SIZE, "bt %2lu)", i);
+        snprintf(buf, BUF_SIZE, "bt %2zu)", i);
         const backward_transfer_t& bt = bt_list[i];
         dumpBt(bt, std::string(buf));
     }
@@ -950,5 +973,5 @@ void dumpBt(const backward_transfer_t& bt, const std::string& name)
         ptr++;
     }
     printf("] -- ");
-    printf("amount:  %llu\n", bt.amount);
+    printf("amount:  %" PRIu64 "\n", bt.amount);
 }

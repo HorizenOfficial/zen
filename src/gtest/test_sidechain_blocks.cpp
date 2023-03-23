@@ -12,58 +12,6 @@
 #include <miner.h>
 #include <gtest/libzendoo_test_files.h>
 
-class CInMemorySidechainDb final: public CCoinsView {
-public:
-    CInMemorySidechainDb()  = default;
-    virtual ~CInMemorySidechainDb() = default;
-
-    bool HaveSidechain(const uint256& scId) const override {
-        return sidechainsInMemoryMap.count(scId) && sidechainsInMemoryMap.at(scId).flag != CSidechainsCacheEntry::Flags::ERASED;
-    }
-    bool GetSidechain(const uint256& scId, CSidechain& info) const override {
-        if(!HaveSidechain(scId))
-            return false;
-        info = sidechainsInMemoryMap.at(scId).sidechain;
-        return true;
-    }
-
-    bool HaveSidechainEvents(int height)  const override {
-        return eventsInMemoryMap.count(height) && eventsInMemoryMap.at(height).flag != CSidechainEventsCacheEntry::Flags::ERASED;
-    }
-    bool GetSidechainEvents(int height, CSidechainEvents& scEvents) const override {
-        if(!HaveSidechainEvents(height))
-            return false;
-        scEvents = eventsInMemoryMap.at(height).scEvents;
-        return true;
-    }
-
-    virtual void GetScIds(std::set<uint256>& scIdsList) const override {
-        for (auto& entry : sidechainsInMemoryMap)
-            scIdsList.insert(entry.first);
-        return;
-    }
-
-    bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
-                    const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap,
-                    CSidechainEventsMap& mapSidechainEvents, CCswNullifiersMap& cswNullifiers) override
-    {
-        for (auto& entryToWrite : sidechainMap)
-            WriteMutableEntry(entryToWrite.first, entryToWrite.second, sidechainsInMemoryMap);
-
-        for (auto& entryToWrite : mapSidechainEvents)
-            WriteMutableEntry(entryToWrite.first, entryToWrite.second, eventsInMemoryMap);
-
-        sidechainMap.clear();
-        mapSidechainEvents.clear();
-        return true;
-    }
-
-private:
-    mutable boost::unordered_map<uint256, CSidechainsCacheEntry, CCoinsKeyHasher> sidechainsInMemoryMap;
-    mutable boost::unordered_map<int, CSidechainEventsCacheEntry> eventsInMemoryMap;
-};
-
 class SidechainsConnectCertsBlockTestSuite : public ::testing::Test {
 public:
     SidechainsConnectCertsBlockTestSuite():
@@ -84,7 +32,7 @@ public:
         UnloadBlockIndex();
         mGlobalForkTips.clear();
 
-        fakeChainStateDb   = new CInMemorySidechainDb();
+        fakeChainStateDb   = new blockchain_test_utils::CInMemorySidechainDb();
         sidechainsView     = new txCreationUtils::CNakedCCoinsViewCache(fakeChainStateDb);
 
         dummyHash = dummyBlock.GetHash();
@@ -105,7 +53,7 @@ public:
     };
 
 protected:
-    CInMemorySidechainDb  *fakeChainStateDb;
+    blockchain_test_utils::CInMemorySidechainDb  *fakeChainStateDb;
     txCreationUtils::CNakedCCoinsViewCache *sidechainsView;
 
     //helpers
@@ -143,6 +91,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_C
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 300;
     initialScState.fixedParams.withdrawalEpochLength = 20;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 7;
@@ -219,6 +168,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEp
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 300;
     initialScState.fixedParams.withdrawalEpochLength = 20;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 7;
@@ -295,6 +245,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoc
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 300;
     initialScState.fixedParams.withdrawalEpochLength = 20;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 7;
@@ -387,6 +338,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Differen
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 300;
     initialScState.fixedParams.withdrawalEpochLength = 20;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 7;
@@ -502,6 +454,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_ScCreation_then_Mbtr_I
     scCreation.vsc_ccout[0].mainchainBackwardTransferRequestScFee = CAmount(0);
     scCreation.vsc_ccout[0].mainchainBackwardTransferRequestDataLength = 1; // The size of mcBwtReq.vScRequestData
     scCreation.vsc_ccout[0].wCertVk = CScVKey{SAMPLE_CERT_DARLIN_VK};
+    scCreation.vsc_ccout[0].version = 0;
 
     CMutableTransaction mbtrTx;
     mbtrTx.vin.push_back(CTxIn(inputMbtrHash, 0, CScript(), 0));
@@ -563,6 +516,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_Mbtr_then_ScCreation_I
     scCreation.vsc_ccout[0].nValue = CAmount(1);
     scCreation.vsc_ccout[0].withdrawalEpochLength = 15;
     scCreation.vsc_ccout[0].wCertVk = CScVKey{SAMPLE_CERT_DARLIN_VK};
+    scCreation.vsc_ccout[0].version = 0;
 
     CMutableTransaction mbtrTx;
     mbtrTx.vin.push_back(CTxIn(inputMbtrHash, 0, CScript(), 0));
@@ -696,7 +650,7 @@ public:
 
         UnloadBlockIndex();
 
-        fakeChainStateDb   = new CInMemorySidechainDb();
+        fakeChainStateDb   = new blockchain_test_utils::CInMemorySidechainDb();
         blockchainView     = new CCoinsViewCache(fakeChainStateDb);
     };
 
@@ -711,7 +665,7 @@ public:
     };
 
 protected:
-    CInMemorySidechainDb *fakeChainStateDb;
+    blockchain_test_utils::CInMemorySidechainDb *fakeChainStateDb;
     CCoinsViewCache      *blockchainView;
 
     std::vector<TxPriority> vecPriority;

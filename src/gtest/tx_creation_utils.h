@@ -8,6 +8,7 @@
 #include "coins.h"
 #include "keystore.h"
 #include "sc/asyncproofverifier.h"
+#include "undo.h"
 
 class CTransaction;
 class CMutableTransaction;
@@ -38,14 +39,15 @@ public:
 CMutableTransaction populateTx(int txVersion,
                                const CAmount& creationTxAmount = CAmount(0),
                                int epochLength = 5,
+                               int sidechainVersion = 0,
                                const CAmount& ftScFee = CAmount(0),
                                const CAmount& mbtrScFee = CAmount(0),
                                int mbtrDataLength = 0);
 void signTx(CMutableTransaction& mtx);
 void signTx(CMutableScCertificate& mcert);
 
-CTransaction createNewSidechainTxWith(const CAmount & creationTxAmount, int epochLength = 15);
-CTransaction createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount);
+CTransaction createNewSidechainTxWith(const CAmount & creationTxAmount, int epochLength = 15, int sidechainVersion = 0);
+CTransaction createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount, int sidechainVersion = 0);
 CTxCeasedSidechainWithdrawalInput CreateCSWInput(
     const uint256& scId, const std::string& nullifierHex, const std::string& actCertDataHex,
     const std::string& ceasingCumScTxCommTreeHex, CAmount amount);
@@ -55,7 +57,7 @@ CTransaction createCoinBase(const CAmount& amount);
 CTransaction createTransparentTx(bool ccIsNull = true); //ccIsNull = false allows generation of faulty tx with non-empty cross chain output
 CTransaction createSproutTx(bool ccIsNull = true);      //ccIsNull = false allows generation of faulty tx with non-empty cross chain output
 
-void addNewScCreationToTx(CTransaction& tx, const CAmount& scAmount);
+void addNewScCreationToTx(CTransaction& tx, const CAmount& scAmount, int sidechainVersion = 0);
 
 CScCertificate createCertificate(const uint256 & scId, int epochNum,
                                  const CFieldElement& endEpochCumScTxCommTreeRoot, CAmount changeTotalAmount/* = 0*/, unsigned int numChangeOut/* = 0*/,
@@ -90,6 +92,21 @@ struct CTransactionCreationArguments
     std::vector<CTxScCreationOut>                  vsc_ccout;     /**< The list of sidechain creation outputs */
     std::vector<CTxForwardTransferOut>             vft_ccout;     /**< The list of sidechain forward transfer outputs */
     std::vector<CBwtRequestOut>                    vmbtr_out;     /**< The list of sidechain backward transfer request outputs */
+};
+
+class CBlockUndo_OldVersion
+{
+    public:
+        std::vector<CTxUndo> vtxundo;
+        uint256 old_tree_root;
+
+        ADD_SERIALIZE_METHODS;
+
+        template <typename Stream, typename Operation>
+        inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+            READWRITE(vtxundo);
+            READWRITE(old_tree_root);
+        }   
 };
 
 class CInMemorySidechainDb final: public CCoinsView {
@@ -188,7 +205,7 @@ public:
 
     // SIDECHAIN HELPERS
     CScCertificate GenerateCertificate(uint256 scId, int epochNumber, int64_t quality, ProvingSystem provingSystem, CTransactionBase* inputTxBase = nullptr) const;
-    void GenerateSidechainTestParameters(ProvingSystem provingSystem, TestCircuitType circuitType) const;
+    void GenerateSidechainTestParameters(ProvingSystem provingSystem, TestCircuitType circuitType, bool key_rotation) const;
     CScProof GenerateTestCertificateProof(CCertProofVerifierInput certificate, ProvingSystem provingSystem, TestCircuitType circuitType = TestCircuitType::Certificate) const;
     CScProof GenerateTestCswProof(CCswProofVerifierInput csw, ProvingSystem provingSystem, TestCircuitType circuitType = TestCircuitType::CSW) const;
     CScVKey GetTestVerificationKey(ProvingSystem provingSystem, TestCircuitType circuitType) const;
