@@ -205,7 +205,7 @@ fi
 if [ ! -z "$EXCLUDE" ]; then
   for target in ${EXCLUDE//,/ }; do
     for i in "${!testScripts[@]}"; do
-      if [ "${testScripts[i]}" = "$target" ] || [ "${testScripts[i]}" = "$target.py" ]; then
+      if [[ "${testScripts[i]}" == *"$target"* ]] || [[ "${testScripts[i]}" == *"$target.py"* ]]; then
         unset "testScripts[i]"
       fi
     done
@@ -226,7 +226,7 @@ testList=$(${BUILDDIR}/qa/pull-tester/loadbalancer.py "${chunks}" "${chunk}" "${
 
 # convert back the load balancer output into an array. Spaces in filename are preserved
 originalIFS="$IFS"; IFS='|'
-read -a testScripts <<< ${testList}
+testScripts=( ${testList} )
 IFS="$originalIFS"
 
 successCount=0
