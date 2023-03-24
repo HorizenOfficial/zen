@@ -35,9 +35,6 @@ class TxnMallTest(BitcoinTestFramework):
             self.join_network()
         else:
             self.split_network()
-
-        sync_blocks(self.nodes[1 : NUMB_OF_NODES])
-        sync_mempools(self.nodes[1 : NUMB_OF_NODES])
         
         self.sync_all()
 
@@ -134,7 +131,7 @@ class TxnMallTest(BitcoinTestFramework):
 
         # Sync mempools except for the last (disconnected) node
         mark_logs("Waiting for honest nodes to sync mempool", self.nodes, DEBUG_MODE)
-        sync_mempools(self.nodes[1 : NUMB_OF_NODES - 1])
+        sync_mempools(self.nodes[0 : NUMB_OF_NODES - 1])
 
         mark_logs("Check that all the nodes have {} transactions in the mempool except the last one".format(iterations), self.nodes, DEBUG_MODE)
         for i in range(NUMB_OF_NODES):
