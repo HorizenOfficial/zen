@@ -205,7 +205,7 @@ fi
 if [ ! -z "$EXCLUDE" ]; then
   for target in ${EXCLUDE//,/ }; do
     for i in "${!testScripts[@]}"; do
-      if [[ "${testScripts[i]}" == *"$target"* ]] || [[ "${testScripts[i]}" == *"$target.py"* ]]; then
+      if [[ "${testScripts[i]}" == *"$target"* ]]; then
         unset "testScripts[i]"
       fi
     done
