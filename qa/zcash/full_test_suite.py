@@ -192,6 +192,8 @@ def main():
                         action='store', help='comma separated string of rpc tests to exclude, see qa/rpc-tests/README.md for more')
     parser.add_argument('--rpc-split', dest='split',
                         action='store', help='string in format m:n, see qa/rpc-tests/README.md for more')
+    parser.add_argument('--rpc-macrebalance', dest='macrebalance',
+                        action='store_true', help='finetune the workload rebalancer for MacOS builds')
     parser.add_argument('--rpc-runonly', dest='runonly',
                         action='store', help='execute only a specific python test, see qa/rpc-tests/README.md for more')                        
     args = parser.parse_args()
@@ -220,6 +222,8 @@ def main():
                 options.append('-exclude=' + args.exclude)
             if args.split:
                 options.append('-split=' + args.split)
+            if args.macrebalance:
+                options.append('-macrebalance')
             if args.runonly:
                 options.append(args.runonly)
             passed &= run_stage(s, options)

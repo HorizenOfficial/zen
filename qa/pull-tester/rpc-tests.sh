@@ -9,6 +9,8 @@ export BITCOINCLI="${BUILDDIR}/qa/pull-tester/run-bitcoin-cli"
 export BITCOIND="${REAL_BITCOIND}"
 export ZENDOOMC="${REAL_ZENDOO_MC_TEST}"
 
+MACREBALANCE="false"
+
 # parse args
 for i in "$@"; do
   case "${i}" in
@@ -24,6 +26,10 @@ for i in "$@"; do
       SPLIT="${i#*=}"
       shift
       ;;
+    -macrebalance)
+      MACREBALANCE="true"
+      shift
+      ;;
     *)
       # unknown option/passOn
       passOn+="${i} "
@@ -37,163 +43,163 @@ done
 # Also, note that comma ',' is used as delimiter. Please modify loadbalancer.py if in the future we
 # need to use this character in the filename field.
 testScripts=(
-  'paymentdisclosure.py',99
-  'prioritisetransaction.py',47
-  'wallet_treestate.py',136
-  'wallet_protectcoinbase.py',294
-  'wallet_shieldcoinbase.py',214
-  'wallet_mergetoaddress.py',491
-  'wallet_mergetoaddress_2.py',975
-  'wallet.py',131
-  'wallet_nullifiers.py',109
-  'wallet_1941.py',53
-  'wallet_grothtx.py',91
-  'listtransactions.py',129
-  'mempool_resurrect_test.py',6
-  'txn_doublespend.py',22
-  'txn_doublespend.py --mineblock',23
-  'getchaintips.py',66
-  'rawtransactions.py',141
-  'rest.py',26
-  'mempool_spendcoinbase.py',6
-  'mempool_coinbase_spends.py',14
-  'mempool_tx_input_limit.py',91
-  'httpbasics.py',21
-  'zapwallettxes.py',35
-  'proxy_test.py',22
-  'merkle_blocks.py',69
-  'fundrawtransaction.py',60
-  'signrawtransactions.py',6
-  'walletbackup.py',432
-  'key_import_export.py',41
-  'nodehandling.py',428
-  'reindex.py',13
-  'decodescript.py',6
-  'disablewallet.py',6
-  'zcjoinsplit.py',45
-  'zcjoinsplitdoublespend.py',199
-  'zkey_import_export.py',381
-  'getblocktemplate.py',12
-  'bip65-cltv-p2p.py',6
-  'bipdersig-p2p.py',7
-  'nulldata.py',38
-  'blockdelay.py',46
-  'blockdelay_2.py',51
-  'z_sendmany.py',71
-  'sc_create.py',185
-  'sc_split.py',38
-  'sc_invalidate.py',41
-  'sc_cert_base.py',104
-  'sc_cert_nonceasing.py',97
-  'sc_cert_fee.py',53
-  'sc_cert_epoch.py',87
-  'sc_cert_invalidate.py',58
-  'sc_fwd_maturity.py',54
-  'sc_rawcertificate.py',74
-  'getunconfirmedtxdata.py',46
-  'sc_cr_and_fw_in_mempool.py',57
-  'sc_cert_change.py',55
-  'sc_cert_orphans.py',59
-  'sc_cert_maturity.py',56
-  'sbh_rpc_cmds.py',41
-  'sc_cert_ceasing.py',67
-  'sc_cert_customfields.py',106
-  'sc_cert_getraw.py',48
-  'sc_quality_mempool.py',109
-  'sc_ft_and_mbtr_fees.py',47
-  'sc_ft_and_mbtr_fees_update.py',305
-  'sc_bwt_request.py',70
-  'sc_cert_quality_wallet.py',101
-  'ws_messages.py',71
-  'ws_getsidechainversions.py',47
-  'sc_cert_ceasing_split.py',66
-  'sc_async_proof_verifier.py',97
-  'sc_quality_blockchain.py',86
-  'sc_quality_voiding.py',57
-  'sc_csw_actcertdata.py',104
-  'sc_csw_actcertdata_null.py',54
-  'sc_cert_ceasing_sg.py',54
-  'sc_csw_nullifier.py',120
-  'sc_getscinfo.py',121
-  'sc_quality_nodes.py',51
-  'sc_cert_memcleanup_split.py',69
-  'sc_csw_fundrawtransaction.py',93
-  'sc_proof_verifier_low_priority_threads.py',49
-  'subsidyhalving.py',195
-  'cbh_rpfix.py',45
-  'cbh_rpcheck.py',26
-  'tlsprotocols.py',12
-  'mempool_double_spend.py',21
-  'getblockmerkleroots.py',67
-  'sc_block_partitions.py',60
-  'sc_cert_bwt_amount_rounding.py',30
-  'sc_csw_eviction_from_mempool.py',124
-  'sc_csw_memcleanup_split.py',70
-  'sc_csw_balance_exceeding.py',57
-  'sc_stale_ft_and_mbtr.py',121
-  'sc_cert_getblocktemplate.py',253
-  'sc_cert_bt_immature_balances.py',40
-  'sc_rpc_cmds_fee_handling.py',137
-  'sc_cert_listsinceblock.py',70
-  'sc_cert_dust.py',98
-  'sc_keyrot.py',47
-  'txindex.py',28
-  'getblockexpanded.py',191
-  'sc_rpc_cmds_json_output.py',68
-  'sc_version.py',104
-  'sc_getscgenesisinfo.py',86
-  'fundaddresses.py',12
-  'sc_getcertmaturityinfo.py',68
-  'sc_big_commitment_tree.py',63
-  'sc_big_commitment_tree_getblockmerkleroot.py',11
+  'paymentdisclosure.py',99,318
+  'prioritisetransaction.py',47,134
+  'wallet_treestate.py',136,331
+  'wallet_protectcoinbase.py',294,1045
+  'wallet_shieldcoinbase.py',214,581
+  'wallet_mergetoaddress.py',491,1402
+  'wallet_mergetoaddress_2.py',975,2539
+  'wallet.py',131,559
+  'wallet_nullifiers.py',109,352
+  'wallet_1941.py',53,170
+  'wallet_grothtx.py',91,239
+  'listtransactions.py',129,232
+  'mempool_resurrect_test.py',6,16
+  'txn_doublespend.py',22,64
+  'txn_doublespend.py --mineblock',23,62
+  'getchaintips.py',66,269
+  'rawtransactions.py',141,343
+  'rest.py',26,59
+  'mempool_spendcoinbase.py',6,16
+  'mempool_coinbase_spends.py',14,34
+  'mempool_tx_input_limit.py',91,282
+  'httpbasics.py',21,63
+  'zapwallettxes.py',35,86
+  'proxy_test.py',22,142
+  'merkle_blocks.py',69,150
+  'fundrawtransaction.py',60,128
+  'signrawtransactions.py',6,15
+  'walletbackup.py',432,1045
+  'key_import_export.py',41,86
+  'nodehandling.py',428,618
+  'reindex.py',13,33
+  'decodescript.py',6,16
+  'disablewallet.py',6,16
+  'zcjoinsplit.py',45,134
+  'zcjoinsplitdoublespend.py',199,506
+  'zkey_import_export.py',381,1248
+  'getblocktemplate.py',12,35
+  'bip65-cltv-p2p.py',6,18
+  'bipdersig-p2p.py',7,17
+  'nulldata.py',38,69
+  'blockdelay.py',46,101
+  'blockdelay_2.py',51,84
+  'z_sendmany.py',71,196
+  'sc_create.py',185,435
+  'sc_split.py',38,84
+  'sc_invalidate.py',41,99
+  'sc_cert_base.py',104,289
+  'sc_cert_nonceasing.py',97,290
+  'sc_cert_fee.py',53,133
+  'sc_cert_epoch.py',87,224
+  'sc_cert_invalidate.py',58,131
+  'sc_fwd_maturity.py',54,129
+  'sc_rawcertificate.py',74,186
+  'getunconfirmedtxdata.py',46,108
+  'sc_cr_and_fw_in_mempool.py',57,137
+  'sc_cert_change.py',55,145
+  'sc_cert_orphans.py',59,145
+  'sc_cert_maturity.py',56,144
+  'sbh_rpc_cmds.py',41,101
+  'sc_cert_ceasing.py',67,179
+  'sc_cert_customfields.py',106,303
+  'sc_cert_getraw.py',48,114
+  'sc_quality_mempool.py',109,311
+  'sc_ft_and_mbtr_fees.py',47,91
+  'sc_ft_and_mbtr_fees_update.py',305,736
+  'sc_bwt_request.py',70,165
+  'sc_cert_quality_wallet.py',101,250
+  'ws_messages.py',71,173
+  'ws_getsidechainversions.py',47,138
+  'sc_cert_ceasing_split.py',66,161
+  'sc_async_proof_verifier.py',97,217
+  'sc_quality_blockchain.py',86,244
+  'sc_quality_voiding.py',57,144
+  'sc_csw_actcertdata.py',104,294
+  'sc_csw_actcertdata_null.py',54,136
+  'sc_cert_ceasing_sg.py',54,138
+  'sc_csw_nullifier.py',120,319
+  'sc_getscinfo.py',121,397
+  'sc_quality_nodes.py',51,126
+  'sc_cert_memcleanup_split.py',69,173
+  'sc_csw_fundrawtransaction.py',93,260
+  'sc_proof_verifier_low_priority_threads.py',49,82
+  'subsidyhalving.py',195,343
+  'cbh_rpfix.py',45,113
+  'cbh_rpcheck.py',26,61
+  'tlsprotocols.py',12,34
+  'mempool_double_spend.py',21,60
+  'getblockmerkleroots.py',67,156
+  'sc_block_partitions.py',60,153
+  'sc_cert_bwt_amount_rounding.py',30,73
+  'sc_csw_eviction_from_mempool.py',124,349
+  'sc_csw_memcleanup_split.py',70,177
+  'sc_csw_balance_exceeding.py',57,151
+  'sc_stale_ft_and_mbtr.py',121,293
+  'sc_cert_getblocktemplate.py',253,507
+  'sc_cert_bt_immature_balances.py',40,94
+  'sc_rpc_cmds_fee_handling.py',137,254
+  'sc_cert_listsinceblock.py',70,158
+  'sc_cert_dust.py',98,236
+  'sc_keyrot.py',47,149
+  'txindex.py',28,72
+  'getblockexpanded.py',191,395
+  'sc_rpc_cmds_json_output.py',68,187
+  'sc_version.py',104,347
+  'sc_getscgenesisinfo.py',86,269
+  'fundaddresses.py',12,25
+  'sc_getcertmaturityinfo.py',68,219
+  'sc_big_commitment_tree.py',63,110
+  'sc_big_commitment_tree_getblockmerkleroot.py',11,25
 );
 testScriptsExt=(
-  'getblocktemplate_longpoll.py',120
-  'getblocktemplate_proposals.py',57
-  'getblocktemplate_blockmaxcomplexity.py',55
-  'getblocktemplate_priority.py',39
+  'getblocktemplate_longpoll.py',120,207
+  'getblocktemplate_proposals.py',57,129
+  'getblocktemplate_blockmaxcomplexity.py',55,136
+  'getblocktemplate_priority.py',39,84
   # 'pruning.py'                # disabled for Zen. Failed because of the issue #1302 in zcash
-  'forknotify.py',27
+  'forknotify.py',27,60
   # 'hardforkdetection.py'      # disabled for Zen. Failed because of the issue #1302 in zcash
   # 'invalidateblock.py'        # disabled for Zen. Failed because of the issue #1302 in zcash
-  'keypool.py',12
-  'receivedby.py',30
-  'rpcbind_test.py',60
+  'keypool.py',12,111
+  'receivedby.py',30,68
+  'rpcbind_test.py',60,140
   #  'script_test.py'
-  'smartfees.py',158
-  'maxblocksinflight.py',14
-  'invalidblockrequest.py',40
-  'invalidblockposthalving.py',113
-  'p2p-acceptblock.py',202
-  'replay_protection.py',22
-  'headers_01.py',14
-  'headers_02.py',22
-  'headers_03.py',22
-  'headers_04.py',26
-  'headers_05.py',48
-  'headers_06.py',44
-  'headers_07.py',107
-  'headers_08.py',25
-  'headers_09.py',44
-  'headers_10.py',36
-  'checkblockatheight.py',103
-  'sc_big_block.py',92
+  'smartfees.py',158,480
+  'maxblocksinflight.py',14,25
+  'invalidblockrequest.py',40,100
+  'invalidblockposthalving.py',113,250
+  'p2p-acceptblock.py',202,450
+  'replay_protection.py',22,56
+  'headers_01.py',14,34
+  'headers_02.py',22,52
+  'headers_03.py',22,54
+  'headers_04.py',26,57
+  'headers_05.py',48,82
+  'headers_06.py',44,87
+  'headers_07.py',107,228
+  'headers_08.py',25,59
+  'headers_09.py',44,81
+  'headers_10.py',36,72
+  'checkblockatheight.py',103,236
+  'sc_big_block.py',92,247
 );
 
 if [ "x$ENABLE_ZMQ" = "x1" ]; then
-  testScripts+=('zmq_test.py',25)
+  testScripts+=('zmq_test.py',25,146)
 fi
 
 if [ "x$ENABLE_PROTON" = "x1" ]; then
-  testScripts+=('proton_test.py',100)
+  testScripts+=('proton_test.py',100,200)
 fi
 
 if [ "x$ENABLE_ADDRESS_INDEX" = "x1" ]; then
-  testScripts+=('addressindex.py',34
-                'spentindex.py',18
-                'timestampindex.py',21
-                'sc_cert_addressindex.py',128
-                'sc_cert_addrmempool.py',46)
+  testScripts+=('addressindex.py',34,80
+                'spentindex.py',18,40
+                'timestampindex.py',21,50
+                'sc_cert_addressindex.py',128,275
+                'sc_cert_addrmempool.py',46,110)
 fi
 
 # include extended tests
@@ -222,7 +228,7 @@ else
 fi
 
 # call the load balancer script and save the result into a '|'-delimited string
-testList=$(${BUILDDIR}/qa/pull-tester/loadbalancer.py "${chunks}" "${chunk}" "${testScripts[@]}")
+testList=$(${BUILDDIR}/qa/pull-tester/loadbalancer.py "${chunks}" "${chunk}" "${MACREBALANCE}" "${testScripts[@]}")
 
 # convert back the load balancer output into an array. Spaces in filename are preserved
 originalIFS="$IFS"; IFS='|'

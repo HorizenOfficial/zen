@@ -193,52 +193,52 @@ os: linux
   - &amd64_osx_xcode9_4_rpc-tests_1
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:1"
+      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:1 --rpc-macrebalance"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
   - &amd64_osx_xcode9_4_rpc-tests_2
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:2"
+      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:2 --rpc-macrebalance"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
   - &amd64_osx_xcode9_4_rpc-tests_3
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:3"
+      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:3 --rpc-macrebalance"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
   - &amd64_osx_xcode9_4_rpc-tests_4
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:4"
+      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:4 --rpc-macrebalance"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
   - &amd64_osx_xcode9_4_rpc-tests_5
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:5"
+      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:5 --rpc-macrebalance"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
   - &amd64_osx_xcode9_4_rpc-tests_6
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:6"
+      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:6 --rpc-macrebalance"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
   - &amd64_osx_xcode9_4_rpc-tests_7
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:7"
+      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:7 --rpc-macrebalance"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
   - &amd64_osx_xcode9_4_rpc-tests_8
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:8"
+      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:8 --rpc-macrebalance"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
   - &amd64_osx_xcode9_4_rpc-tests_9
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:9"
+      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:9 --rpc-macrebalance"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
   - &amd64_osx_xcode9_4_rpc-tests_10
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:10"
+      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:10 --rpc-macrebalance"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
   - &amd64_osx_xcode9_4_rpc-tests_11
     env:

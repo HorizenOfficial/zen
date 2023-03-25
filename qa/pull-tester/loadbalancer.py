@@ -3,6 +3,7 @@ import sys
 
 workers = int(sys.argv[1])
 selectedChunk = int(sys.argv[2])        # bash style, they go from 1 to workers
+usemacsplit = sys.argv[3]
 
 # Restrict selectedChunk value in [1,workers] (no silent fail)
 selectedChunk = min(selectedChunk, workers)
@@ -10,9 +11,9 @@ selectedChunk = max(selectedChunk, 1)
 
 # Parse the list of tests from argv and arrange them in a list of (filename, weight) tuples
 tuplelist = []
-for i in range(3, len(sys.argv)):
+for i in range(4, len(sys.argv)):
     tuple = sys.argv[i].split(',')
-    tuplelist.append((tuple[0], int(tuple[1])))
+    tuplelist.append((tuple[0], int(tuple[1 if usemacsplit == "false" else 2])))
 
 ## Longest-processing-time-first (LPT) algorithm
 work = [[] for _ in range(workers)]
