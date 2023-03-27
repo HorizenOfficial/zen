@@ -26,9 +26,12 @@ if not path.isfile(test_file):
 
 error_occurred = False
 
+counter = 0
+
 while not error_occurred:
-    print(f"Running test: {test_file} - {datetime.now().strftime('%H:%M:%S')}")
-    command_call = subprocess.Popen(["python", test_file], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    counter = counter + 1
+    print(f"[{counter}] Running test: {test_file} - {datetime.now().strftime('%H:%M:%S')}")
+    command_call = subprocess.Popen(["python", test_file], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
     output, errors = command_call.communicate()
     error_occurred = command_call.returncode != 0
 
