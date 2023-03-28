@@ -122,7 +122,7 @@ os: linux
       - DOCKER_IS_DEB=true
       - MAKEFLAGS="--enable-lcov"
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:1 --coverage"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:1 --coverage"
   - &docker_amd64_linux_ubuntu_jammy_rpc-tests_2
     env:
       - DOCKER_ARCH=amd64
@@ -131,7 +131,7 @@ os: linux
       - DOCKER_IS_DEB=true
       - MAKEFLAGS="--enable-lcov"
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:2 --coverage"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:2 --coverage"
   - &docker_amd64_linux_ubuntu_jammy_rpc-tests_3
     env:
       - DOCKER_ARCH=amd64
@@ -140,7 +140,7 @@ os: linux
       - DOCKER_IS_DEB=true
       - MAKEFLAGS="--enable-lcov"
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:3 --coverage"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:3 --coverage"
   - &docker_amd64_linux_ubuntu_jammy_rpc-tests_4
     env:
       - DOCKER_ARCH=amd64
@@ -149,7 +149,25 @@ os: linux
       - DOCKER_IS_DEB=true
       - MAKEFLAGS="--enable-lcov"
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:4 --coverage"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:4 --coverage"
+  - &docker_amd64_linux_ubuntu_jammy_rpc-tests_5
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_jammy
+      - DOCKER_IS_DEB=true
+      - MAKEFLAGS="--enable-lcov"
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:5 --coverage"
+  - &docker_amd64_linux_ubuntu_jammy_rpc-tests_6
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_jammy
+      - DOCKER_IS_DEB=true
+      - MAKEFLAGS="--enable-lcov"
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:6 --coverage"
   - &docker_amd64_linux_ubuntu_jammy_test-fetch-params
     env:
       - DOCKER_ARCH=amd64
@@ -433,6 +451,12 @@ jobs:
     - stage: Test
       <<: *test_docker_amd64_x-large
       <<: *docker_amd64_linux_ubuntu_jammy_rpc-tests_4
+    - stage: Test
+      <<: *test_docker_amd64_x-large
+      <<: *docker_amd64_linux_ubuntu_jammy_rpc-tests_5
+    - stage: Test
+      <<: *test_docker_amd64_x-large
+      <<: *docker_amd64_linux_ubuntu_jammy_rpc-tests_6
     - stage: Test
       <<: *test_docker_amd64_x-large
       <<: *docker_amd64_linux_ubuntu_jammy_clang-tidy
