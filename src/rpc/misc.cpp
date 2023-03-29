@@ -3,6 +3,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include "addressindex.h"
 #include "base58.h"
 #include "clientversion.h"
 #include "init.h"
@@ -532,12 +533,13 @@ bool getAddressesFromParams(const UniValue& params, std::vector<std::pair<uint16
     return true;
 }
 
-#ifdef ENABLE_ADDRESS_INDEXING
+// TODO @ptagl This function is not a sort : is a comparer
 bool heightSort(std::pair<CAddressUnspentKey, CAddressUnspentValue> a,
                 std::pair<CAddressUnspentKey, CAddressUnspentValue> b) {
     return a.second.blockHeight < b.second.blockHeight;
 }
 
+// TODO @ptagl This function is not a sort : is a comparer
 bool timestampSort(std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> a,
                    std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> b) {
     return a.second.time < b.second.time;
@@ -1127,4 +1129,3 @@ UniValue getspentinfo(const UniValue& params, bool fHelp)
 
     return obj;
 }
-#endif // ENABLE_ADDRESS_INDEXING
