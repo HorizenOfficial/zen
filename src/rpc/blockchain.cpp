@@ -501,7 +501,24 @@ UniValue getrawmempool(const UniValue& params, bool fHelp)
 UniValue getblockdeltas(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() != 1)
-        throw runtime_error("");
+        throw runtime_error(
+            "getblockdeltas\n"
+            "\nReturns ...  (require spentindex is enabled).\n"
+
+            "\nArguments:\n"
+            "1. \"hash\"                          (string, required) the block hash\n"
+
+            "\nResult:\n"
+            "{\n"
+            "}\n"
+
+            "\nExamples:\n" +
+            HelpExampleCli("getblockdeltas", "\"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\"") +
+            HelpExampleRpc("getblockdeltas", "\"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\""));
+
+    if(!fSpentIndex) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "spentindex not enabled");
+    }
 
     std::string strHash = params[0].get_str();
     uint256 hash(uint256S(strHash));
@@ -526,14 +543,14 @@ UniValue getblockhashes(const UniValue& params, bool fHelp)
     if (fHelp || params.size() < 2)
         throw runtime_error(
             "getblockhashes timestamp\n"
-            "\nReturns array of hashes of blocks within the timestamp range provided.\n"
+            "\nReturns array of hashes of blocks within the timestamp range provided (requires timestampindex to be enabled).\n"
             "\nArguments:\n"
             "1. high         (numeric, required) The newer block timestamp\n"
             "2. low          (numeric, required) The older block timestamp\n"
-            "3. options      (string, required) A json object\n"
+            "3. options      (string, optional) A json object\n"
             "    {\n"
-            "      \"noOrphans\":true   (boolean) will only include blocks on the main chain\n"
-            "      \"logicalTimes\":true   (boolean) will include logical timestamps with hashes\n"
+            "      \"noOrphans\":true   (boolean, required) will only include blocks on the main chain\n"
+            "      \"logicalTimes\":true   (boolean, required) will include logical timestamps with hashes\n"
             "    }\n"
             "\nResult:\n"
             "[\n"
@@ -545,11 +562,15 @@ UniValue getblockhashes(const UniValue& params, bool fHelp)
             "    \"logicalts\": (numeric) The logical timestamp\n"
             "  }\n"
             "]\n"
-            "\nExamples:\n"
-            + HelpExampleCli("getblockhashes", "1231614698 1231024505")
-            + HelpExampleRpc("getblockhashes", "1231614698, 1231024505")
-            + HelpExampleCli("getblockhashes", "1231614698 1231024505 '{\"noOrphans\":false, \"logicalTimes\":true}'")
-            );
+            "\nExamples:\n" +
+            HelpExampleCli("getblockhashes", "1231614698 1231024505") + 
+            HelpExampleRpc("getblockhashes", "1231614698, 1231024505") + 
+            HelpExampleCli("getblockhashes", "1231614698 1231024505 '{\"noOrphans\":false, \"logicalTimes\":true}'") + 
+            HelpExampleRpc("getblockhashes", "1231614698, 1231024505, {\"noOrphans\":false, \"logicalTimes\":true}"));
+
+    if (!fTimestampIndex) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "timestampindex not enabled");
+    }
 
     unsigned int high = params[0].get_int();
     unsigned int low = params[1].get_int();
