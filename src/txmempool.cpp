@@ -363,6 +363,9 @@ void CTxMemPool::updateTopQualCertAddressIndex(const uint256& scid)
 bool CTxMemPool::getAddressIndex(std::vector<std::pair<uint160, int> > &addresses,
                                  std::vector<std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> > &results)
 {
+    if (!fAddressIndex)
+        return false;
+        
     LOCK(cs);
     for (std::vector<std::pair<uint160, int> >::iterator it = addresses.begin(); it != addresses.end(); it++) {
         addressDeltaMap::iterator ait = mapAddress.lower_bound(CMempoolAddressDeltaKey((*it).second, (*it).first));

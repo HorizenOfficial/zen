@@ -678,8 +678,17 @@ UniValue getaddressutxos(const UniValue& params, bool fHelp)
     if (params.size() > 1)
         includeImmatureBTs = params[1].get_bool();
 
-    std::vector<std::pair<uint160, int> > addresses;
+    // This is needed cause GetAddressUnspent returns false in two cases
+    // Either the address indexing is not enabled or an exception occurred
+    // during the processing of pblocktree->ReadAddressUnspentIndex
+    // this is unfortunate as we cannot distinguish amongst the two conditions
+    // TODO Let the exception flow up to here (if possible) and don't trap
+    // as higher level code of the RPC server already handles it
+    if(!fAddressIndex) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Address indexing not enabled");
+    }
 
+    std::vector<std::pair<uint160, int>> addresses;
     if (!getAddressesFromParams(params, addresses)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
@@ -814,6 +823,17 @@ UniValue getaddressdeltas(const UniValue& params, bool fHelp)
         );
 
 
+    // This is needed cause GetAddressUnspent returns false in two cases
+    // Either the address indexing is not enabled or an exception occurred
+    // during the processing of pblocktree->ReadAddressUnspentIndex
+    // this is unfortunate as we cannot distinguish amongst the two conditions
+    // TODO Let the exception flow up to here (if possible) and don't trap
+    // as higher level code of the RPC server already handles it
+    if (!fAddressIndex) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Address indexing not enabled");
+    }
+
+
     UniValue startValue = find_value(params[0].get_obj(), "start");
     UniValue endValue = find_value(params[0].get_obj(), "end");
 
@@ -837,8 +857,7 @@ UniValue getaddressdeltas(const UniValue& params, bool fHelp)
         }
     }
 
-    std::vector<std::pair<uint160, int> > addresses;
-
+    std::vector<std::pair<uint160, int>> addresses;
     if (!getAddressesFromParams(params, addresses)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
@@ -937,8 +956,17 @@ UniValue getaddressbalance(const UniValue& params, bool fHelp)
             + HelpExampleRpc("getaddressbalance", "'{\"addresses\": [\"znXWB3XGptd5T3jA9VuoGEEnVTAVHejj5bB\"]}'")
         );
 
-    std::vector<std::pair<uint160, int> > addresses;
+    // This is needed cause GetAddressUnspent returns false in two cases
+    // Either the address indexing is not enabled or an exception occurred
+    // during the processing of pblocktree->ReadAddressUnspentIndex
+    // this is unfortunate as we cannot distinguish amongst the two conditions
+    // TODO Let the exception flow up to here (if possible) and don't trap
+    // as higher level code of the RPC server already handles it
+    if (!fAddressIndex) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Address indexing not enabled");
+    }
 
+    std::vector<std::pair<uint160, int>> addresses;
     if (!getAddressesFromParams(params, addresses)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
@@ -1025,8 +1053,17 @@ UniValue getaddresstxids(const UniValue& params, bool fHelp)
             + HelpExampleRpc("getaddresstxids", "{\"addresses\": [\"12c6DSiU4Rq3P4ZxziKxzrL5LmMBrzjrJX\"]}")
         );
 
-    std::vector<std::pair<uint160, int> > addresses;
+    // This is needed cause GetAddressUnspent returns false in two cases
+    // Either the address indexing is not enabled or an exception occurred
+    // during the processing of pblocktree->ReadAddressUnspentIndex
+    // this is unfortunate as we cannot distinguish amongst the two conditions
+    // TODO Let the exception flow up to here (if possible) and don't trap
+    // as higher level code of the RPC server already handles it
+    if (!fAddressIndex) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Address indexing not enabled");
+    }
 
+    std::vector<std::pair<uint160, int>> addresses;
     if (!getAddressesFromParams(params, addresses)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
