@@ -47,6 +47,28 @@ class CTxUndo;
 struct CNodeStateStats;
 class CTxInUndo;
 
+// Enforce 64-bit architecture requirement
+#if defined(_MSC_VER) || (defined(__INTEL_COMPILER) && defined(_WIN32))
+    #if defined(_M_X64)
+        #define BITNESS_64
+    #else 
+        #define BITNESS_32
+    #endif
+#elif defined(__clang__) || defined(__INTEL_COMPILER) || defined(__GNUC__)
+    #if defined(__x86_64)
+        #define BITNESS_64
+    #else
+        #define BITNESS_32
+    #endif
+#else
+    #error Cannot detect compiler or compiler is not supported
+#endif
+#if defined(BITNESS_32)
+#error "Zend is not supported on 32 bit architecture"
+#endif
+#undef BITNESS_32
+#undef BITNESS_64
+
 /** Default for -blockmaxsize and -blockminsize, which control the range of sizes the mining code will create **/
 static const unsigned int DEFAULT_BLOCK_MAX_SIZE = MAX_BLOCK_SIZE;
 static const unsigned int DEFAULT_BLOCK_MAX_SIZE_BEFORE_SC = MAX_BLOCK_SIZE_BEFORE_SC;
@@ -109,45 +131,6 @@ static const bool DEFAULT_MATURITYHEIGHTINDEX = false;
 static const bool DEFAULT_ADDRESSINDEX = false;
 static const bool DEFAULT_TIMESTAMPINDEX = false;
 static const bool DEFAULT_SPENTINDEX = false;
-
-// https://github.com/bitcoin/bitcoin/pull/12495
-// On most platforms the default setting of max_open_files (which is 1000)
-// is optimal. On Windows using a large file count is OK because the handles
-// do not interfere with select() loops. On 64-bit Unix hosts this value is
-// also OK, because up to that amount LevelDB will use an mmap
-// implementation that does not use extra file descriptors (the fds are
-// closed after being mmaped).
-//
-// Increasing the value beyond the default is dangerous because LevelDB will
-// fall back to a non-mmap implementation when the file count is too large.
-// On 32-bit Unix host we should decrease the value because the handles use
-// up real fds, and we want to avoid fd exhaustion issues.
-
-#if defined(_MSC_VER) || (defined(__INTEL_COMPILER) && defined(_WIN32))
-    #if defined(_M_X64)
-        #define BITNESS_64
-    #else 
-        #define BITNESS_32
-    #endif
-#elif defined(__clang__) || defined(__INTEL_COMPILER) || defined(__GNUC__)
-    #if defined(__x86_64)
-        #define BITNESS_64
-    #else
-        #define BITNESS_32
-    #endif
-#else
-    #error Cannot detect compiler or compiler is not supported
-#endif
-
-#if defined(BITNESS_32)
-#error "Zend does is not supported on 32 bit architecture"
-#endif
-
-#undef BITNESS_32
-#undef BITNESS_64
-
-constexpr unsigned int DEFAULT_DB_MAX_OPEN_FILES = 1000;
-static const bool DEFAULT_DB_COMPRESSION = false;
 
 // Sanity check the magic numbers when we change them
 BOOST_STATIC_ASSERT(DEFAULT_BLOCK_MAX_SIZE <= MAX_BLOCK_SIZE);

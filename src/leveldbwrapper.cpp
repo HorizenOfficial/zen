@@ -27,14 +27,14 @@ void HandleError(const leveldb::Status& status)
     throw leveldb_error("Unknown database error");
 }
 
-static leveldb::Options GetOptions(size_t nCacheSize, bool compression, int maxOpenFiles)
+static leveldb::Options GetOptions(size_t nCacheSize)
 {
     leveldb::Options options;
     options.block_cache = leveldb::NewLRUCache(nCacheSize / 2);
     options.write_buffer_size = nCacheSize / 4; // up to two write buffers may be held in memory simultaneously
     options.filter_policy = leveldb::NewBloomFilterPolicy(10);
-    options.compression = compression ? leveldb::kSnappyCompression : leveldb::kNoCompression;
-    options.max_open_files = maxOpenFiles;
+    options.compression = DB_COMPRESSION;
+    options.max_open_files = DB_MAX_OPEN_FILES;
     if (leveldb::kMajorVersion > 1 || (leveldb::kMajorVersion == 1 && leveldb::kMinorVersion >= 16)) {
         // LevelDB versions before 1.16 consider short writes to be corruption. Only trigger error
         // on corruption in later versions.
@@ -43,14 +43,14 @@ static leveldb::Options GetOptions(size_t nCacheSize, bool compression, int maxO
     return options;
 }
 
-CLevelDBWrapper::CLevelDBWrapper(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe, bool compression, int maxOpenFiles)
+CLevelDBWrapper::CLevelDBWrapper(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe)
 {
     penv = NULL;
     readoptions.verify_checksums = true;
     iteroptions.verify_checksums = true;
     iteroptions.fill_cache = false;
     syncoptions.sync = true;
-    options = GetOptions(nCacheSize, compression, maxOpenFiles);
+    options = GetOptions(nCacheSize);
     options.create_if_missing = true;
     if (fMemory) {
         penv = leveldb::NewMemEnv(leveldb::Env::Default());

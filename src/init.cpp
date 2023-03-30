@@ -382,9 +382,6 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-timestampindex", strprintf(_("Maintain a timestamp index for block hashes, used to query blocks hashes by a range of timestamps (default: %u)"), DEFAULT_TIMESTAMPINDEX));
     strUsage += HelpMessageOpt("-spentindex", strprintf(_("Maintain a full spent index, used to query the spending txid and input index for an outpoint (default: %u)"), DEFAULT_SPENTINDEX));
 
-    strUsage += HelpMessageOpt("-blocktreedbmaxopenfiles", strprintf(_("Maximum number of open files for the Block Tree LevelDB (default: %u)"), DEFAULT_DB_MAX_OPEN_FILES));
-    strUsage += HelpMessageOpt("-blocktreedbcompression", strprintf(_("Enable compression for the Block Tree LevelDB (default: %u)"), DEFAULT_DB_COMPRESSION));
-
     strUsage += HelpMessageGroup(_("Connection options:"));
     strUsage += HelpMessageOpt("-addnode=<ip>", _("Add a node to connect to and attempt to keep the connection open"));
     strUsage += HelpMessageOpt("-banscore=<n>", strprintf(_("Threshold for disconnecting misbehaving peers (default: %u)"), 100));
@@ -1026,7 +1023,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // if using block pruning, then disable txindex
     // also disable the wallet (for now, until SPV support is implemented in wallet)
     if (GetArg("-prune", 0)) {
-        if (GetBoolArg("-txindex", false))
+        if (GetBoolArg("-txindex", DEFAULT_TXINDEX))
             return InitError(_("Prune mode is incompatible with -txindex."));
 #ifdef ENABLE_WALLET
         if (!GetBoolArg("-disablewallet", false)) {
@@ -1533,18 +1530,11 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         }
     }
 
-    // block tree db settings
-    int dbMaxOpenFiles = GetArg("-blocktreedbmaxopenfiles", DEFAULT_DB_MAX_OPEN_FILES);
-    bool dbCompression = GetBoolArg("-blocktreedbcompression", DEFAULT_DB_COMPRESSION);
-
-    LogPrintf("Block index database configuration:\n");
-    LogPrintf("* Using %d max open files\n", dbMaxOpenFiles);
-    LogPrintf("* Compression is %s\n", dbCompression ? "enabled" : "disabled");
 
     // cache size calculations
     int64_t nTotalCache = (GetArg("-dbcache", nDefaultDbCache) << 20);
     nTotalCache = std::max(nTotalCache, nMinDbCache << 20); // total cache cannot be less than nMinDbCache
-    nTotalCache = std::min(nTotalCache, nMaxDbCache << 20); // total cache cannot be greated than nMaxDbcache
+    nTotalCache = std::min(nTotalCache, nMaxDbCache << 20); // total cache cannot be greater than nMaxDbcache
     int64_t nBlockTreeDBCache = nTotalCache / 8;
 
 
@@ -1584,7 +1574,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 delete pcoinscatcher;
                 delete pblocktree;
 
-                pblocktree = new CBlockTreeDB(nBlockTreeDBCache, false, fReindex || fReindexFast, dbCompression, dbMaxOpenFiles);
+                pblocktree = new CBlockTreeDB(nBlockTreeDBCache, false, fReindex || fReindexFast);
                 pcoinsdbview = new CCoinsViewDB(nCoinDBCache, false, fReindex || fReindexFast);
                 pcoinscatcher = new CCoinsViewErrorCatcher(pcoinsdbview);
                 pcoinsTip = new CCoinsViewCache(pcoinscatcher);
