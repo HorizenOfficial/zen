@@ -11,10 +11,6 @@ NEED_PGP_SIGN_CREDS="false"
 
 export B2_DOWNLOAD_URL="https://f001.backblazeb2.com/file/${B2_BUCKET_NAME}/"
 
-if [[ $TRAVIS_TAG =~ ^.*-bitcore$ ]] || [[ $TRAVIS_BRANCH =~ ^AddressIndexing.*$ ]]; then
-  export ENABLE_ADDRESS_INDEX=1 # This is kept only as trigger for RPC tests (see rpc-tests.sh)
-fi
-
 if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
   export DOCKER_UPDATE_PACKAGES="binfmt-support containerd.io docker-ce docker-ce-cli qemu-user-static"
   export UPDATE_PACKAGES="ca-certificates curl jq openssl"

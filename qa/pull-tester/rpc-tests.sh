@@ -144,6 +144,11 @@ testScripts=(
   'sc_cert_dust.py',98,236
   'sc_keyrot.py',47,149
   'txindex.py',28,72
+  'addressindex.py',34,80
+  'spentindex.py',18,40
+  'timestampindex.py',21,50
+  'sc_cert_addressindex.py',128,275
+  'sc_cert_addrmempool.py',46,110
   'getblockexpanded.py',191,395
   'sc_rpc_cmds_json_output.py',68,187
   'sc_version.py',104,347
@@ -153,6 +158,7 @@ testScripts=(
   'sc_big_commitment_tree.py',63,110
   'sc_big_commitment_tree_getblockmerkleroot.py',11,25
 );
+
 testScriptsExt=(
   'getblocktemplate_longpoll.py',120,207
   'getblocktemplate_proposals.py',57,129
@@ -192,14 +198,6 @@ fi
 
 if [ "x$ENABLE_PROTON" = "x1" ]; then
   testScripts+=('proton_test.py',100,200)
-fi
-
-if [ "x$ENABLE_ADDRESS_INDEX" = "x1" ]; then
-  testScripts+=('addressindex.py',34,80
-                'spentindex.py',18,40
-                'timestampindex.py',21,50
-                'sc_cert_addressindex.py',128,275
-                'sc_cert_addrmempool.py',46,110)
 fi
 
 # include extended tests
