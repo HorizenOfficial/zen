@@ -533,15 +533,13 @@ bool getAddressesFromParams(const UniValue& params, std::vector<std::pair<uint16
     return true;
 }
 
-// TODO @ptagl This function is not a sort : is a comparer
-bool heightSort(std::pair<CAddressUnspentKey, CAddressUnspentValue> a,
-                std::pair<CAddressUnspentKey, CAddressUnspentValue> b) {
+bool heightComparer(std::pair<CAddressUnspentKey, CAddressUnspentValue> a,
+                    std::pair<CAddressUnspentKey, CAddressUnspentValue> b) {
     return a.second.blockHeight < b.second.blockHeight;
 }
 
-// TODO @ptagl This function is not a sort : is a comparer
-bool timestampSort(std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> a,
-                   std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> b) {
+bool timestampComparer(std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> a,
+                       std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> b) {
     return a.second.time < b.second.time;
 }
 
@@ -595,7 +593,7 @@ UniValue getaddressmempool(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for address");
     }
 
-    std::sort(indexes.begin(), indexes.end(), timestampSort);
+    std::sort(indexes.begin(), indexes.end(), timestampComparer);
 
     UniValue result(UniValue::VARR);
 
@@ -704,7 +702,7 @@ UniValue getaddressutxos(const UniValue& params, bool fHelp)
         }
     }
 
-    std::sort(unspentOutputs.begin(), unspentOutputs.end(), heightSort);
+    std::sort(unspentOutputs.begin(), unspentOutputs.end(), heightComparer);
 
     UniValue utxos(UniValue::VARR);
     int currentTipHeight = -1;
