@@ -1157,6 +1157,12 @@ UniValue getspentinfo(const UniValue& params, bool fHelp)
     uint256 txid = ParseHashV(txidValue, "txid");
     int outputIndex = indexValue.get_int();
 
+    // Output index cannot be negative otherwise implicit conversion
+    // in CSpentIndexKey causes absurdly high values
+    if (outputIndex < 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "index cannot be negative");
+    }
+    
     CSpentIndexKey key(txid, outputIndex);
     CSpentIndexValue value;
 
