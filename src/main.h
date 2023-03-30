@@ -139,12 +139,14 @@ static const bool DEFAULT_SPENTINDEX = false;
     #error Cannot detect compiler or compiler is not supported
 #endif
 
-#if !defined(_WIN32) && defined(BITNESS_32)
-constexpr unsigned int DEFAULT_DB_MAX_OPEN_FILES = 64;
-#else
-constexpr unsigned int DEFAULT_DB_MAX_OPEN_FILES = 1000;
+#if defined(BITNESS_32)
+#error "Zend does is not supported on 32 bit architecture"
 #endif
 
+#undef BITNESS_32
+#undef BITNESS_64
+
+constexpr unsigned int DEFAULT_DB_MAX_OPEN_FILES = 1000;
 static const bool DEFAULT_DB_COMPRESSION = false;
 
 // Sanity check the magic numbers when we change them
