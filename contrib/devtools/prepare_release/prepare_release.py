@@ -53,6 +53,10 @@ def git_commit(commit_title: str):
         sys.exit()
 
 def git_create_branch(branch_name: str):
+   result = subprocess.run(["git", "rev-parse", "--verify", branch_name], capture_output=True, text=True, cwd=config[k_repository_root])  # Commit changes with the given message
+   if (result.returncode == 0):
+        print("Branch already exist; check if script has been already launched or if provided new version is wrong")
+        sys.exit()
    result = subprocess.run(["git", "checkout", "-b", branch_name], capture_output=True, text=True, cwd=config[k_repository_root])  # Commit changes with the given message
    if (result.returncode != 0):
         print("Branch creation failed")
@@ -209,9 +213,9 @@ def initialize():
     if (interactive):
         config[k_repository_root] = input("Enter the repository root path: ")
     
-    # if (not git_check_currently_on_main()):
-    #     print("Currently selected branch is not \"main\"; checkout \"main\" branch and retry.")
-    #     sys.exit()
+    if (not git_check_currently_on_main()):
+        print("Currently selected branch is not \"main\"; checkout \"main\" branch and retry.")
+        sys.exit()
 
     if (git_check_pending_changes()):
         print("There are pending changes in selected repository; commit or stash them and retry.")

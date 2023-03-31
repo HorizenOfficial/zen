@@ -1,31 +1,32 @@
+# THIS IS A TEMPLATE FILE, FOR EXAMPLES ON ACTUAL RELEASES CHECK CONTENT OF prepare_release-X.Y.Z.yaml FILES
 # path to zend project root
 repository_root: "./"
-# new release version
-version: "4.9.9"
+# new release version (format "major.minor.patch")
+version: ""
 # build number
-build: "50"
+build: ""
 # mainnet config
 mainnet:
   # height for checkpoint (if empty, current last block is used)
-  checkpoint_height: "1322661"
+  checkpoint_height: ""
   # total transaction from genesis block up to checkpoint (can be found in "debug.log" file)
-  total_transactions: "34395284"
+  total_transactions: ""
 # testnet config
 testnet:
   # height for checkpoint (if empty, current last block is used)
-  checkpoint_height: "1237253"
+  checkpoint_height: ""
   # total transaction from genesis block up to checkpoint (can be found in "debug.log" file)
-  total_transactions: "2102054"
-# release date (example "Mon, 02 Jan 2023")
-release_date: "Tue, 28 Mar 2023"
+  total_transactions: ""
+# release date (format "%a, %d %b %Y")
+release_date: ""
 # approximated release height (mainnet)
-approx_release_height: "1323661"
+approx_release_height: ""
 # weeks until deprecation
-weeks_until_deprecation: "10"
-# previous version
-previous_version: "3.3.1"
+weeks_until_deprecation: ""
+# previous version (format "major.minor.patch")
+previous_version: ""
 # path to release notes file
-release_notes_file: "../release-notes.md"
+release_notes_file: "./release-notes.md"
 # script steps flow
 script_steps:
   # set_client_version step
