@@ -1,7 +1,5 @@
 # the path to zend project root
 repository_root: "./"
-# last commit title check (last commit title must be different to proceed)
-last_commit_title_check: "Update README"
 # new release version
 version: "4.9.9"
 # build number

@@ -26,20 +26,28 @@ k_previous_version = "previous_version"
 k_release_notes_file = "release_notes_file"
 
 
-def check_last_commit(last_commit_check: str):
-    result = subprocess.run(["git", "log", "-1", "--oneline"], capture_output=True, text=True, cwd=config[k_repository_root])
-    return result.stderr == "" and last_commit_check not in result.stdout
+# git functions
+def git_check_currently_on_main():
+    result = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, cwd=config[k_repository_root])
+    return result.returncode == 0 and result.stdout.rstrip() == "main"
 
-def check_no_pending_changes():
+def git_check_pending_changes():
     result = subprocess.run(["git", "diff"], capture_output=True, text=True, cwd=config[k_repository_root])
-    return result.stderr == "" and result.stdout == ""
+    return result.returncode == 0 and result.stdout != ""
 
-def commit(commit_title: str):
+def git_commit(commit_title: str):
    subprocess.run(["git", "add", "."], cwd=config[k_repository_root])  # Add all changes to the index
-   subprocess.run(["git", "commit", "-S", "-m", commit_title], cwd=config[k_repository_root])  # Commit changes with the given message
-   if (check_no_pending_changes() == False):
+   result = subprocess.run(["git", "commit", "-S", "-m", commit_title], capture_output=True, text=True, cwd=config[k_repository_root])  # Commit changes with the given message
+   if (result.returncode != 0 or git_check_pending_changes()):
         print("Commit failed")
         sys.exit()
+
+def git_create_branch(branch_name: str):
+   result = subprocess.run(["git", "checkout", "-b", branch_name], capture_output=True, text=True, cwd=config[k_repository_root])  # Commit changes with the given message
+   if (result.returncode != 0):
+        print("Branch creation failed")
+        sys.exit()
+
 
 def get_version_string_details(version_string: str):
     assert(version_string.count(".") == 2)
@@ -77,22 +85,16 @@ def initialize():
         print("Config file not available, proceeding with interactive session...")
 
     if (interactive):
-        config[k_last_commit_title_check] = input("Enter the title of last commit check (last commit title must be different to proceed): ")
-
-    if (check_last_commit(config[k_last_commit_title_check]) == False):
-        print(f"Seems like the script has already run. The last commit title contains text \"{config[k_last_commit_title_check]}\"")
-        sys.exit()
-
-    if (interactive):
         config[k_repository_root] = input("Enter the repository root path: ")
     
-    if (check_no_pending_changes() == False):
-        print("There are pending changes in selected repository; please, commit them and retry.")
+    if (not git_check_currently_on_main()):
+        print("Currently selected branch is not \"main\"; checkout \"main\" and retry.")
         sys.exit()
-    
-    return config
 
-def set_client_version():
+    if (git_check_pending_changes()):
+        print("There are pending changes in selected repository; commit or stash them and retry.")
+        sys.exit()
+
     if (interactive):
         config[k_version] = input("Enter the new version string (e.g. 3.3.1): ")
         print("Enter the build number:")
@@ -102,6 +104,23 @@ def set_client_version():
         print("    [50] when making a standard release (e.g. 3.3.1)")
         config[k_build] = input("")
 
+    branch_name = config[k_version]
+    build_number = int(config[k_build])
+    if (1 <= build_number and build_number <= 24):
+        branch_name += f"-beta{config[k_build]}"
+    elif (25 <= build_number and build_number <= 49):
+        branch_name += f"-rc{config[k_build]}"
+    elif (50 == build_number):
+        branch_name += ""
+    else:
+        print("Wrong build number; modify and retry.")
+        sys.exit()
+    
+    git_create_branch(branch_name)
+
+    return config
+
+def set_client_version():
     version_digits = get_version_string_details(config[k_version])
 
     replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_MAJOR, (\d+)\)",    f"define(_CLIENT_VERSION_MAJOR, {version_digits[0]})")
@@ -115,9 +134,7 @@ def set_client_version():
     replace_string_in_file(os.path.join(config[k_repository_root], "src/clientversion.h"), r"(#define\s+CLIENT_VERSION_REVISION\s+)(\d+)", f"\\g<1>{version_digits[2]}")
     replace_string_in_file(os.path.join(config[k_repository_root], "src/clientversion.h"), r"(#define\s+COPYRIGHT_YEAR\s+)(\d+)",          f"\\g<1>{datetime.date.today().year}")
 
-    commit(f"Set clientversion {config[k_version]} (build {config[k_build]})")
-
-    return config[k_version]
+    git_commit(f"Set clientversion {config[k_version]} (build {config[k_build]})")
 
 def get_last_blocks(explorer_url: str):
     # Retrieve the JSON data from the "blocks" endpoint
@@ -280,15 +297,15 @@ def update_checkpoints():
     line = re.sub(r"(\d+)", str(average_testnet_transactions), line).rstrip()
     replace_file_line(os.path.join(config[k_repository_root], "src/chainparams.cpp"), line_numbers[1] + 3, line)
 
-    commit("Update checkpoint blocks")
+    git_commit("Update checkpoint blocks")
 
-def update_changelog(version_string: str):
+def update_changelog():
     if (interactive):
         config[k_release_date] = input("Please, enter the new release date (e.g. Mon, 02 Jan 2023): ")
     
     line = read_file_line(os.path.join(config[k_repository_root], "contrib/debian/changelog"), 0)
     current_version = line[line.find("(")+1:line.find(")")]
-    line = line.replace(current_version, version_string).rstrip()
+    line = line.replace(current_version, config[k_version]).rstrip()
     replace_file_line(os.path.join(config[k_repository_root], "contrib/debian/changelog"), 0, line)
 
     line = read_file_line(os.path.join(config[k_repository_root], "contrib/debian/changelog"), 4)
@@ -297,7 +314,7 @@ def update_changelog(version_string: str):
     print(line)
     replace_file_line(os.path.join(config[k_repository_root], "contrib/debian/changelog"), 4, line)
 
-    commit("Update Debian package info")
+    git_commit("Update Debian package info")
 
 def update_deprecation_height():
     if (interactive):
@@ -335,7 +352,7 @@ def update_deprecation_height():
     # Estimate the next deprecation date
     date_string = future_deprecation_date.strftime('%Y-%m-%d')
 
-    commit(f"Set deprecation height {future_deprecation_height}/{date_string}")
+    git_commit(f"Set deprecation height {future_deprecation_height}/{date_string}")
 
 def build_zend():
     result_clean = subprocess.run(["make", "distclean"], cwd=config[k_repository_root])
@@ -346,19 +363,19 @@ def build_zend():
 
 def update_man_pages():
     subprocess.run(["./contrib/devtools/gen-manpages.sh"], cwd=config[k_repository_root])
-    commit("Update man pages")
+    git_commit("Update man pages")
 
-def update_release_notes(version_string: str):
-    release_notes_file_path = f"./doc/release-notes/release-notes-{version_string}.md"
+def update_release_notes():
+    release_notes_file_path = f"./doc/release-notes/release-notes-{config[k_version]}.md"
 
     if (interactive):
-        config[k_previous_version] = input(f"Please, enter the last published version (before {version_string}): ")
+        config[k_previous_version] = input(f"Please, enter the last published version (before {config[k_version]}): ")
 
     if not config[k_previous_version].startswith("v"):
         config[k_previous_version] = "v" + config[k_previous_version]
 
     # Automatically update AUTHORS.md and release notes
-    subprocess.run(["python3", "./zcutil/release-notes.py", "--version", version_string, "--prev", config[k_previous_version]], cwd=config[k_repository_root])
+    subprocess.run(["python3", "./zcutil/release-notes.py", "--version", config[k_version], "--prev", config[k_previous_version]], cwd=config[k_repository_root])
 
     # Remove automatically generated release notes
     subprocess.run(["rm", release_notes_file_path], cwd=config[k_repository_root])
@@ -376,12 +393,12 @@ def update_release_notes(version_string: str):
             print(f"Release notes file {source_path} does not exist; please, check and retry.")
             sys.exit()
 
-    commit("Add release notes")
+    git_commit("Add release notes")
 
-def update_readme(version_string: str):
-    replace_file_line(os.path.join(config[k_repository_root], "README.md"), 0, f"Zend {version_string}".rstrip())
+def update_readme():
+    replace_file_line(os.path.join(config[k_repository_root], "README.md"), 0, f"Zend {config[k_version]}".rstrip())
 
-    commit("Update README")
+    git_commit("Update README")
 
 config = {}
 interactive = True
@@ -390,13 +407,13 @@ print("\n********** Step 0: setup config **********\n")
 initialize()
 
 print("\n********** Step 1: set the new client version **********\n")
-new_version_string = set_client_version()
+set_client_version()
 
 print("\n********** Step 2: update the mainnet and testnet checkpoints **********\n")
 update_checkpoints()
 
 print("\n********** Step 3: update changelog **********\n")
-update_changelog(new_version_string)
+update_changelog()
 
 print("\n********** Step 4: update deprecation height **********\n")
 update_deprecation_height()
@@ -408,10 +425,10 @@ print("\n********** Step 6: update man pages **********\n")
 update_man_pages()
 
 print("\n********** Step 7: update release_notes **********\n")
-update_release_notes(new_version_string)
+update_release_notes()
 
 print("\n********** Step 8: update readme **********\n")
-update_readme(new_version_string)
+update_readme()
 
 # TODO:
 # - Remove code duplication (in particular of string variables) [PARTIALLY DONE]
