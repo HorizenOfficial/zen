@@ -1,0 +1,78 @@
+# path to zend project root
+repository_root: "./"
+# new release version
+version: "4.9.9"
+# build number
+build: "50"
+# mainnet config
+mainnet:
+  # height for checkpoint (if empty, current last block is used)
+  checkpoint_height: "1322661"
+  # total transaction from genesis block up to checkpoint (can be found in "debug.log" file)
+  total_transactions: "34395284"
+# testnet config
+testnet:
+  # height for checkpoint (if empty, current last block is used)
+  checkpoint_height: "1237253"
+  # total transaction from genesis block up to checkpoint (can be found in "debug.log" file)
+  total_transactions: "2102054"
+# release date (example "Mon, 02 Jan 2023")
+release_date: "Tue, 28 Mar 2023"
+# approximated release height (mainnet)
+approx_release_height: "1323661"
+# weeks until deprecation
+weeks_until_deprecation: "10"
+# previous version
+previous_version: "3.3.1"
+# path to release notes file
+release_notes_file: "../release-notes.md"
+# script steps flow
+script_steps:
+  # set_client_version step
+  set_client_version:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # update_checkpoints step
+  update_checkpoints:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # update_changelog step
+  update_changelog:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # update_deprecation_height step
+  update_deprecation_height:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # build_zend step
+  build_zend:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # update_man_pages step
+  update_man_pages:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # update_release_notes step
+  update_release_notes:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # update_readme step
+  update_readme:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False

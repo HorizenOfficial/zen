@@ -12,7 +12,6 @@ import shutil
 
 # dictionary keys
 k_repository_root = "repository_root"
-k_last_commit_title_check = "last_commit_title_check"
 k_version = "version"
 k_build = "build"
 k_mainnet = "mainnet"
@@ -24,6 +23,17 @@ k_approx_release_height = "approx_release_height"
 k_weeks_until_deprecation = "weeks_until_deprecation"
 k_previous_version = "previous_version"
 k_release_notes_file = "release_notes_file"
+k_script_steps = "script_steps"
+k_set_client_version = "set_client_version"
+k_update_checkpoints = "update_checkpoints"
+k_update_changelog = "update_changelog"
+k_update_deprecation_height = "update_deprecation_height"
+k_build_zend = "build_zend"
+k_update_man_pages = "update_man_pages"
+k_update_release_notes = "update_release_notes"
+k_update_readme = "update_readme"
+k_skip = "skip"
+k_stop = "stop"
 
 
 # git functions
@@ -48,7 +58,7 @@ def git_create_branch(branch_name: str):
         print("Branch creation failed")
         sys.exit()
 
-
+# utility function
 def get_version_string_details(version_string: str):
     assert(version_string.count(".") == 2)
     digits = [int(digit) for digit in version_string if digit.isdigit()]
@@ -63,78 +73,6 @@ def replace_string_in_file(filepath: str, old_string_regex: str, new_string: str
 
     with open(filepath, "w") as file:
         file.write(new_data)
-
-def initialize():
-    global config
-    global interactive
-    
-    config_file = ""
-    if (len(sys.argv) > 1):
-        config_file = sys.argv[1]
-    else:
-        # config_file = "config.yaml"
-        config_file = input("Enter config file path (no input for interactive session): ")
-    if (os.path.exists(config_file)):
-        with open(config_file, "r") as stream:
-            try:
-                config = yaml.safe_load(stream)
-                interactive = False
-            except yaml.YAMLError as exc:
-                print(exc)
-    else:
-        print("Config file not available, proceeding with interactive session...")
-
-    if (interactive):
-        config[k_repository_root] = input("Enter the repository root path: ")
-    
-    if (not git_check_currently_on_main()):
-        print("Currently selected branch is not \"main\"; checkout \"main\" and retry.")
-        sys.exit()
-
-    if (git_check_pending_changes()):
-        print("There are pending changes in selected repository; commit or stash them and retry.")
-        sys.exit()
-
-    if (interactive):
-        config[k_version] = input("Enter the new version string (e.g. 3.3.1): ")
-        print("Enter the build number:")
-        print("Please, use the following values:")
-        print("[ 1, 24] when releasing a beta version (e.g. 3.3.1-beta1, 3.3.1-beta2, etc.)")
-        print("[25, 49] when releasing a release candidate (e.g. 3.3.1-rc1, 3.3.1-rc2, etc.)")
-        print("    [50] when making a standard release (e.g. 3.3.1)")
-        config[k_build] = input("")
-
-    branch_name = config[k_version]
-    build_number = int(config[k_build])
-    if (1 <= build_number and build_number <= 24):
-        branch_name += f"-beta{config[k_build]}"
-    elif (25 <= build_number and build_number <= 49):
-        branch_name += f"-rc{config[k_build]}"
-    elif (50 == build_number):
-        branch_name += ""
-    else:
-        print("Wrong build number; modify and retry.")
-        sys.exit()
-    
-    git_create_branch(branch_name)
-
-    return config
-
-def set_client_version():
-    version_digits = get_version_string_details(config[k_version])
-
-    replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_MAJOR, (\d+)\)",    f"define(_CLIENT_VERSION_MAJOR, {version_digits[0]})")
-    replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_MINOR, (\d+)\)",    f"define(_CLIENT_VERSION_MINOR, {version_digits[1]})")
-    replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_REVISION, (\d+)\)", f"define(_CLIENT_VERSION_REVISION, {version_digits[2]})")
-    replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_BUILD, (\d+)\)",    f"define(_CLIENT_VERSION_BUILD, {config[k_build]})")
-    replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_COPYRIGHT_YEAR, (\d+)\)",          f"define(_COPYRIGHT_YEAR, {datetime.date.today().year})")
-
-    replace_string_in_file(os.path.join(config[k_repository_root], "src/clientversion.h"), r"(#define\s+CLIENT_VERSION_MAJOR\s+)(\d+)",    f"\\g<1>{version_digits[0]}")
-    replace_string_in_file(os.path.join(config[k_repository_root], "src/clientversion.h"), r"(#define\s+CLIENT_VERSION_MINOR\s+)(\d+)",    f"\\g<1>{version_digits[1]}")
-    replace_string_in_file(os.path.join(config[k_repository_root], "src/clientversion.h"), r"(#define\s+CLIENT_VERSION_REVISION\s+)(\d+)", f"\\g<1>{version_digits[2]}")
-    replace_string_in_file(os.path.join(config[k_repository_root], "src/clientversion.h"), r"(#define\s+COPYRIGHT_YEAR\s+)(\d+)",          f"\\g<1>{datetime.date.today().year}")
-
-    git_commit(f"Set clientversion {config[k_version]} (build {config[k_build]})")
 
 def get_last_blocks(explorer_url: str):
     # Retrieve the JSON data from the "blocks" endpoint
@@ -237,6 +175,88 @@ def insert_line_into_file(file_path: str, line_number: int, line_content: str):
     # write the updated lines back to the file
     with open(file_path, "w") as file:
         file.writelines(lines)
+
+def ask_for_step_skip(script_step: str):
+    config[k_script_steps][script_step] = {}
+    config[k_script_steps][script_step][k_stop] = False
+    if (input("Do you want to skip this step? (Y/N)").upper() == "Y"):
+        config[k_script_steps][script_step][k_skip] = True
+    else:
+        config[k_script_steps][script_step][k_skip] = False
+
+
+# script steps functions
+def initialize():
+    global config
+    global interactive
+    
+    config_file = ""
+    if (len(sys.argv) > 1):
+        config_file = sys.argv[1]
+    else:
+        # config_file = "config.yaml"
+        config_file = input("Enter config file path (no input for interactive session): ")
+    if (os.path.exists(config_file)):
+        with open(config_file, "r") as stream:
+            try:
+                config = yaml.safe_load(stream)
+                interactive = False
+            except yaml.YAMLError as exc:
+                print(exc)
+    else:
+        print("Config file not available, proceeding with interactive session...")
+
+    if (interactive):
+        config[k_repository_root] = input("Enter the repository root path: ")
+    
+    # if (not git_check_currently_on_main()):
+    #     print("Currently selected branch is not \"main\"; checkout \"main\" branch and retry.")
+    #     sys.exit()
+
+    if (git_check_pending_changes()):
+        print("There are pending changes in selected repository; commit or stash them and retry.")
+        sys.exit()
+
+    if (interactive):
+        config[k_version] = input("Enter the new version string (e.g. 3.3.1): ")
+        print("Enter the build number:")
+        print("Please, use the following values:")
+        print("[ 1, 24] when releasing a beta version (e.g. 3.3.1-beta1, 3.3.1-beta2, etc.)")
+        print("[25, 49] when releasing a release candidate (e.g. 3.3.1-rc1, 3.3.1-rc2, etc.)")
+        print("    [50] when making a standard release (e.g. 3.3.1)")
+        config[k_build] = input("")
+
+    branch_name = config[k_version]
+    build_number = int(config[k_build])
+    if (1 <= build_number and build_number <= 24):
+        branch_name += f"-beta{config[k_build]}"
+    elif (25 <= build_number and build_number <= 49):
+        branch_name += f"-rc{config[k_build]}"
+    elif (50 == build_number):
+        branch_name += ""
+    else:
+        print("Wrong build number; modify and retry.")
+        sys.exit()
+    
+    git_create_branch(branch_name)
+
+    return config
+
+def set_client_version():
+    version_digits = get_version_string_details(config[k_version])
+
+    replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_MAJOR, (\d+)\)",    f"define(_CLIENT_VERSION_MAJOR, {version_digits[0]})")
+    replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_MINOR, (\d+)\)",    f"define(_CLIENT_VERSION_MINOR, {version_digits[1]})")
+    replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_REVISION, (\d+)\)", f"define(_CLIENT_VERSION_REVISION, {version_digits[2]})")
+    replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_BUILD, (\d+)\)",    f"define(_CLIENT_VERSION_BUILD, {config[k_build]})")
+    replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_COPYRIGHT_YEAR, (\d+)\)",          f"define(_COPYRIGHT_YEAR, {datetime.date.today().year})")
+
+    replace_string_in_file(os.path.join(config[k_repository_root], "src/clientversion.h"), r"(#define\s+CLIENT_VERSION_MAJOR\s+)(\d+)",    f"\\g<1>{version_digits[0]}")
+    replace_string_in_file(os.path.join(config[k_repository_root], "src/clientversion.h"), r"(#define\s+CLIENT_VERSION_MINOR\s+)(\d+)",    f"\\g<1>{version_digits[1]}")
+    replace_string_in_file(os.path.join(config[k_repository_root], "src/clientversion.h"), r"(#define\s+CLIENT_VERSION_REVISION\s+)(\d+)", f"\\g<1>{version_digits[2]}")
+    replace_string_in_file(os.path.join(config[k_repository_root], "src/clientversion.h"), r"(#define\s+COPYRIGHT_YEAR\s+)(\d+)",          f"\\g<1>{datetime.date.today().year}")
+
+    git_commit(f"Set clientversion {config[k_version]} (build {config[k_build]})")
 
 def update_checkpoints():
     # Get a mainnet checkpoint candidate
@@ -386,11 +406,10 @@ def update_release_notes():
             if (os.path.exists(os.path.join(config[k_repository_root], release_notes_file_path))):
                 break
     else:
-        source_path = os.path.join(os.path.dirname(sys.argv[0]), config[k_release_notes_file])
-        if (os.path.exists(source_path)):
-            shutil.copyfile(source_path, os.path.join(config[k_repository_root], release_notes_file_path))
+        if (os.path.exists(config[k_release_notes_file])):
+            shutil.copyfile(config[k_release_notes_file], os.path.join(config[k_repository_root], release_notes_file_path))
         else:
-            print(f"Release notes file {source_path} does not exist; please, check and retry.")
+            print(f"Release notes file {config[k_release_notes_file]} does not exist; please, check and retry.")
             sys.exit()
 
     git_commit("Add release notes")
@@ -400,6 +419,7 @@ def update_readme():
 
     git_commit("Update README")
 
+
 config = {}
 interactive = True
 
@@ -407,33 +427,96 @@ print("\n********** Step 0: setup config **********\n")
 initialize()
 
 print("\n********** Step 1: set the new client version **********\n")
-set_client_version()
+if (interactive):
+    config[k_script_steps] = {}
+    ask_for_step_skip(k_set_client_version)
+if (bool(config[k_script_steps][k_set_client_version][k_stop])):
+    input("Press a key to proceed")
+if (not bool(config[k_script_steps][k_set_client_version][k_skip])):
+    set_client_version()
+    print("Done")
+else:
+    print("Skipped")
 
 print("\n********** Step 2: update the mainnet and testnet checkpoints **********\n")
-update_checkpoints()
+if (interactive):
+    ask_for_step_skip(k_update_checkpoints)
+if (bool(config[k_script_steps][k_update_checkpoints][k_stop])):
+    input("Press a key to proceed")
+if (not bool(config[k_script_steps][k_update_checkpoints][k_skip])):
+    update_checkpoints()
+    print("Done")
+else:
+    print("Skipped")
 
 print("\n********** Step 3: update changelog **********\n")
-update_changelog()
+if (interactive):
+    ask_for_step_skip(k_update_changelog)
+if (bool(config[k_script_steps][k_update_changelog][k_stop])):
+    input("Press a key to proceed")
+if (not bool(config[k_script_steps][k_update_changelog][k_skip])):
+    update_changelog()
+    print("Done")
+else:
+    print("Skipped")
 
 print("\n********** Step 4: update deprecation height **********\n")
-update_deprecation_height()
+if (interactive):
+    ask_for_step_skip(k_update_deprecation_height)
+if (bool(config[k_script_steps][k_update_deprecation_height][k_stop])):
+    input("Press a key to proceed")
+if (not bool(config[k_script_steps][k_update_deprecation_height][k_skip])):
+    update_deprecation_height()
+    print("Done")
+else:
+    print("Skipped")
 
 print("\n********** Step 5: build Zend **********\n")
-build_zend()
+if (interactive):
+    ask_for_step_skip(k_build_zend)
+if (bool(config[k_script_steps][k_build_zend][k_stop])):
+    input("Press a key to proceed")
+if (not bool(config[k_script_steps][k_build_zend][k_skip])):
+    build_zend()
+    print("Done")
+else:
+    print("Skipped")
 
 print("\n********** Step 6: update man pages **********\n")
-update_man_pages()
+if (interactive):
+    ask_for_step_skip(k_update_man_pages)
+if (bool(config[k_script_steps][k_update_man_pages][k_stop])):
+    input("Press a key to proceed")
+if (not bool(config[k_script_steps][k_update_man_pages][k_skip])):
+    update_man_pages()
+    print("Done")
+else:
+    print("Skipped")
 
 print("\n********** Step 7: update release_notes **********\n")
-update_release_notes()
+if (interactive):
+    ask_for_step_skip(k_update_release_notes)
+if (bool(config[k_script_steps][k_update_release_notes][k_stop])):
+    input("Press a key to proceed")
+if (not bool(config[k_script_steps][k_update_release_notes][k_skip])):
+    update_release_notes()
+    print("Done")
+else:
+    print("Skipped")
 
 print("\n********** Step 8: update readme **********\n")
-update_readme()
+if (interactive):
+    ask_for_step_skip(k_update_readme)
+if (bool(config[k_script_steps][k_update_readme][k_stop])):
+    input("Press a key to proceed")
+if (not bool(config[k_script_steps][k_update_readme][k_skip])):
+    update_readme()
+    print("Done")
+else:
+    print("Skipped")
 
 # TODO:
 # - Remove code duplication (in particular of string variables) [PARTIALLY DONE]
-# - Organize code in modules [WON'T DO]
+# - Organize code in modules [NOT DONE]
 # - Improve error handling and exceptions [PARTIALLY DONE]
-# - Ask confirmation before passing to next step [WON'T DO]
-# - Allow to skip some steps [WON'T DO]
 # - Retrieve the total transactions from the debug.log file [HOW TO?]
