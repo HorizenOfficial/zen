@@ -100,3 +100,29 @@ maintained:
 
 Usage: git-subtree-check.sh DIR COMMIT
 COMMIT may be omitted, in which case HEAD is used.
+
+prepare_release
+==================
+
+Inside this folder the following are provided:
+
+- a script (prepare_release.py),
+- a template config file (prepare_release_config.yaml)
+- various config files associated to past releases preparations (prepare_release_config-X.Y.Z.yaml)
+
+Run the script for preparing a new release.
+It is suggested to run the script from a terminal located a repository root. 
+The script accepts one command line parameter, being the path of the config file containing all the inputs
+to the script (it is suggested to put this file in `./contrib/devtools/prepare_release` folder, naming it as
+`prepare_release_config-X.Y.Z.yaml`). If the path of the config file is not provided as command line parameter,
+the script itself explicitly requests the user to input it; if the user does not input it, then an interactive
+session is started, in which the input of each preparation step is requested to the user.
+A successful run of the script would create a new branch starting from currently selected commit of `main`
+branch and would commit one by one each release preparation step.
+
+After script completion the user is required to:
+
+- push from release preparation local branch to remote
+- open a PR merging into `main` branch and wait for approval
+- merge on `main` branch
+- create annotated tag (vX.Y.Z)

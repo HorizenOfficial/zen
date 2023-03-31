@@ -230,7 +230,7 @@ def initialize():
         print("    [50] when making a standard release (e.g. 3.3.1)")
         config[k_build] = input("")
 
-    branch_name = config[k_version]
+    branch_name = f"release/{config[k_version]}"
     build_number = int(config[k_build])
     if (1 <= build_number and build_number <= 24):
         branch_name += f"-beta{config[k_build]}"
