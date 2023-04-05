@@ -48,26 +48,30 @@ struct CNodeStateStats;
 class CTxInUndo;
 
 // Enforce 64-bit architecture requirement
-#if defined(_MSC_VER) || (defined(__INTEL_COMPILER) && defined(_WIN32))
-    #if defined(_M_X64)
-        #define BITNESS_64
-    #else 
-        #define BITNESS_32
-    #endif
-#elif defined(__clang__) || defined(__INTEL_COMPILER) || defined(__GNUC__)
+#if defined(__clang__) || defined(__GNUC__)
     #if defined(__x86_64)
         #define BITNESS_64
     #else
         #define BITNESS_32
     #endif
 #else
-    #error Cannot detect compiler or compiler is not supported
+    #error "Zend only supports GCC and Clang compilers"
 #endif
 #if defined(BITNESS_32)
-#error "Zend is not supported on 32 bit architecture"
+    #error "Zend is supported only on x86-64 architecture"
 #endif
 #undef BITNESS_32
 #undef BITNESS_64
+
+#if defined(_WIN32)
+    // On Windows we assume little-endian
+#elif defined(__BYTE_ORDER__)
+    #if (__BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__)
+        #error "Zend is not supported on big-endian architectures"
+    #endif
+#else
+    #error "Undetectable endianness"
+#endif
 
 /** Default for -blockmaxsize and -blockminsize, which control the range of sizes the mining code will create **/
 static const unsigned int DEFAULT_BLOCK_MAX_SIZE = MAX_BLOCK_SIZE;

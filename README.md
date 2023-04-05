@@ -48,7 +48,7 @@ SCALABILITY
 
 Compatibility
 ----------------
-`zend` only supports 64-bit systems, it cannot be compiled on different architectures.
+`zend` only supports 64-bit little-endian systems, it cannot be compiled on different architectures.
 
 Building from source
 ----------------
