@@ -9,16 +9,19 @@
 
 from test_framework.authproxy import JSONRPCException
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, connect_nodes, \
-    sync_blocks, gather_inputs, start_nodes, sync_mempools, \
-    connect_nodes_bi, initialize_chain_clean, mark_logs, \
-    disconnect_nodes
+from test_framework.util import assert_equal, start_nodes, sync_mempools, \
+    connect_nodes_bi, initialize_chain_clean, mark_logs, disconnect_nodes
 from decimal import Decimal
 
 DEBUG_MODE = 1
 NUMB_OF_NODES = 3
-DOUBLE_SPEND_NODE_INDEX = NUMB_OF_NODES - 1    # The node that tries to perform the double spend
 SC_COINS_MAT = 1
+
+DOUBLE_SPEND_NODE_INDEX = NUMB_OF_NODES - 1    # The node that tries to perform the double spend
+HONEST_NODES = list(range(NUMB_OF_NODES))
+HONEST_NODES.remove(DOUBLE_SPEND_NODE_INDEX)
+MAIN_NODE = HONEST_NODES[0]
+
 
 class TxnMallTest(BitcoinTestFramework):
 
@@ -31,50 +34,66 @@ class TxnMallTest(BitcoinTestFramework):
             '-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-debug=zendoo_mc_cryptolib',
             '-scproofqueuesize=0', '-logtimemicros=1', '-sccoinsmaturity=%d' % SC_COINS_MAT]] * NUMB_OF_NODES )
 
-        if not split:
-            self.join_network()
-        else:
-            self.split_network()
-        
+        for idx in range(NUMB_OF_NODES - 1):
+            connect_nodes_bi(self.nodes, idx, idx + 1)
+        self.is_network_split = split
         self.sync_all()
 
     def join_network(self):
-        for idx in range(NUMB_OF_NODES - 1):
-            connect_nodes_bi(self.nodes, idx, idx+1)
+        #Join the (previously split) network pieces together
+        idx = DOUBLE_SPEND_NODE_INDEX
+        if idx == NUMB_OF_NODES - 1:
+            connect_nodes_bi(self.nodes, idx, idx - 1)
+        elif idx == 0:
+            connect_nodes_bi(self.nodes, idx, idx + 1)
+        else:
+            disconnect_nodes(self.nodes[idx - 1], idx + 1)
+            disconnect_nodes(self.nodes[idx + 1], idx - 1)
+            connect_nodes_bi(self.nodes, idx, idx - 1)
+            connect_nodes_bi(self.nodes, idx, idx + 1)
         self.is_network_split = False
-
 
     def split_network(self):
         # Disconnect the "double spend" node from the network
         idx = DOUBLE_SPEND_NODE_INDEX
-        disconnect_nodes(self.nodes[idx], idx - 1)
-        disconnect_nodes(self.nodes[idx - 1], idx)
+        if idx == NUMB_OF_NODES - 1:
+            disconnect_nodes(self.nodes[idx], idx - 1)
+            disconnect_nodes(self.nodes[idx - 1], idx)
+        elif idx == 0:
+            disconnect_nodes(self.nodes[idx], idx + 1)
+            disconnect_nodes(self.nodes[idx + 1], idx)
+        else:
+            disconnect_nodes(self.nodes[idx], idx - 1)
+            disconnect_nodes(self.nodes[idx - 1], idx)
+            disconnect_nodes(self.nodes[idx], idx + 1)
+            disconnect_nodes(self.nodes[idx + 1], idx)
+            connect_nodes_bi(self.nodes, idx - 1, idx + 1)
         self.is_network_split = True
 
     def run_test(self):
 
-        node0_address = self.nodes[0].getnewaddress()
+        node0_address = self.nodes[MAIN_NODE].getnewaddress()
         iterations = 100
 
-        mark_logs("Node 0 mines 1 block", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(1)
-        mark_logs("Node 0 mines 100 blocks to make the coinbase of the first block spendable", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(100)
+        mark_logs(f"Node {MAIN_NODE} mines 1 block", self.nodes, DEBUG_MODE)
+        self.nodes[MAIN_NODE].generate(1)
+        mark_logs(f"Node {MAIN_NODE} mines 100 blocks to make the coinbase of the first block spendable", self.nodes, DEBUG_MODE)
+        self.nodes[MAIN_NODE].generate(100)
 
-        mark_logs("Node 0 balance: " + str(self.nodes[0].getbalance()), self.nodes, DEBUG_MODE)
-        mark_logs("Node {} balance: {}".format(DOUBLE_SPEND_NODE_INDEX, str(self.nodes[DOUBLE_SPEND_NODE_INDEX].getbalance())), self.nodes, DEBUG_MODE)
+        mark_logs(f"Node {MAIN_NODE} balance: {self.nodes[MAIN_NODE].getbalance()}", self.nodes, DEBUG_MODE)
+        mark_logs(f"Node {DOUBLE_SPEND_NODE_INDEX} balance: {self.nodes[DOUBLE_SPEND_NODE_INDEX].getbalance()}", self.nodes, DEBUG_MODE)
 
-        mark_logs("Blockchain height: " + str(self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
+        mark_logs(f"Blockchain height: {self.nodes[MAIN_NODE].getblockcount()}", self.nodes, DEBUG_MODE)
 
         spendable_amount = Decimal("10.0")
         fee_amount = Decimal("0.0001")
         total_amount = spendable_amount + fee_amount * iterations
-        mark_logs("Node 0 sends {} zen to a known address".format(total_amount), self.nodes, DEBUG_MODE)
+        mark_logs(f"Node {MAIN_NODE} sends {total_amount} zen to a known address", self.nodes, DEBUG_MODE)
 
-        mark_logs("Initial address balance: " + str(self.nodes[0].z_getbalance(node0_address)), self.nodes, DEBUG_MODE)
-        self.nodes[0].sendfrom("", node0_address, total_amount)
-        self.nodes[0].generate(1)
-        mark_logs("Current address balance: " + str(self.nodes[0].z_getbalance(node0_address)), self.nodes, DEBUG_MODE)
+        mark_logs(f"Initial address balance: {self.nodes[MAIN_NODE].z_getbalance(node0_address)}", self.nodes, DEBUG_MODE)
+        self.nodes[MAIN_NODE].sendfrom("", node0_address, total_amount)
+        self.nodes[MAIN_NODE].generate(1)
+        mark_logs(f"Current address balance: {self.nodes[MAIN_NODE].z_getbalance(node0_address)}", self.nodes, DEBUG_MODE)
 
         self.sync_all()
 
@@ -82,7 +101,7 @@ class TxnMallTest(BitcoinTestFramework):
         self.split_network()
 
         # Search the unspent utxo containing 10.1 coins.
-        list_unspent = self.nodes[0].listunspent()
+        list_unspent = self.nodes[MAIN_NODE].listunspent()
         for unspent in list_unspent:
             current_utxo = unspent
             if current_utxo["amount"] == total_amount:
@@ -100,10 +119,10 @@ class TxnMallTest(BitcoinTestFramework):
         inputs = [{"txid": current_utxo["txid"], "vout": current_utxo["vout"]}]
         outputs = {}
         outputs[recipient] = total_amount - fee_amount
-        rawtx = self.nodes[0].createrawtransaction(inputs, outputs)
-        special_tx = self.nodes[0].signrawtransaction(rawtx)
+        rawtx = self.nodes[MAIN_NODE].createrawtransaction(inputs, outputs)
+        special_tx = self.nodes[MAIN_NODE].signrawtransaction(rawtx)
 
-        mark_logs("Node 0 adds to mempool several transactions recursively spending the starting utxo", self.nodes, DEBUG_MODE)
+        mark_logs(f"Node {MAIN_NODE} adds to mempool several transactions recursively spending the starting utxo", self.nodes, DEBUG_MODE)
         for _ in range(iterations):
             recipient = self.nodes[DOUBLE_SPEND_NODE_INDEX].getnewaddress()
             sent_amount = spendable_amount / iterations
@@ -114,10 +133,10 @@ class TxnMallTest(BitcoinTestFramework):
             outputs[node0_address] = change_amount
             outputs[recipient] = sent_amount
             try:
-                rawtx = self.nodes[0].createrawtransaction(inputs, outputs)
-                signedRawTx = self.nodes[0].signrawtransaction(rawtx)
-                senttxid = self.nodes[0].sendrawtransaction(signedRawTx['hex'])
-                senttx = self.nodes[0].getrawtransaction(senttxid, 1)
+                rawtx = self.nodes[MAIN_NODE].createrawtransaction(inputs, outputs)
+                signedRawTx = self.nodes[MAIN_NODE].signrawtransaction(rawtx)
+                senttxid = self.nodes[MAIN_NODE].sendrawtransaction(signedRawTx['hex'])
+                senttx = self.nodes[MAIN_NODE].getrawtransaction(senttxid, 1)
             except JSONRPCException as e:
                 print(e.error['message'])
                 assert(False)
@@ -131,17 +150,17 @@ class TxnMallTest(BitcoinTestFramework):
 
         # Sync mempools except for the last (disconnected) node
         mark_logs("Waiting for honest nodes to sync mempool", self.nodes, DEBUG_MODE)
-        sync_mempools(self.nodes[0 : NUMB_OF_NODES - 1])
+        sync_mempools([self.nodes[i] for i in HONEST_NODES])
 
-        mark_logs("Check that all the nodes have {} transactions in the mempool except the last one".format(iterations), self.nodes, DEBUG_MODE)
+        mark_logs(f"Check that all the nodes have {iterations} transactions in the mempool except the last one", self.nodes, DEBUG_MODE)
         for i in range(NUMB_OF_NODES):
-            mark_logs("Node {} mempool size: {}".format(i, len(self.nodes[i].getrawmempool())), self.nodes, DEBUG_MODE)
+            mark_logs(f"Node {i} mempool size: {len(self.nodes[i].getrawmempool())}", self.nodes, DEBUG_MODE)
             if i != DOUBLE_SPEND_NODE_INDEX:
                 assert_equal(len(self.nodes[i].getrawmempool()), iterations)
             else:
                 assert_equal(len(self.nodes[i].getrawmempool()), 0)
 
-        mark_logs("Node {} sends a transaction spending all the coins of the initial utxo ({} coins)".format(DOUBLE_SPEND_NODE_INDEX, total_amount), self.nodes, DEBUG_MODE)
+        mark_logs(f"Node {DOUBLE_SPEND_NODE_INDEX} sends a transaction spending all the coins of the initial utxo ({total_amount} coins)", self.nodes, DEBUG_MODE)
         try:
             senttxid = self.nodes[DOUBLE_SPEND_NODE_INDEX].sendrawtransaction(special_tx['hex'])
             senttx = self.nodes[DOUBLE_SPEND_NODE_INDEX].getrawtransaction(senttxid, 1)
@@ -149,15 +168,15 @@ class TxnMallTest(BitcoinTestFramework):
             print(e.error['message'])
             assert(False)
 
-        mark_logs("Check that the new transaction has been added only to the mempool of the node {}".format(DOUBLE_SPEND_NODE_INDEX), self.nodes, DEBUG_MODE)
+        mark_logs(f"Check that the new transaction has been added only to the mempool of the node {DOUBLE_SPEND_NODE_INDEX}", self.nodes, DEBUG_MODE)
         for i in range(NUMB_OF_NODES):
-            mark_logs("Node {} mempool size: {}".format(i, len(self.nodes[i].getrawmempool())), self.nodes, DEBUG_MODE)
+            mark_logs(f"Node {i} mempool size: {len(self.nodes[i].getrawmempool())}", self.nodes, DEBUG_MODE)
             if i != DOUBLE_SPEND_NODE_INDEX:
                 assert_equal(len(self.nodes[i].getrawmempool()), iterations)
             else:
                 assert_equal(len(self.nodes[i].getrawmempool()), 1)
 
-        mark_logs("Node {} mines a block containing this transaction".format(DOUBLE_SPEND_NODE_INDEX), self.nodes, DEBUG_MODE)
+        mark_logs(f"Node {DOUBLE_SPEND_NODE_INDEX} mines a block containing this transaction", self.nodes, DEBUG_MODE)
         self.nodes[DOUBLE_SPEND_NODE_INDEX].generate(1)
 
         mark_logs(("Join the network and sync; all the nodes should remove the pending transactions from mempool"
@@ -167,10 +186,10 @@ class TxnMallTest(BitcoinTestFramework):
 
         mark_logs("Check that the mempool of every node is empty", self.nodes, DEBUG_MODE)
         for i in range(NUMB_OF_NODES):
-            mark_logs("Node {} mempool size: {}".format(i, len(self.nodes[i].getrawmempool())), self.nodes, DEBUG_MODE)
+            mark_logs(f"Node {i} mempool size: {len(self.nodes[i].getrawmempool())}", self.nodes, DEBUG_MODE)
             assert_equal(len(self.nodes[i].getrawmempool()), 0)
 
-        mark_logs("Current balance of the sending address: {:.8f}".format(self.nodes[0].z_getbalance(node0_address)), self.nodes, DEBUG_MODE)
+        mark_logs(f"Current balance of the sending address: {self.nodes[MAIN_NODE].z_getbalance(node0_address):.8f}", self.nodes, DEBUG_MODE)
 
         # Check the consistency of all "getbalance" RPC commands
         for i in range(NUMB_OF_NODES):

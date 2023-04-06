@@ -13,7 +13,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, connect_nodes_bi, assert_true, assert_false, mark_logs, \
-    wait_bitcoinds, stop_nodes, get_epoch_data, sync_mempools, sync_blocks, \
+    get_epoch_data, sync_mempools, \
     disconnect_nodes, advance_epoch, swap_bytes
 
 from test_framework.test_framework import ForkHeights
@@ -29,6 +29,11 @@ EPOCH_LENGTH = 10
 FT_SC_FEE = Decimal('0')
 MBTR_SC_FEE = Decimal('0')
 
+DISHONEST_NODE_INDEX = NUMB_OF_NODES - 1    # Dishonest node
+HONEST_NODES = list(range(NUMB_OF_NODES))
+HONEST_NODES.remove(DISHONEST_NODE_INDEX)
+MAIN_NODE = HONEST_NODES[0]
+
 # Create one-input, one-output, no-fee transaction:
 class CertMempoolCleanupSplit(BitcoinTestFramework):
 
@@ -41,31 +46,42 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
                                  extra_args=[['-logtimemicros=1', '-scproofqueuesize=0', '-debug=sc', '-debug=py',
                                               '-debug=mempool', '-debug=net', '-debug=bench']] * NUMB_OF_NODES)
 
-        if not split:
-            # 2 and 3 are joint only if split==false
-            connect_nodes_bi(self.nodes, 2, 3)
-            sync_blocks(self.nodes[2:4])
-            sync_mempools(self.nodes[2:4])
-
-        connect_nodes_bi(self.nodes, 0, 1)
-        connect_nodes_bi(self.nodes, 1, 2)
+        for idx in range(NUMB_OF_NODES - 1):
+            connect_nodes_bi(self.nodes, idx, idx + 1)
         self.is_network_split = split
         self.sync_all()
 
     def split_network(self):
-        # Split the network of three nodes into nodes 0-1-2 and 3.
-        assert not self.is_network_split
-        disconnect_nodes(self.nodes[2], 3)
-        disconnect_nodes(self.nodes[3], 2)
+        # Disconnect the dishonest node from the network
+        idx = DISHONEST_NODE_INDEX
+        if idx == NUMB_OF_NODES - 1:
+            disconnect_nodes(self.nodes[idx], idx - 1)
+            disconnect_nodes(self.nodes[idx - 1], idx)
+        elif idx == 0:
+            disconnect_nodes(self.nodes[idx], idx + 1)
+            disconnect_nodes(self.nodes[idx + 1], idx)
+        else:
+            disconnect_nodes(self.nodes[idx], idx - 1)
+            disconnect_nodes(self.nodes[idx - 1], idx)
+            disconnect_nodes(self.nodes[idx], idx + 1)
+            disconnect_nodes(self.nodes[idx + 1], idx)
+            connect_nodes_bi(self.nodes, idx - 1, idx + 1)
         self.is_network_split = True
 
     def join_network(self):
-        # Join the (previously split) network pieces together: 0-1-2-3
-        assert self.is_network_split
-        connect_nodes_bi(self.nodes, 2, 3)
-        connect_nodes_bi(self.nodes, 3, 2)
-        time.sleep(2)
+        #Join the (previously split) network pieces together
+        idx = DISHONEST_NODE_INDEX
+        if idx == NUMB_OF_NODES - 1:
+            connect_nodes_bi(self.nodes, idx, idx - 1)
+        elif idx == 0:
+            connect_nodes_bi(self.nodes, idx, idx + 1)
+        else:
+            disconnect_nodes(self.nodes[idx - 1], idx + 1)
+            disconnect_nodes(self.nodes[idx + 1], idx - 1)
+            connect_nodes_bi(self.nodes, idx, idx - 1)
+            connect_nodes_bi(self.nodes, idx, idx + 1)
         self.is_network_split = False
+        time.sleep(2)
 
     def run_test(self):
         '''
@@ -77,18 +93,18 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         '''
 
         # prepare some coins 
-        self.nodes[3].generate(1)
+        self.nodes[DISHONEST_NODE_INDEX].generate(1)
         self.sync_all()
-        self.nodes[2].generate(1)
+        self.nodes[HONEST_NODES[2]].generate(1)
         self.sync_all()
-        self.nodes[1].generate(1)
+        self.nodes[HONEST_NODES[1]].generate(1)
         self.sync_all()
-        self.nodes[0].generate(ForkHeights['MINIMAL_SC']-3)
+        self.nodes[MAIN_NODE].generate(ForkHeights['MINIMAL_SC']-3)
         self.sync_all()
-        self.nodes[0].generate(1)
+        self.nodes[MAIN_NODE].generate(1)
         self.sync_all()
 
-        print("Node0 Chain h = ", self.nodes[0].getblockcount())
+        print(f"Node {MAIN_NODE} Chain h = {self.nodes[MAIN_NODE].getblockcount()}")
 
         sc_address = "0000000000000000000000000000000000000000000000000000000000000abc"
         sc_epoch_len = EPOCH_LENGTH
@@ -113,49 +129,49 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
             'mainchainBackwardTransferRequestDataLength': 1
         }
 
-        res = self.nodes[0].sc_create(cmdInput)
+        res = self.nodes[MAIN_NODE].sc_create(cmdInput)
         tx =   res['txid']
         scid = res['scid']
         self.sync_all()
-        mark_logs("tx {} created SC {}".format(tx, scid), self.nodes, DEBUG_MODE)
+        mark_logs(f"tx {tx} created SC {scid}", self.nodes, DEBUG_MODE)
 
         # advance two epochs
         mark_logs("\nLet 2 epochs pass by...", self.nodes, DEBUG_MODE)
 
         cert, epoch_number = advance_epoch(
-            certMcTest, self.nodes[0], self.sync_all,
+            certMcTest, self.nodes[MAIN_NODE], self.sync_all,
              scid, "sc1", constant, sc_epoch_len)
 
-        mark_logs("\n==> certificate for epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
+        mark_logs(f"\n==> certificate for epoch {epoch_number} {cert}", self.nodes, DEBUG_MODE)
 
         cert, epoch_number = advance_epoch(
-            certMcTest, self.nodes[0], self.sync_all,
+            certMcTest, self.nodes[MAIN_NODE], self.sync_all,
              scid, "sc1", constant, sc_epoch_len)
 
-        mark_logs("\n==> certificate for epoch {} {}l".format(epoch_number, cert), self.nodes, DEBUG_MODE)
+        mark_logs(f"\n==> certificate for epoch {epoch_number} {cert}", self.nodes, DEBUG_MODE)
 
-        ceas_height = self.nodes[0].getscinfo(scid, False, False)['items'][0]['ceasingHeight']
-        numbBlocks = ceas_height - self.nodes[0].getblockcount() + sc_epoch_len - 1
-        print("Node0 Chain h = ", self.nodes[0].getblockcount())
+        ceas_height = self.nodes[MAIN_NODE].getscinfo(scid, False, False)['items'][0]['ceasingHeight']
+        numbBlocks = ceas_height - self.nodes[MAIN_NODE].getblockcount() + sc_epoch_len - 1
+        print(f"Node {MAIN_NODE} Chain h = {self.nodes[MAIN_NODE].getblockcount()}")
 
-        mark_logs("\nNode0 generates {} block reaching the sg for the next epoch".format(numbBlocks), self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(numbBlocks)
+        mark_logs(f"\nNode {MAIN_NODE} generates {numbBlocks} block reaching the sg for the next epoch", self.nodes, DEBUG_MODE)
+        self.nodes[MAIN_NODE].generate(numbBlocks)
         self.sync_all()
-        print("Node0 Chain h = ", self.nodes[0].getblockcount())
+        print(f"Node {MAIN_NODE} Chain h = {self.nodes[MAIN_NODE].getblockcount()}")
         
         #============================================================================================
         mark_logs("\nSplit network", self.nodes, DEBUG_MODE)
         self.split_network()
-        mark_logs("The network is split: 0-1-2 .. 3", self.nodes, DEBUG_MODE)
+        mark_logs(f"The network is split: {HONEST_NODES[0]}-{HONEST_NODES[1]}-{HONEST_NODES[2]} .. {DISHONEST_NODE_INDEX}", self.nodes, DEBUG_MODE)
 
-        # Network part 0-1-2
+        # Honest network
         print("------------------")
 
-        mark_logs("\nNTW part 1) Node2 sends a certificate", self.nodes, DEBUG_MODE)
-        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[2], sc_epoch_len)
+        mark_logs(f"\nNTW part 1) Node {HONEST_NODES[2]} sends a certificate", self.nodes, DEBUG_MODE)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[HONEST_NODES[2]], sc_epoch_len)
 
         bt_amount = Decimal("5.0")
-        addr_node1 = self.nodes[1].getnewaddress()
+        addr_node1 = self.nodes[HONEST_NODES[1]].getnewaddress()
         quality = 10
         scid_swapped = str(swap_bytes(scid))
 
@@ -173,42 +189,42 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
 
         amount_cert = [{"address": addr_node1, "amount": bt_amount}]
         try:
-            cert_bad = self.nodes[2].sc_send_certificate(scid, epoch_number, quality,
+            cert_bad = self.nodes[HONEST_NODES[2]].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert, 0, 0, 0.01)
         except JSONRPCException as e:
             errorString = e.error['message']
-            print("Send certificate failed with reason {}".format(errorString))
+            print(f"Send certificate failed with reason {errorString}")
             assert(False)
-        sync_mempools(self.nodes[0:3])
+        sync_mempools([self.nodes[i] for i in HONEST_NODES])
 
-        mark_logs("Check cert {} is in mempool".format(cert_bad), self.nodes, DEBUG_MODE)
-        assert_true(cert_bad in self.nodes[0].getrawmempool())
+        mark_logs(f"Check cert {cert_bad} is in mempool", self.nodes, DEBUG_MODE)
+        assert_true(cert_bad in self.nodes[MAIN_NODE].getrawmempool())
 
         mark_logs("Generates two blocks to make the chain longer than sub-network 2", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(2)
+        self.nodes[MAIN_NODE].generate(2)
 
-        print("Node0 Chain h = ", self.nodes[0].getblockcount())
+        print(f"Node {MAIN_NODE} Chain h = {self.nodes[MAIN_NODE].getblockcount()}")
 
         # Network part 2
         #------------------
 
-        mark_logs("\nNTW part 2) Node3 generates one block to cease the sidechain", self.nodes, DEBUG_MODE)
-        self.nodes[3].generate(1)
+        mark_logs(f"\nNTW part 2) Dishonest Node {DISHONEST_NODE_INDEX} generates one block to cease the sidechain", self.nodes, DEBUG_MODE)
+        self.nodes[DISHONEST_NODE_INDEX].generate(1)
 
         mark_logs("Check that the sidechain is ceased from node 3 perspective", self.nodes, DEBUG_MODE)
-        ret = self.nodes[3].getscinfo(scid, False, False)['items'][0]
+        ret = self.nodes[DISHONEST_NODE_INDEX].getscinfo(scid, False, False)['items'][0]
         assert_equal(ret['state'], "CEASED")
 
         sc_bal = ret['balance']
 
-        mark_logs("Node 3 creates a CSW transaction", self.nodes, DEBUG_MODE)
+        mark_logs(f"Dishonest node {DISHONEST_NODE_INDEX} creates a CSW transaction", self.nodes, DEBUG_MODE)
 
-        csw_mc_address = self.nodes[3].getnewaddress()
-        taddr = self.nodes[3].getnewaddress()
+        csw_mc_address = self.nodes[DISHONEST_NODE_INDEX].getnewaddress()
+        taddr = self.nodes[DISHONEST_NODE_INDEX].getnewaddress()
         sc_csw_amount = sc_bal
         null = generate_random_field_element_hex()
-        actCertData            = self.nodes[3].getactivecertdatahash(scid)['certDataHash']
-        ceasingCumScTxCommTree = self.nodes[3].getceasingcumsccommtreehash(scid)['ceasingCumScTxCommTree']
+        actCertData            = self.nodes[DISHONEST_NODE_INDEX].getactivecertdatahash(scid)['certDataHash']
+        ceasingCumScTxCommTree = self.nodes[DISHONEST_NODE_INDEX].getceasingcumsccommtreehash(scid)['ceasingCumScTxCommTree']
 
         csw_proof = cswMcTest.create_test_proof("csw1",
                                                 sc_csw_amount,
@@ -232,19 +248,19 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
 
         out_amount = sc_csw_amount / Decimal("2.0")
         sc_csw_tx_outs = {taddr: out_amount}
-        rawtx = self.nodes[3].createrawtransaction([], sc_csw_tx_outs, sc_csws)
-        funded_tx = self.nodes[3].fundrawtransaction(rawtx)
-        sigRawtx = self.nodes[3].signrawtransaction(funded_tx['hex'])
+        rawtx = self.nodes[DISHONEST_NODE_INDEX].createrawtransaction([], sc_csw_tx_outs, sc_csws)
+        funded_tx = self.nodes[DISHONEST_NODE_INDEX].fundrawtransaction(rawtx)
+        sigRawtx = self.nodes[DISHONEST_NODE_INDEX].signrawtransaction(funded_tx['hex'])
         try:
-            csw_bad = self.nodes[3].sendrawtransaction(sigRawtx['hex'])
-            pprint.pprint(self.nodes[3].getrawtransaction(tx, 1))
+            csw_bad = self.nodes[DISHONEST_NODE_INDEX].sendrawtransaction(sigRawtx['hex'])
+            pprint.pprint(self.nodes[DISHONEST_NODE_INDEX].getrawtransaction(tx, 1))
             assert(False)
         except JSONRPCException as e:
             errorString = e.error['message']
-            mark_logs("Send csw failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            mark_logs(f"Send csw failed with reason {errorString}", self.nodes, DEBUG_MODE)
 
-        mark_logs("Check the CSW tx {} is in mempool...".format(csw_bad), self.nodes, DEBUG_MODE)
-        assert_true(csw_bad in self.nodes[3].getrawmempool())
+        mark_logs(f"Check the CSW tx {csw_bad} is in mempool...", self.nodes, DEBUG_MODE)
+        assert_true(csw_bad in self.nodes[DISHONEST_NODE_INDEX].getrawmempool())
 
         #============================================================================================
         mark_logs("\nJoining network", self.nodes, DEBUG_MODE)
@@ -252,26 +268,26 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         mark_logs("Network joined", self.nodes, DEBUG_MODE)
 
         mark_logs("\nCheck that the sidechain is ceased", self.nodes, DEBUG_MODE)
-        ret = self.nodes[3].getscinfo(scid, False, False)['items'][0]
+        ret = self.nodes[DISHONEST_NODE_INDEX].getscinfo(scid, False, False)['items'][0]
         assert_equal(ret['state'], "ALIVE")
 
-        mark_logs("Check CSW tx {} is no more in mempool, since we crossed the epoch safeguard".format(csw_bad), self.nodes, DEBUG_MODE)
-        assert_false(csw_bad in self.nodes[3].getrawmempool()) 
+        mark_logs(f"Check CSW tx {csw_bad} is no more in mempool, since we crossed the epoch safeguard", self.nodes, DEBUG_MODE)
+        assert_false(csw_bad in self.nodes[DISHONEST_NODE_INDEX].getrawmempool()) 
 
         mark_logs("And that no info are available too...", self.nodes, DEBUG_MODE)
         try:
-            self.nodes[3].getrawtransaction(csw_bad, 1)
+            self.nodes[DISHONEST_NODE_INDEX].getrawtransaction(csw_bad, 1)
             assert(False)
         except JSONRPCException as e:
             errorString = e.error['message']
-            mark_logs("===> {}".format(errorString), self.nodes, DEBUG_MODE)
+            mark_logs(f"===> {errorString}", self.nodes, DEBUG_MODE)
             assert_true("No information" in errorString)
 
         for i in range(NUMB_OF_NODES):
             pprint.pprint(self.nodes[i].getrawmempool())
 
         # if any_error this should fail
-        self.nodes[0].generate(1)
+        self.nodes[MAIN_NODE].generate(1)
         self.sync_all()
 
 
