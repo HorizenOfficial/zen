@@ -14,7 +14,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <string>
+#include <deque>
 
 #include <sys/types.h>
 #include <sys/stat.h>
