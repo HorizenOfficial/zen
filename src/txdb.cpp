@@ -28,13 +28,11 @@ static const char DB_CEASEDSCS = 'd';
 static const char DB_BLOCK_FILES = 'f';
 static const char DB_TXINDEX = 't';
 
-#ifdef ENABLE_ADDRESS_INDEXING
 static const char DB_ADDRESSINDEX = 'D';
 static const char DB_ADDRESSUNSPENTINDEX = 'u';
 static const char DB_TIMESTAMPINDEX = 'T';
 static const char DB_BLOCKHASHINDEX = 'z';
 static const char DB_SPENTINDEX = 'p';
-#endif // ENABLE_ADDRESS_INDEXING
 
 static const char DB_BLOCK_INDEX = 'b';
 static const char DB_BEST_BLOCK = 'B';
@@ -129,10 +127,12 @@ void static BatchWriteCswNullifier(CLevelDBBatch &batch, const uint256 &scId, co
     }
 }
 
-CCoinsViewDB::CCoinsViewDB(std::string dbName, size_t nCacheSize, bool fMemory, bool fWipe) : db(GetDataDir() / dbName, nCacheSize, fMemory, fWipe, false, 64) {
+CCoinsViewDB::CCoinsViewDB(std::string dbName, size_t nCacheSize, bool fMemory, bool fWipe) :
+                           db(GetDataDir() / dbName, nCacheSize, fMemory, fWipe) {
 }
 
-CCoinsViewDB::CCoinsViewDB(size_t nCacheSize, bool fMemory, bool fWipe) : db(GetDataDir() / "chainstate", nCacheSize, fMemory, fWipe, false, 64) {
+CCoinsViewDB::CCoinsViewDB(size_t nCacheSize, bool fMemory, bool fWipe) :
+                           db(GetDataDir() / "chainstate", nCacheSize, fMemory, fWipe) {
 }
 
 
@@ -289,7 +289,8 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
     return db.WriteBatch(batch);
 }
 
-CBlockTreeDB::CBlockTreeDB(size_t nCacheSize, bool fMemory, bool fWipe, bool compression, int maxOpenFiles) : CLevelDBWrapper(GetDataDir() / "blocks" / "index", nCacheSize, fMemory, fWipe, compression, maxOpenFiles) {
+CBlockTreeDB::CBlockTreeDB(size_t nCacheSize, bool fMemory, bool fWipe) :
+                           CLevelDBWrapper(GetDataDir() / "blocks" / "index", nCacheSize, fMemory, fWipe) {
 }
 
 bool CBlockTreeDB::ReadBlockFileInfo(int nFile, CBlockFileInfo &info) {
@@ -500,7 +501,6 @@ bool CBlockTreeDB::UpdateMaturityHeightIndex(const std::vector<std::pair<CMaturi
     return WriteBatch(batch);
 }
 
-#ifdef ENABLE_ADDRESS_INDEXING
 bool CBlockTreeDB::ReadSpentIndex(CSpentIndexKey &key, CSpentIndexValue &value) {
     return Read(make_pair(DB_SPENTINDEX, key), value);
 }
@@ -721,7 +721,6 @@ bool CBlockTreeDB::blockOnchainActive(const uint256 &hash) {
 
     return false;
 }
-#endif // ENABLE_ADDRESS_INDEXING
 
 bool CBlockTreeDB::WriteString(const std::string &name, std::string sValue) {
     return Write(std::make_pair(DB_FLAG, name), sValue);

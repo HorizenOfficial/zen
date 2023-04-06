@@ -375,17 +375,12 @@ std::string HelpMessage(HelpMessageMode mode)
     #if !defined(WIN32)
     strUsage += HelpMessageOpt("-sysperms", _("Create new files with system default permissions, instead of umask 077 (only effective with disabled wallet functionality)"));
 #endif
-    strUsage += HelpMessageOpt("-txindex", strprintf(_("Maintain a full transaction index, used by the getrawtransaction rpc call (default: %u)"), 0));
-    strUsage += HelpMessageOpt("-maturityheightindex", strprintf(_("Maintain a maturity height index that stores for every height the cerficates that became mature, used by the getblockexpanded rpc call. It requires -txindex (default: %u)"), 0));
+    strUsage += HelpMessageOpt("-txindex", strprintf(_("Maintain a full transaction index, used by the getrawtransaction rpc call (default: %u)"), DEFAULT_TXINDEX));
+    strUsage += HelpMessageOpt("-maturityheightindex", strprintf(_("Maintain a maturity height index that stores for every height the cerficates that became mature, used by the getblockexpanded rpc call. It requires -txindex (default: %u)"), DEFAULT_MATURITYHEIGHTINDEX));
 
-#ifdef ENABLE_ADDRESS_INDEXING
     strUsage += HelpMessageOpt("-addressindex", strprintf(_("Maintain a full address index, used to query for the balance, txids and unspent outputs for addresses (default: %u)"), DEFAULT_ADDRESSINDEX));
     strUsage += HelpMessageOpt("-timestampindex", strprintf(_("Maintain a timestamp index for block hashes, used to query blocks hashes by a range of timestamps (default: %u)"), DEFAULT_TIMESTAMPINDEX));
     strUsage += HelpMessageOpt("-spentindex", strprintf(_("Maintain a full spent index, used to query the spending txid and input index for an outpoint (default: %u)"), DEFAULT_SPENTINDEX));
-
-    strUsage += HelpMessageOpt("-blocktreedbmaxopenfiles", strprintf(_("Maximum number of open files for the Block Tree LevelDB (default: %u)"), DEFAULT_DB_MAX_OPEN_FILES));
-    strUsage += HelpMessageOpt("-blocktreedbcompression", strprintf(_("Enable compression for the Block Tree LevelDB (default: %u)"), DEFAULT_DB_COMPRESSION));
-#endif // ENABLE_ADDRESS_INDEXING
 
     strUsage += HelpMessageGroup(_("Connection options:"));
     strUsage += HelpMessageOpt("-addnode=<ip>", _("Add a node to connect to and attempt to keep the connection open"));
@@ -878,6 +873,7 @@ bool AppInitServers()
  */
 bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 {
+    
     // ********************************************************* Step 1: setup
 #ifdef _MSC_VER
     // Turn off Microsoft heap dump noise
@@ -1027,7 +1023,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // if using block pruning, then disable txindex
     // also disable the wallet (for now, until SPV support is implemented in wallet)
     if (GetArg("-prune", 0)) {
-        if (GetBoolArg("-txindex", false))
+        if (GetBoolArg("-txindex", DEFAULT_TXINDEX))
             return InitError(_("Prune mode is incompatible with -txindex."));
 #ifdef ENABLE_WALLET
         if (!GetBoolArg("-disablewallet", false)) {
@@ -1534,38 +1530,23 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         }
     }
 
-    // block tree db settings
-    int dbMaxOpenFiles = DEFAULT_DB_MAX_OPEN_FILES;
-    bool dbCompression = DEFAULT_DB_COMPRESSION;
-
-#ifdef ENABLE_ADDRESS_INDEXING
-    dbMaxOpenFiles = GetArg("-blocktreedbmaxopenfiles", DEFAULT_DB_MAX_OPEN_FILES);
-    dbCompression = GetBoolArg("-blocktreedbcompression", DEFAULT_DB_COMPRESSION);
-#endif // ENABLE_ADDRESS_INDEXING
-
-    LogPrintf("Block index database configuration:\n");
-    LogPrintf("* Using %d max open files\n", dbMaxOpenFiles);
-    LogPrintf("* Compression is %s\n", dbCompression ? "enabled" : "disabled");
 
     // cache size calculations
     int64_t nTotalCache = (GetArg("-dbcache", nDefaultDbCache) << 20);
     nTotalCache = std::max(nTotalCache, nMinDbCache << 20); // total cache cannot be less than nMinDbCache
-    nTotalCache = std::min(nTotalCache, nMaxDbCache << 20); // total cache cannot be greated than nMaxDbcache
+    nTotalCache = std::min(nTotalCache, nMaxDbCache << 20); // total cache cannot be greater than nMaxDbcache
     int64_t nBlockTreeDBCache = nTotalCache / 8;
 
-#ifdef ENABLE_ADDRESS_INDEXING
+
     if (GetBoolArg("-addressindex", DEFAULT_ADDRESSINDEX) || GetBoolArg("-spentindex", DEFAULT_SPENTINDEX)) {
         // enable 3/4 of the cache if addressindex and/or spentindex is enabled
         nBlockTreeDBCache = nTotalCache * 3 / 4;
     } else {
-#endif // ENABLE_ADDRESS_INDEXING
-        if (nBlockTreeDBCache > (1 << 21) && !GetBoolArg("-txindex", false)) {
+        if (nBlockTreeDBCache > (1 << 21) && !GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
             nBlockTreeDBCache = (1 << 21); // block tree db cache shouldn't be larger than 2 MiB
         }
-
-#ifdef ENABLE_ADDRESS_INDEXING
     }
-#endif // ENABLE_ADDRESS_INDEXING
+
 
     nTotalCache -= nBlockTreeDBCache;
     int64_t nCoinDBCache = std::min(nTotalCache / 2, (nTotalCache / 4) + (1 << 23)); // use 25%-50% of the remainder for disk cache
@@ -1593,7 +1574,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 delete pcoinscatcher;
                 delete pblocktree;
 
-                pblocktree = new CBlockTreeDB(nBlockTreeDBCache, false, fReindex || fReindexFast, dbCompression, dbMaxOpenFiles);
+                pblocktree = new CBlockTreeDB(nBlockTreeDBCache, false, fReindex || fReindexFast);
                 pcoinsdbview = new CCoinsViewDB(nCoinDBCache, false, fReindex || fReindexFast);
                 pcoinscatcher = new CCoinsViewErrorCatcher(pcoinsdbview);
                 pcoinsTip = new CCoinsViewCache(pcoinscatcher);
@@ -1626,13 +1607,13 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 }
 
                 // Check for changed -txindex state
-                if (fTxIndex != GetBoolArg("-txindex", false)) {
+                if (fTxIndex != GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
                     strLoadError = _("You need to rebuild the database using -reindex to change -txindex");
                     break;
                 }
 
                 // Check for changed -maturityheightindex state
-                if (fMaturityHeightIndex != GetBoolArg("-maturityheightindex", false)) {
+                if (fMaturityHeightIndex != GetBoolArg("-maturityheightindex", DEFAULT_MATURITYHEIGHTINDEX)) {
                     strLoadError = _("You need to rebuild the database using -reindex to change -maturityheightindex");
                     break;
                 }
@@ -1642,10 +1623,21 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 pblocktree->ReadString("indexVersion", indexVersionStr);
                 LogPrintf("%s: indexVersion %s\n", __func__, indexVersionStr);  
    
-#ifdef ENABLE_ADDRESS_INDEXING
                 // Check for changed -addressindex state
-                if (fAddressIndex != GetBoolArg("-addressindex", false)) {
+                if (fAddressIndex != GetBoolArg("-addressindex", DEFAULT_ADDRESSINDEX)) {
                     strLoadError = _("You need to rebuild the database using -reindex to change -addressindex");
+                    break;
+                }
+
+                // Check for changed -timestampindex state
+                if (fTimestampIndex != GetBoolArg("-timestampindex", DEFAULT_TIMESTAMPINDEX)) {
+                    strLoadError = _("You need to rebuild the database using -reindex to change -timestampindex");
+                    break;
+                }
+
+                // Check for changed -spentindex state
+                if (fSpentIndex != GetBoolArg("-spentindex", DEFAULT_SPENTINDEX)) {
+                    strLoadError = _("You need to rebuild the database using -reindex to change -spentindex");
                     break;
                 }
 
@@ -1659,7 +1651,6 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                     strLoadError = _("You need to reindex in order to use -addressindex");
                     break;
                 }
-#endif // ENABLE_ADDRESS_INDEXING
 
                 if (fMaturityHeightIndex && indexVersionStr == DEFAULT_INDEX_VERSION_STR)
                 {

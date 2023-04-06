@@ -123,7 +123,6 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "setban", 2 },
     { "setban", 3 },
 
-#ifdef ENABLE_ADDRESS_INDEXING
     { "getblockhashes", 0 },
     { "getblockhashes", 1 },
     { "getblockhashes", 2 },
@@ -135,7 +134,6 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "getaddressutxos", 0 },
     { "getaddressutxos", 1 },
     { "getaddressmempool", 0 },
-#endif // ENABLE_ADDRESS_INDEXING
 
     { "zcrawjoinsplit", 1 },
     { "zcrawjoinsplit", 2 },

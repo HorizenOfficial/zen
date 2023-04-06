@@ -3,6 +3,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include "addressindex.h"
 #include "base58.h"
 #include "clientversion.h"
 #include "init.h"
@@ -532,14 +533,13 @@ bool getAddressesFromParams(const UniValue& params, std::vector<std::pair<uint16
     return true;
 }
 
-#ifdef ENABLE_ADDRESS_INDEXING
-bool heightSort(std::pair<CAddressUnspentKey, CAddressUnspentValue> a,
-                std::pair<CAddressUnspentKey, CAddressUnspentValue> b) {
+bool heightComparer(std::pair<CAddressUnspentKey, CAddressUnspentValue> a,
+                    std::pair<CAddressUnspentKey, CAddressUnspentValue> b) {
     return a.second.blockHeight < b.second.blockHeight;
 }
 
-bool timestampSort(std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> a,
-                   std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> b) {
+bool timestampComparer(std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> a,
+                       std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> b) {
     return a.second.time < b.second.time;
 }
 
@@ -578,19 +578,22 @@ UniValue getaddressmempool(const UniValue& params, bool fHelp)
             + HelpExampleRpc("getaddressmempool", "{\"addresses\": [\"12c6DSiU4Rq3P4ZxziKxzrL5LmMBrzjrJX\"]}")
         );
 
-    std::vector<std::pair<uint160, int> > addresses;
 
+    if (!fAddressIndex) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Address indexing not enabled");
+    }
+
+    std::vector<std::pair<uint160, int>> addresses;
     if (!getAddressesFromParams(params, addresses)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
 
     std::vector<std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> > indexes;
-
     if (!mempool.getAddressIndex(addresses, indexes)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for address");
     }
 
-    std::sort(indexes.begin(), indexes.end(), timestampSort);
+    std::sort(indexes.begin(), indexes.end(), timestampComparer);
 
     UniValue result(UniValue::VARR);
 
@@ -664,6 +667,16 @@ UniValue getaddressutxos(const UniValue& params, bool fHelp)
             + HelpExampleRpc("getaddressutxos", "{\"addresses\": [\"12c6DSiU4Rq3P4ZxziKxzrL5LmMBrzjrJX\"]}")
             );
 
+    // This is needed cause GetAddressUnspent returns false in two cases
+    // Either the address indexing is not enabled or an exception occurred
+    // during the processing of pblocktree->ReadAddressUnspentIndex
+    // this is unfortunate as we cannot distinguish amongst the two conditions
+    // TODO Let the exception flow up to here (if possible) and don't trap
+    // as higher level code of the RPC server already handles it
+    if (!fAddressIndex) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Address indexing not enabled");
+    }
+
     bool includeChainInfo = false;
     if (params[0].isObject()) {
         UniValue chainInfo = find_value(params[0].get_obj(), "chainInfo");
@@ -676,8 +689,7 @@ UniValue getaddressutxos(const UniValue& params, bool fHelp)
     if (params.size() > 1)
         includeImmatureBTs = params[1].get_bool();
 
-    std::vector<std::pair<uint160, int> > addresses;
-
+    std::vector<std::pair<uint160, int>> addresses;
     if (!getAddressesFromParams(params, addresses)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
@@ -690,7 +702,7 @@ UniValue getaddressutxos(const UniValue& params, bool fHelp)
         }
     }
 
-    std::sort(unspentOutputs.begin(), unspentOutputs.end(), heightSort);
+    std::sort(unspentOutputs.begin(), unspentOutputs.end(), heightComparer);
 
     UniValue utxos(UniValue::VARR);
     int currentTipHeight = -1;
@@ -812,6 +824,17 @@ UniValue getaddressdeltas(const UniValue& params, bool fHelp)
         );
 
 
+    // This is needed cause GetAddressUnspent returns false in two cases
+    // Either the address indexing is not enabled or an exception occurred
+    // during the processing of pblocktree->ReadAddressUnspentIndex
+    // this is unfortunate as we cannot distinguish amongst the two conditions
+    // TODO Let the exception flow up to here (if possible) and don't trap
+    // as higher level code of the RPC server already handles it
+    if (!fAddressIndex) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Address indexing not enabled");
+    }
+
+
     UniValue startValue = find_value(params[0].get_obj(), "start");
     UniValue endValue = find_value(params[0].get_obj(), "end");
 
@@ -835,8 +858,7 @@ UniValue getaddressdeltas(const UniValue& params, bool fHelp)
         }
     }
 
-    std::vector<std::pair<uint160, int> > addresses;
-
+    std::vector<std::pair<uint160, int>> addresses;
     if (!getAddressesFromParams(params, addresses)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
@@ -935,8 +957,17 @@ UniValue getaddressbalance(const UniValue& params, bool fHelp)
             + HelpExampleRpc("getaddressbalance", "'{\"addresses\": [\"znXWB3XGptd5T3jA9VuoGEEnVTAVHejj5bB\"]}'")
         );
 
-    std::vector<std::pair<uint160, int> > addresses;
+    // This is needed cause GetAddressUnspent returns false in two cases
+    // Either the address indexing is not enabled or an exception occurred
+    // during the processing of pblocktree->ReadAddressUnspentIndex
+    // this is unfortunate as we cannot distinguish amongst the two conditions
+    // TODO Let the exception flow up to here (if possible) and don't trap
+    // as higher level code of the RPC server already handles it
+    if (!fAddressIndex) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Address indexing not enabled");
+    }
 
+    std::vector<std::pair<uint160, int>> addresses;
     if (!getAddressesFromParams(params, addresses)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
@@ -1023,8 +1054,17 @@ UniValue getaddresstxids(const UniValue& params, bool fHelp)
             + HelpExampleRpc("getaddresstxids", "{\"addresses\": [\"12c6DSiU4Rq3P4ZxziKxzrL5LmMBrzjrJX\"]}")
         );
 
-    std::vector<std::pair<uint160, int> > addresses;
+    // This is needed cause GetAddressUnspent returns false in two cases
+    // Either the address indexing is not enabled or an exception occurred
+    // during the processing of pblocktree->ReadAddressUnspentIndex
+    // this is unfortunate as we cannot distinguish amongst the two conditions
+    // TODO Let the exception flow up to here (if possible) and don't trap
+    // as higher level code of the RPC server already handles it
+    if (!fAddressIndex) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Address indexing not enabled");
+    }
 
+    std::vector<std::pair<uint160, int>> addresses;
     if (!getAddressesFromParams(params, addresses)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
@@ -1082,11 +1122,10 @@ UniValue getaddresstxids(const UniValue& params, bool fHelp)
 
 UniValue getspentinfo(const UniValue& params, bool fHelp)
 {
-
     if (fHelp || params.size() != 1 || !params[0].isObject())
         throw runtime_error(
             "getspentinfo\n"
-            "\nReturns the txid and index where an output is spent.\n"
+            "\nReturns the txid and index where an output is spent (requires spentindex to be enabled).\n"
             "\nArguments:\n"
             "{\n"
             "  \"txid\" (string) The hex string of the txid\n"
@@ -1098,10 +1137,13 @@ UniValue getspentinfo(const UniValue& params, bool fHelp)
             "  \"index\"  (number) The spending input index\n"
             "  ,...\n"
             "}\n"
-            "\nExamples:\n"
-            + HelpExampleCli("getspentinfo", "'{\"txid\": \"0437cd7f8525ceed2324359c2d0ba26006d92d856a9c20fa0241106ee5a597c9\", \"index\": 0}'")
-            + HelpExampleRpc("getspentinfo", "{\"txid\": \"0437cd7f8525ceed2324359c2d0ba26006d92d856a9c20fa0241106ee5a597c9\", \"index\": 0}")
-        );
+            "\nExamples:\n" +
+            HelpExampleCli("getspentinfo", "'{\"txid\": \"0437cd7f8525ceed2324359c2d0ba26006d92d856a9c20fa0241106ee5a597c9\", \"index\": 0}'") + 
+            HelpExampleRpc("getspentinfo", "{\"txid\": \"0437cd7f8525ceed2324359c2d0ba26006d92d856a9c20fa0241106ee5a597c9\", \"index\": 0}"));
+
+    if (!fSpentIndex) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "spentindex not enabled");
+    }
 
     UniValue txidValue = find_value(params[0].get_obj(), "txid");
     UniValue indexValue = find_value(params[0].get_obj(), "index");
@@ -1113,6 +1155,12 @@ UniValue getspentinfo(const UniValue& params, bool fHelp)
     uint256 txid = ParseHashV(txidValue, "txid");
     int outputIndex = indexValue.get_int();
 
+    // Output index cannot be negative otherwise implicit conversion
+    // in CSpentIndexKey causes absurdly high values
+    if (outputIndex < 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "index cannot be negative");
+    }
+    
     CSpentIndexKey key(txid, outputIndex);
     CSpentIndexValue value;
 
@@ -1127,4 +1175,3 @@ UniValue getspentinfo(const UniValue& params, bool fHelp)
 
     return obj;
 }
-#endif // ENABLE_ADDRESS_INDEXING

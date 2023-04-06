@@ -10,10 +10,8 @@
 #include "config/bitcoin-config.h"
 #endif
 
-#ifdef ENABLE_ADDRESS_INDEXING
 #include "spentindex.h"
 #include "timestampindex.h"
-#endif // ENABLE_ADDRESS_INDEXING
 
 #include "amount.h"
 #include "chain.h"
@@ -48,6 +46,32 @@ class CValidationState;
 class CTxUndo;
 struct CNodeStateStats;
 class CTxInUndo;
+
+// Enforce 64-bit architecture requirement
+#if defined(__clang__) || defined(__GNUC__)
+    #if defined(__x86_64)
+        #define BITNESS_64
+    #else
+        #define BITNESS_32
+    #endif
+#else
+    #error "Zend only supports GCC and Clang compilers"
+#endif
+#if defined(BITNESS_32)
+    #error "Zend is supported only on x86-64 architecture"
+#endif
+#undef BITNESS_32
+#undef BITNESS_64
+
+#if defined(_WIN32)
+    // On Windows we assume little-endian
+#elif defined(__BYTE_ORDER__)
+    #if (__BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__)
+        #error "Zend is not supported on big-endian architectures"
+    #endif
+#else
+    #error "Undetectable endianness"
+#endif
 
 /** Default for -blockmaxsize and -blockminsize, which control the range of sizes the mining code will create **/
 static const unsigned int DEFAULT_BLOCK_MAX_SIZE = MAX_BLOCK_SIZE;
@@ -106,16 +130,11 @@ static const unsigned int MAX_REJECT_MESSAGE_LENGTH = 111;
 /* Maximum number of heigths meaningful when looking for block finality */
 static const int MAX_BLOCK_AGE_FOR_FINALITY = 2000;
 
-#ifdef ENABLE_ADDRESS_INDEXING
+static const bool DEFAULT_TXINDEX = false;
+static const bool DEFAULT_MATURITYHEIGHTINDEX = false;
 static const bool DEFAULT_ADDRESSINDEX = false;
 static const bool DEFAULT_TIMESTAMPINDEX = false;
 static const bool DEFAULT_SPENTINDEX = false;
-static const unsigned int DEFAULT_DB_MAX_OPEN_FILES = 1000;
-static const bool DEFAULT_DB_COMPRESSION = true;
-#else
-static const unsigned int DEFAULT_DB_MAX_OPEN_FILES = 64;
-static const bool DEFAULT_DB_COMPRESSION = false;
-#endif // ENABLE_ADDRESS_INDEXING
 
 // Sanity check the magic numbers when we change them
 BOOST_STATIC_ASSERT(DEFAULT_BLOCK_MAX_SIZE <= MAX_BLOCK_SIZE);
@@ -149,11 +168,9 @@ extern bool fReindex;
 extern bool fReindexFast;
 extern int nScriptCheckThreads;
 
-#ifdef ENABLE_ADDRESS_INDEXING
 extern bool fAddressIndex;
+extern bool fTimestampIndex;
 extern bool fSpentIndex;
-#endif // ENABLE_ADDRESS_INDEXING
-
 extern bool fTxIndex;
 extern bool fMaturityHeightIndex;
 extern bool fIsBareMultisigStd;
@@ -521,7 +538,6 @@ public:
     ScriptError GetScriptError() const;
 };
 
-#ifdef ENABLE_ADDRESS_INDEXING
 bool GetTimestampIndex(const unsigned int &high, const unsigned int &low, const bool fActiveOnly, std::vector<std::pair<uint256, unsigned int> > &hashes);
 bool GetSpentIndex(CSpentIndexKey &key, CSpentIndexValue &value);
 bool GetAddressIndex(uint160 addressHash, int type,
@@ -529,7 +545,7 @@ bool GetAddressIndex(uint160 addressHash, int type,
                      int start = 0, int end = 0);
 bool GetAddressUnspent(uint160 addressHash, int type,
                        std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs);
-#endif // ENABLE_ADDRESS_INDEXING
+
 
 /** Functions for disk access for blocks */
 bool WriteBlockToDisk(CBlock& block, CDiskBlockPos& pos, const CMessageHeader::MessageStartChars& messageStart);

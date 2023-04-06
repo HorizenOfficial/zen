@@ -83,11 +83,9 @@ bool fReindexFast = false;
 bool fTxIndex = false;
 bool fMaturityHeightIndex = false;
 
-#ifdef ENABLE_ADDRESS_INDEXING
 bool fAddressIndex = false;
 bool fTimestampIndex = false;
 bool fSpentIndex = false;
-#endif // ENABLE_ADDRESS_INDEXING
 
 bool fHavePruned = false;
 bool fPruneMode = false;
@@ -1473,7 +1471,6 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
         // Store transaction in memory
         pool.addUnchecked(certHash, entry, !IsInitialBlockDownload());
 
-#ifdef ENABLE_ADDRESS_INDEXING
         // Add memory address index
         if (fAddressIndex) {
             pool.addAddressIndex(entry.GetCertificate(), entry.GetTime(), view);
@@ -1483,7 +1480,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
         if (fSpentIndex) {
             pool.addSpentIndex(entry.GetCertificate(), view);
         }
-#endif // ENABLE_ADDRESS_INDEXING
+
     }
     return MempoolReturnValue::VALID;
 }
@@ -1800,7 +1797,6 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
 
         pool.addUnchecked(hash, entry, !IsInitialBlockDownload());
 
-#ifdef ENABLE_ADDRESS_INDEXING
         // Add memory address index
         if (fAddressIndex) {
             pool.addAddressIndex(entry.GetTx(), entry.GetTime(), view);
@@ -1810,7 +1806,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
         if (fSpentIndex) {
             pool.addSpentIndex(entry.GetTx(), view);
         }
-#endif // ENABLE_ADDRESS_INDEXING
+
     }
 
     return MempoolReturnValue::VALID;
@@ -1840,7 +1836,6 @@ MempoolReturnValue AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &
     return MempoolReturnValue::INVALID;
 }
 
-#ifdef ENABLE_ADDRESS_INDEXING
 bool GetTimestampIndex(const unsigned int &high, const unsigned int &low, const bool fActiveOnly, std::vector<std::pair<uint256, unsigned int> > &hashes)
 {
     if (!fTimestampIndex)
@@ -1889,7 +1884,6 @@ bool GetAddressUnspent(uint160 addressHash, int type,
 
     return true;
 }
-#endif // ENABLE_ADDRESS_INDEXING
 
 /** Return transaction in tx, and if it was found inside a block, its hash is placed in hashBlock */
 bool GetTransaction(const uint256 &hash, CTransaction &txOut, uint256 &hashBlock, bool fAllowSlow)
@@ -2766,11 +2760,10 @@ bool AbortNode(CValidationState& state, const std::string& strMessage, const std
 bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view, flagLevelDBIndexesWrite explorerIndexesWrite,
                      bool* pfClean, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo)
 {
-#ifdef ENABLE_ADDRESS_INDEXING
-    std::vector<std::pair<CAddressIndexKey, CAddressIndexValue> > addressIndex;
-    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspentIndex;
-    std::vector<std::pair<CSpentIndexKey, CSpentIndexValue> > spentIndex;
-#endif // ENABLE_ADDRESS_INDEXING
+    std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>> addressIndex;
+    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>> addressUnspentIndex;
+    std::vector<std::pair<CSpentIndexKey, CSpentIndexValue>> spentIndex;
+
     std::vector<std::pair<uint256, CTxIndexValue> > vTxIndexValues;
     std::vector<std::pair<CMaturityHeightKey, CMaturityHeightValue> > maturityHeightValues;  
 
@@ -2815,12 +2808,9 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             view.RevertMaturityHeightIndexSidechainEvents(pindex->nHeight, blockUndo, pblocktree, maturityHeightValues);
         }
 
-#ifdef ENABLE_ADDRESS_INDEXING
-        if (fAddressIndex)
-        {
+        if (fAddressIndex) {
             view.RevertIndexesSidechainEvents(pindex->nHeight, blockUndo, pblocktree, addressIndex, addressUnspentIndex);
         }
-#endif // ENABLE_ADDRESS_INDEXING
     }
 
     // not including coinbase
@@ -2854,7 +2844,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 vTxIndexValues.push_back(std::make_pair(hash, txIndexVal));
             }
 
-#ifdef ENABLE_ADDRESS_INDEXING
+
             // Update the explorer indexes according to the removed outputs
             if (fAddressIndex)
             {
@@ -2876,7 +2866,6 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                     }
                 }
             }
-#endif // ENABLE_ADDRESS_INDEXING
         }
 
         // Check that all outputs are available and match the outputs in the block itself
@@ -2942,17 +2931,15 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                         const CMaturityHeightKey maturityHeightKey = CMaturityHeightKey(certMaturityHeight, prevBlockTopQualityCertHash);
                         maturityHeightValues.push_back(std::make_pair(maturityHeightKey, CMaturityHeightValue(static_cast<char>(1))));
                     }
-#ifdef ENABLE_ADDRESS_INDEXING
+
                     // Set the lower quality BTs as top quality
-                    if (fAddressIndex)
-                    {
+                    if (fAddressIndex) {
                         CTxIndexValue txIndexVal;
                         assert(pblocktree->ReadTxIndex(prevBlockTopQualityCertHash, txIndexVal));
 
                         view.UpdateBackwardTransferIndexes(prevBlockTopQualityCertHash, txIndexVal.txIndex, addressIndex, addressUnspentIndex,
-                                                        CCoinsViewCache::flagIndexesUpdateType::RESTORE_CERTIFICATE);
+                                                           CCoinsViewCache::flagIndexesUpdateType::RESTORE_CERTIFICATE);
                     }
-#endif // ENABLE_ADDRESS_INDEXING               
                 }
             }
 
@@ -2985,7 +2972,6 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 fClean = false;
             }
 
-#ifdef ENABLE_ADDRESS_INDEXING
             if (explorerIndexesWrite == flagLevelDBIndexesWrite::ON)
             {
                     // Update the explorer indexes according to the removed inputs
@@ -3012,7 +2998,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                         spentIndex.push_back(make_pair(CSpentIndexKey(out.hash, out.n), CSpentIndexValue()));
                     }
             }
-#endif // ENABLE_ADDRESS_INDEXING
+
         }
     }
 
@@ -3021,7 +3007,6 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         const CTransaction &tx = block.vtx[i];
         uint256 hash = tx.GetHash();
 
-#ifdef ENABLE_ADDRESS_INDEXING
         if (fAddressIndex && explorerIndexesWrite == flagLevelDBIndexesWrite::ON)
         {
             for (unsigned int k = tx.GetVout().size(); k-- > 0;)
@@ -3042,7 +3027,6 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 }
             }
         }
-#endif // ENABLE_ADDRESS_INDEXING
 
         // Check that all outputs are available and match the outputs in the block itself
         // exactly.
@@ -3100,7 +3084,6 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                     fClean = false;
                 }
 
-#ifdef ENABLE_ADDRESS_INDEXING
                 if (explorerIndexesWrite == flagLevelDBIndexesWrite::ON)
                 {
                     const CTxIn input = tx.GetVin()[j];
@@ -3132,7 +3115,6 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                         spentIndex.push_back(make_pair(CSpentIndexKey(input.prevout.hash, input.prevout.n), CSpentIndexValue()));
                     }
                 }
-#endif // ENABLE_ADDRESS_INDEXING
 
             }
         }
@@ -3161,7 +3143,6 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             }
         }
 
-#ifdef ENABLE_ADDRESS_INDEXING
         if (fAddressIndex)
         {
             if (!pblocktree->UpdateAddressIndex(addressIndex))
@@ -3181,7 +3162,6 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 return AbortNode(state, "Failed to write address spent index");
             }
         }
-#endif // ENABLE_ADDRESS_INDEXING
     }
 
     return fClean;
@@ -3406,11 +3386,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     blockundo.vtxundo.reserve(block.vtx.size() - 1 + block.vcert.size());
     std::vector<std::pair<CMaturityHeightKey,CMaturityHeightValue>> maturityHeightValues;
 
-#ifdef ENABLE_ADDRESS_INDEXING
-    std::vector<std::pair<CAddressIndexKey, CAddressIndexValue> > addressIndex;
-    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspentIndex;
-    std::vector<std::pair<CSpentIndexKey, CSpentIndexValue> > spentIndex;
-#endif // ENABLE_ADDRESS_INDEXING
+    std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>> addressIndex;
+    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>> addressUnspentIndex;
+    std::vector<std::pair<CSpentIndexKey, CSpentIndexValue>> spentIndex;
 
     // Construct the incremental merkle tree at the current
     // block position,
@@ -3494,7 +3472,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return state.DoS(100, error("%s():%d: JoinSplit requirements not met",__func__, __LINE__),
                                  CValidationState::Code::INVALID, "bad-txns-joinsplit-requirements-not-met");
 
-#ifdef ENABLE_ADDRESS_INDEXING
             if ((fAddressIndex || fSpentIndex) && explorerIndexesWrite == flagLevelDBIndexesWrite::ON)
             {
                 for (size_t j = 0; j < tx.GetVin().size(); j++)
@@ -3530,7 +3507,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                     }
                 }
             }
-#endif // ENABLE_ADDRESS_INDEXING
 
             // Add in sigops done by pay-to-script-hash inputs;
             // this is to prevent a "rogue miner" from creating
@@ -3549,7 +3525,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             control.Add(vChecks);
         }
 
-#ifdef ENABLE_ADDRESS_INDEXING
         if (fAddressIndex && explorerIndexesWrite == flagLevelDBIndexesWrite::ON)
         {
             for (unsigned int k = 0; k < tx.GetVout().size(); k++)
@@ -3571,7 +3546,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 }
             }
         }
-#endif // ENABLE_ADDRESS_INDEXING
 
         CTxUndo undoDummy;
         if (txIdx > 0) {
@@ -3631,7 +3605,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             return state.DoS(100, error("%s():%d: certificate inputs missing/spent",__func__, __LINE__),
                                  CValidationState::Code::INVALID, "bad-cert-inputs-missingorspent");
 
-#ifdef ENABLE_ADDRESS_INDEXING
         // Update the explorer indexes with the inputs
         if ((fAddressIndex || fSpentIndex) && explorerIndexesWrite == flagLevelDBIndexesWrite::ON)
         {
@@ -3667,7 +3640,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 }
             }
         }
-#endif // ENABLE_ADDRESS_INDEXING
 
         // Add in sigops done by pay-to-script-hash inputs;
         // this is to prevent a "rogue miner" from creating
@@ -3698,7 +3670,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             scVerifier.LoadDataForCertVerification(view, cert);
         }
 
-#ifdef ENABLE_ADDRESS_INDEXING
         // Update the explorer indexes with the "normal" outputs
         if (fAddressIndex && explorerIndexesWrite == flagLevelDBIndexesWrite::ON)
         {
@@ -3721,7 +3692,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 }
             }
         }
-#endif // ENABLE_ADDRESS_INDEXING
 
         CSidechain sidechain;
         assert(view.GetSidechain(cert.GetScId(), sidechain));
@@ -3771,7 +3741,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                         txIndexVal.maturityHeight *= -1;
                         vTxIndexValues.push_back(std::make_pair(prevBlockTopQualityCertHash, txIndexVal));
 
-#ifdef ENABLE_ADDRESS_INDEXING
                         // Set any lower quality BT as superseded on the explorer indexes
                         if (fAddressIndex)
                         {
@@ -3779,7 +3748,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                             view.UpdateBackwardTransferIndexes(prevBlockTopQualityCertHash, txIndexVal.txIndex, addressIndex, addressUnspentIndex,
                                                                CCoinsViewCache::flagIndexesUpdateType::SUPERSEDE_CERTIFICATE);
                         }
-#endif // ENABLE_ADDRESS_INDEXING
+
                     }
                     if (fMaturityHeightIndex) {
                         //Remove the superseded certificate from the MaturityHeight DB
@@ -3825,7 +3794,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                     CValidationState::Code::INVALID, "bad-blk-cert-commitbuild");
         }
 
-#ifdef ENABLE_ADDRESS_INDEXING
         // Update the explorer indexes according to the Backward Transfer outputs
         if (fAddressIndex && explorerIndexesWrite == flagLevelDBIndexesWrite::ON)
         {
@@ -3848,19 +3816,17 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 }
             }
         }
-#endif // ENABLE_ADDRESS_INDEXING
 
         LogPrint("cert", "%s():%d - nTxOffset=%d\n", __func__, __LINE__, pos.nTxOffset );
     } //end of Processing certificates loop
 
     if (explorerIndexesWrite == flagLevelDBIndexesWrite::ON)
     {
-#ifdef ENABLE_ADDRESS_INDEXING
+
         if (fAddressIndex)
         {
             view.HandleIndexesSidechainEvents(pindex->nHeight, pblocktree, addressIndex, addressUnspentIndex);
         }
-#endif // ENABLE_ADDRESS_INDEXING
 
         if (fMaturityHeightIndex)
         {
@@ -3975,8 +3941,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         setDirtyBlockIndex.insert(pindex);
     }
 
-    if (explorerIndexesWrite == flagLevelDBIndexesWrite::ON)
-    {
+    if (explorerIndexesWrite == flagLevelDBIndexesWrite::ON) {
         if (fTxIndex) {
             if (!pblocktree->WriteTxIndex(vTxIndexValues))
                 return AbortNode(state, "Failed to write transaction index");
@@ -3986,11 +3951,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return AbortNode(state, "Failed to write maturity height index");
         }
 
-#ifdef ENABLE_ADDRESS_INDEXING
-        if (fAddressIndex)
-        {
-            if (!pblocktree->WriteAddressIndex(addressIndex))
-            {
+        if (fAddressIndex) {
+            if (!pblocktree->WriteAddressIndex(addressIndex)) {
                 return AbortNode(state, "Failed to write address index");
             }
 
@@ -4008,8 +3970,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             }
         }
 
-        if (fTimestampIndex)
-        {
+        if (fTimestampIndex) {
             unsigned int logicalTS = pindex->nTime;
             unsigned int prevLogicalTS = 0;
 
@@ -4018,8 +3979,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 if (!pblocktree->ReadTimestampBlockIndex(pindex->pprev->GetBlockHash(), prevLogicalTS))
                     LogPrintf("%s: Failed to read previous block's logical timestamp\n", __func__);
 
-            if (logicalTS <= prevLogicalTS)
-            {
+            if (logicalTS <= prevLogicalTS) {
                 logicalTS = prevLogicalTS + 1;
                 LogPrintf("%s: Previous logical timestamp is newer Actual[%d] prevLogical[%d] Logical[%d]\n", __func__, pindex->nTime, prevLogicalTS, logicalTS);
             }
@@ -4030,7 +3990,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             if (!pblocktree->WriteTimestampBlockIndex(CTimestampBlockIndexKey(pindex->GetBlockHash()), CTimestampBlockIndexValue(logicalTS)))
                 return AbortNode(state, "Failed to write blockhash index");
         }
-#endif // ENABLE_ADDRESS_INDEXING
     }
 
     // add this block to the view's block chain
@@ -5800,7 +5759,6 @@ bool static LoadBlockIndexDB()
     pblocktree->ReadFlag("maturityheightindex", fMaturityHeightIndex);
     LogPrintf("%s: maturityHeight index %s\n", __func__, fMaturityHeightIndex ? "enabled" : "disabled");  
 
-#ifdef ENABLE_ADDRESS_INDEXING
     // Check whether we have an address index
     pblocktree->ReadFlag("addressindex", fAddressIndex);
     LogPrintf("%s: address index %s\n", __func__, fAddressIndex ? "enabled" : "disabled");
@@ -5812,7 +5770,6 @@ bool static LoadBlockIndexDB()
     // Check whether we have a spent index
     pblocktree->ReadFlag("spentindex", fSpentIndex);
     LogPrintf("%s: spent index %s\n", __func__, fSpentIndex ? "enabled" : "disabled");
-#endif // ENABLE_ADDRESS_INDEXING
 
     // Fill in-memory data
     BOOST_FOREACH(const PAIRTYPE(uint256, CBlockIndex*)& item, mapBlockIndex)
@@ -6013,14 +5970,13 @@ bool InitBlockIndex() {
     pblocktree->WriteString("indexVersion", indexVersionStr); 
 
     // Use the provided setting for -txindex in the new database
-    fTxIndex = GetBoolArg("-txindex", false);
+    fTxIndex = GetBoolArg("-txindex", DEFAULT_TXINDEX);
     pblocktree->WriteFlag("txindex", fTxIndex);
 
     // Use the provided setting for -maturityheightindex in the new database
-    fMaturityHeightIndex = GetBoolArg("-maturityheightindex", false);
+    fMaturityHeightIndex = GetBoolArg("-maturityheightindex", DEFAULT_MATURITYHEIGHTINDEX);
     pblocktree->WriteFlag("maturityheightindex", fMaturityHeightIndex);
 
-#ifdef ENABLE_ADDRESS_INDEXING
     // Use the provided setting for -addressindex in the new database
     fAddressIndex = GetBoolArg("-addressindex", DEFAULT_ADDRESSINDEX);
     pblocktree->WriteFlag("addressindex", fAddressIndex);
@@ -6031,7 +5987,6 @@ bool InitBlockIndex() {
 
     fSpentIndex = GetBoolArg("-spentindex", DEFAULT_SPENTINDEX);
     pblocktree->WriteFlag("spentindex", fSpentIndex);
-#endif // ENABLE_ADDRESS_INDEXING
 
     LogPrintf("Initializing databases...\n");
 

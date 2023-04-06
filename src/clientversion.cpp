@@ -19,11 +19,7 @@
  * for both bitcoind and bitcoin-core, to make it harder for attackers to
  * target servers or GUI users specifically.
  */
-#ifdef ENABLE_ADDRESS_INDEXING
-const std::string CLIENT_NAME("zenai");
-#else
 const std::string CLIENT_NAME("zen");
-#endif // ENABLE_ADDRESS_INDEXING
 
 /**
  * Client version number

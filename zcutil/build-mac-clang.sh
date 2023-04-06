@@ -149,14 +149,6 @@ if [ "$LIBZENDOO_LEGACY_CPU" = "false" ]; then
 fi
 set -x
 
-# If --enable-address-indexing is the next argument, enable building AddressIndexing code:
-ADDRESSINDEXING_ARG=''
-if [ "x${1:-}" = 'x--enable-address-indexing' ]
-then
-    ADDRESSINDEXING_ARG='--enable-address-indexing'
-    shift
-fi
-
 PREFIX="$(pwd)/depends/$BUILD/"
 
 eval "$MAKE" --version
@@ -168,5 +160,5 @@ ld -v
 
 HOST="$HOST" BUILD="$BUILD" NO_RUST="$RUST_ARG" NO_PROTON="$PROTON_ARG" LIBZENDOO_LEGACY_CPU="$LIBZENDOO_LEGACY_CPU" "$MAKE" "$@" -C ./depends/ V=1
 ./autogen.sh
-CC="$CC" CXX="$CXX" ./configure --prefix="${PREFIX}" --host="$HOST" --build="$BUILD" "$RUST_ARG" "$HARDENING_ARG" "$LCOV_ARG" "$TEST_ARG" "$MINING_ARG" "$PROTON_ARG" "$LIBS_ARG" "$ADDRESSINDEXING_ARG" --enable-werror CXXFLAGS='-Wno-literal-conversion -g'
+CC="$CC" CXX="$CXX" ./configure --prefix="${PREFIX}" --host="$HOST" --build="$BUILD" "$RUST_ARG" "$HARDENING_ARG" "$LCOV_ARG" "$TEST_ARG" "$MINING_ARG" "$PROTON_ARG" "$LIBS_ARG" --enable-werror CXXFLAGS='-Wno-literal-conversion -g'
 "$MAKE" "$@" V=1

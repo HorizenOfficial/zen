@@ -45,7 +45,7 @@ Usage:
 $0 --help
   Show this help message and exit.
 
-$0 [ --enable-lcov || --disable-tests ] [ --disable-mining ] [ --enable-proton ] [ --legacy-cpu ] [--enable-address-indexing] [--use-clang] [ MAKEARGS... ]
+$0 [ --enable-lcov || --disable-tests ] [ --disable-mining ] [ --enable-proton ] [ --legacy-cpu ] [--use-clang] [ MAKEARGS... ]
     Build Zen and most of its transitive dependencies from
     source. MAKEARGS are applied to both dependencies and Zen itself.
 
@@ -62,10 +62,6 @@ $0 [ --enable-lcov || --disable-tests ] [ --disable-mining ] [ --enable-proton ]
 
   If --legacy-cpu is passed, libzendoo is built without bmi2 and adx compiler flags.
   These CPU flags were introduced in Intel Broadwell and AMD Excavator architectures.
-
-  If --enable-address-indexing is passed, Zen is configured to build the code related
-  to address indexing. Such feature is typically used by the Explorer to keep track
-  of additional information that are not useful for normal nodes.
 
   If --use-clang is passed, Zen is compiled using Clang instead of GCC.
 EOF
@@ -130,14 +126,6 @@ if [ "$LIBZENDOO_LEGACY_CPU" = "false" ]; then
 fi
 set -x
 
-# If --enable-address-indexing is the next argument, enable building AddressIndexing code:
-ADDRESSINDEXING_ARG=''
-if [ "x${1:-}" = 'x--enable-address-indexing' ]
-then
-    ADDRESSINDEXING_ARG='--enable-address-indexing'
-    shift
-fi
-
 # If --use-clang is true, use Clang as the compiler (instead of gcc):
 CLANG_ARG='false'
 if [ "x${1:-}" = 'x--use-clang' ]; then
@@ -151,5 +139,5 @@ ld -v
 
 HOST="$HOST" BUILD="$BUILD" NO_PROTON="$PROTON_ARG" LIBZENDOO_LEGACY_CPU="$LIBZENDOO_LEGACY_CPU" CLANG_ARG="$CLANG_ARG" "$MAKE" "$@" -C ./depends/ V=1
 ./autogen.sh
-CONFIG_SITE="$PWD/depends/$HOST/share/config.site" ./configure "$HARDENING_ARG" "$LCOV_ARG" "$TEST_ARG" "$MINING_ARG" "$PROTON_ARG" "$ADDRESSINDEXING_ARG" $CONFIGURE_FLAGS CXXFLAGS='-g'
+CONFIG_SITE="$PWD/depends/$HOST/share/config.site" ./configure "$HARDENING_ARG" "$LCOV_ARG" "$TEST_ARG" "$MINING_ARG" "$PROTON_ARG" $CONFIGURE_FLAGS CXXFLAGS='-g'
 "$MAKE" "$@" V=1

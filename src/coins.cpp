@@ -1143,7 +1143,6 @@ void CCoinsViewCache::RevertMaturityHeightIndexSidechainEvents(int height, CBloc
     return;
 }
 
-#ifdef ENABLE_ADDRESS_INDEXING
 void CCoinsViewCache::HandleIndexesSidechainEvents(int height, CBlockTreeDB* pblocktree,
                                                    std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>>& addressIndex,
                                                    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>& addressUnspentIndex)
@@ -1157,7 +1156,6 @@ void CCoinsViewCache::RevertIndexesSidechainEvents(int height, CBlockUndo& block
 {
     return;
 }
-#endif // ENABLE_ADDRESS_INDEXING
 
 #else
 
@@ -1710,8 +1708,6 @@ void CCoinsViewCache::RevertMaturityHeightIndexSidechainEvents(int height, CBloc
     }
 }
 
-
-#ifdef ENABLE_ADDRESS_INDEXING
 void CCoinsViewCache::HandleIndexesSidechainEvents(int height, CBlockTreeDB* pblocktree,
                                                    std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>>& addressIndex,
                                                    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>& addressUnspentIndex)
@@ -1775,7 +1771,6 @@ void CCoinsViewCache::RevertIndexesSidechainEvents(int height, CBlockUndo& block
         }
     }
 }
-#endif // ENABLE_ADDRESS_INDEXING
 #endif
 
 bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& blockUndo, int blockHeight)
@@ -1980,7 +1975,6 @@ bool CCoinsViewCache::RestoreBackwardTransfers(const uint256& certHash, const st
     return fClean;
 }
 
-#ifdef ENABLE_ADDRESS_INDEXING
 void CCoinsViewCache::UpdateBackwardTransferIndexes(const uint256& certHash,
                                                     int certIndex,
                                                     std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>>& addressIndex,
@@ -2020,7 +2014,6 @@ void CCoinsViewCache::UpdateBackwardTransferIndexes(const uint256& certHash,
         }
     }
 }
-#endif // ENABLE_ADDRESS_INDEXING
 
 bool CCoinsViewCache::RestoreSidechain(const CScCertificate& certToRevert, const CSidechainUndoData& sidechainUndo)
 {

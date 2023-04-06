@@ -316,11 +316,9 @@ static const CRPCCommand vRPCCommands[] =
     { "blockchain",         "getblock",               &getblock,               true  },
     { "blockchain",         "getblockexpanded",       &getblockexpanded,       true  },
 
-#ifdef ENABLE_ADDRESS_INDEXING
     { "blockchain",         "getblockdeltas",         &getblockdeltas,         false },
     { "blockchain",         "getblockhashes",         &getblockhashes,         true  },
     { "blockchain",         "getspentinfo",           &getspentinfo,           false },
-#endif // ENABLE_ADDRESS_INDEXING
 
     { "blockchain",         "getblockhash",           &getblockhash,           true  },
     { "blockchain",         "getblockfinalityindex",  &getblockfinalityindex,  true  },
@@ -370,14 +368,12 @@ static const CRPCCommand vRPCCommands[] =
     { "rawtransactions",    "fundrawtransaction",     &fundrawtransaction,     false },
 #endif
 
-#ifdef ENABLE_ADDRESS_INDEXING
     /* Address index */
     { "addressindex",       "getaddressmempool",      &getaddressmempool,      true  },
     { "addressindex",       "getaddressutxos",        &getaddressutxos,        false },
     { "addressindex",       "getaddressdeltas",       &getaddressdeltas,       false },
     { "addressindex",       "getaddresstxids",        &getaddresstxids,        false },
     { "addressindex",       "getaddressbalance",      &getaddressbalance,      false },
-#endif // ENABLE_ADDRESS_INDEXING
 
     /* Utility functions */
     { "util",               "createmultisig",         &createmultisig,         true  },
