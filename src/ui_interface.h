@@ -80,6 +80,9 @@ public:
     /** Progress message during initialization. */
     boost::signals2::signal<void (const std::string &message)> InitMessage;
 
+    /** Progress message during initialization (after loading). */
+    boost::signals2::signal<void (const std::string &message)> InitMessageAfterLoading;
+
     /** Number of network connections changed. */
     boost::signals2::signal<void (int newNumConnections)> NotifyNumConnectionsChanged;
 

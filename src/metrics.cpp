@@ -86,7 +86,8 @@ boost::synchronized_value<std::list<uint256>> trackedBlocks;
 
 boost::synchronized_value<std::list<std::string>> messageBox;
 boost::synchronized_value<std::string> initMessage;
-bool loaded = false;
+boost::synchronized_value<std::string> initMessageAfterLoading;
+std::atomic<bool> loaded = false;
 
 extern int64_t GetNetworkHashPS(int lookup, int height);
 
@@ -192,6 +193,11 @@ static void metrics_InitMessage(const std::string& message)
     *initMessage = message;
 }
 
+static void metrics_InitMessageAfterLoading(const std::string& message)
+{
+    *initMessageAfterLoading = message;
+}
+
 void ConnectMetricsScreen()
 {
     uiInterface.ThreadSafeMessageBox.disconnect_all_slots();
@@ -200,6 +206,8 @@ void ConnectMetricsScreen()
     uiInterface.ThreadSafeQuestion.connect(metrics_ThreadSafeQuestion);
     uiInterface.InitMessage.disconnect_all_slots();
     uiInterface.InitMessage.connect(metrics_InitMessage);
+    uiInterface.InitMessageAfterLoading.disconnect_all_slots();
+    uiInterface.InitMessageAfterLoading.connect(metrics_InitMessageAfterLoading);
 }
 
 int printStats(bool mining)
@@ -436,20 +444,32 @@ int printMessageBox(size_t cols)
 
 int printInitMessage()
 {
-    if (loaded) {
+    static bool doneLoadingPrinted = false;
+
+    if (loaded && doneLoadingPrinted && !fImporting) {
         return 0;
     }
 
-    std::string msg = *initMessage;
-    std::cout << _("Init message:") << " " << msg << std::endl;
-    std::cout << std::endl;
-
-    if (msg == _("Done loading")) {
-        loaded = true;
+    std::string msg;
+    if (!loaded)
+    {
+        msg = static_cast<std::string>(_("Init message: ")) + static_cast<std::string>(*initMessage);
     }
+    else if (loaded && !doneLoadingPrinted)
+    {
+        msg = static_cast<std::string>(_("Init message: Done loading"));
+        doneLoadingPrinted = true;
+    }
+    else if (fImporting)
+    {
+        msg = static_cast<std::string>(_("Init message (node already loaded): ")) + static_cast<std::string>(*initMessageAfterLoading);
+    }
+
+    std::cout << msg << "\n" << std::endl;
 
     return 2;
 }
+
 #ifdef WIN32
 #define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
 
@@ -572,4 +592,9 @@ void ThreadShowMetricsScreen()
             std::cout << "\e[" << lines << "A";
         }
     }
+}
+
+void SetDoneLoadingUI()
+{
+    loaded = true;
 }
