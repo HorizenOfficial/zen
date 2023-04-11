@@ -161,6 +161,10 @@ baseline_filtered.info: baseline.info
                       "$(abs_builddir)/depends/x86_64-unknown-linux-gnu/include/boost/*" \
                       "$(abs_builddir)/depends/x86_64-unknown-linux-gnu/include/gmock/*" \
                       "$(abs_builddir)/depends/x86_64-unknown-linux-gnu/include/gtest/*" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/*.h" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/boost/*" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/gmock/*" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/gtest/*" \
                       "$(abs_builddir)/src/gtest/*" \
                       "$(abs_builddir)/src/test/*" \
                       "$(abs_builddir)/src/wallet/gtest/*" \
@@ -176,6 +180,10 @@ leveldb_baseline_filtered.info: leveldb_baseline.info
                       "$(abs_builddir)/depends/x86_64-unknown-linux-gnu/include/boost/*" \
                       "$(abs_builddir)/depends/x86_64-unknown-linux-gnu/include/gmock/*" \
                       "$(abs_builddir)/depends/x86_64-unknown-linux-gnu/include/gtest/*" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/*.h" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/boost/*" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/gmock/*" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/gtest/*" \
                       "$(abs_builddir)/src/gtest/*" \
                       "$(abs_builddir)/src/test/*" \
                       "$(abs_builddir)/src/wallet/gtest/*" \
@@ -197,6 +205,10 @@ test_bitcoin_filtered.info: test_bitcoin.info
                       "$(abs_builddir)/depends/x86_64-unknown-linux-gnu/include/boost/*" \
                       "$(abs_builddir)/depends/x86_64-unknown-linux-gnu/include/gmock/*" \
                       "$(abs_builddir)/depends/x86_64-unknown-linux-gnu/include/gtest/*" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/*.h" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/boost/*" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/gmock/*" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/gtest/*" \
                       "$(abs_builddir)/src/gtest/*" \
                       "$(abs_builddir)/src/test/*" \
                       "$(abs_builddir)/src/wallet/gtest/*" \
@@ -215,6 +227,10 @@ zen-gtest_filtered.info: zen-gtest.info
                       "$(abs_builddir)/depends/x86_64-unknown-linux-gnu/include/boost/*" \
                       "$(abs_builddir)/depends/x86_64-unknown-linux-gnu/include/gmock/*" \
                       "$(abs_builddir)/depends/x86_64-unknown-linux-gnu/include/gtest/*" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/*.h" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/boost/*" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/gmock/*" \
+                      "$(abs_builddir)/depends/x86_64-linux-gnu/include/gtest/*" \
                       "$(abs_builddir)/src/gtest/*" \
                       "$(abs_builddir)/src/test/*" \
                       "$(abs_builddir)/src/wallet/gtest/*" \
@@ -228,7 +244,7 @@ zen-gtest_coverage.info: baseline_filtered_combined.info zen-gtest_filtered.info
 	$(LCOV) -a baseline_filtered.info -a leveldb_baseline_filtered.info -a zen-gtest_filtered.info -o $@
 
 total_coverage.info:  baseline_filtered_combined.info test_bitcoin_filtered.info zen-gtest_filtered.info
-	$(LCOV) -a baseline_filtered.info -a leveldb_baseline_filtered.info -a test_bitcoin_filtered.info -a zen-gtest_filtered.info -a block_test_filtered.info -o $@ | $(GREP) "\%" | $(AWK) '{ print substr($$3,2,50) "/" $$5 }' > coverage_percent.txt
+	$(LCOV) -a baseline_filtered.info -a leveldb_baseline_filtered.info -a test_bitcoin_filtered.info -a zen-gtest_filtered.info -o $@ | $(GREP) "\%" | $(AWK) '{ print substr($$3,2,50) "/" $$5 }' > coverage_percent.txt
 
 test_bitcoin.coverage/.dirstamp:  test_bitcoin_coverage.info
 	$(GENHTML) -s $< -o $(@D)
@@ -246,6 +262,14 @@ total.coverage/.dirstamp: total_coverage.info
 
 cov: test_bitcoin.coverage/.dirstamp cov-zen total.coverage/.dirstamp
 
+COMMIT = `git log -1 --format="%H"`
+
+cov_ci: test_bitcoin.coverage/.dirstamp cov-zen total.coverage/.dirstamp
+	bash <(curl -Ls https://coverage.codacy.com/get.sh) report --partial -l CPP --commit-uuid ${COMMIT} \
+    --project-token ${CODACY_PROJECT_TOKEN} -r total_coverage.info 
+	bash <(curl -Ls https://coverage.codacy.com/get.sh) report --partial -l C   --commit-uuid ${COMMIT} \
+    --project-token ${CODACY_PROJECT_TOKEN} -r total_coverage.info
+
 endif
 
 dist_bin_SCRIPTS = zcutil/fetch-params.sh
@@ -257,8 +281,6 @@ install-exec-hook:
 	mv $(DESTDIR)$(bindir)/fetch-params.sh $(DESTDIR)$(bindir)/zen-fetch-params
 
 CLEANFILES = $(OSX_DMG) $(BITCOIN_WIN_INSTALLER)
-
-.INTERMEDIATE: $(COVERAGE_INFO)
 
 DISTCHECK_CONFIGURE_FLAGS = --enable-man
 

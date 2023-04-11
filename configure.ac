@@ -400,6 +400,8 @@ if test x$use_pkgconfig = xyes; then
   ])
 fi
 
+AC_SUBST(COVERAGE_FLAGS)
+
 if test x$use_lcov = xyes; then
   if test x$LCOV = x; then
     AC_MSG_ERROR("lcov testing requested but lcov not found")
@@ -412,7 +414,7 @@ if test x$use_lcov = xyes; then
   fi
   LCOV="$LCOV --gcov-tool=$GCOV --rc lcov_branch_coverage=1"
   GENHTML="$GENHTML --branch-coverage"
-  AX_CHECK_COMPILE_FLAG([--coverage],[CXXFLAGS="$CXXFLAGS --coverage"],
+  AX_CHECK_COMPILE_FLAG([--coverage],[COVERAGE_FLAGS="--coverage"],
     [AC_MSG_ERROR("lcov testing requested but --coverage flag does not work")])
 fi
 

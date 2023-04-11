@@ -91,7 +91,7 @@ if ENABLE_PROTON
 zen_gtest_LDADD += $(LIBBITCOIN_PROTON) $(PROTON_LIBS)
 endif
 
-zen_gtest_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -static
+zen_gtest_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -static $(COVERAGE_FLAGS)
 
 zen-gtest_check: zen-gtest FORCE
 	./zen-gtest

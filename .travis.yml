@@ -22,6 +22,7 @@ os: linux
       - DOCKER_TARGET_OS=linux
       - DOCKER_FROM=ubuntu_jammy
       - DOCKER_IS_DEB=true
+      - MAKEFLAGS="--enable-lcov"
   - &docker_amd64_linux_ubuntu_jammy_legacy_cpu
     env:
       - DOCKER_ARCH=amd64
@@ -95,55 +96,86 @@ os: linux
       - DOCKER_FROM=ubuntu_bionic
       - DOCKER_IS_DEB=true
       - TEST_CMD="./qa/zen/test-fetch-params.sh"
-
   - &docker_amd64_linux_ubuntu_jammy_unit-tests
     env:
       - DOCKER_ARCH=amd64
       - DOCKER_TARGET_OS=linux
       - DOCKER_FROM=ubuntu_jammy
       - DOCKER_IS_DEB=true
+      - MAKEFLAGS="--enable-lcov"
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="btest gtest sec-hard no-dot-so util-test secp256k1 libsnark univalue"
+      - TEST_ARGS="btest gtest sec-hard no-dot-so util-test secp256k1 libsnark univalue --coverage"
+  - &docker_amd64_linux_ubuntu_jammy_clang-tidy
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_jammy
+      - DOCKER_IS_DEB=true
+      - MAKEFLAGS="--enable-lcov"
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="clang-tidy"
   - &docker_amd64_linux_ubuntu_jammy_rpc-tests_1
     env:
       - DOCKER_ARCH=amd64
       - DOCKER_TARGET_OS=linux
       - DOCKER_FROM=ubuntu_jammy
       - DOCKER_IS_DEB=true
+      - MAKEFLAGS="--enable-lcov"
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:1"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:1 --coverage"
   - &docker_amd64_linux_ubuntu_jammy_rpc-tests_2
     env:
       - DOCKER_ARCH=amd64
       - DOCKER_TARGET_OS=linux
       - DOCKER_FROM=ubuntu_jammy
       - DOCKER_IS_DEB=true
+      - MAKEFLAGS="--enable-lcov"
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:2"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:2 --coverage"
   - &docker_amd64_linux_ubuntu_jammy_rpc-tests_3
     env:
       - DOCKER_ARCH=amd64
       - DOCKER_TARGET_OS=linux
       - DOCKER_FROM=ubuntu_jammy
       - DOCKER_IS_DEB=true
+      - MAKEFLAGS="--enable-lcov"
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:3"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:3 --coverage"
   - &docker_amd64_linux_ubuntu_jammy_rpc-tests_4
     env:
       - DOCKER_ARCH=amd64
       - DOCKER_TARGET_OS=linux
       - DOCKER_FROM=ubuntu_jammy
       - DOCKER_IS_DEB=true
+      - MAKEFLAGS="--enable-lcov"
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:4"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:4 --coverage"
+  - &docker_amd64_linux_ubuntu_jammy_rpc-tests_5
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_jammy
+      - DOCKER_IS_DEB=true
+      - MAKEFLAGS="--enable-lcov"
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:5 --coverage"
+  - &docker_amd64_linux_ubuntu_jammy_rpc-tests_6
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_jammy
+      - DOCKER_IS_DEB=true
+      - MAKEFLAGS="--enable-lcov"
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:6 --coverage"
   - &docker_amd64_linux_ubuntu_jammy_test-fetch-params
     env:
       - DOCKER_ARCH=amd64
       - DOCKER_TARGET_OS=linux
       - DOCKER_FROM=ubuntu_jammy
       - DOCKER_IS_DEB=true
+      - MAKEFLAGS="--enable-lcov"
       - TEST_CMD="./qa/zen/test-fetch-params.sh"
-
   - &docker_amd64_linux_ubuntu_focal_unit-tests
     env:
       - DOCKER_ARCH=amd64
@@ -304,6 +336,13 @@ os: linux
       - bash -c "RENAME_FOLDER='true' RENAME_SUFFIX='_clean' ${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/get_archive.sh ${B2_DL_DECOMPRESS_FOLDER} ${B2_DL_FILENAME}"
       - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/travis_stay_alive.sh"
       - bash -c '${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/test/run_test.sh "${TEST_CMD}" "${TEST_ARGS}"'
+  - &finalize_docker_amd64_x-large
+    os: linux
+    dist: focal
+    vm:
+      size: x-large
+    script:
+      - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/test/finalize_${TRAVIS_CPU_ARCH}_${DOCKER_TARGET_OS}_${DOCKER_FROM}.sh"
 
 before_install:
   - source "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/setup_environment.sh"
@@ -413,6 +452,15 @@ jobs:
       <<: *test_docker_amd64_x-large
       <<: *docker_amd64_linux_ubuntu_jammy_rpc-tests_4
     - stage: Test
+      <<: *test_docker_amd64_x-large
+      <<: *docker_amd64_linux_ubuntu_jammy_rpc-tests_5
+    - stage: Test
+      <<: *test_docker_amd64_x-large
+      <<: *docker_amd64_linux_ubuntu_jammy_rpc-tests_6
+    - stage: Test
+      <<: *test_docker_amd64_x-large
+      <<: *docker_amd64_linux_ubuntu_jammy_clang-tidy
+    - stage: Test
       <<: *test_docker_amd64
       <<: *docker_amd64_linux_ubuntu_jammy_test-fetch-params
     - stage: Test
@@ -467,3 +515,6 @@ jobs:
     - stage: Test
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_11
+    - stage: Finalize_coverage
+      <<: *finalize_docker_amd64_x-large
+      <<: *docker_amd64_linux_ubuntu_jammy

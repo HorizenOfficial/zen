@@ -1,3 +1,5 @@
+#!/usr/bin/env python2
+
 import binascii
 import calendar
 import json

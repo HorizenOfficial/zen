@@ -134,6 +134,7 @@ def util_test():
 STAGES = [
     'btest',
     'gtest',
+    'b-gtest_with_coverage',
     'sec-hard',
     'no-dot-so',
     'util-test',
@@ -141,11 +142,13 @@ STAGES = [
     'libsnark',
     'univalue',
     'rpc',
+    'clang-tidy',
 ]
 
 STAGE_COMMANDS = {
     'btest': [repofile('src/test/test_bitcoin'), '-p'],
     'gtest': [repofile('src/zen-gtest')],
+    'b-gtest_with_coverage': ['make','cov_ci'],
     'sec-hard': check_security_hardening,
     'no-dot-so': ensure_no_dot_so_in_depends,
     'util-test': util_test,
@@ -153,6 +156,7 @@ STAGE_COMMANDS = {
     'libsnark': ['make', '-C', repofile('src'), 'libsnark-tests'],
     'univalue': ['make', '-C', repofile('src/univalue'), 'check'],
     'rpc': [repofile('qa/pull-tester/rpc-tests.sh')],
+    'clang-tidy': [repofile('contrib/ci-horizen/scripts/test/clang-tidy-launcher.sh')],
 }
 
 
@@ -196,6 +200,8 @@ def main():
                         action='store_true', help='finetune the workload rebalancer for MacOS builds')
     parser.add_argument('--rpc-runonly', dest='runonly',
                         action='store', help='execute only a specific python test, see qa/rpc-tests/README.md for more')                        
+    parser.add_argument('--coverage', dest='enable_cov',
+                        action='store_true', help='Enables code coverage data collection')
     args = parser.parse_args()
 
     # Check for list
@@ -212,6 +218,7 @@ def main():
 
     # Run the stages
     passed = True
+    b_or_g_tests_with_covereage_done = False
     for s in args.stage:
         # Check for rpc test args
         if s == 'rpc':
@@ -226,7 +233,16 @@ def main():
                 options.append('-macrebalance')
             if args.runonly:
                 options.append(args.runonly)
+            if args.enable_cov:
+                options.append('-coverage')
             passed &= run_stage(s, options)
+        # When running tests with coverage enabled, normal calls to btest and gtest are superseded
+        # by those defined into the Makefile, as they also include report filtering and submission
+        # to Codacy
+        elif args.enable_cov and (s == 'btest' or s == 'gtest'):
+            if not b_or_g_tests_with_covereage_done:
+                passed &= run_stage('b-gtest_with_coverage')
+                b_or_g_tests_with_covereage_done = True # "make cov_ci" runs both btest and gtest!
         else:
             passed &= run_stage(s)
 
