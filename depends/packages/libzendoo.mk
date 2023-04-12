@@ -25,6 +25,7 @@ endif
 
 ifeq ($(host_os),darwin)
 DOWNSTREAM_CARGO_FLAGS=MACOSX_DEPLOYMENT_TARGET=$(OSX_MIN_VERSION)
+DOWNSTREAM_CXX_FLAGS=CXX_FLAGS="-mmacosx-version-min=$(OSX_MIN_VERSION) -stdlib=libc++ -isysroot $(shell xcrun --show-sdk-path)"
 $(package)_target_feature+=-C link-arg=-mmacosx-version-min=$(OSX_MIN_VERSION)
 endif
 
@@ -40,7 +41,7 @@ endef
 
 define $(package)_build_cmds
   $(DOWNSTREAM_CARGO_FLAGS) RUSTFLAGS="$($(package)_target_feature)" cargo build $($(package)_build_opts) && \
-  CXX="$($(package)_cxx)" $($(package)_build_env) make mcTestLib -C mc_test
+  CXX="$(firstword $($(package)_cxx))" $(DOWNSTREAM_CXX_FLAGS) $($(package)_build_env) make mcTestLib -C mc_test
 endef
 
 
