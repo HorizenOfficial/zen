@@ -57,7 +57,7 @@ extern std::atomic<bool> fReopenDebugLog;
 extern CTranslationInterface translationInterface;
 
 /**
- * Translation function: Call Translate signal on UI interface, which returns a std::optional result.
+ * Translation function: Call Translate signal on UI interface, which returns a boost::optional result.
  * If no translation slot is registered, nothing is returned, and simply return the input.
  */
 inline std::string _(const char* psz)
@@ -65,7 +65,7 @@ inline std::string _(const char* psz)
     std::optional<std::string> rv;
     boost::optional<std::string> tmp = translationInterface.Translate(psz);
     if (tmp) rv = tmp.get();
-    return rv ? (*rv) : psz;
+    return rv.value_or(psz);
 }
 
 void SetupEnvironment();

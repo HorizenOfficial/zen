@@ -366,7 +366,7 @@ jobs:
       <<: *prepare_docker_amd64
       <<: *docker_amd64_windows_ubuntu_bionic
 
-    # build zencash-apple toolchain
+    # check that needed build tools are available
     - stage: Prepare
       if: NOT env(SKIP_OSX) OR tag IS present
       os: osx
