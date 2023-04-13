@@ -77,7 +77,7 @@ bool SidechainTxsCommitmentBuilder::add_scc(const CTxScCreationOut& ccout, const
     }
 
     wrappedFieldPtr sptrConstant(nullptr);
-    if(ccout.constant.is_initialized())
+    if(ccout.constant.has_value())
     {
         sptrConstant = ccout.constant->GetFieldElement();
     }
@@ -86,7 +86,7 @@ bool SidechainTxsCommitmentBuilder::add_scc(const CTxScCreationOut& ccout, const
     BufferWithSize bws_cert_vk(ccout.wCertVk.GetDataBuffer(), ccout.wCertVk.GetDataSize());
 
     std::unique_ptr<BufferWithSize> bws_csw_vk(nullptr);
-    if(ccout.wCeasedVk.is_initialized())
+    if(ccout.wCeasedVk.has_value())
     {
         bws_csw_vk.reset(new BufferWithSize(
             ccout.wCeasedVk->GetDataBuffer(),

@@ -6,6 +6,9 @@
 #ifndef BITCOIN_PRIMITIVES_TRANSACTION_H
 #define BITCOIN_PRIMITIVES_TRANSACTION_H
 
+#include <array>
+#include <optional>
+
 #include "amount.h"
 #include "random.h"
 #include "script/script.h"
@@ -14,7 +17,6 @@
 #include "uint256.h"
 #include "consensus/consensus.h"
 #include "util.h"
-#include <array>
 #include "net.h"
 
 #include <boost/variant.hpp>
@@ -601,9 +603,9 @@ public:
     uint8_t version;
     int withdrawalEpochLength; 
     std::vector<unsigned char> customData;
-    boost::optional<CFieldElement> constant;
+    std::optional<CFieldElement> constant;
     CScVKey wCertVk;
-    boost::optional<CScVKey> wCeasedVk;
+    std::optional<CScVKey> wCeasedVk;
     std::vector<FieldElementCertificateFieldConfig> vFieldElementCertificateFieldConfig;
     std::vector<BitVectorCertificateFieldConfig> vBitVectorCertificateFieldConfig;
     CAmount forwardTransferScFee;

@@ -12,6 +12,7 @@
 #include "uint256.h"
 
 #include <vector>
+#include <optional>
 
 #include <boost/foreach.hpp>
 
@@ -174,13 +175,13 @@ public:
     uint256 hashAnchorEnd;
 
     //! Change in value held by the Sprout circuit over this block.
-    //! Will be boost::none for older blocks on old nodes until a reindex has taken place.
-    boost::optional<CAmount> nSproutValue;
+    //! Will be std::nullopt for older blocks on old nodes until a reindex has taken place.
+    std::optional<CAmount> nSproutValue;
 
     //! (memory only) Total value held by the Sprout circuit up to and including this block.
-    //! Will be boost::none for on old nodes until a reindex has taken place.
-    //! Will be boost::none if nChainTx is zero.
-    boost::optional<CAmount> nChainSproutValue;
+    //! Will be std::nullopt for on old nodes until a reindex has taken place.
+    //! Will be std::nullopt if nChainTx is zero.
+    std::optional<CAmount> nChainSproutValue;
 
     //! block header
     int nVersion;
@@ -211,8 +212,8 @@ public:
         hashAnchor = uint256();
         hashAnchorEnd = uint256();
         nSequenceId = 0;
-        nSproutValue = boost::none;
-        nChainSproutValue = boost::none;
+        nSproutValue = std::nullopt;
+        nChainSproutValue = std::nullopt;
 
         nVersion       = 0;
         hashMerkleRoot = uint256();

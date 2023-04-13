@@ -13,6 +13,7 @@ $(1)_cxxflags=$($($(1)_type)_CXXFLAGS) $($($(1)_type)_$(release_type)_CXXFLAGS)
 $(1)_ldflags=$($($(1)_type)_LDFLAGS) $($($(1)_type)_$(release_type)_LDFLAGS) -L$($($(1)_type)_prefix)/lib
 $(1)_cppflags=$($($(1)_type)_CPPFLAGS) $($($(1)_type)_$(release_type)_CPPFLAGS) -I$($($(1)_type)_prefix)/include
 $(1)_recipe_hash:=
+$(1)_cmake=cmake -DCMAKE_AR="$(shell which $(firstword $($($(1)_type)_AR)))" -DCMAKE_RANLIB="$(shell which $(firstword $($($(1)_type)_RANLIB)))" -DCMAKE_C_COMPILER="$(firstword $($($(1)_type)_CC))" -DCMAKE_CXX_COMPILER="$(firstword $($($(1)_type)_CXX))" -DCMAKE_OSX_DEPLOYMENT_TARGET="$(OSX_MIN_VERSION)"
 endef
 
 define int_get_all_dependencies

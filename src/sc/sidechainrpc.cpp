@@ -86,12 +86,12 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         o.pushKV("vBitVectorCertificateFieldConfig", arrBitVectorConfig);
 
         o.pushKV("customData", HexStr(out.customData));
-        if(out.constant.is_initialized())
+        if(out.constant.has_value())
             o.pushKV("constant", out.constant->GetHexRepr());
-        if(out.wCeasedVk.is_initialized())
+        if(out.wCeasedVk.has_value())
         {
-            o.pushKV("cswProvingSystem", Sidechain::ProvingSystemTypeToString(out.wCeasedVk.get().getProvingSystemType()));
-            o.pushKV("wCeasedVk", out.wCeasedVk.get().GetHexRepr());
+            o.pushKV("cswProvingSystem", Sidechain::ProvingSystemTypeToString(out.wCeasedVk.value().getProvingSystemType()));
+            o.pushKV("wCeasedVk", out.wCeasedVk.value().GetHexRepr());
         }
         o.pushKV("ftScFee", ValueFromAmount(out.forwardTransferScFee));
         o.pushKV("mbtrScFee", ValueFromAmount(out.mainchainBackwardTransferRequestScFee));
@@ -549,7 +549,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
                 }
 
                 sc.wCeasedVk = CScVKey(wCeasedVkVec);
-                if (!sc.wCeasedVk.get().IsValid())
+                if (!sc.wCeasedVk.value().IsValid())
                 {
                     error = "invalid wCeasedVk";
                     return false;

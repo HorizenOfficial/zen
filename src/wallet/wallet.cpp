@@ -1402,13 +1402,13 @@ void CWallet::EraseFromWallet(const uint256 &hash)
  * Returns a nullifier if the SpendingKey is available
  * Throws std::runtime_error if the decryptor doesn't match this note
  */
-boost::optional<uint256> CWallet::GetNoteNullifier(const JSDescription& jsdesc,
+std::optional<uint256> CWallet::GetNoteNullifier(const JSDescription& jsdesc,
                                                    const libzcash::PaymentAddress& address,
                                                    const ZCNoteDecryption& dec,
                                                    const uint256& hSig,
                                                    uint8_t n) const
 {
-    boost::optional<uint256> ret;
+    std::optional<uint256> ret;
     auto note_pt = libzcash::NotePlaintext::decrypt(
         dec,
         jsdesc.ciphertexts[n],
@@ -1492,13 +1492,13 @@ bool CWallet::IsFromMe(const uint256& nullifier) const
 }
 
 void CWallet::GetNoteWitnesses(std::vector<JSOutPoint> notes,
-                               std::vector<boost::optional<ZCIncrementalWitness>>& witnesses,
+                               std::vector<std::optional<ZCIncrementalWitness>>& witnesses,
                                uint256 &final_anchor)
 {
     {
         LOCK(cs_wallet);
         witnesses.resize(notes.size());
-        boost::optional<uint256> rt;
+        std::optional<uint256> rt;
         int i = 0;
         for (JSOutPoint note : notes) {
             if (mapWallet.count(note.hash) &&
@@ -1923,7 +1923,7 @@ bool CWalletTransactionBase::WriteToDisk(CWalletDB *pwalletdb)
 }
 
 void CWallet::WitnessNoteCommitment(std::vector<uint256> commitments,
-                                    std::vector<boost::optional<ZCIncrementalWitness>>& witnesses,
+                                    std::vector<std::optional<ZCIncrementalWitness>>& witnesses,
                                     uint256 &final_anchor)
 {
     witnesses.resize(commitments.size());
@@ -1942,7 +1942,7 @@ void CWallet::WitnessNoteCommitment(std::vector<uint256> commitments,
                 {
                     tree.append(note_commitment);
 
-                    BOOST_FOREACH(boost::optional<ZCIncrementalWitness>& wit, witnesses) {
+                    BOOST_FOREACH(std::optional<ZCIncrementalWitness>& wit, witnesses) {
                         if (wit) {
                             wit->append(note_commitment);
                         }
@@ -1972,7 +1972,7 @@ void CWallet::WitnessNoteCommitment(std::vector<uint256> commitments,
     // TODO: #93; Select a root via some heuristic.
     final_anchor = tree.root();
 
-    BOOST_FOREACH(boost::optional<ZCIncrementalWitness>& wit, witnesses) {
+    BOOST_FOREACH(std::optional<ZCIncrementalWitness>& wit, witnesses) {
         if (wit) {
             assert(final_anchor == wit->root());
         }

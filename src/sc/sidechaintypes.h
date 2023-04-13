@@ -5,6 +5,7 @@
 #include <string>
 #include <mutex>
 #include <iomanip> // std::setw
+#include <optional>
 
 #include <boost/unordered_map.hpp>
 #include <boost/variant.hpp>
@@ -536,9 +537,9 @@ struct ScFixedParameters
     int withdrawalEpochLength;
     // all creation data follows...
     std::vector<unsigned char> customData;
-    boost::optional<CFieldElement> constant;
+    std::optional<CFieldElement> constant;
     CScVKey wCertVk;
-    boost::optional<CScVKey> wCeasedVk;
+    std::optional<CScVKey> wCeasedVk;
     std::vector<FieldElementCertificateFieldConfig> vFieldElementCertificateFieldConfig;
     std::vector<BitVectorCertificateFieldConfig> vBitVectorCertificateFieldConfig;
     uint8_t mainchainBackwardTransferRequestDataLength;             /**< The mandatory size of the field element included in MBTR transaction outputs (0 to disable the MBTR). */
@@ -550,9 +551,9 @@ struct ScFixedParameters
             version == 0xff                                           &&
             withdrawalEpochLength == -1                               &&
             customData.empty()                                        &&
-            constant == boost::none                                   &&
+            constant == std::nullopt                                   &&
             wCertVk.IsNull()                                          &&
-            wCeasedVk == boost::none                                  &&
+            wCeasedVk == std::nullopt                                  &&
             vFieldElementCertificateFieldConfig.empty()               &&
             vBitVectorCertificateFieldConfig.empty()                  &&
             mainchainBackwardTransferRequestDataLength == 0

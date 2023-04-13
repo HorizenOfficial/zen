@@ -3,6 +3,7 @@ $(package)_version=4.3.4
 $(package)_download_path=https://github.com/zeromq/libzmq/releases/download/v$($(package)_version)/
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
 $(package)_sha256_hash=c593001a89f5a85dd2ddf564805deb860e02471171b3f204944857336295c3e5
+$(package)_patches=use-snprintf-not-sprintf.patch check_snprintf_return.patch
 
 define $(package)_set_vars
   $(package)_config_opts=--without-docs --disable-shared --disable-curve --disable-curve-keygen --disable-perf
@@ -13,6 +14,11 @@ define $(package)_set_vars
   $(package)_config_opts_freebsd=--with-pic
   $(package)_config_opts_mingw32=--disable-Werror
   $(package)_cxxflags+=-std=c++17
+endef
+
+define $(package)_preprocess_cmds
+  patch -p1 < $($(package)_patch_dir)/use-snprintf-not-sprintf.patch && \
+  patch -p1 < $($(package)_patch_dir)/check_snprintf_return.patch
 endef
 
 # calling autogen.sh is necessary to compile on systems with aclocal < 1.16 (e.g. Ubuntu bionic).

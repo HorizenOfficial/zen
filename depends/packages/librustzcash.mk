@@ -14,13 +14,6 @@ else
 $(package)_library_file=target/release/librustzcash.a
 endif
 
-$(package)_compiler=
-ifeq ($(CLANG_ARG),true)
-$(package)_compiler=$(CT_PREFIX)clang
-else
-$(package)_compiler=$(CT_PREFIX)gcc
-endif
-
 define $(package)_set_vars
 $(package)_build_opts=--frozen --release
 $(package)_build_opts_mingw32=--target=x86_64-pc-windows-gnu
@@ -28,7 +21,7 @@ endef
 
 define $(package)_preprocess_cmds
   mkdir .cargo && \
-  cat $($(package)_patch_dir)/cargo.config | sed 's|CRATE_REGISTRY|$(host_prefix)/$(CRATE_REGISTRY)|' | sed 's|DUMMY_LINKER|$($(package)_compiler)|g'  > .cargo/config && \
+  cat $($(package)_patch_dir)/cargo.config | sed 's|CRATE_REGISTRY|$(host_prefix)/$(CRATE_REGISTRY)|' | sed 's|DUMMY_LINKER|$(default_build_CC)|g'  > .cargo/config && \
   cat Cargo.toml | sed '/lto/d' | sed '/panic/d' > toml.temp && \
   cat toml.temp >  Cargo.toml && \
   rm toml.temp 

@@ -24,6 +24,7 @@
 #include <stdint.h>
 #include <string>
 #include <vector>
+#include <optional>
 
 #include <boost/filesystem/path.hpp>
 #include <boost/signals2/signal.hpp>
@@ -61,8 +62,10 @@ extern CTranslationInterface translationInterface;
  */
 inline std::string _(const char* psz)
 {
-    boost::optional<std::string> rv = translationInterface.Translate(psz);
-    return rv ? (*rv) : psz;
+    std::optional<std::string> rv;
+    boost::optional<std::string> tmp = translationInterface.Translate(psz);
+    if (tmp) rv = tmp.get();
+    return rv.value_or(psz);
 }
 
 void SetupEnvironment();

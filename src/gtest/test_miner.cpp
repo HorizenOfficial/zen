@@ -9,7 +9,7 @@
 #include "wallet/wallet.h"
 #endif
 
-#include <boost/optional.hpp>
+#include <optional>
 
 using ::testing::Return;
 
@@ -25,7 +25,7 @@ public:
 TEST(Miner, GetMinerScriptPubKey) {
     SelectParams(CBaseChainParams::MAIN);
 
-    boost::optional<CScript> scriptPubKey;
+    std::optional<CScript> scriptPubKey;
 #ifdef ENABLE_WALLET
     MockReserveKey reservekey;
     EXPECT_CALL(reservekey, GetReservedKey(::testing::_))
