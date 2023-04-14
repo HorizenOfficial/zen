@@ -1,9 +1,9 @@
 # THIS IS A TEMPLATE FILE, FOR EXAMPLES ON ACTUAL RELEASES CHECK CONTENT OF prepare_release-X.Y.Z.yaml FILES
 # path to zend project root
 repository_root: "./"
-# new release version (format "major.minor.patch")
+# new release version (format "major.minor.patch", suffix must not be included if beta or candidate)
 version: ""
-# build number
+# build number (1-24 for beta (1-24), 25-49 for candidate (1-25), 50 for official)
 build: ""
 # mainnet config
 mainnet:
@@ -17,13 +17,13 @@ testnet:
   checkpoint_height: ""
   # total transaction from genesis block up to checkpoint (can be found in "debug.log" file)
   total_transactions: ""
-# release date (format "%a, %d %b %Y")
+# release date (format "%a, %d %b %Y", e.g. "Apr, 14 Fri 2023")
 release_date: ""
 # approximated release height (mainnet)
 approx_release_height: ""
 # weeks until deprecation
 weeks_until_deprecation: ""
-# previous version (format "major.minor.patch")
+# previous version (format "major.minor.patch", build suffix must be included if beta or candidate)
 previous_version: ""
 # path to release notes file
 release_notes_file: "./release-notes.md"

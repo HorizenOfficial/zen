@@ -45,10 +45,11 @@ def git_check_pending_changes():
     result = subprocess.run(["git", "diff"], capture_output=True, text=True, cwd=config[k_repository_root])
     return result.returncode == 0 and result.stdout != ""
 
-def git_commit(commit_title: str):
-   subprocess.run(["git", "add", "."], cwd=config[k_repository_root])  # Add all changes to the index
-   result = subprocess.run(["git", "commit", "-S", "-m", commit_title], capture_output=True, text=True, cwd=config[k_repository_root])  # Commit changes with the given message
-   if (result.returncode != 0 or git_check_pending_changes()):
+def git_commit(commit_title: str, directories_for_add: list[str] = []):
+    for directory_for_add in directories_for_add:
+        subprocess.run(["git", "add", directory_for_add], cwd=config[k_repository_root])  # Add changes to the index
+    result = subprocess.run(["git", "commit", "-a", "-S", "-m", commit_title], capture_output=True, text=True, cwd=config[k_repository_root])  # Commit changes with the given message
+    if (result.returncode != 0 or git_check_pending_changes()):
         print("Commit failed")
         sys.exit()
 
@@ -62,21 +63,35 @@ def git_create_branch(branch_name: str):
         print("Branch creation failed")
         sys.exit()
 
-# utility function
+
+# utility functions
 def get_version_string_details(version_string: str):
     assert(version_string.count(".") == 2)
-    digits = [int(digit) for digit in version_string if digit.isdigit()]
+    digits = [int(digit) for digit in version_string.split(sep='.') if digit.isdigit()]
     assert(len(digits) == 3)
     return digits
 
-def replace_string_in_file(filepath: str, old_string_regex: str, new_string: str):
+def get_build_suffix(build_number: int):
+    if (1 <= build_number and build_number <= 24):
+        return f"-beta{build_number}"
+    if (25 <= build_number and build_number <= 49):
+        return f"-rc{build_number - 24}"
+    return ""
+
+def replace_string_in_file(filepath: str, old_string_regex: str, new_string: str, ):
+    replacement_occurred = False
+
     with open(filepath, "r") as file:
         file_data = file.read()
 
     new_data = re.sub(old_string_regex, new_string, file_data)
 
-    with open(filepath, "w") as file:
-        file.write(new_data)
+    if (new_data != file_data):
+        with open(filepath, "w") as file:
+            file.write(new_data)
+        replacement_occurred = True
+    
+    return replacement_occurred
 
 def get_last_blocks(explorer_url: str):
     # Retrieve the JSON data from the "blocks" endpoint
@@ -137,7 +152,7 @@ def get_checkpoint_candidate(net: str, explorer_url: str):
 
     return checkpoint_block
 
-def find_lines_containing(file_path: str, string_to_find: str):
+def find_lines_containing(file_path: str, pattern_to_find: str):
     line_numbers = []
 
     with open(file_path, "r") as file:
@@ -145,7 +160,8 @@ def find_lines_containing(file_path: str, string_to_find: str):
         lines = file.readlines()
 
         # Find the lines containing the string to find
-        line_numbers = [i for i, line in enumerate(lines) if string_to_find in line]
+        pattern = re.compile(pattern_to_find)
+        line_numbers = [i for i, line in enumerate(lines) if pattern.match(line) is not None]
 
     return line_numbers
 
@@ -222,55 +238,61 @@ def initialize():
         sys.exit()
 
     if (interactive):
-        config[k_version] = input("Enter the new version string (e.g. 3.3.1): ")
+        config[k_version] = input("Enter the new version (format major.minor.patch, e.g. 3.3.1): ")
         print("Enter the build number:")
         print("Please, use the following values:")
         print("[ 1, 24] when releasing a beta version (e.g. 3.3.1-beta1, 3.3.1-beta2, etc.)")
         print("[25, 49] when releasing a release candidate (e.g. 3.3.1-rc1, 3.3.1-rc2, etc.)")
-        print("    [50] when making a standard release (e.g. 3.3.1)")
+        print("    [50] when making an official release (e.g. 3.3.1)")
         config[k_build] = input("")
 
-    branch_name = f"release/{config[k_version]}"
     build_number = int(config[k_build])
-    if (1 <= build_number and build_number <= 24):
-        branch_name += f"-beta{config[k_build]}"
-    elif (25 <= build_number and build_number <= 49):
-        branch_name += f"-rc{config[k_build]}"
-    elif (50 == build_number):
-        branch_name += ""
+    if (1 <= build_number and build_number <= 50):
+        prepare_release_branch_name = f"prepare_release/{config[k_version]}{get_build_suffix(build_number)}"
     else:
         print("Wrong build number; modify and retry.")
         sys.exit()
-    
-    git_create_branch(branch_name)
+    git_create_branch(prepare_release_branch_name)
+
+    if ("contrib/devtools/prepare_release" in config_file):
+        git_commit("Initialize release preparation branch", [os.path.join(config[k_repository_root], "contrib/devtools/prepare_release")])
 
     return config
 
 def set_client_version():
     version_digits = get_version_string_details(config[k_version])
 
-    replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_MAJOR, (\d+)\)",    f"define(_CLIENT_VERSION_MAJOR, {version_digits[0]})")
-    replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_MINOR, (\d+)\)",    f"define(_CLIENT_VERSION_MINOR, {version_digits[1]})")
-    replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_REVISION, (\d+)\)", f"define(_CLIENT_VERSION_REVISION, {version_digits[2]})")
-    replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_BUILD, (\d+)\)",    f"define(_CLIENT_VERSION_BUILD, {config[k_build]})")
-    replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_COPYRIGHT_YEAR, (\d+)\)",          f"define(_COPYRIGHT_YEAR, {datetime.date.today().year})")
+    rep_maj = replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_MAJOR, (\d+)\)",    f"define(_CLIENT_VERSION_MAJOR, {version_digits[0]})")
+    rep_min = replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_MINOR, (\d+)\)",    f"define(_CLIENT_VERSION_MINOR, {version_digits[1]})")
+    rep_rev = replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_REVISION, (\d+)\)", f"define(_CLIENT_VERSION_REVISION, {version_digits[2]})")
+    rep_bld = replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_BUILD, (\d+)\)",    f"define(_CLIENT_VERSION_BUILD, {config[k_build]})")
+    if (not rep_maj and not rep_min and not rep_rev and not rep_bld):
+        print("Version replacement failed (configure.ac)")
+        sys.exit()
+    replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_COPYRIGHT_YEAR, (\d+)\)", f"define(_COPYRIGHT_YEAR, {datetime.date.today().year})")
 
-    replace_string_in_file(os.path.join(config[k_repository_root], "src/clientversion.h"), r"(#define\s+CLIENT_VERSION_MAJOR\s+)(\d+)",    f"\\g<1>{version_digits[0]}")
-    replace_string_in_file(os.path.join(config[k_repository_root], "src/clientversion.h"), r"(#define\s+CLIENT_VERSION_MINOR\s+)(\d+)",    f"\\g<1>{version_digits[1]}")
-    replace_string_in_file(os.path.join(config[k_repository_root], "src/clientversion.h"), r"(#define\s+CLIENT_VERSION_REVISION\s+)(\d+)", f"\\g<1>{version_digits[2]}")
-    replace_string_in_file(os.path.join(config[k_repository_root], "src/clientversion.h"), r"(#define\s+COPYRIGHT_YEAR\s+)(\d+)",          f"\\g<1>{datetime.date.today().year}")
+    rep_maj = replace_string_in_file(os.path.join(config[k_repository_root], "src/clientversion.h"), r"(#define\s+CLIENT_VERSION_MAJOR\s+)(\d+)",    f"\\g<1>{version_digits[0]}")
+    rep_min = replace_string_in_file(os.path.join(config[k_repository_root], "src/clientversion.h"), r"(#define\s+CLIENT_VERSION_MINOR\s+)(\d+)",    f"\\g<1>{version_digits[1]}")
+    rep_rev = replace_string_in_file(os.path.join(config[k_repository_root], "src/clientversion.h"), r"(#define\s+CLIENT_VERSION_REVISION\s+)(\d+)", f"\\g<1>{version_digits[2]}")
+    rep_bld = replace_string_in_file(os.path.join(config[k_repository_root], "src/clientversion.h"), r"(#define\s+CLIENT_VERSION_BUILD\s+)(\d+)",    f"\\g<1>{config[k_build]}")
+    if (not rep_maj and not rep_min and not rep_rev and not rep_bld):
+        print("Version replacement failed (src/clientversion.h)")
+        sys.exit()
+    replace_string_in_file(os.path.join(config[k_repository_root], "src/clientversion.h"), r"(#define\s+COPYRIGHT_YEAR\s+)(\d+)", f"\\g<1>{datetime.date.today().year}")
 
     git_commit(f"Set clientversion {config[k_version]} (build {config[k_build]})")
 
 def update_checkpoints():
-    # Get a mainnet checkpoint candidate
+    # Get a mainnet and a testnet checkpoint candidate
     mainnet_checkpoint = get_checkpoint_candidate(k_mainnet, "https://explorer.horizen.io/")
     testnet_checkpoint = get_checkpoint_candidate(k_testnet, "https://explorer-testnet.horizen.io/")
 
     # Find the line numbers containing the last checkpoint
     # for both mainnet and testnet
-    line_numbers = find_lines_containing(os.path.join(config[k_repository_root], "src/chainparams.cpp"), r'")),')
-    print(line_numbers)
+    line_numbers = find_lines_containing(os.path.join(config[k_repository_root], "src/chainparams.cpp"), '.*\(.*uint256S.*0x.*\).*\).*\,')
+    if (len(line_numbers) < 2):
+        print(f"Unable to find checkpoints lines in src/chainparams.cpp file")
+        sys.exit()
 
     for line_number in line_numbers[:2]:
         line = read_file_line(os.path.join(config[k_repository_root], "src/chainparams.cpp"), line_number)
@@ -281,13 +303,16 @@ def update_checkpoints():
     new_line = f"            ( {mainnet_checkpoint['height']}, uint256S(\"0x{mainnet_checkpoint['hash']}\")),\n"
     insert_line_into_file(os.path.join(config[k_repository_root], "src/chainparams.cpp"), line_numbers[0], new_line)
 
-    # After the insertion, the line number are updated
+    # After the insertion, the line numbers are updated
     line_numbers[1] = line_numbers[1] + 1
 
     new_line = f"            ( {testnet_checkpoint['height']}, uint256S(\"0x{testnet_checkpoint['hash']}\")),\n"
     insert_line_into_file(os.path.join(config[k_repository_root], "src/chainparams.cpp"), line_numbers[1], new_line)
 
-    line_numbers = find_lines_containing(os.path.join(config[k_repository_root], "src/chainparams.cpp"), "UNIX timestamp of last checkpoint block")
+    line_numbers = find_lines_containing(os.path.join(config[k_repository_root], "src/chainparams.cpp"), ".*UNIX timestamp of last checkpoint block.*")
+    if (len(line_numbers) < 2):
+        print(f"Unable to find \"UNIX timestamp of last checkpoint block.\" lines in src/chainparams.cpp file")
+        sys.exit()
 
     line = read_file_line(os.path.join(config[k_repository_root], "src/chainparams.cpp"), line_numbers[0])
     line = re.sub(r"(\d+)", str(mainnet_checkpoint["time"]), line).rstrip()
@@ -311,7 +336,7 @@ def update_checkpoints():
     line = re.sub(r"(\d+)", config[k_testnet][k_total_transactions], line).rstrip()
     replace_file_line(os.path.join(config[k_repository_root], "src/chainparams.cpp"), line_numbers[1] + 1, line)
 
-    average_mainnet_transactions = round(int(config[k_testnet][k_total_transactions]) / (mainnet_checkpoint['height'] / (24 * 24)))
+    average_mainnet_transactions = round(int(config[k_mainnet][k_total_transactions]) / (mainnet_checkpoint['height'] / (24 * 24)))
     line = read_file_line(os.path.join(config[k_repository_root], "src/chainparams.cpp"), line_numbers[0] + 3)
     line = re.sub(r"(\d+)", str(average_mainnet_transactions), line).rstrip()
     replace_file_line(os.path.join(config[k_repository_root], "src/chainparams.cpp"), line_numbers[0] + 3, line)
@@ -327,16 +352,26 @@ def update_changelog():
     if (interactive):
         config[k_release_date] = input("Please, enter the new release date (e.g. Mon, 02 Jan 2023): ")
     
-    line = read_file_line(os.path.join(config[k_repository_root], "contrib/debian/changelog"), 0)
-    current_version = line[line.find("(")+1:line.find(")")]
-    line = line.replace(current_version, config[k_version]).rstrip()
-    replace_file_line(os.path.join(config[k_repository_root], "contrib/debian/changelog"), 0, line)
+    line_numbers = find_lines_containing(os.path.join(config[k_repository_root], "contrib/debian/changelog"), 'zen \(.*\).*')
+    if (len(line_numbers) < 1):
+        print(f"Unable to find line \"zen\" in contrib/debian/changelog file")
+        sys.exit()
 
-    line = read_file_line(os.path.join(config[k_repository_root], "contrib/debian/changelog"), 4)
+    line = read_file_line(os.path.join(config[k_repository_root], "contrib/debian/changelog"), line_numbers[0])
+    current_version = line[line.find("(")+1:line.find(")")]
+    line = line.replace(current_version, f"{config[k_version]}{get_build_suffix(int(config[k_build]))}").rstrip()
+    replace_file_line(os.path.join(config[k_repository_root], "contrib/debian/changelog"), line_numbers[0], line)
+
+    line_numbers = find_lines_containing(os.path.join(config[k_repository_root], "contrib/debian/changelog"), '.* Zen Blockchain Foundation <info@horizen.io>  .*')
+    if (len(line_numbers) < 1):
+        print(f"Unable to find line \"-- Zen Blockchain Foundation <info@horizen.io>\" in contrib/debian/changelog file")
+        sys.exit()
+
+    line = read_file_line(os.path.join(config[k_repository_root], "contrib/debian/changelog"), line_numbers[0])
     print(line)
     line = re.sub(r"\w{3}, \d{1,2} \w{3} \d{4}", config[k_release_date], line).rstrip()
     print(line)
-    replace_file_line(os.path.join(config[k_repository_root], "contrib/debian/changelog"), 4, line)
+    replace_file_line(os.path.join(config[k_repository_root], "contrib/debian/changelog"), line_numbers[0], line)
 
     git_commit("Update Debian package info")
 
@@ -345,14 +380,23 @@ def update_deprecation_height():
         config[k_approx_release_height] = input("Enter the approximate release height (mainnet): ")
         config[k_weeks_until_deprecation] = input("Enter the weeks until deprecation: ")
 
-    approx_release_height_line = read_file_line(os.path.join(config[k_repository_root], "src/deprecation.h"), 7)
-    weeks_until_deprecation_line = read_file_line(os.path.join(config[k_repository_root], "src/deprecation.h"), 8)
+    line_numbers = find_lines_containing(os.path.join(config[k_repository_root], "src/deprecation.h"), "static const int APPROX_RELEASE_HEIGHT.*=.*;")
+    if (len(line_numbers) < 1):
+        print(f"Unable to find \"static const int APPROX_RELEASE_HEIGHT\" line in src/deprecation.h file")
+        sys.exit()
 
+    approx_release_height_line = read_file_line(os.path.join(config[k_repository_root], "src/deprecation.h"), line_numbers[0])
     approx_release_height_line = re.sub(r"(\d+)", str(config[k_approx_release_height]), approx_release_height_line).rstrip()
-    replace_file_line(os.path.join(config[k_repository_root], "src/deprecation.h"), 7, approx_release_height_line)
+    replace_file_line(os.path.join(config[k_repository_root], "src/deprecation.h"), line_numbers[0], approx_release_height_line)
 
+    line_numbers = find_lines_containing(os.path.join(config[k_repository_root], "src/deprecation.h"), "static const int WEEKS_UNTIL_DEPRECATION.*=.*;")
+    if (len(line_numbers) < 1):
+        print(f"Unable to find \"static const int WEEKS_UNTIL_DEPRECATION\" line in src/deprecation.h file")
+        sys.exit()
+
+    weeks_until_deprecation_line = read_file_line(os.path.join(config[k_repository_root], "src/deprecation.h"), line_numbers[0])
     weeks_until_deprecation_line = re.sub(r"(\d+)", str(config[k_weeks_until_deprecation]), weeks_until_deprecation_line).rstrip()
-    replace_file_line(os.path.join(config[k_repository_root], "src/deprecation.h"), 8, weeks_until_deprecation_line)
+    replace_file_line(os.path.join(config[k_repository_root], "src/deprecation.h"), line_numbers[0], weeks_until_deprecation_line)
 
     blocks_per_hour = 24
     blocks_per_day = 24 * blocks_per_hour
@@ -380,7 +424,7 @@ def update_deprecation_height():
 
 def build_zend():
     result_clean = subprocess.run(["make", "distclean"], cwd=config[k_repository_root])
-    result_build = subprocess.run([f"./zcutil/build.sh", "-j8"], cwd=config[k_repository_root])
+    result_build = subprocess.run(["./zcutil/build.sh", "-j8"], cwd=config[k_repository_root])
     if (result_build.returncode != 0):
         print("Failure building zend")
         sys.exit()
@@ -390,7 +434,7 @@ def update_man_pages():
     git_commit("Update man pages")
 
 def update_release_notes():
-    release_notes_file_path = f"./doc/release-notes/release-notes-{config[k_version]}.md"
+    release_notes_file_path = f"./doc/release-notes/release-notes-{config[k_version]}{get_build_suffix(int(config[k_build]))}.md"
 
     if (interactive):
         config[k_previous_version] = input(f"Please, enter the last published version (before {config[k_version]}): ")
@@ -399,7 +443,7 @@ def update_release_notes():
         config[k_previous_version] = "v" + config[k_previous_version]
 
     # Automatically update AUTHORS.md and release notes
-    subprocess.run(["python3", "./zcutil/release-notes.py", "--version", config[k_version], "--prev", config[k_previous_version]], cwd=config[k_repository_root])
+    subprocess.run(["python3", "./zcutil/release-notes.py", "--version", f"{config[k_version]}{get_build_suffix(int(config[k_build]))}", "--prev", config[k_previous_version]], cwd=config[k_repository_root])
 
     # Remove automatically generated release notes
     subprocess.run(["rm", release_notes_file_path], cwd=config[k_repository_root])
@@ -416,10 +460,15 @@ def update_release_notes():
             print(f"Release notes file {config[k_release_notes_file]} does not exist; please, check and retry.")
             sys.exit()
 
-    git_commit("Add release notes")
+    git_commit("Add release notes", [os.path.join(config[k_repository_root], "doc/release-notes")])
 
 def update_readme():
-    replace_file_line(os.path.join(config[k_repository_root], "README.md"), 0, f"Zend {config[k_version]}".rstrip())
+    line_numbers = find_lines_containing(os.path.join(config[k_repository_root], "README.md"), 'Zend .*')
+    if (len(line_numbers) < 1):
+        print(f"Unable to find \"Zend\" line in README.md file")
+        sys.exit()
+
+    replace_file_line(os.path.join(config[k_repository_root], "README.md"), line_numbers[0], f"Zend {config[k_version]}{get_build_suffix(int(config[k_build]))}".rstrip())
 
     git_commit("Update README")
 
@@ -519,8 +568,3 @@ if (not bool(config[k_script_steps][k_update_readme][k_skip])):
 else:
     print("Skipped")
 
-# TODO:
-# - Remove code duplication (in particular of string variables) [PARTIALLY DONE]
-# - Organize code in modules [NOT DONE]
-# - Improve error handling and exceptions [PARTIALLY DONE]
-# - Retrieve the total transactions from the debug.log file [HOW TO?]

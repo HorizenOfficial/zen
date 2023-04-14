@@ -111,7 +111,7 @@ Inside this folder the following are provided:
 - various config files associated to past releases preparations (prepare_release_config-X.Y.Z.yaml)
 
 Run the script for preparing a new release.
-It is suggested to run the script from a terminal located a repository root. 
+It is suggested to run the script from a terminal located at repository root. 
 The script accepts one command line parameter, being the path of the config file containing all the inputs
 to the script (it is suggested to put this file in `./contrib/devtools/prepare_release` folder, naming it as
 `prepare_release_config-X.Y.Z.yaml`). If the path of the config file is not provided as command line parameter,
@@ -123,6 +123,6 @@ branch and would commit one by one each release preparation step.
 After script completion the user is required to:
 
 - push from release preparation local branch to remote
-- open a PR merging into `main` branch and wait for approval
-- merge on `main` branch
+- create release branch on remote
+- open a PR merging release preparation into release branch and wait for approval
 - create annotated tag (vX.Y.Z)
