@@ -161,7 +161,7 @@ testScripts=(
   'sc_getcertmaturityinfo.py',68,219
   'sc_big_commitment_tree.py',63,110
   'sc_big_commitment_tree_getblockmerkleroot.py',11,25
-  'p2p_ignore_spent_tx.py',1,1
+  'p2p_ignore_spent_tx.py',215,443
 );
 
 testScriptsExt=(
