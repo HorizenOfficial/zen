@@ -551,12 +551,11 @@ class sc_cert_base(BitcoinTestFramework):
 
         mp = self.nodes[0].getrawmempool(True)
         #pprint.pprint(mp)
-        # the prioritisetransaction cmd overwrites old json contents (not only prio and certs) 
-        prio_cert_after = mp[cert_epoch_0]['priority']
-        fee_cert_after  = mp[cert_epoch_0]['fee']
-        mark_logs("cert prio={}, fee={}".format(prio_cert_after, fee_cert_after), self.nodes, DEBUG_MODE)
-        assert_equal(prio_delta, prio_cert_after)
-        assert_equal(float(fee_delta)/COIN, float(fee_cert_after))
+        prio_cert_delta = mp[cert_epoch_0]['priority_delta']
+        fee_cert_delta  = mp[cert_epoch_0]['fee_delta']
+        mark_logs("cert prio={}, fee={}".format(prio_cert_delta, fee_cert_delta), self.nodes, DEBUG_MODE)
+        assert_equal(prio_delta, prio_cert_delta)
+        assert_equal(float(fee_delta)/COIN, float(fee_cert_delta))
 
         bal_before_bwt = self.nodes[1].getbalance("", 0)
         mark_logs("Node1 balance before bwt is received: {}".format(bal_before_bwt), self.nodes, DEBUG_MODE)
