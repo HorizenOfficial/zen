@@ -46,20 +46,22 @@ public:
         }
         return;
     }
-    void erase(const key_type& k)
+    size_t erase(const key_type& k)
     {
         iterator itTarget = map.find(k);
         if (itTarget == map.end())
-            return;
+            return 0;
         std::pair<rmap_iterator, rmap_iterator> itPair = rmap.equal_range(itTarget->second);
-        for (rmap_iterator it = itPair.first; it != itPair.second; ++it)
+        for (rmap_iterator it = itPair.first; it != itPair.second; ++it) {
             if (it->second == itTarget) {
                 rmap.erase(it);
                 map.erase(itTarget);
-                return;
+                return 1; // be consistent with std::map return value
             }
+        }
         // Shouldn't ever get here
         assert(0);
+        return 0;
     }
     void update(const_iterator itIn, const mapped_type& v)
     {
