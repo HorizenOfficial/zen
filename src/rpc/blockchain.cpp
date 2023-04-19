@@ -440,6 +440,7 @@ UniValue mempoolToJSON(bool fVerbose = false)
                 info = o[hash.ToString()];
             info.pushKV("fee_delta", ValueFromAmount(f));
             info.pushKV("priority_delta", p);
+            info.pushKV("priority", p); //TODO: to be removed in later version (> 4.0.0), kept for temporary backward compatibility
             o.pushKV(hash.ToString(), info);
         }
         return o;
