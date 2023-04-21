@@ -53,12 +53,11 @@ class PrioritiseTransactionTest (BitcoinTestFramework):
         last_tx_selectable_by_priority = None
         for index in range(len(sorted_rawmempool)):
             tx_size = sorted_rawmempool[index][1]["size"]
+            last_tx_selectable_by_priority = sorted_rawmempool[index][0]
             if (block_incremental_size + tx_size >= self.blockprioritysize or
                 sorted_rawmempool[index][1]["total_priority"] <= 100000000 * 144 / 250): # check AllowFreeThreshold for this value
-                last_tx_selectable_by_priority = sorted_rawmempool[index][0]
                 break
-            else:
-                block_incremental_size += tx_size
+            block_incremental_size += tx_size
         return last_tx_selectable_by_priority
 
     def check_if_included_by_priority(self, tx, last_tx_by_priority, block_template):
@@ -90,6 +89,23 @@ class PrioritiseTransactionTest (BitcoinTestFramework):
         return tx_mined_by_priority, tx_mined
 
     def run_test (self):
+
+        '''
+        This test checks that transactions being prioritized (by priority or by fee) are actually included in next blocktemplate/block
+        by the requested criterion (precisely, by priority or by fee).
+        It is worth to mention that blocktemplate algorithm selects transactions based on two steps: in the first step, transactions
+        are listed by descending priority and as many transactions as can fit into the first portion of blocktemplate ("-blockprioritysize")
+        are taken; in the second step, transactions are listed by descending fee and as many transactions as can fit into the remaining
+        portion of blocktemplate ("-blockmaxsize" minus "-blockprioritysize") are taken.
+        The inclusion of a transaction (target transaction) by priority is determined firstly by identifying the hash of the last
+        transaction that would be included by priority in the selection; then it is checked if the target transaction actually appears
+        before (in this case the target transaction is included by priority) or after (in this case the target transaction is not
+        included by priority, but by fee) the just identified transaction or even if it does not appear at all (in this case the target
+        transaction is not included at all, hence it is not included by priority).
+        Two rounds of check are performed, in the first one the inclusion by priority is tested, in the second one the inclusion by fee
+        is tested; at the end of each round an additional check is perfomed for testing that prioritization of a transaction on a node
+        not involved in mining has no effect on the node actually involved in mining
+        '''
 
         # tx priority is calculated: priority = sum(input_value_in_base_units * input_age)/size_in_bytes
 
