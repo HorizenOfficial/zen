@@ -97,8 +97,6 @@ class PrioritiseTransactionTest (BitcoinTestFramework):
         self.nodes[0].generate(501)
         self.sync_all()
 
-        base_fee = self.nodes[0].getnetworkinfo()['relayfee']
-
         # 11 kb blocks will only hold about 50 txs, so this will fill mempool with older txs
         taddr = self.nodes[1].getnewaddress()
         for _ in range(900):
@@ -147,6 +145,10 @@ class PrioritiseTransactionTest (BitcoinTestFramework):
             self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 0.1)
             self.sync_all()
 
+            # Keep track of which will be the last tx to mine by priority
+            last_tx_to_include_by_priority_0 = self.get_last_tx_selectable_by_priority(self.nodes[0].getrawmempool(True))
+            assert_equal(last_tx_to_include_by_priority_0 != None, True)
+
             # Check that priority_tx_0 was not included by priority through getblocktemplate()
             # (too soon)
             block_template = self.nodes[0].getblocktemplate()
@@ -182,8 +184,7 @@ class PrioritiseTransactionTest (BitcoinTestFramework):
             self.nodes[1].prioritisetransaction(priority_tx_1, max_priority, 0)
 
             # Keep track of which will be the last tx to mine by priority
-            rawmempool = self.nodes[0].getrawmempool(True)
-            last_tx_to_mine_by_priority_0 = self.get_last_tx_selectable_by_priority(rawmempool)
+            last_tx_to_mine_by_priority_0 = self.get_last_tx_selectable_by_priority(self.nodes[0].getrawmempool(True))
             assert_equal(last_tx_to_mine_by_priority_0 != None, True)
 
             # Mine block on node 0 and sync
