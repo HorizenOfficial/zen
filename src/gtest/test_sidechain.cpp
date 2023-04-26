@@ -1566,7 +1566,7 @@ TEST_F(SidechainsTestSuite, GetScIdsOnChainstateDbSelectOnlySidechains) {
     boost::filesystem::create_directories(pathTemp);
     mapArgs["-datadir"] = pathTemp.string();
 
-    CCoinsViewDB chainStateDb(chainStateDbSize,/*fWipe*/true);
+    CCoinsViewDB chainStateDb(chainStateDbSize, DEFAULT_DB_MAX_OPEN_FILES, false, /*fWipe*/true);
     sidechainsView->SetBackend(chainStateDb);
 
     //Insert in db two sidechains

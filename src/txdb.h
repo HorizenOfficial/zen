@@ -123,9 +123,9 @@ class CCoinsViewDB : public CCoinsView
 {
 protected:
     CLevelDBWrapper db;
-    CCoinsViewDB(std::string dbName, size_t nCacheSize, bool fMemory = false, bool fWipe = false);
+    CCoinsViewDB(std::string dbName, size_t nCacheSize, int maxOpenFiles, bool fMemory = false, bool fWipe = false);
 public:
-    CCoinsViewDB(size_t nCacheSize, bool fMemory = false, bool fWipe = false);
+    CCoinsViewDB(size_t nCacheSize, int maxOpenFiles, bool fMemory = false, bool fWipe = false);
 
     bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree)   const override;
     bool GetNullifier(const uint256 &nf)                                 const override;
@@ -157,7 +157,7 @@ public:
 class CBlockTreeDB : public CLevelDBWrapper
 {
 public:
-    CBlockTreeDB(size_t nCacheSize, bool fMemory = false, bool fWipe = false);
+    CBlockTreeDB(size_t nCacheSize, int maxOpenFiles, bool fMemory = false, bool fWipe = false);
 private:
     CBlockTreeDB(const CBlockTreeDB&);
     void operator=(const CBlockTreeDB&);

@@ -63,7 +63,7 @@ class TestCCoinsViewDB : public CCoinsViewDB
 {
 public:
     TestCCoinsViewDB(size_t nCacheSize, bool fWipe = false)
-        : CCoinsViewDB(nCacheSize, false, fWipe)
+        : CCoinsViewDB(nCacheSize, DEFAULT_DB_MAX_OPEN_FILES, false, fWipe)
     {
     }
 
@@ -264,7 +264,7 @@ protected:
 
     void InitBlockTreeDB()
     {
-        pblocktree = new CBlockTreeDB(1 << 20, true);
+        pblocktree = new CBlockTreeDB(1 << 20, DEFAULT_DB_MAX_OPEN_FILES, true);
     }
 
     void InitSetupCoinsViewCache(CCoinsViewDB* dbCoins)
