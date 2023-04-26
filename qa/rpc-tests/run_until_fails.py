@@ -31,7 +31,7 @@ counter = 0
 while not error_occurred:
     counter = counter + 1
     print(f"[{counter}] Running test: {test_file} - {datetime.now().strftime('%H:%M:%S')}")
-    command_call = subprocess.Popen(["python", test_file], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+    command_call = subprocess.Popen(["python3", test_file], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
     output, errors = command_call.communicate()
     error_occurred = command_call.returncode != 0
 

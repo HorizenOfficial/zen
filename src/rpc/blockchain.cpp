@@ -436,8 +436,10 @@ UniValue mempoolToJSON(bool fVerbose = false)
             const auto& p = entry.second.first;
             const auto& f = entry.second.second;
             UniValue info(UniValue::VOBJ);
-            info.pushKV("fee", ValueFromAmount(f));
-            info.pushKV("priority", p);
+            if (o.exists(hash.ToString()))
+                info = o[hash.ToString()];
+            info.pushKV("fee_delta", ValueFromAmount(f));
+            info.pushKV("priority_delta", p);
             o.pushKV(hash.ToString(), info);
         }
         return o;
