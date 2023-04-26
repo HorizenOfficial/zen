@@ -122,7 +122,7 @@ TEST_F(MempoolTest, TxInputLimit) {
     boost::filesystem::create_directories(pathTemp);
     mapArgs["-datadir"] = pathTemp.string();
     const unsigned int chainStateDbSize = 2 * 1024 * 1024;
-    CCoinsViewDB* pChainStateDb = new CCoinsViewDB(chainStateDbSize, /*fWipe*/true);
+    CCoinsViewDB* pChainStateDb = new CCoinsViewDB(chainStateDbSize, DEFAULT_DB_MAX_OPEN_FILES, false, /*fWipe*/true);
     pcoinsTip = new CCoinsViewCache(pChainStateDb);
 
     // Create an obviously-invalid transaction
@@ -231,7 +231,7 @@ TEST_F(MempoolTest, SproutV3TxFailsAsExpected) {
     boost::filesystem::create_directories(pathTemp);
     mapArgs["-datadir"] = pathTemp.string();
     const unsigned int chainStateDbSize = 2 * 1024 * 1024;
-    CCoinsViewDB* pChainStateDb = new CCoinsViewDB(chainStateDbSize, /*fWipe*/true);
+    CCoinsViewDB* pChainStateDb = new CCoinsViewDB(chainStateDbSize, DEFAULT_DB_MAX_OPEN_FILES, false, /*fWipe*/true);
     pcoinsTip = new CCoinsViewCache(pChainStateDb);
 
     CTxMemPool pool(::minRelayTxFee);
@@ -266,7 +266,7 @@ TEST_F(MempoolTest, SproutV3TxWhenGrothNotActive) {
     boost::filesystem::create_directories(pathTemp);
     mapArgs["-datadir"] = pathTemp.string();
     const unsigned int chainStateDbSize = 2 * 1024 * 1024;
-    CCoinsViewDB* pChainStateDb = new CCoinsViewDB(chainStateDbSize, /*fWipe*/true);
+    CCoinsViewDB* pChainStateDb = new CCoinsViewDB(chainStateDbSize, DEFAULT_DB_MAX_OPEN_FILES, false, /*fWipe*/true);
     pcoinsTip = new CCoinsViewCache(pChainStateDb);
 
 
@@ -302,7 +302,7 @@ TEST_F(MempoolTest, SproutNegativeVersionTx) {
     boost::filesystem::create_directories(pathTemp);
     mapArgs["-datadir"] = pathTemp.string();
     const unsigned int chainStateDbSize = 2 * 1024 * 1024;
-    CCoinsViewDB* pChainStateDb = new CCoinsViewDB(chainStateDbSize, /*fWipe*/true);
+    CCoinsViewDB* pChainStateDb = new CCoinsViewDB(chainStateDbSize, DEFAULT_DB_MAX_OPEN_FILES, false, /*fWipe*/true);
     pcoinsTip = new CCoinsViewCache(pChainStateDb);
 
     chainSettingUtils::ExtendChainActiveToHeight(100);

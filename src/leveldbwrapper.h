@@ -16,6 +16,24 @@
 #include <leveldb/db.h>
 #include <leveldb/write_batch.h>
 
+// https://github.com/bitcoin/bitcoin/pull/12495
+// On most platforms the default setting of max_open_files (which is 1000)
+// is optimal. On Windows using a large file count is OK because the handles
+// do not interfere with select() loops. On 64-bit Unix hosts this value is
+// also OK, because up to that amount LevelDB will use an mmap
+// implementation that does not use extra file descriptors (the fds are
+// closed after being mmaped).
+// Increasing the value beyond the default is dangerous because LevelDB will
+// fall back to a non-mmap implementation when the file count is too large.
+//
+// The following default value has been chosen, considering that:
+// 1. we want zend to use at most 1024 FD
+// 2. with default config, zend approximately uses 125 FD for connections,
+//    and approximately 25 for wallet, proof verifier, logger,...
+// 3. zend uses 2 instances of LevelDB databases (blocktreedb, coinsviewdb)
+// 4. zend uses LevelDB version 1.18 which does not check for FD exhaustion
+constexpr unsigned int DEFAULT_DB_MAX_OPEN_FILES = 400;
+
 class leveldb_error : public std::runtime_error
 {
 public:
@@ -86,7 +104,7 @@ private:
     leveldb::DB* pdb;
 
 public:
-    CLevelDBWrapper(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory = false, bool fWipe = false);
+    CLevelDBWrapper(const boost::filesystem::path& path, size_t nCacheSize, int maxOpenFiles, bool fMemory = false, bool fWipe = false);
     ~CLevelDBWrapper();
 
     template <typename K, typename V>

@@ -20,7 +20,7 @@ class CFakeCoinDB : public CCoinsViewDB
 {
 public:
     CFakeCoinDB(size_t nCacheSize, bool fWipe = false)
-        : CCoinsViewDB(nCacheSize, false, fWipe) {}
+        : CCoinsViewDB(nCacheSize, DEFAULT_DB_MAX_OPEN_FILES, false, fWipe) {}
 
     bool BatchWrite(CCoinsMap &mapCoins) { return true; }
 };
