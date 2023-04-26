@@ -361,7 +361,7 @@ class FakeCoinsViewDB : public CCoinsViewDB {
     ZCIncrementalMerkleTree t;
 
 public:
-    FakeCoinsViewDB(std::string dbName, uint256& hash) : CCoinsViewDB(dbName, 100, false, false), hash(hash) {}
+    FakeCoinsViewDB(std::string dbName, uint256& hash) : CCoinsViewDB(dbName, 100, DEFAULT_DB_MAX_OPEN_FILES, false, false), hash(hash) {}
 
     bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const override {
         if (rt == t.root()) {

@@ -237,11 +237,11 @@ void RegisterNodeSignals(CNodeSignals& nodeSignals);
 /** Unregister a network node */
 void UnregisterNodeSignals(CNodeSignals& nodeSignals);
 
-/** 
+/**
  * Process an incoming block. This only returns after the best known valid
  * block is made active. Note that it does not, however, guarantee that the
  * specific block passed to it has been checked for validity!
- * 
+ *
  * @param[out]  state   This may be set to an Error state if any error occurred processing it, including during validation/connection/etc of otherwise unrelated blocks during reorganisation; or it may be set to an Invalid state if pblock is itself invalid (but this is not guaranteed even when the block is checked). If you want to *possibly* get feedback on whether pblock is valid, you must also install a CValidationInterface (see validationinterface.h) - this will have its BlockChecked method called whenever *any* block completes validation.
  * @param[in]   pfrom   The node which we are receiving the block from; it is added to mapBlockSource and may be penalised if the block is invalid.
  * @param[in]   pblock  The block we want to process.
@@ -271,7 +271,7 @@ void ProcessMempoolMsg(const CTxMemPool& pool, CNode* pfrom);
 
 /**
  * @brief The enumeration of states of the sidechain batch proof verification.
- * 
+ *
  * It is useful to correctly handle the behavior of the ProcessTxBaseMsg() function,
  * in particular it should request an asynchronous batch verification of the proof
  * when called for the first time (with parameter NOT_VERIFIED_YET) and then should
@@ -386,10 +386,10 @@ enum class MempoolProofVerificationFlag
 
 /**
  * @brief Rejects a certificate or transaction submitted to memory pool.
- * 
+ *
  * It sends an error message to the node that has sent the invalid entry
  * and eventually bans it.
- * 
+ *
  * @param state The state of the validation process (containing the error information)
  * @param txBase The transaction or certificate that failed the verification
  * @param pfrom The node that sent the offending transaction or certificate
@@ -423,7 +423,7 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
 /**
  * Check transaction inputs, and make sure any
  * pay-to-script-hash transactions are evaluating IsStandard scripts
- * 
+ *
  * Why bother? To avoid denial-of-service attacks; an attacker
  * can submit a standard HASH... OP_EQUAL transaction,
  * which will get accepted into blocks. The redemption
@@ -432,7 +432,7 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
  *   DUP CHECKSIG DROP ... repeated 100 times... OP_1
  */
 
-/** 
+/**
  * Check for standard transaction types
  * @param[in] mapInputs    Map of previous transactions that have outputs we're spending
  * @return True if all inputs (scriptSigs) use only standard transaction forms
@@ -448,7 +448,7 @@ unsigned int GetLegacySigOpCount(const CTransactionBase& tx);
 
 /**
  * Count ECDSA signature operations in pay-to-script-hash inputs.
- * 
+ *
  * @param[in] mapInputs Map of previous transactions that have outputs we're spending
  * @return maximum number of sigops required to validate this transaction's inputs
  * @see CTransaction::FetchInputs
@@ -514,9 +514,9 @@ bool IsFinalTx(const CTransactionBase &tx, int nBlockHeight, int64_t nBlockTime)
  */
 bool CheckFinalTx(const CTransactionBase &tx, int flags = -1);
 
-/** 
+/**
  * Closure representing one script verification
- * Note that this stores references to the spending transaction 
+ * Note that this stores references to the spending transaction
  */
 class CScriptCheck
 {
@@ -724,7 +724,7 @@ struct CTransactionNetworkObj
     template<typename Stream>
     void Unserialize(Stream& s, int nType, int nVersion) {
         SerializationOp(s, CSerActionUnserialize(), nType, nVersion);
-    } 
+    }
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
