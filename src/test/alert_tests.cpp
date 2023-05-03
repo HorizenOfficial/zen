@@ -6,13 +6,13 @@
 // Unit tests for PartitionAlert system
 //
 #include <iostream>
+#include <fstream>
 
 #include "chainparams.h"
 #include "main.h"
 
 #include "test/test_bitcoin.h"
 
-#include <boost/foreach.hpp>
 #include <boost/test/unit_test.hpp>
 
 BOOST_FIXTURE_TEST_SUITE(Alert_tests, TestingSetup)
@@ -74,6 +74,37 @@ BOOST_AUTO_TEST_CASE(PartitionAlert)
     strMiscWarning = "";
 
     SetMockTime(0);
+}
+
+BOOST_AUTO_TEST_CASE(AlertNotifyFunction) {
+    std::string tempStr;
+    boost::filesystem::path temp = GetTempPath() / boost::filesystem::unique_path("alertnotify-%%%%.txt");
+    std::vector<std::string> errs {
+        "Hard fork detected at block 32",
+        "Large-work fork detected",
+        "Chain state database corruption likely"
+    };
+
+    mapArgs["-alertnotify"] = std::string("echo 'Reporting the following alert: %s' >> ") + temp.string();
+
+    std::cout << "Resetting temporary alert notify file: " << temp.string() << std::endl;
+    std::ofstream outF(temp.string(), std::ios::out);
+    outF.close();
+
+    std::cout << "Reporting alerts to alert notify file through alertNotify() function" << std::endl;
+    for (const auto& errorString : errs) {
+        alertNotify(errorString, false);    // Using thread-safe version to preserve ordering
+    }
+
+    std::ifstream inputF(temp.string(), std::ios::in);
+    BOOST_CHECK(inputF.is_open());
+
+    for (size_t i = 0; std::getline(inputF, tempStr); i++) {
+        BOOST_CHECK(std::string("Reporting the following alert: " + SanitizeString(errs[i])) == tempStr);
+    }
+
+    inputF.close();
+    boost::filesystem::remove(temp);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -30,6 +30,7 @@
 #include <sstream>
 #include <algorithm> // std::shuffle
 #include <random>
+#include <regex>
 
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/filesystem.hpp>
@@ -2167,10 +2168,12 @@ void alertNotify(const std::string& strMessage, bool fThread) {
     std::string singleQuote("'");
     std::string safeStatus = SanitizeString(strMessage);
     safeStatus = singleQuote+safeStatus+singleQuote;
-    boost::replace_all(strCmd, "%s", safeStatus);
+    strCmd = std::regex_replace(strCmd, std::regex("%s"), safeStatus); 
 
-    if (fThread)
-        boost::thread t(runCommand, strCmd); // thread runs free
+    if (fThread) {
+        std::thread t(runCommand, strCmd);
+        t.detach();
+    }
     else
         runCommand(strCmd);
 }

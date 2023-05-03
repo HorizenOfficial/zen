@@ -19,14 +19,9 @@ import logging
 import time
 class blockdelay(BitcoinTestFramework):
 
-    alert_filename = None
-
     def setup_chain(self, split=False):
         print("Initializing test directory "+self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, 5)
-        self.alert_filename = os.path.join(self.options.tmpdir, "alert.txt")
-        with open(self.alert_filename, 'w'):
-            pass  # Just open then close to create zero-length file
 
     def setup_network(self, split=False):
         self.nodes = []
@@ -36,14 +31,6 @@ class blockdelay(BitcoinTestFramework):
         ed1 = "-exportdir=" + self.options.tmpdir + "/node1"
         ed2 = "-exportdir=" + self.options.tmpdir + "/node2"
         ed3 = "-exportdir=" + self.options.tmpdir + "/node3"
-        '''
-        extra_args = [["-debug","-keypool=100", "-alertnotify=echo %s >> \"" + self.alert_filename + "\"", ed0],
-            ["-debug", "-keypool=100", "-alertnotify=echo %s >> \"" + self.alert_filename + "\"", ed1],
-            ["-debug", "-keypool=100", "-alertnotify=echo %s >> \"" + self.alert_filename + "\"", ed2],
-            ["-debug", "-keypool=100", "-alertnotify=echo %s >> \"" + self.alert_filename + "\"", ed3]]
-        '''
-
-        #self.nodes = start_nodes(4, self.options.tmpdir, extra_args)
         self.nodes = start_nodes(4, self.options.tmpdir)
 
 
