@@ -17,7 +17,7 @@ class WalletTreeStateTest (BitcoinTestFramework):
         print("Initializing test directory "+self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, 4)
 
-    # Start nodes with -regtestprotectcoinbase to set fCoinbaseMustBeProtected to true.
+    # Start nodes with -regtestprotectcoinbase to enforce coin base shielding requirement.
     def setup_network(self, split=False):
         self.nodes = start_nodes(3, self.options.tmpdir, extra_args=[['-regtestprotectcoinbase','-debug=zrpc']] * 3 )
         connect_nodes_bi(self.nodes,0,1)
@@ -37,7 +37,7 @@ class WalletTreeStateTest (BitcoinTestFramework):
         mytaddr = self.nodes[0].getnewaddress()     # where coins were mined
         myzaddr = self.nodes[0].z_getnewaddress()
 
-        # Spend coinbase utxos to create three notes of 9.99990000 each
+        # Spend coinbase utxos to create three notes of 11.4374 each
         recipients = []
         recipients.append({"address":myzaddr, "amount":Decimal('11.4375') - Decimal('0.0001')})
         myopid = self.nodes[0].z_sendmany(mytaddr, recipients)

@@ -1077,7 +1077,7 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
             //enforce empty joinsplit for transparent txs and sidechain tx
             if(!GetVjoinsplit().empty()) {
                 return state.DoS(dosLevel, error("ContextualCheck(): transparent or sc tx but vjoinsplit not empty"),
-                                     CValidationState::Code::INVALID, "bad-txns-transparent-jsnotempty");
+                                 CValidationState::Code::INVALID, "bad-txns-transparent-jsnotempty");
             }
 
             //enforce that any eventual SC creation output is using a valid sidechain version for the current active fork
@@ -1102,6 +1102,23 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
                              error("ContextualCheck(): unexpected tx version"),
                              CValidationState::Code::INVALID, "bad-tx-version-unexpected");
         }
+        else
+        {
+            // check for shielded pool deprecation as per ZenIP42204
+            if (ForkManager::getInstance().isShieldingForbidden(nHeight))
+            {
+                for (int index = 0; index < vjoinsplit.size(); ++index)
+                {
+                    if (vjoinsplit[index].vpub_old > 0)
+                    {
+                        return state.DoS(dosLevel,
+                                         error("ContextualCheck(): tx conflicting with shielded pool deprecation"),
+                                         CValidationState::Code::INVALID, "bad-tx-shielded-pool-deprecation-conflict");
+                    }
+                }
+            }
+        }
+
         return true;
     }
     else

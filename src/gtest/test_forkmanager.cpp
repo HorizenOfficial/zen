@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include "zen/forkmanager.h"
 #include "chainparams.h"
-#include "zen/forks/fork10_nonceasingsidechainfork.h"
+#include "zen/forks/fork11_shieldedpooldeprecationfork.h"
 
 using namespace zen;
 
@@ -477,8 +477,42 @@ TEST(ForkManager, NonCeasingSCVersionForkRegtest) {
     EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight + 1), 2);
 }
 
+TEST(ForkManager, ShieldedPoolDeprecationForkMainnet) {
+    SelectParams(CBaseChainParams::MAIN);
+
+    int shieldedPoolDeprecationForkHeight = 2500001;    // // TODO: MODIFY PLACEHOLDER!
+    EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight - 1), true);
+    EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight), false);
+    EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight + 1), false);
+}
+
+TEST(ForkManager, ShieldedPoolDeprecationForkTestnet) {
+    SelectParams(CBaseChainParams::TESTNET);
+
+    int shieldedPoolDeprecationForkHeight = 2000001;    // // TODO: MODIFY PLACEHOLDER!
+    EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight - 1), true);
+    EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight), false);
+    EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight + 1), false);
+}
+
+TEST(ForkManager, ShieldedPoolDeprecationForkRegtest) {
+    SelectParams(CBaseChainParams::REGTEST);
+
+    int shieldedPoolDeprecationForkHeight = 990;    // // TODO: MODIFY PLACEHOLDER!
+    EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight - 1), false);
+    EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight), false);
+    EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight + 1), false);
+
+    bool alreadyPresent = !mapArgs.insert({"-regtestprotectcoinbase", ""}).second;
+    EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight - 1), true);
+    EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight), false);
+    EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight + 1), false);
+    if (!alreadyPresent)
+        mapArgs.erase("-regtestprotectcoinbase");
+}
+
 TEST(ForkManager, HighestFork) {
     SelectParams(CBaseChainParams::MAIN);
     const Fork* highestFork = ForkManager::getInstance().getHighestFork();
-    EXPECT_EQ(typeid(*highestFork), typeid(NonCeasingSidechainFork));
+    EXPECT_EQ(typeid(*highestFork), typeid(ShieldedPoolDeprecationFork));
 }

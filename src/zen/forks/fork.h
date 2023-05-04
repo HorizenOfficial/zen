@@ -65,7 +65,7 @@ public:
     /**
      * @brief canSendCommunityFundsToTransparentAddress true if community funds can be sent to a transparent address
      */
-    virtual bool canSendCommunityFundsToTransparentAddress() const=0;
+    virtual bool canSendCommunityFundsToTransparentAddress(CBaseChainParams::Network network) const = 0;
 
     /**
      * @brief getReplayProtectionLevel returns the replay protection level provided by the current fork
@@ -133,6 +133,16 @@ public:
      * @brief returns true is the non ceasing sidechains exist at input block height
      */
     virtual bool isNonCeasingSidechainActive() const = 0;
+
+    /**
+     * @brief returns true if the coin base transactions must be shielded (i.e. sent to a z-address)
+     */
+    virtual bool mustCoinBaseBeShielded(CBaseChainParams::Network network) const = 0;
+
+    /**
+     * @brief returns true if the shielding (t->z) transactions are forbidden
+     */
+    virtual bool isShieldingForbidden() const = 0;
 
 protected:
     

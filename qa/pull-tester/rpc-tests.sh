@@ -162,6 +162,7 @@ testScripts=(
   'sc_big_commitment_tree.py',63,110
   'sc_big_commitment_tree_getblockmerkleroot.py',11,25
   'p2p_ignore_spent_tx.py',215,443
+  'shieldedpooldeprecation_rpc.py',500,700
 );
 
 testScriptsExt=(

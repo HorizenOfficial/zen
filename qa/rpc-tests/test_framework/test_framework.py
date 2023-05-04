@@ -23,9 +23,10 @@ from test_framework.util import assert_equal, check_json_precision, \
 MINER_REWARD_POST_H200 = 7.50
 
 ForkHeights = {
-    'MINIMAL_SC':     420,
-    'SC_VERSION':     450,
-    'NON_CEASING_SC': 480
+    'MINIMAL_SC':                420,
+    'SC_VERSION':                450,
+    'NON_CEASING_SC':            480,
+    'SHIELDED_POOL_DEPRECATION': 990
 }
 
 
@@ -145,7 +146,7 @@ class BitcoinTestFramework(object):
             print("Assertion failed: " + str(e))
             traceback.print_tb(sys.exc_info()[2])
         except Exception as e:
-            print("Unexpected exception caught during testing: "+str(e))
+            print("Unexpected exception caught during testing: " + str(e))
             traceback.print_tb(sys.exc_info()[2])
 
         if not self.options.noshutdown:

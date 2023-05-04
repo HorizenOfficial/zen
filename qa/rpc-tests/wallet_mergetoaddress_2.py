@@ -24,19 +24,17 @@ class WalletMergeToAddress2Test (BitcoinTestFramework):
         
         # importing datadir resource
         #
-        # (1 block generated on node0, 100 blocks generated on node1, 1 block "shielded" on node0) * 100 + 1 block generated on node1
+        # 100 blocks generated on node0 + 100 blocks generated on node1 + (1 "shielding" on node0 + 1 block generated on node1) * 100
         #
         # node0:
-        # +] ztgrYDXWWXzk8Rb7wN13S97MLP3pcBuvica                                                             -> 0.00000000
-        # +] zthqePHnzxgcqvBmSWXLvJeoKWfV6mzd2UU                                                             -> 0.00000000
-        # +] ztMccAcM5nNtDbwNinaydTzCFG1RP7wQN5kWdkU39YD4tByFCiEZs2KKr9pyfMdi2ZLfoF1s8ZMyFVr5fUZVx3riA5hWN1y -> 297.82812500 {100 notes}
+        # +] ztpTDK62DWALH9GWJu4rPgqihEGxoWAHFUq                                                             -> 0.00000000
+        # +] ztZwyCWWmUvHsP1Ho1rB8sjHTC81y93n4rF                                                             -> 0.00000000
+        # +] ztTw9aP9jeWRNsR3uMHEB3Z3VUqdFsmJaUVWLgJZDRXQM3MydY56JVr8mXC21kUBgJ51YGKK8QuYSVx2kSM7YXf9gZm1Rb4 -> 1143.75000000 {100 notes}
         #
         # node1:
-        # +] ztYnpAb9cgkNezFsnbydxbV1WumA89vAxxv                                                             -> 0.00000000
-        # +] ztWVGvLNSLxy7gioSrRqXHuUgEmrNd9THVB                                                             -> 29284.14062500 (+23.43750000 immature) {9901 utxos (+100 immature)}
+        # +] ztpvEirKWj1mzvoMCn718KkM2DA1nXohuew                                                             -> 0.00000000
+        # +] ztiFyseKx9q7h4D9eXMjygQqbHvLA4FTZfT                                                             -> 882.75000000 (+750.75000000 immature) {100 utxos (+100 immature)}
         #
-        # node2:
-        # +] ztZTd1erG3X1me9zyPjjZjRXHSq14dVRwF6                                                             -> 0.00000000
         
         r = requests.get("https://downloads.horizen.io/file/depends-sources/test_setup_wallet_mergetoaddress_2.zip", stream=True)
         if r.ok:
@@ -77,8 +75,7 @@ class WalletMergeToAddress2Test (BitcoinTestFramework):
         self.nodes = []
         self.nodes.append(start_node(0, self.options.tmpdir, args))
         self.nodes.append(start_node(1, self.options.tmpdir, args))
-        args2 = ['-debug=zrpcunsafe', '-experimentalfeatures', '-zmergetoaddress', '-mempooltxinputlimit=7', "-maxtipage=3153600000"] # 60 * 60 * 24 * 365 * 100
-        self.nodes.append(start_node(2, self.options.tmpdir, args2))
+        self.nodes.append(start_node(2, self.options.tmpdir, args))
         connect_nodes_bi(self.nodes,0,1)
         connect_nodes_bi(self.nodes,1,2)
         connect_nodes_bi(self.nodes,0,2)

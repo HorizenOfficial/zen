@@ -15,6 +15,7 @@
 #include "forks/fork8_sidechainfork.h"
 #include "forks/fork9_sidechainversionfork.h"
 #include "forks/fork10_nonceasingsidechainfork.h"
+#include "forks/fork11_shieldedpooldeprecationfork.h"
 
 namespace zen {
 
@@ -24,7 +25,7 @@ namespace zen {
 /**
  * @brief getInstance returns the ForkManager static instance.
  * Other than for testing purposes, it should not be necessary to create any other instance of the ForkManager class
- * @return the ForkManage instance
+ * @return the ForkManager instance
  */
 ForkManager& ForkManager::getInstance() {
     static ForkManager instance;
@@ -91,7 +92,7 @@ ReplayProtectionLevel ForkManager::getReplayProtectionLevel(int height) const {
  * @return returns true if Community funds can be sent to a transparent address at this height
  */
 bool ForkManager::canSendCommunityFundsToTransparentAddress(int height) const {
-    return getForkAtHeight(height)->canSendCommunityFundsToTransparentAddress();
+    return getForkAtHeight(height)->canSendCommunityFundsToTransparentAddress(currentNetwork);
 }
 
 /**
@@ -184,6 +185,14 @@ bool ForkManager::isNonCeasingSidechainActive(int height) const {
     return getForkAtHeight(height)->isNonCeasingSidechainActive();
 }
 
+bool ForkManager::mustCoinBaseBeShielded(int height) const {
+    return getForkAtHeight(height)->mustCoinBaseBeShielded(currentNetwork);
+}
+
+bool ForkManager::isShieldingForbidden(int height) const {
+    return getForkAtHeight(height)->isShieldingForbidden();
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// PRIVATE MEMBERS
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -205,6 +214,7 @@ ForkManager::ForkManager() {
     registerFork(new SidechainFork());
     registerFork(new SidechainVersionFork());
     registerFork(new NonCeasingSidechainFork());
+    registerFork(new ShieldedPoolDeprecationFork());
 }
 
 /**
