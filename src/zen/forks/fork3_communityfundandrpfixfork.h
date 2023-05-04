@@ -35,7 +35,7 @@ public:
     /**
      * @brief canSendCommunityFundsToTransparentAddress true if community funds can be sent to a transparent address
      */
-    inline virtual bool canSendCommunityFundsToTransparentAddress() const { return true; }
+    virtual bool canSendCommunityFundsToTransparentAddress(CBaseChainParams::Network network) const;
 
     /**
      * @brief isTransactionTypeAllowed returns true if this transaction type is allowed in this fork, false otherwise

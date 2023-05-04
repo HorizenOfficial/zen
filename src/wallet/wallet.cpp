@@ -3058,24 +3058,20 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
 
 bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletTransactionBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet,  bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet, const CCoinControl* coinControl) const
 {
-    // If coinbase utxos can only be sent to zaddrs, exclude any coinbase utxos from coin selection.
-    bool fMustShieldCoinBase = ForkManager::getInstance().mustCoinBaseBeShielded(chainActive.Height());
-    bool fMustShieldCommunityFund = false;
-
-    // CF exemption allowed only after hfCommunityFundHeight hardfork
-    if (!ForkManager::getInstance().canSendCommunityFundsToTransparentAddress(chainActive.Height()))
-        fMustShieldCommunityFund = fMustShieldCoinBase;
+    // If coinbase utxos can only be sent to zaddrs, exclude any coinbase utxos from coin selection (based on current available forks).
+    const bool fIncludeCoinBase = !ForkManager::getInstance().mustCoinBaseBeShielded(chainActive.Height() + 1);
+    const bool fIncludeCommunityFund = ForkManager::getInstance().canSendCommunityFundsToTransparentAddress(chainActive.Height() + 1);
 
     vector<COutput> vCoinsWithoutCoinbase, vCoinsWithCoinbaseAndCommunityFund;
-    AvailableCoins(vCoinsWithoutCoinbase, true, coinControl, false, false, !fMustShieldCommunityFund);
+    AvailableCoins(vCoinsWithoutCoinbase, true, coinControl, false, false, fIncludeCommunityFund);
     AvailableCoins(vCoinsWithCoinbaseAndCommunityFund, true, coinControl, false, true, true);
     // Output parameter fOnlyCoinbaseCoinsRet is set to true when the only available coins are coinbase utxos.
     fOnlyCoinbaseCoinsRet = vCoinsWithoutCoinbase.size() == 0 && vCoinsWithCoinbaseAndCommunityFund.size() > 0;
 
-    vector<COutput> vCoins = (fMustShieldCoinBase) ? vCoinsWithoutCoinbase : vCoinsWithCoinbaseAndCommunityFund;
+    vector<COutput> vCoins = (fIncludeCoinBase) ? vCoinsWithCoinbaseAndCommunityFund : vCoinsWithoutCoinbase;
 
     // Output parameter fNeedCoinbaseCoinsRet is set to true if coinbase utxos need to be spent to meet target amount
-    if (fMustShieldCoinBase && vCoinsWithCoinbaseAndCommunityFund.size() > vCoinsWithoutCoinbase.size()) {
+    if (!fIncludeCoinBase && vCoinsWithCoinbaseAndCommunityFund.size() > vCoinsWithoutCoinbase.size()) {
         CAmount value = 0;
         for (const COutput& out : vCoinsWithoutCoinbase) {
             if (!out.fSpendable) {

@@ -56,11 +56,11 @@ namespace{
 // anonymous namespace related to shielded pool deprecation hard fork
 // TODO: REMOVE ONCE SHIELDED POOL DEPRECATION HARD FORK IS "HIGHLY FINAL"
 namespace{
-    std::string shieldedPoolDeprecationErrorMessage = "This method is deprecated due to shielded pool deprecation hard fork.";
+    const char* shieldedPoolDeprecationErrorMessage = "This method is deprecated due to shielded pool deprecation hard fork.";
 
-    //! Method for identifying if shielded pool deprecation hard fork is enabled on active chain
+    //! Method for getting shielded pool deprecation hard fork height
     /*!
-      \return shielded pool deprecation hard fork enable
+      \return hard fork height
     */
     int GetShieldedPoolDeprecationForkHeight()
     {
@@ -70,28 +70,28 @@ namespace{
         return ShieldedPoolDeprecationFork{}.getHeight(network);
     }
 
-    //! Method for getting shielded pool deprecation hard fork height
+    //! Method for identifying if shielding RPC methods are deprecated
     /*!
-      \return hard fork height
+      \return shielding RPC methods deprecated
     */
-    int IsShieldedPoolDeprecationForkEnabled()
+    bool AreShieldingRPCMethodsDeprecated()
     {
-        return chainActive.Height() < GetShieldedPoolDeprecationForkHeight();
+        return chainActive.Height() + 1 >= GetShieldedPoolDeprecationForkHeight();
     }
 
-    //! Method for providing warning message associated to shielded pool deprecation hard fork
+    //! Method for providing warning message associated to shielding RPC methods deprecation
     /*!
       \param fullDeprecation the flag identifying if full deprecation is considered (instead of partial deprecation)
       \return warning message
     */
-    std::string ShieldedPoolDeprecationWarning(bool fullDeprecation = true)
+    std::string ShieldingRPCMethodsDeprecationWarning(bool fullDeprecation = true)
     {
         int shieldedPoolDeprecationForkHeight = GetShieldedPoolDeprecationForkHeight();
 
         return static_cast<std::string>("\nWARNING: This method ") +
-                                       ((chainActive.Height() < shieldedPoolDeprecationForkHeight) ? "is going to be " : "has been " ) +
+                                       ((chainActive.Height() + 1 >= shieldedPoolDeprecationForkHeight) ? "has been " : "is going to be ") +
                                        (fullDeprecation ? "fully " : "partially ") +
-                                        "deprecated at block height " + std::to_string(shieldedPoolDeprecationForkHeight) +
+                                        "deprecated at block height " + std::to_string(shieldedPoolDeprecationForkHeight - 1) +
                                         " due to shielded pool deprecation hard fork.";
     }
 }
@@ -5254,8 +5254,8 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
     if (fHelp || params.size() < 2 || params.size() > 5)
         throw runtime_error(
             "z_sendmany \"fromaddress\" [{\"address\":... ,\"amount\":...},...] ( minconf ) ( fee ) (sendChangeToSource)\n"
-            + ShieldedPoolDeprecationWarning(false) + "\n"
-            + "Details: sending transparent funds to shielded addresses " + (IsShieldedPoolDeprecationForkEnabled() ? "is going to be " : "has been ") + "deprecated.\n"
+            + ShieldingRPCMethodsDeprecationWarning(false) + "\n"
+            + "Details: sending transparent funds to shielded addresses " + (AreShieldingRPCMethodsDeprecated() ? "has been " : "is going to be ") + "deprecated.\n"
             "\nSend multiple times. Amounts are double-precision floating point numbers."
             "\nChange from a taddr flows to a new taddr address, while change from zaddr returns to itself."
             "\nWhen sending coinbase UTXOs to a zaddr, change is not allowed. The entire value of the UTXO(s) must be consumed."
@@ -5378,7 +5378,7 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
     }
 
     // we want to forbid shielding transactions
-    if (chainActive.Height() >= GetShieldedPoolDeprecationForkHeight() &&
+    if (chainActive.Height() + 1 >= GetShieldedPoolDeprecationForkHeight() &&
         fromTaddr && zaddrRecipients.size() > 0)
     {
         throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, shieldedPoolDeprecationErrorMessage);
@@ -5854,7 +5854,7 @@ UniValue z_shieldcoinbase(const UniValue& params, bool fHelp)
     if (fHelp || params.size() < 2 || params.size() > 4)
         throw runtime_error(
             "z_shieldcoinbase \"fromaddress\" \"tozaddress\" ( fee ) ( limit )\n"
-            + ShieldedPoolDeprecationWarning() + "\n"
+            + ShieldingRPCMethodsDeprecationWarning() + "\n"
             "\nShield transparent coinbase funds by sending to a shielded zaddr.  This is an asynchronous operation and utxos"
             "\nselected for shielding will be locked.  If there is an error, they are unlocked.  The RPC call `listlockunspent`"
             "\ncan be used to return a list of locked utxos.  The number of coinbase utxos selected for shielding can be limited"
@@ -5885,7 +5885,7 @@ UniValue z_shieldcoinbase(const UniValue& params, bool fHelp)
             + HelpExampleRpc("z_shieldcoinbase", "\"taddr\", \"zaddr\"")
         );
 
-    if (chainActive.Height() >= GetShieldedPoolDeprecationForkHeight())
+    if (chainActive.Height() + 1 >= GetShieldedPoolDeprecationForkHeight())
     {
         throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, shieldedPoolDeprecationErrorMessage);
     }
@@ -6058,14 +6058,14 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
         throw runtime_error(
             "z_mergetoaddress [\"fromaddress\", ... ] \"toaddress\" ( fee ) ( transparent_limit ) ( shielded_limit ) ( memo )\n"
             + strDisabledMsg
-            + ShieldedPoolDeprecationWarning(false) + "\n"
-            + "Details: merging transparent funds to shielded address " + (IsShieldedPoolDeprecationForkEnabled() ? "is going to be " : "has been ") + "deprecated.\n"
-            "\nMerge multiple UTXOs and notes into a single UTXO or note.  Coinbase UTXOs are ignored; use `z_shieldcoinbase`"
-            "\nto combine those into a single note."
-            "\n\nThis is an asynchronous operation, and UTXOs selected for merging will be locked.  If there is an error, they"
-            "\nare unlocked.  The RPC call `listlockunspent` can be used to return a list of locked UTXOs."
-            "\n\nThe number of UTXOs and notes selected for merging can be limited by the caller.  If the transparent limit"
-            "\nparameter is set to zero, the -mempooltxinputlimit option will determine the number of UTXOs.  Any limit is"
+            + ShieldingRPCMethodsDeprecationWarning(false) + "\n"
+            + "Details: merging transparent funds to shielded address " + (AreShieldingRPCMethodsDeprecated() ? "has been " : "is going to be ") + "deprecated.\n"
+            "\nMerge multiple UTXOs and notes into a single UTXO or note." +
+            (AreShieldingRPCMethodsDeprecated() ? "" : "\nCoinbase UTXOs are ignored; use `z_shieldcoinbase` to combine those into a single note.") +
+            "\n\nThis is an asynchronous operation, and UTXOs selected for merging will be locked. If there is an error, they"
+            "\nare unlocked. The RPC call `listlockunspent` can be used to return a list of locked UTXOs."
+            "\n\nThe number of UTXOs and notes selected for merging can be limited by the caller. If the transparent limit"
+            "\nparameter is set to zero, the -mempooltxinputlimit option will determine the number of UTXOs. Any limit is"
             "\nconstrained by the consensus rule defining a maximum transaction size of "
             + strprintf("%d bytes.", MAX_TX_SIZE)
             + HelpRequiringPassphrase() + "\n"
@@ -6221,7 +6221,7 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
     }
 
     // we want to forbid shielding transactions
-    if (chainActive.Height() >= GetShieldedPoolDeprecationForkHeight() &&
+    if (chainActive.Height() + 1 >= GetShieldedPoolDeprecationForkHeight() &&
         (useAny || useAnyUTXO || taddrs.size() > 0) && isToZaddr)
     {
         throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, shieldedPoolDeprecationErrorMessage);
@@ -6254,13 +6254,15 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
         // Get available utxos
         vector<COutput> vecOutputs;
 
-        bool fMustShieldCoinBase = ForkManager::getInstance().mustCoinBaseBeShielded(chainActive.Height());
-        bool fMustShieldCommunityFund = false;
-        // CF exemption allowed only after hfCommunityFundHeight hardfork
-        if (!ForkManager::getInstance().canSendCommunityFundsToTransparentAddress(chainActive.Height()))
-            fMustShieldCommunityFund = fMustShieldCoinBase;
+        bool fIncludeCoinBase = isToZaddr;
+        bool fIncludeCommunityFund = isToZaddr;
+        if (!isToZaddr)
+        {
+            fIncludeCoinBase = !ForkManager::getInstance().mustCoinBaseBeShielded(chainActive.Height() + 1);
+            fIncludeCommunityFund = ForkManager::getInstance().canSendCommunityFundsToTransparentAddress(chainActive.Height() + 1);
+        }
 
-        pwalletMain->AvailableCoins(vecOutputs, true, NULL, false, !fMustShieldCoinBase, !fMustShieldCommunityFund);
+        pwalletMain->AvailableCoins(vecOutputs, true, NULL, false, fIncludeCoinBase, fIncludeCommunityFund);
 
         // Find unspent utxos and update estimated size
         for (const COutput& out : vecOutputs) {

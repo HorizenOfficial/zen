@@ -63,14 +63,21 @@ bool OriginalFork::isTransactionTypeAllowed(txnouttype transactionType) const {
     }
 }
 
-bool OriginalFork::mustCoinBaseBeShielded(CBaseChainParams::Network network) const {
+bool OriginalFork::canSendCommunityFundsToTransparentAddress(CBaseChainParams::Network network) const {
     if (network == CBaseChainParams::Network::MAIN ||
-        network == CBaseChainParams::Network::TESTNET)
+        network == CBaseChainParams::Network::TESTNET ||
+        mapArgs.count("-regtestprotectcoinbase"))
     {
-        return true;
+        return false;
     }
     
-    if (mapArgs.count("-regtestprotectcoinbase"))
+    return true;
+}
+
+bool OriginalFork::mustCoinBaseBeShielded(CBaseChainParams::Network network) const {
+    if (network == CBaseChainParams::Network::MAIN ||
+        network == CBaseChainParams::Network::TESTNET ||
+        mapArgs.count("-regtestprotectcoinbase"))
     {
         return true;
     }

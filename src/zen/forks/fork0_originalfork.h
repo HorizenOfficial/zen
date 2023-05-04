@@ -32,7 +32,7 @@ public:
     /**
      * @brief canSendCommunityFundsToTransparentAddress true if community funds can be sent to a transparent address
      */
-    inline virtual bool canSendCommunityFundsToTransparentAddress() const { return false; }
+    inline virtual bool canSendCommunityFundsToTransparentAddress(CBaseChainParams::Network network) const;
 
     /**
      * @brief getReplayProtectionLevel returns the replay protection level provided by the current fork
@@ -52,7 +52,7 @@ public:
     /**
 	 * @brief returns phpgr,groth,... tx version based on block height
 	 */
-    inline virtual int getShieldedTxVersion() const { return 2; }
+    inline virtual int getShieldedTxVersion() const { return PHGR_TX_VERSION; }
 
     /**
 	 * @brief returns sidechain tx version based on block height, if sidechains are not supported return 0
@@ -107,7 +107,7 @@ public:
     /**
      * @brief returns true if the shielding (t->z) transactions are forbidden
      */
-    virtual bool isShieldingForbidden() const { return false; };
+    inline virtual bool isShieldingForbidden() const { return false; };
 };
 
 }

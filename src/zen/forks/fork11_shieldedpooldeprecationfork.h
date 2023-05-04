@@ -18,7 +18,7 @@ public:
     /**
      * @brief returns true if the shielding (t->z) transactions are forbidden
      */
-    virtual bool isShieldingForbidden() const { return true; };
+    inline virtual bool isShieldingForbidden() const { return true; };
 };
 
 }

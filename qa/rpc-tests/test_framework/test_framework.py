@@ -29,6 +29,7 @@ ForkHeights = {
     'SHIELDED_POOL_DEPRECATION': 990
 }
 
+
 class BitcoinTestFramework(object):
 
     def __init__(self):
@@ -145,7 +146,7 @@ class BitcoinTestFramework(object):
             print("Assertion failed: " + str(e))
             traceback.print_tb(sys.exc_info()[2])
         except Exception as e:
-            print("Unexpected exception caught during testing: "+str(e))
+            print("Unexpected exception caught during testing: " + str(e))
             traceback.print_tb(sys.exc_info()[2])
 
         if not self.options.noshutdown:

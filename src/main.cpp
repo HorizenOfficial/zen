@@ -2498,7 +2498,7 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
         {
             // Ensure that coinbases cannot be spent to transparent outputs
             // Disabled on regtest
-            if (ForkManager::getInstance().mustCoinBaseBeShielded(chainActive.Height()) &&
+            if (ForkManager::getInstance().mustCoinBaseBeShielded(nSpendHeight) &&
                 !txBase.GetVout().empty())
             {
                 // Since HARD_FORK_HEIGHT there is an exemption for community fund coinbase coins, so it is allowed

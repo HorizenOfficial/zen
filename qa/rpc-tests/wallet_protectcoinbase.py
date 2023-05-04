@@ -6,8 +6,8 @@
 
 from test_framework.test_framework import BitcoinTestFramework, ForkHeights
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, assert_greater_than, initialize_chain_clean, \
-    start_nodes, stop_nodes, wait_bitcoinds, connect_nodes_bi, wait_and_assert_operationid_status
+from test_framework.util import assert_equal, assert_greater_than, assert_greater_or_equal_than, \
+    initialize_chain_clean, start_nodes, stop_nodes, wait_bitcoinds, connect_nodes_bi, wait_and_assert_operationid_status
 
 import sys
 import time
@@ -98,9 +98,10 @@ class WalletProtectCoinbaseTest (BitcoinTestFramework):
         errorString = ""
         try:
             self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 1)
+            assert(False)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert_equal("Coinbase funds can only be sent to a zaddr" in errorString, True)
+            assert_equal("Coinbase funds can only be sent to a zaddr" in errorString, True)
 
         # Prepare to send taddr->zaddr
         mytaddr = self.nodes[0].getnewaddress()
@@ -199,9 +200,10 @@ class WalletProtectCoinbaseTest (BitcoinTestFramework):
         # Verify that z_listunspent returns error when address spending key from node 0 is not available in wallet of node 1.
         try:
             results = self.nodes[1].z_listunspent(1, 999, False, [myzaddr])
+            assert(False)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert_equal("Invalid parameter, spending key for address does not belong to wallet" in errorString, True)
+            assert_equal("Invalid parameter, spending key for address does not belong to wallet" in errorString, True)
 
         # Verify that debug=zrpcunsafe logs params, and that full txid is associated with opid
         logpath = self.options.tmpdir+"/node0/regtest/debug.log"
@@ -279,9 +281,10 @@ class WalletProtectCoinbaseTest (BitcoinTestFramework):
         errorString = ""
         try:
             self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 99999)
+            assert(False)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert_equal("Insufficient funds" in errorString, True)
+            assert_equal("Insufficient funds" in errorString, True)
 
         # z_sendmany will fail because of insufficient funds
         recipients = []
@@ -294,9 +297,10 @@ class WalletProtectCoinbaseTest (BitcoinTestFramework):
         # Send will fail because of insufficient funds unless sender uses coinbase utxos
         try:
             self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 21)
+            assert(False)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert_equal("Insufficient funds, coinbase funds can only be spent after they have been sent to a zaddr" in errorString, True)
+            assert_equal("Insufficient funds, coinbase funds can only be spent after they have been sent to a zaddr" in errorString, True)
 
         # Verify that mempools accept tx with joinsplits which have at least the default z_sendmany fee.
         # If this test passes, it confirms that issue #1851 has been resolved, where sending from
@@ -331,7 +335,7 @@ class WalletProtectCoinbaseTest (BitcoinTestFramework):
             print("JSONRPC error: "+e.error['message'])
             assert(False)
         except Exception as e:
-            print("Unexpected exception caught during testing: "+str(sys.exc_info()[0]))
+            print("Unexpected exception caught during testing: " + str(e.error))
             assert(False)
 
         self.sync_all()
@@ -347,23 +351,26 @@ class WalletProtectCoinbaseTest (BitcoinTestFramework):
         # Send will fail because fee is negative
         try:
             self.nodes[0].z_sendmany(myzaddr, recipients, 1, -1)
+            assert(False)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert_equal("Amount out of range" in errorString, True)
+            assert_equal("Amount out of range" in errorString, True)
 
         # Send will fail because fee is larger than MAX_MONEY
         try:
             self.nodes[0].z_sendmany(myzaddr, recipients, 1, Decimal('21000000.00000001'))
+            assert(False)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert_equal("Amount out of range" in errorString, True)
+            assert_equal("Amount out of range" in errorString, True)
 
         # Send will fail because fee is larger than sum of outputs
         try:
             self.nodes[0].z_sendmany(myzaddr, recipients, 1, (amount_per_recipient * num_t_recipients) + Decimal('0.00000001'))
+            assert(False)
         except JSONRPCException as e:
             errorString = e.error['message']
-        assert_equal("is greater than the sum of outputs" in errorString, True)
+            assert_equal("is greater than the sum of outputs" in errorString, True)
 
         # Send will succeed because the balance of non-coinbase utxos is 11.4375
         try:
@@ -414,17 +421,19 @@ class WalletProtectCoinbaseTest (BitcoinTestFramework):
         assert_equal(Decimal(resp), sum_of_notes)
         
 
-        # tests associated to shielded pool depraction hard fork
+        # tests associated to shielded pool deprecation hard fork
+        ForkHeight = ForkHeights['SHIELDED_POOL_DEPRECATION']
 
         block_count = self.nodes[0].getblockcount()
-        assert_greater_than(ForkHeights['SHIELDED_POOL_DEPRECATION'], block_count) # otherwise following tests would make no sense
+        assert_greater_than(ForkHeight, block_count + 1) # otherwise following tests would make no sense
+                                                         # +1 because a new tx would enter the blockchain on next mined block
 
         # restart (before fork, with -regtestprotectcoinbase)
         stop_nodes(self.nodes)
         wait_bitcoinds()
         self.extra_args = [['-regtestprotectcoinbase', '-debug=zrpcunsafe']] * 4
         self.setup_network()
-        balance_0 = self.nodes[0].getbalance() # there are some coin base in the wallet
+        balance_0 = self.nodes[0].getbalance() # there are some coin base in the wallet (so sending full balance would select at least one of them)
         # Send will fail because we are enforcing the consensus rule that coinbase utxos
         # can only be sent to a zaddr (and we are before shielded pool deprecation fork)
         try:
@@ -439,33 +448,35 @@ class WalletProtectCoinbaseTest (BitcoinTestFramework):
         wait_bitcoinds()
         self.extra_args = [['-debug=zrpcunsafe']] * 4
         self.setup_network()
-        balance_0 = self.nodes[0].getbalance() # there are some coin base in the wallet
+        balance_0 = self.nodes[0].getbalance() # there are some coin base in the wallet (so sending full balance would select at least one of them)
         # Send will not fail because we are not enforcing the consensus rule that coinbase utxos
         # can only be sent to a zaddr (and we are before shielded pool deprecation fork)
         try:
             self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), balance_0, "", "", True)
+            self.sync_all()
         except JSONRPCException as e:
-            print("Unexpected exception caught during testing: " + str(sys.exc_info()[0]))
+            print("Unexpected exception caught during testing: " + str(e.error))
             assert(False)
         
-        self.nodes[1].generate(ForkHeights['SHIELDED_POOL_DEPRECATION'] - block_count + 1) # overcame hard fork mining blocks on another node
+        # reach hard fork mining blocks
+        block_count = self.nodes[0].getblockcount()
+        self.nodes[0].generate(ForkHeight - block_count - 1)
         self.sync_all()
         block_count = self.nodes[0].getblockcount()
-        assert_greater_than(block_count, ForkHeights['SHIELDED_POOL_DEPRECATION']) # otherwise following tests would make no sense
-        self.nodes[0].generate(101)
-        self.sync_all()
+        assert_equal(block_count + 1, ForkHeight) # otherwise following tests would make no sense
 
         # restart (after fork, with -regtestprotectcoinbase)
         stop_nodes(self.nodes)
         wait_bitcoinds()
         self.extra_args = [['-regtestprotectcoinbase', '-debug=zrpcunsafe']] * 4
         self.setup_network()
-        balance_0 = self.nodes[0].getbalance() # there are some coin base in the wallet
+        amount_0 = self.nodes[0].listunspent()[0]["amount"] # there are only coin base in the wallet (so just one coin is sent, sending full balance would incur in too large tx)
         # Send will not fail because we overcame the shielded pool deprecation hard fork ('-regtestprotectcoinbase' is indifferent)
         try:
-            self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), balance_0, "", "", True)
+            self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), amount_0, "", "", True)
+            self.sync_all()
         except JSONRPCException as e:
-            print("Unexpected exception caught during testing: " + str(sys.exc_info()[0]))
+            print("Unexpected exception caught during testing: " + str(e.error))
             assert(False)
 
         self.nodes[0].generate(1)
@@ -476,12 +487,13 @@ class WalletProtectCoinbaseTest (BitcoinTestFramework):
         wait_bitcoinds()
         self.extra_args = [['-debug=zrpcunsafe']] * 4
         self.setup_network()
-        balance_0 = self.nodes[0].getbalance() # there are some coin base in the wallet
+        amount_0 = self.nodes[0].listunspent()[0]["amount"] # there are only coin base in the wallet (so just one coin is sent, sending full balance would incur in too large tx)
         # Send will not fail because we overcame the shielded pool deprecation hard fork ('-regtestprotectcoinbase' is indifferent)
         try:
-            self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), balance_0, "", "", True)
+            self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), amount_0, "", "", True)
+            self.sync_all()
         except JSONRPCException as e:
-            print("Unexpected exception caught during testing: " + str(sys.exc_info()[0]))
+            print("Unexpected exception caught during testing: " + str(e.error))
             assert(False)
 
 

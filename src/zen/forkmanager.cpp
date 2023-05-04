@@ -92,7 +92,7 @@ ReplayProtectionLevel ForkManager::getReplayProtectionLevel(int height) const {
  * @return returns true if Community funds can be sent to a transparent address at this height
  */
 bool ForkManager::canSendCommunityFundsToTransparentAddress(int height) const {
-    return getForkAtHeight(height)->canSendCommunityFundsToTransparentAddress();
+    return getForkAtHeight(height)->canSendCommunityFundsToTransparentAddress(currentNetwork);
 }
 
 /**

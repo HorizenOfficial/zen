@@ -69,6 +69,12 @@ const std::string& CommunityFundAndRPFixFork::getCommunityFundAddress(CBaseChain
     size_t i = ((height - getHeight(network)) / addressChangeInterval) % communityFundAddresses.size();
     return communityFundAddresses[i];
 }
+
+/**
+ * @brief canSendCommunityFundsToTransparentAddress true if community funds can be sent to a transparent address
+ */
+bool CommunityFundAndRPFixFork::canSendCommunityFundsToTransparentAddress(CBaseChainParams::Network network) const { return true; }
+
 /**
  * @brief isTransactionTypeAllowed returns true if this transaction type is allowed in this fork, false otherwise
  * @param transactionType transaction type
