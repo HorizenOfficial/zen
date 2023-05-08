@@ -96,9 +96,9 @@ class WalletMergeToAddress2Test (BitcoinTestFramework):
         assert_equal(result[self.op_result_k][self.mergingUTXOs_k], 0)
         assert_equal(result[self.op_result_k][self.mergingNotes_k], 58)
         assert_equal(result[self.op_result_k][self.mergingTransparentValue_k], 0)
-        # 165.171875 is the sum of the amount of the first 58 notes
-        assert_equal(result[self.op_result_k][self.mergingShieldedValue_k], 165.171875)
-        assert_equal(result[self.balance_delta_k], 165.171875)
+        # 663.375 is the sum of the amount of the first 58 notes
+        assert_equal(result[self.op_result_k][self.mergingShieldedValue_k], 663.375)
+        assert_equal(result[self.balance_delta_k], 663.375)
         # 57 joinsplits are required because first two shielded inputs are merged in a shielded output, which is then set as shielded input (change) which is
         # then set as shielded input (change) in the subsequent joinsplit and paired with another shielded input until the final shielded output is obtained
         # note0  _____
