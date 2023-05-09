@@ -3,9 +3,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifdef ENABLE_ADDRESS_INDEXING
 #include "addressindex.h"
-#endif // ENABLE_ADDRESS_INDEXING
 #include "base58.h"
 #include "clientversion.h"
 #include "init.h"

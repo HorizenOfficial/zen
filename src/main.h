@@ -46,9 +46,7 @@ class CValidationState;
 class CTxUndo;
 struct CNodeStateStats;
 class CTxInUndo;
-#ifdef ENABLE_ADDRESS_INDEXING
 enum class AddressType;
-#endif // ENABLE_ADDRESS_INDEXING
 
 // Enforce 64-bit architecture requirement
 #if defined(__clang__) || defined(__GNUC__)

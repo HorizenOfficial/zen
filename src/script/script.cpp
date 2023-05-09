@@ -196,7 +196,7 @@ unsigned int CScript::GetSigOpCount(const CScript& scriptSig) const
     // get the last item that the scriptSig
     // pushes onto the stack:
     const_iterator pc = scriptSig.begin();
-    vector<unsigned char> data;
+    std::vector<unsigned char> data;
     while (pc < scriptSig.end())
     {
         opcodetype opcode;
@@ -304,7 +304,7 @@ std::string CScript::ToString() const
 {
     std::string str;
     opcodetype opcode;
-    vector<unsigned char> vch;
+    std::vector<unsigned char> vch;
     const_iterator pc = begin();
     while (pc < end())
     {
@@ -358,10 +358,10 @@ uint160 CScript::AddressHash() const
     }
     else {
         // unknown script type; return zeros (this can happen)
-        return uint160(vector<unsigned char>(size));
+        return uint160(std::vector<unsigned char>(size));
     }
     
-    vector<unsigned char> hashBytes(this->begin() + start, this->begin() + start + size);
+    std::vector<unsigned char> hashBytes(this->begin() + start, this->begin() + start + size);
 
     if (isPayToPublicKey) //the public key is not yet hashed and need to be
     {
