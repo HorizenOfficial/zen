@@ -2000,16 +2000,19 @@ void CCoinsViewCache::UpdateBackwardTransferIndexes(const uint256& certHash,
     for(int pos = coins->nFirstBwtPos; pos < coins->vout.size(); ++pos)
     {
         const CTxOut& btOut = coins->vout.at(pos);
-        CScript::ScriptType scriptType = btOut.scriptPubKey.GetType();
-        if (scriptType != CScript::UNKNOWN) {
+        
+        const CScript::ScriptType scriptType = btOut.scriptPubKey.GetType();
+        
+        if (scriptType != CScript::ScriptType::UNKNOWN) {
             uint160 const addrHash = btOut.scriptPubKey.AddressHash();
+            const AddressType addressType = fromScriptTypeToAddressType(scriptType);
 
             // update receiving activity
-            addressIndex.push_back(std::make_pair(CAddressIndexKey(scriptType, addrHash, coins->nHeight, certIndex, certHash, pos, false),
+            addressIndex.push_back(std::make_pair(CAddressIndexKey(addressType, addrHash, coins->nHeight, certIndex, certHash, pos, false),
                                                   CAddressIndexValue(btOut.nValue, coins->nBwtMaturityHeight * multiplier)));
 
             // Add unspent output (to be removed)
-            addressUnspentIndex.push_back(std::make_pair(CAddressUnspentKey(scriptType, addrHash, certHash, pos),
+            addressUnspentIndex.push_back(std::make_pair(CAddressUnspentKey(addressType, addrHash, certHash, pos),
                                                          CAddressUnspentValue(btOut.nValue, btOut.scriptPubKey, coins->nHeight, coins->nBwtMaturityHeight * multiplier)));
         }
     }

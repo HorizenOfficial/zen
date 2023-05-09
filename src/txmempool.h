@@ -220,7 +220,7 @@ public:
     bool addUnchecked(const uint256& hash, const CCertificateMemPoolEntry &entry, bool fCurrentEstimate = true);
 
     void addAddressIndex(const CTransactionBase &txBase, int64_t nTime, const CCoinsViewCache &view);
-    bool getAddressIndex(std::vector<std::pair<uint160, int> > &addresses,
+    bool getAddressIndex(std::vector<std::pair<uint160, AddressType> > &addresses,
                          std::vector<std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> > &results);
     bool removeAddressIndex(const uint256& txBaseHash);
     void updateTopQualCertAddressIndex(const uint256& scid);
