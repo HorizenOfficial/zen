@@ -12,8 +12,6 @@ from decimal import Decimal
 
 # Test -blockmaxcomplexity
 class GetBlockTemplateBlockMaxComplexityTest(BitcoinTestFramework):
-    
-    alert_filename = None  # Set by setup_network
 
     def setup_network(self):
     # Create 6 nodes with different -blockmaxcomplexity cases

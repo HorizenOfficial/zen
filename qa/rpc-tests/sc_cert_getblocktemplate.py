@@ -24,8 +24,6 @@ GET_BLOCK_TEMPLATE_DELAY = 5 # Seconds
 
 class sc_cert_base(BitcoinTestFramework):
 
-    alert_filename = None
-
     def setup_chain(self, split=False):
         print("Initializing test directory " + self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)

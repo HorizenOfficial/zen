@@ -35,7 +35,6 @@ class FakeDict(dict):
         return self._items
 
 class SCCreateTest(BitcoinTestFramework):
-    alert_filename = None
 
     def setup_chain(self):
         print("Initializing test directory " + self.options.tmpdir)

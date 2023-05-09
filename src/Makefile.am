@@ -121,7 +121,6 @@ LIBZCASH_H = \
 BITCOIN_CORE_H = \
   addressindex.h \
   addrman.h \
-  alert.h \
   amount.h \
   amqp/amqpabstractnotifier.h \
   amqp/amqpconfig.h \
@@ -244,10 +243,7 @@ libbitcoin_util_a-clientversion.$(OBJEXT): obj/build.h
 libbitcoin_server_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CFLAGS) $(EVENT_PTHREADS_CFLAGS)
 libbitcoin_server_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) $(COVERAGE_FLAGS)
 libbitcoin_server_a_SOURCES = \
-  sendalert.cpp \
   addrman.cpp \
-  alert.cpp \
-  alertkeys.h \
   asyncrpcoperation.cpp \
   asyncrpcqueue.cpp \
   bloom.cpp \

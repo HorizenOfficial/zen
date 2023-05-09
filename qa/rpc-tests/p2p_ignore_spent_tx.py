@@ -16,7 +16,6 @@ NUMB_OF_NODES = 3
 FEE = Decimal("0.0001")
 
 class old_tx_ignored(BitcoinTestFramework):
-    alert_filename = None
 
     def setup_chain(self, split=False):
         print("Initializing test directory " + self.options.tmpdir)
