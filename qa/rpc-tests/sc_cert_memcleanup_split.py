@@ -11,7 +11,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, connect_nodes_bi, assert_true, assert_false, mark_logs, \
-    get_epoch_data, sync_mempools, \
+    get_epoch_data, sync_mempools, sync_blocks, \
     disconnect_nodes, advance_epoch, swap_bytes
 
 from test_framework.test_framework import ForkHeights
@@ -19,7 +19,6 @@ from test_framework.mc_test.mc_test import *
 
 from decimal import Decimal
 import pprint
-import time
 
 NUMB_OF_NODES = 4
 DEBUG_MODE = 1
@@ -30,7 +29,7 @@ MBTR_SC_FEE = Decimal('0')
 DISHONEST_NODE_INDEX = NUMB_OF_NODES - 1    # Dishonest node
 HONEST_NODES = list(range(NUMB_OF_NODES))
 HONEST_NODES.remove(DISHONEST_NODE_INDEX)
-MAIN_NODE = HONEST_NODES[0]
+MAIN_NODE = HONEST_NODES[0]                 # Hardcoded alias, do not change
 
 # Create one-input, one-output, no-fee transaction:
 class CertMempoolCleanupSplit(BitcoinTestFramework):
@@ -40,6 +39,8 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
 
     def setup_network(self, split=False):
+        assert_equal(MAIN_NODE, HONEST_NODES[0])
+
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
                                  extra_args=[['-logtimemicros=1', '-scproofqueuesize=0', '-debug=sc', '-debug=py',
                                               '-debug=mempool', '-debug=net', '-debug=bench']] * NUMB_OF_NODES)
@@ -79,7 +80,6 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
             connect_nodes_bi(self.nodes, idx, idx - 1)
             connect_nodes_bi(self.nodes, idx, idx + 1)
         self.is_network_split = False
-        time.sleep(2)
 
     def run_test(self):
         '''
@@ -268,6 +268,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         #============================================================================================
         mark_logs("\nJoining network", self.nodes, DEBUG_MODE)
         self.join_network()
+        sync_blocks(self.nodes)
         mark_logs("Network joined", self.nodes, DEBUG_MODE)
 
         # check SC is alive

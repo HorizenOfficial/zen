@@ -13,7 +13,6 @@ from test_framework.mininode import CTransaction, ToHex
 from test_framework.util import hex_str_to_bytes, swap_bytes
 from binascii import unhexlify
 from io import BytesIO
-import os
 from decimal import Decimal
 
 
@@ -31,7 +30,7 @@ CBH_DELTA_HEIGHT = 300
 DISHONEST_NODE_INDEX = NUMB_OF_NODES - 1    # Dishonest node
 HONEST_NODES = list(range(NUMB_OF_NODES))
 HONEST_NODES.remove(DISHONEST_NODE_INDEX)
-MAIN_NODE = HONEST_NODES[0]
+MAIN_NODE = HONEST_NODES[0]                 # Hardcoded alias, do not change
 
 class checkblockatheight(BitcoinTestFramework):
 
@@ -40,8 +39,9 @@ class checkblockatheight(BitcoinTestFramework):
         initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
 
     def setup_network(self, split=False, minAge=FINALITY_MIN_AGE):
-        self.nodes = []
+        assert_equal(MAIN_NODE, HONEST_NODES[0])
 
+        self.nodes = []
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
             extra_args = [
                 ["-debug=py", "-debug=cbh", "-cbhsafedepth="+str(FINALITY_SAFE_DEPTH), "-cbhminage="+str(minAge)],
@@ -85,7 +85,7 @@ class checkblockatheight(BitcoinTestFramework):
             disconnect_nodes(self.nodes[idx + 1], idx - 1)
             connect_nodes_bi(self.nodes, idx, idx - 1)
             connect_nodes_bi(self.nodes, idx, idx + 1)
-        sync_blocks(self.nodes, 1, False, 5)
+        sync_blocks(self.nodes)
         self.is_network_split = False
 
     def mark_logs(self, msg):
@@ -167,7 +167,7 @@ class checkblockatheight(BitcoinTestFramework):
 
         # new referenced block hash
         modTargetHash = hex_str_to_bytes(swap_bytes(blocks[modTargetHeigth]))
-        
+
         # build modified script
         modScriptPubKey = CScript([OP_DUP, OP_HASH160, hash160, OP_EQUALVERIFY, OP_CHECKSIG, modTargetHash, modTargetHeigth, OP_CHECKBLOCKATHEIGHT])
 
@@ -281,13 +281,13 @@ class checkblockatheight(BitcoinTestFramework):
 
         self.mark_logs(f"  Node {MAIN_NODE} generating 1 honest block")
         blocks.extend(self.nodes[MAIN_NODE].generate(1)) 
-        sync_blocks(self.nodes, 1, False, 5)
+        sync_blocks([self.nodes[i] for i in HONEST_NODES])
 
         h_current = self.nodes[HONEST_NODES[1]].getblockcount()
 
         # we will perform on attack aimed at reverting from this block (latest generated) upward
         h_attacked = h_current
-        hash_attacked = blocks[-1];
+        hash_attacked = blocks[-1]
         assert hash_attacked == blocks[h_attacked]
         hash_attacked_swapped = swap_bytes(hash_attacked)
         hex_tmp = "%04x" % h_attacked
@@ -359,7 +359,7 @@ class checkblockatheight(BitcoinTestFramework):
         print(f"  Node {MAIN_NODE} generating 1 honest block")
         blocks.extend(self.nodes[MAIN_NODE].generate(1))
         sync_blocks([self.nodes[i] for i in HONEST_NODES[0:2]])
-        
+
         # check tx is no more in mempool
         assert_equal(self.is_in_mempool(tx_1000, node_idx=HONEST_NODES[1]), False)
 
@@ -375,8 +375,7 @@ class checkblockatheight(BitcoinTestFramework):
 
         print(f"  Node {DISHONEST_NODE_INDEX} generating 3 malicious blocks thus reverting the honest chain once the ntw is joined!")
         blocks.extend(self.nodes[DISHONEST_NODE_INDEX].generate(3))
-        sync_blocks(self.nodes, limit_loop=5)
-        
+
         self.mark_logs("Joining network")
         self.join_network()
 
@@ -402,7 +401,7 @@ class checkblockatheight(BitcoinTestFramework):
         print(f"  Node {MAIN_NODE} generating 1 honest block")
         blocks.extend(self.nodes[MAIN_NODE].generate(1))
         self.sync_all()
-        
+
         # check tx_1000 is in the block just mined
         assert_equal(self.is_in_block(tx_1000, blocks[-1], node_idx=HONEST_NODES[2]), True)
 

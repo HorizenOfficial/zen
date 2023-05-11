@@ -17,10 +17,10 @@ DEBUG_MODE = 1
 NUMB_OF_NODES = 3
 SC_COINS_MAT = 1
 
-DOUBLE_SPEND_NODE_INDEX = NUMB_OF_NODES - 1    # The node that tries to perform the double spend
+DOUBLE_SPEND_NODE_INDEX = NUMB_OF_NODES - 1     # The node that tries to perform the double spend
 HONEST_NODES = list(range(NUMB_OF_NODES))
 HONEST_NODES.remove(DOUBLE_SPEND_NODE_INDEX)
-MAIN_NODE = HONEST_NODES[0]
+MAIN_NODE = HONEST_NODES[0]                     # Hardcoded alias, do not change
 
 
 class TxnMallTest(BitcoinTestFramework):
@@ -30,6 +30,8 @@ class TxnMallTest(BitcoinTestFramework):
         initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
 
     def setup_network(self, split=False):
+        assert_equal(MAIN_NODE, HONEST_NODES[0])
+
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args= [['-blockprioritysize=0',
             '-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-debug=zendoo_mc_cryptolib',
             '-scproofqueuesize=0', '-logtimemicros=1', '-sccoinsmaturity=%d' % SC_COINS_MAT]] * NUMB_OF_NODES )

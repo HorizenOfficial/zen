@@ -27,7 +27,7 @@ CERT_FEE = Decimal('0.0001')
 ISOLATED_NODE = NUMB_OF_NODES - 1       # index of node to be disconneted from the network
 NET_NODES = list(range(NUMB_OF_NODES))
 NET_NODES.remove(ISOLATED_NODE)
-MAIN_NODE = NET_NODES[0]
+MAIN_NODE = NET_NODES[0]                # Hardcoded alias, do not change
 
 
 # Create one-input, one-output, no-fee transaction:
@@ -38,6 +38,8 @@ class CswNullifierTest(BitcoinTestFramework):
         initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
 
     def setup_network(self, split=False):
+        assert_equal(MAIN_NODE, NET_NODES[0])
+
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
                                  extra_args=[["-sccoinsmaturity=0", '-scproofqueuesize=0', '-logtimemicros=1', '-debug=sc', '-debug=py',
                                               '-debug=mempool', '-debug=net', '-debug=bench']] * NUMB_OF_NODES)
@@ -48,7 +50,7 @@ class CswNullifierTest(BitcoinTestFramework):
         self.sync_all()
 
     def split_network(self):
-        # Disconnect the "double spend" node from the network
+        # Disconnect the "isolated" node from the network
         idx = ISOLATED_NODE
         if idx == NUMB_OF_NODES - 1:
             disconnect_nodes(self.nodes[idx], idx - 1)
@@ -251,7 +253,7 @@ class CswNullifierTest(BitcoinTestFramework):
         self.nodes[MAIN_NODE].generate(1)
         self.sync_all()
 
-        
+
         mark_logs(f"\nNode {ISOLATED_NODE} invalidate its chain from csw block on...", self.nodes, DEBUG_MODE)
         self.nodes[ISOLATED_NODE].invalidateblock(bl)
         sync_mempools([self.nodes[i] for i in NET_NODES])
@@ -271,7 +273,7 @@ class CswNullifierTest(BitcoinTestFramework):
         self.nodes[ISOLATED_NODE].reconsiderblock(bl)
         self.sync_all()
 
-        
+
         mark_logs(f"Check nullifier is back in MC from Node {ISOLATED_NODE} perspective...", self.nodes, DEBUG_MODE)
         res = self.nodes[ISOLATED_NODE].checkcswnullifier(scid, null1)
         assert_equal(res['data'], 'true')
@@ -337,7 +339,7 @@ class CswNullifierTest(BitcoinTestFramework):
         n2_bal = self.nodes[ISOLATED_NODE].z_gettotalbalance()['total']
         mark_logs(f"Node {NET_NODES[1]} has {n1_bal} confirmed balance", self.nodes, DEBUG_MODE)
         mark_logs(f"Node {ISOLATED_NODE} has {n2_bal} confirmed balance", self.nodes, DEBUG_MODE)
-        
+
 
         #============================================================================================
         mark_logs("\nSplit network", self.nodes, DEBUG_MODE)
@@ -468,7 +470,7 @@ class CswNullifierTest(BitcoinTestFramework):
         sc_bal_n2 = self.nodes[ISOLATED_NODE].getscinfo(scid)['items'][0]['balance']
         mark_logs(f"sc balance from Node {ISOLATED_NODE} view is: {sc_bal_n2}", self.nodes, DEBUG_MODE)
         assert_equal(Decimal(sc_bal_n2), Decimal('1.0'))
-        
+
 
         #============================================================================================
         mark_logs("\nJoining network", self.nodes, DEBUG_MODE)
@@ -539,8 +541,7 @@ class CswNullifierTest(BitcoinTestFramework):
         assert_equal(self.nodes[MAIN_NODE].checkcswnullifier(scid, null_n2)['data'], 'true')
 
         mark_logs("\nVerify we need a valid active cert data hash  for a CSW to be legal...", self.nodes, DEBUG_MODE)
-        
-        prev_epoch_hash = self.nodes[MAIN_NODE].getbestblockhash()
+
         vk2 = certMcTest.generate_params("sc2")
         cswVk2 = cswMcTest.generate_params("sc2")
         constant2 = generate_random_field_element_hex()

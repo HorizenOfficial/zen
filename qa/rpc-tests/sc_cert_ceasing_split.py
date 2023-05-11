@@ -29,7 +29,7 @@ MBTR_SC_FEE = Decimal('0')
 DISHONEST_NODE_INDEX = NUMB_OF_NODES - 1    # Dishonest node
 HONEST_NODES = list(range(NUMB_OF_NODES))
 HONEST_NODES.remove(DISHONEST_NODE_INDEX)
-MAIN_NODE = HONEST_NODES[0]
+MAIN_NODE = HONEST_NODES[0]                 # Hardcoded alias, do not change
 
 # Create one-input, one-output, no-fee transaction:
 class CeasingSplitTest(BitcoinTestFramework):
@@ -39,6 +39,8 @@ class CeasingSplitTest(BitcoinTestFramework):
         initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
 
     def setup_network(self, split=False):
+        assert_equal(MAIN_NODE, HONEST_NODES[0])
+
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
                                  extra_args=[['-scproofqueuesize=0', '-logtimemicros=1', '-debug=sc', '-debug=py',
                                               '-debug=mempool', '-debug=net', '-debug=bench']] * NUMB_OF_NODES)
@@ -180,7 +182,7 @@ class CeasingSplitTest(BitcoinTestFramework):
         cmdParms = { "minconf":0, "fee":0.0}
         mark_logs(f"\nNTW part 1) Node {HONEST_NODES[1]} creates a tx with a bwt request", self.nodes, DEBUG_MODE)
         try:
-            tx_bwt = self.nodes[HONEST_NODES[1]].sc_request_transfer(outputs, cmdParms);
+            tx_bwt = self.nodes[HONEST_NODES[1]].sc_request_transfer(outputs, cmdParms)
         except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -198,7 +200,7 @@ class CeasingSplitTest(BitcoinTestFramework):
         addr_node1 = self.nodes[HONEST_NODES[1]].getnewaddress()
         quality = 10
         scid_swapped = str(swap_bytes(scid))
- 
+
         proof = certMcTest.create_test_proof("sc1",
                                              scid_swapped,
                                              epoch_number,
@@ -209,7 +211,7 @@ class CeasingSplitTest(BitcoinTestFramework):
                                              constant = constant,
                                              pks      = [addr_node1],
                                              amounts  = [bt_amount])
- 
+
         amount_cert = [{"address": addr_node1, "amount": bt_amount}]
         try:
             cert_bad = self.nodes[HONEST_NODES[2]].sc_send_certificate(scid, epoch_number, 10,
@@ -260,7 +262,7 @@ class CeasingSplitTest(BitcoinTestFramework):
         mark_logs("And that no info are available too...", self.nodes, DEBUG_MODE)
         try:
             dec = self.nodes[MAIN_NODE].getrawtransaction(tx_fwd, 1)
-            print(f"FIX FIX FIX!!! tx_fwd has info in Node {self.nodes[MAIN_NODE]}" )
+            print(f"FIX FIX FIX!!! tx_fwd has info in Node {MAIN_NODE}" )
             any_error = True
             #assert (False)
         except JSONRPCException as e:
@@ -276,7 +278,7 @@ class CeasingSplitTest(BitcoinTestFramework):
         mark_logs("And that no info are available too...", self.nodes, DEBUG_MODE)
         try:
             dec = self.nodes[MAIN_NODE].getrawtransaction(tx_bwt, 1)
-            print(f"FIX FIX FIX!!! tx_bwt has info in Node {self.nodes[MAIN_NODE]}" )
+            print(f"FIX FIX FIX!!! tx_bwt has info in Node {MAIN_NODE}" )
             any_error = True
             #assert (False)
         except JSONRPCException as e:
@@ -291,7 +293,7 @@ class CeasingSplitTest(BitcoinTestFramework):
         mark_logs("And that no info are available too...", self.nodes, DEBUG_MODE)
         try:
             dec = self.nodes[MAIN_NODE].getrawtransaction(cert_bad, 1)
-            print(f"FIX FIX FIX!!! cert has info in Node {self.nodes[MAIN_NODE]}" )
+            print(f"FIX FIX FIX!!! cert has info in Node {MAIN_NODE}" )
             any_error = True
         except JSONRPCException as e:
             errorString = e.error['message']

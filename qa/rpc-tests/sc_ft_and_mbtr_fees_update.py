@@ -22,7 +22,7 @@ CERT_FEE      = Decimal('0.015')
 
 NUM_TXS       = 10
 
-class provaFee(BitcoinTestFramework):
+class SidechainFeeUpdate(BitcoinTestFramework):
 
     def setup_chain(self, split=False):
         print("Initializing test directory " + self.options.tmpdir)
@@ -611,4 +611,4 @@ class provaFee(BitcoinTestFramework):
         self.run_test_non_ceasable(2, False, False)
 
 if __name__ == '__main__':
-    provaFee().main()
+    SidechainFeeUpdate().main()
