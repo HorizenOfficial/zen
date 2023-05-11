@@ -4,7 +4,7 @@ namespace zen {
 
 NonCeasingSidechainFork::NonCeasingSidechainFork()
 {
-    setHeightMap({{CBaseChainParams::Network::MAIN,2500000},            // PLACEHOLDER!
+    setHeightMap({{CBaseChainParams::Network::MAIN,1363115},
                   {CBaseChainParams::Network::REGTEST,480},
                   {CBaseChainParams::Network::TESTNET,1228700}});
 }
