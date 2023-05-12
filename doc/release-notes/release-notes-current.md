@@ -18,9 +18,13 @@ zend v4.0.99
 - Fix for preventing already received and spent txs to be asked for again [#537](https://github.com/HorizenOfficial/zen/pull/537)
 - Fix for limitedmap [#538](https://github.com/HorizenOfficial/zen/pull/538)
 - Fix for return value of function mempoolToJSON [#539](https://github.com/HorizenOfficial/zen/pull/539)
+- Fix logfile output for "Leaving block file" statement [#530](https://github.com/HorizenOfficial/zen/pull/530)
 
 ## Contributors
 * [@a-petrini](https://github.com/a-petrini)
 * [@drgora](https://github.com/drgora)
 * [@JackPiri](https://github.com/JackPiri)
 * [@ptagl](https://github.com/ptagl)
+* [@dullerino](https://github.com/dullerino)
+
+Special thanks to [dullerino](https://github.com/dullerino) for the first contribution to Zen!
