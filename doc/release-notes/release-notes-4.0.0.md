@@ -1,9 +1,13 @@
 zend v4.0.0
 =========
 
-As the previous version of `zend` (3.3.1), this RC3 is expected to deprecate at block **#1359120**, which will occur on **May 31st, 2023 at approximately 12:00 PM UTC**. Please, update to `v4.0.0` before May 31st (the final release will be available soon).
+Zend `3.3.1` is going to deprecate at block **#1359120**, which will occur on **May 31st, 2023 at approximately 12:00 PM UTC**. Please, update to `v4.0.0` before May 31st.
 
-A **hard fork** has activated on testnet at block **#1228700**, which has occurred on **March 13th at 14:37:43 GMT+0000**.
+Zend `4.0.0` is going to deprecate at block **#1422426**, which will occur on **September 19th, 2023 at approximately 12:00 PM UTC**.
+
+A **hard fork** is going to activate on mainnet at block **#1363115**, which will occur on **June 7th, 2023 at approximately 13:00 UTC**.
+
+The same **hard fork** has activated on testnet at block **#1228700**, which has occurred on **March 13th at 14:37:43 GMT+0000**.
 
 Starting from `v4.0.0`, `zend` binaries for Linux will be released in **only one version**, which includes the `AddressIndexing` features that were previously only available in the `bitcore` version. This means that we will not publish specific `bitcore` versions.
 
