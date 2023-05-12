@@ -4,7 +4,7 @@ repository_root: "./"
 # new release version (format "major.minor.patch", suffix must not be included if beta or candidate)
 version: ""
 # build number (1-24 for beta (1-24), 25-49 for candidate (1-25), 50 for official)
-build: ""
+build_number: ""
 # mainnet config
 mainnet:
   # height for checkpoint (if empty, current last block is used)
@@ -23,12 +23,20 @@ release_date: ""
 approx_release_height: ""
 # weeks until deprecation
 weeks_until_deprecation: ""
-# previous version (format "major.minor.patch", build suffix must be included if beta or candidate)
-previous_version: ""
-# path to release notes file
-release_notes_file: "./release-notes.md"
 # script steps flow
 script_steps:
+  # initialize_check_main_checked_out (sub)step
+  initialize_check_main_checked_out:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # initialize_check_no_pending_changes (sub)step
+  initialize_check_no_pending_changes:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
   # set_client_version step
   set_client_version:
     # skip step
@@ -73,6 +81,12 @@ script_steps:
     stop: False
   # update_readme step
   update_readme:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # check_dependencies step
+  check_dependencies:
     # skip step
     skip: False
     # stop before step (user interaction for proceeding)

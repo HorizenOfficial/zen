@@ -13,7 +13,7 @@ import shutil
 # dictionary keys
 k_repository_root = "repository_root"
 k_version = "version"
-k_build = "build"
+k_build_number = "build_number"
 k_mainnet = "mainnet"
 k_testnet = "testnet"
 k_checkpoint_height = "checkpoint_height"
@@ -21,9 +21,9 @@ k_total_transactions = "total_transactions"
 k_release_date = "release_date"
 k_approx_release_height = "approx_release_height"
 k_weeks_until_deprecation = "weeks_until_deprecation"
-k_previous_version = "previous_version"
-k_release_notes_file = "release_notes_file"
 k_script_steps = "script_steps"
+k_initialize_check_main_checked_out = "initialize_check_main_checked_out"
+k_initialize_check_no_pending_changes = "initialize_check_no_pending_changes"
 k_set_client_version = "set_client_version"
 k_update_checkpoints = "update_checkpoints"
 k_update_changelog = "update_changelog"
@@ -32,12 +32,13 @@ k_build_zend = "build_zend"
 k_update_man_pages = "update_man_pages"
 k_update_release_notes = "update_release_notes"
 k_update_readme = "update_readme"
+k_check_dependencies = "check_dependencies"
 k_skip = "skip"
 k_stop = "stop"
 
 
 # git functions
-def git_check_currently_on_main():
+def git_check_currently_main_checked_out():
     result = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, cwd=config[k_repository_root])
     return result.returncode == 0 and result.stdout.rstrip() == "main"
 
@@ -51,17 +52,17 @@ def git_commit(commit_title: str, directories_for_add: list[str] = []):
     result = subprocess.run(["git", "commit", "-a", "-S", "-m", commit_title], capture_output=True, text=True, cwd=config[k_repository_root])  # Commit changes with the given message
     if (result.returncode != 0 or git_check_pending_changes()):
         print("Commit failed")
-        sys.exit()
+        sys.exit(-1)
 
 def git_create_branch(branch_name: str):
    result = subprocess.run(["git", "rev-parse", "--verify", branch_name], capture_output=True, text=True, cwd=config[k_repository_root])  # Commit changes with the given message
    if (result.returncode == 0):
         print("Branch already exist; check if script has been already launched or if provided new version is wrong")
-        sys.exit()
+        sys.exit(-1)
    result = subprocess.run(["git", "checkout", "-b", branch_name], capture_output=True, text=True, cwd=config[k_repository_root])  # Commit changes with the given message
    if (result.returncode != 0):
         print("Branch creation failed")
-        sys.exit()
+        sys.exit(-1)
 
 
 # utility functions
@@ -229,13 +230,23 @@ def initialize():
     if (interactive):
         config[k_repository_root] = input("Enter the repository root path: ")
     
-    if (not git_check_currently_on_main()):
-        print("Currently selected branch is not \"main\"; checkout \"main\" branch and retry.")
-        sys.exit()
+    if (interactive):
+        ask_for_step_skip(k_initialize_check_main_checked_out)
+    if (not bool(config[k_script_steps][k_initialize_check_main_checked_out][k_skip])):
+        if (bool(config[k_script_steps][k_initialize_check_main_checked_out][k_stop])):
+            input("Press a key to proceed")
+        if (not git_check_currently_main_checked_out()):
+            print("Currently selected branch is not \"main\"; checkout \"main\" branch and retry.")
+            sys.exit(-1)
 
-    if (git_check_pending_changes()):
-        print("There are pending changes in selected repository; commit or stash them and retry.")
-        sys.exit()
+    if (interactive):
+        ask_for_step_skip(k_initialize_check_no_pending_changes)
+    if (not bool(config[k_script_steps][k_initialize_check_no_pending_changes][k_skip])):
+        if (bool(config[k_script_steps][k_initialize_check_no_pending_changes][k_stop])):
+            input("Press a key to proceed")
+        if (git_check_pending_changes()):
+            print("There are pending changes in selected repository; commit or stash them and retry.")
+            sys.exit(-1)
 
     if (interactive):
         config[k_version] = input("Enter the new version (format major.minor.patch, e.g. 3.3.1): ")
@@ -244,14 +255,14 @@ def initialize():
         print("[ 1, 24] when releasing a beta version (e.g. 3.3.1-beta1, 3.3.1-beta2, etc.)")
         print("[25, 49] when releasing a release candidate (e.g. 3.3.1-rc1, 3.3.1-rc2, etc.)")
         print("    [50] when making an official release (e.g. 3.3.1)")
-        config[k_build] = input("")
+        config[k_build_number] = input("")
 
-    build_number = int(config[k_build])
+    build_number = int(config[k_build_number])
     if (1 <= build_number and build_number <= 50):
         prepare_release_branch_name = f"prepare_release/{config[k_version]}{get_build_suffix(build_number)}"
     else:
         print("Wrong build number; modify and retry.")
-        sys.exit()
+        sys.exit(-1)
     git_create_branch(prepare_release_branch_name)
 
     if ("contrib/devtools/prepare_release" in config_file):
@@ -265,22 +276,24 @@ def set_client_version():
     rep_maj = replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_MAJOR, (\d+)\)",    f"define(_CLIENT_VERSION_MAJOR, {version_digits[0]})")
     rep_min = replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_MINOR, (\d+)\)",    f"define(_CLIENT_VERSION_MINOR, {version_digits[1]})")
     rep_rev = replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_REVISION, (\d+)\)", f"define(_CLIENT_VERSION_REVISION, {version_digits[2]})")
-    rep_bld = replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_BUILD, (\d+)\)",    f"define(_CLIENT_VERSION_BUILD, {config[k_build]})")
+    rep_bld = replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_BUILD, (\d+)\)",    f"define(_CLIENT_VERSION_BUILD, {config[k_build_number]})")
     if (not rep_maj and not rep_min and not rep_rev and not rep_bld):
         print("Version replacement failed (configure.ac)")
-        sys.exit()
+        sys.exit(-1)
+    replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_IS_RELEASE, .*\)", f'define(_CLIENT_VERSION_IS_RELEASE, {"true" if config[k_build_number] == "50" else "false"})')
     replace_string_in_file(os.path.join(config[k_repository_root], "configure.ac"), r"define\(_COPYRIGHT_YEAR, (\d+)\)", f"define(_COPYRIGHT_YEAR, {datetime.date.today().year})")
 
     rep_maj = replace_string_in_file(os.path.join(config[k_repository_root], "src/clientversion.h"), r"(#define\s+CLIENT_VERSION_MAJOR\s+)(\d+)",    f"\\g<1>{version_digits[0]}")
     rep_min = replace_string_in_file(os.path.join(config[k_repository_root], "src/clientversion.h"), r"(#define\s+CLIENT_VERSION_MINOR\s+)(\d+)",    f"\\g<1>{version_digits[1]}")
     rep_rev = replace_string_in_file(os.path.join(config[k_repository_root], "src/clientversion.h"), r"(#define\s+CLIENT_VERSION_REVISION\s+)(\d+)", f"\\g<1>{version_digits[2]}")
-    rep_bld = replace_string_in_file(os.path.join(config[k_repository_root], "src/clientversion.h"), r"(#define\s+CLIENT_VERSION_BUILD\s+)(\d+)",    f"\\g<1>{config[k_build]}")
+    rep_bld = replace_string_in_file(os.path.join(config[k_repository_root], "src/clientversion.h"), r"(#define\s+CLIENT_VERSION_BUILD\s+)(\d+)",    f"\\g<1>{config[k_build_number]}")
     if (not rep_maj and not rep_min and not rep_rev and not rep_bld):
         print("Version replacement failed (src/clientversion.h)")
-        sys.exit()
+        sys.exit(-1)
+    replace_string_in_file(os.path.join(config[k_repository_root], "src/clientversion.h"), r"(#define\s+CLIENT_VERSION_IS_RELEASE\s+)(\w+)", f'\\g<1>{"true" if config[k_build_number] == "50" else "false"}')
     replace_string_in_file(os.path.join(config[k_repository_root], "src/clientversion.h"), r"(#define\s+COPYRIGHT_YEAR\s+)(\d+)", f"\\g<1>{datetime.date.today().year}")
 
-    git_commit(f"Set clientversion {config[k_version]} (build {config[k_build]})")
+    git_commit(f"Set clientversion {config[k_version]} (build {config[k_build_number]})")
 
 def update_checkpoints():
     # Get a mainnet and a testnet checkpoint candidate
@@ -292,7 +305,7 @@ def update_checkpoints():
     line_numbers = find_lines_containing(os.path.join(config[k_repository_root], "src/chainparams.cpp"), '.*\(.*uint256S.*0x.*\).*\).*\,')
     if (len(line_numbers) < 2):
         print(f"Unable to find checkpoints lines in src/chainparams.cpp file")
-        sys.exit()
+        sys.exit(-1)
 
     for line_number in line_numbers[:2]:
         line = read_file_line(os.path.join(config[k_repository_root], "src/chainparams.cpp"), line_number)
@@ -312,7 +325,7 @@ def update_checkpoints():
     line_numbers = find_lines_containing(os.path.join(config[k_repository_root], "src/chainparams.cpp"), ".*UNIX timestamp of last checkpoint block.*")
     if (len(line_numbers) < 2):
         print(f"Unable to find \"UNIX timestamp of last checkpoint block.\" lines in src/chainparams.cpp file")
-        sys.exit()
+        sys.exit(-1)
 
     line = read_file_line(os.path.join(config[k_repository_root], "src/chainparams.cpp"), line_numbers[0])
     line = re.sub(r"(\d+)", str(mainnet_checkpoint["time"]), line).rstrip()
@@ -355,17 +368,17 @@ def update_changelog():
     line_numbers = find_lines_containing(os.path.join(config[k_repository_root], "contrib/debian/changelog"), 'zen \(.*\).*')
     if (len(line_numbers) < 1):
         print(f"Unable to find line \"zen\" in contrib/debian/changelog file")
-        sys.exit()
+        sys.exit(-1)
 
     line = read_file_line(os.path.join(config[k_repository_root], "contrib/debian/changelog"), line_numbers[0])
     current_version = line[line.find("(")+1:line.find(")")]
-    line = line.replace(current_version, f"{config[k_version]}{get_build_suffix(int(config[k_build]))}").rstrip()
+    line = line.replace(current_version, f"{config[k_version]}{get_build_suffix(int(config[k_build_number]))}").rstrip()
     replace_file_line(os.path.join(config[k_repository_root], "contrib/debian/changelog"), line_numbers[0], line)
 
     line_numbers = find_lines_containing(os.path.join(config[k_repository_root], "contrib/debian/changelog"), '.* Zen Blockchain Foundation <info@horizen.io>  .*')
     if (len(line_numbers) < 1):
         print(f"Unable to find line \"-- Zen Blockchain Foundation <info@horizen.io>\" in contrib/debian/changelog file")
-        sys.exit()
+        sys.exit(-1)
 
     line = read_file_line(os.path.join(config[k_repository_root], "contrib/debian/changelog"), line_numbers[0])
     print(line)
@@ -383,7 +396,7 @@ def update_deprecation_height():
     line_numbers = find_lines_containing(os.path.join(config[k_repository_root], "src/deprecation.h"), "static const int APPROX_RELEASE_HEIGHT.*=.*;")
     if (len(line_numbers) < 1):
         print(f"Unable to find \"static const int APPROX_RELEASE_HEIGHT\" line in src/deprecation.h file")
-        sys.exit()
+        sys.exit(-1)
 
     approx_release_height_line = read_file_line(os.path.join(config[k_repository_root], "src/deprecation.h"), line_numbers[0])
     approx_release_height_line = re.sub(r"(\d+)", str(config[k_approx_release_height]), approx_release_height_line).rstrip()
@@ -392,7 +405,7 @@ def update_deprecation_height():
     line_numbers = find_lines_containing(os.path.join(config[k_repository_root], "src/deprecation.h"), "static const int WEEKS_UNTIL_DEPRECATION.*=.*;")
     if (len(line_numbers) < 1):
         print(f"Unable to find \"static const int WEEKS_UNTIL_DEPRECATION\" line in src/deprecation.h file")
-        sys.exit()
+        sys.exit(-1)
 
     weeks_until_deprecation_line = read_file_line(os.path.join(config[k_repository_root], "src/deprecation.h"), line_numbers[0])
     weeks_until_deprecation_line = re.sub(r"(\d+)", str(config[k_weeks_until_deprecation]), weeks_until_deprecation_line).rstrip()
@@ -427,38 +440,31 @@ def build_zend():
     result_build = subprocess.run(["./zcutil/build.sh", "-j8"], cwd=config[k_repository_root])
     if (result_build.returncode != 0):
         print("Failure building zend")
-        sys.exit()
+        sys.exit(-1)
 
 def update_man_pages():
     subprocess.run(["./contrib/devtools/gen-manpages.sh"], cwd=config[k_repository_root])
     git_commit("Update man pages")
 
 def update_release_notes():
-    release_notes_file_path = f"./doc/release-notes/release-notes-{config[k_version]}{get_build_suffix(int(config[k_build]))}.md"
+    release_notes_file_path_src = os.path.join(config[k_repository_root], "doc/release-notes/release-notes-current.md")
+    release_notes_file_path_dst = os.path.join(config[k_repository_root], f"doc/release-notes/release-notes-{config[k_version]}{get_build_suffix(int(config[k_build_number]))}.md")
 
-    if (interactive):
-        config[k_previous_version] = input(f"Please, enter the last published version (before {config[k_version]}): ")
-
-    if not config[k_previous_version].startswith("v"):
-        config[k_previous_version] = "v" + config[k_previous_version]
-
-    # Automatically update AUTHORS.md and release notes
-    subprocess.run(["python3", "./zcutil/release-notes.py", "--version", f"{config[k_version]}{get_build_suffix(int(config[k_build]))}", "--prev", config[k_previous_version]], cwd=config[k_repository_root])
-
-    # Remove automatically generated release notes
-    subprocess.run(["rm", release_notes_file_path], cwd=config[k_repository_root])
-
-    if (interactive):
-        for i in range(2): # just to allow a re-prompt of the instruction message
-            input(f"Please, add release notes to {release_notes_file_path} and then press enter to continue...")
-            if (os.path.exists(os.path.join(config[k_repository_root], release_notes_file_path))):
-                break
+    if (os.path.exists(release_notes_file_path_src)):
+        shutil.copyfile(release_notes_file_path_src, release_notes_file_path_dst)
     else:
-        if (os.path.exists(config[k_release_notes_file])):
-            shutil.copyfile(config[k_release_notes_file], os.path.join(config[k_repository_root], release_notes_file_path))
-        else:
-            print(f"Release notes file {config[k_release_notes_file]} does not exist; please, check and retry.")
-            sys.exit()
+        print(f"Release notes file {release_notes_file_path_src} does not exist; please, check and retry.")
+        sys.exit(-1)
+
+    line_numbers = find_lines_containing(release_notes_file_path_dst, 'zend v.*')
+    if (len(line_numbers) < 1):
+        print(f"Unable to find line \"zend\" in {release_notes_file_path_dst} file")
+        sys.exit(-1)
+
+    line = read_file_line(release_notes_file_path_dst, line_numbers[0])
+    current_version = line[line.find("zend v")+len("zend v"):len(line)-1]
+    line = line.replace(current_version, f"{config[k_version]}{get_build_suffix(int(config[k_build_number]))}").rstrip()
+    replace_file_line(release_notes_file_path_dst, line_numbers[0], line)
 
     git_commit("Add release notes", [os.path.join(config[k_repository_root], "doc/release-notes")])
 
@@ -466,11 +472,22 @@ def update_readme():
     line_numbers = find_lines_containing(os.path.join(config[k_repository_root], "README.md"), 'Zend .*')
     if (len(line_numbers) < 1):
         print(f"Unable to find \"Zend\" line in README.md file")
-        sys.exit()
+        sys.exit(-1)
 
-    replace_file_line(os.path.join(config[k_repository_root], "README.md"), line_numbers[0], f"Zend {config[k_version]}{get_build_suffix(int(config[k_build]))}".rstrip())
+    replace_file_line(os.path.join(config[k_repository_root], "README.md"), line_numbers[0], f"Zend {config[k_version]}{get_build_suffix(int(config[k_build_number]))}".rstrip())
 
     git_commit("Update README")
+
+def check_dependencies():
+    result_build = subprocess.run(["make", "-C", "depends", "download"], cwd=config[k_repository_root])
+    if (result_build.returncode != 0):
+        print("Failure building dependencies")
+        sys.exit(-1)
+
+    result_availability = subprocess.run(["./qa/zen/test-depends-sources-mirror.py"], cwd=config[k_repository_root])
+    if (result_availability.returncode != 0):
+        print("Failure checking depends availability")
+        sys.exit(-1)
 
 
 config = {}
@@ -483,9 +500,9 @@ print("\n********** Step 1: set the new client version **********\n")
 if (interactive):
     config[k_script_steps] = {}
     ask_for_step_skip(k_set_client_version)
-if (bool(config[k_script_steps][k_set_client_version][k_stop])):
-    input("Press a key to proceed")
 if (not bool(config[k_script_steps][k_set_client_version][k_skip])):
+    if (bool(config[k_script_steps][k_set_client_version][k_stop])):
+        input("Press a key to proceed")
     set_client_version()
     print("Done")
 else:
@@ -494,9 +511,9 @@ else:
 print("\n********** Step 2: update the mainnet and testnet checkpoints **********\n")
 if (interactive):
     ask_for_step_skip(k_update_checkpoints)
-if (bool(config[k_script_steps][k_update_checkpoints][k_stop])):
-    input("Press a key to proceed")
 if (not bool(config[k_script_steps][k_update_checkpoints][k_skip])):
+    if (bool(config[k_script_steps][k_update_checkpoints][k_stop])):
+        input("Press a key to proceed")
     update_checkpoints()
     print("Done")
 else:
@@ -505,9 +522,9 @@ else:
 print("\n********** Step 3: update changelog **********\n")
 if (interactive):
     ask_for_step_skip(k_update_changelog)
-if (bool(config[k_script_steps][k_update_changelog][k_stop])):
-    input("Press a key to proceed")
 if (not bool(config[k_script_steps][k_update_changelog][k_skip])):
+    if (bool(config[k_script_steps][k_update_changelog][k_stop])):
+        input("Press a key to proceed")
     update_changelog()
     print("Done")
 else:
@@ -516,9 +533,9 @@ else:
 print("\n********** Step 4: update deprecation height **********\n")
 if (interactive):
     ask_for_step_skip(k_update_deprecation_height)
-if (bool(config[k_script_steps][k_update_deprecation_height][k_stop])):
-    input("Press a key to proceed")
 if (not bool(config[k_script_steps][k_update_deprecation_height][k_skip])):
+    if (bool(config[k_script_steps][k_update_deprecation_height][k_stop])):
+        input("Press a key to proceed")
     update_deprecation_height()
     print("Done")
 else:
@@ -527,9 +544,9 @@ else:
 print("\n********** Step 5: build Zend **********\n")
 if (interactive):
     ask_for_step_skip(k_build_zend)
-if (bool(config[k_script_steps][k_build_zend][k_stop])):
-    input("Press a key to proceed")
 if (not bool(config[k_script_steps][k_build_zend][k_skip])):
+    if (bool(config[k_script_steps][k_build_zend][k_stop])):
+        input("Press a key to proceed")
     build_zend()
     print("Done")
 else:
@@ -538,9 +555,9 @@ else:
 print("\n********** Step 6: update man pages **********\n")
 if (interactive):
     ask_for_step_skip(k_update_man_pages)
-if (bool(config[k_script_steps][k_update_man_pages][k_stop])):
-    input("Press a key to proceed")
 if (not bool(config[k_script_steps][k_update_man_pages][k_skip])):
+    if (bool(config[k_script_steps][k_update_man_pages][k_stop])):
+        input("Press a key to proceed")
     update_man_pages()
     print("Done")
 else:
@@ -549,9 +566,9 @@ else:
 print("\n********** Step 7: update release_notes **********\n")
 if (interactive):
     ask_for_step_skip(k_update_release_notes)
-if (bool(config[k_script_steps][k_update_release_notes][k_stop])):
-    input("Press a key to proceed")
 if (not bool(config[k_script_steps][k_update_release_notes][k_skip])):
+    if (bool(config[k_script_steps][k_update_release_notes][k_stop])):
+        input("Press a key to proceed")
     update_release_notes()
     print("Done")
 else:
@@ -560,11 +577,21 @@ else:
 print("\n********** Step 8: update readme **********\n")
 if (interactive):
     ask_for_step_skip(k_update_readme)
-if (bool(config[k_script_steps][k_update_readme][k_stop])):
-    input("Press a key to proceed")
 if (not bool(config[k_script_steps][k_update_readme][k_skip])):
+    if (bool(config[k_script_steps][k_update_readme][k_stop])):
+        input("Press a key to proceed")
     update_readme()
     print("Done")
 else:
     print("Skipped")
 
+print("\n********** Step 9: check dependencies **********\n")
+if (interactive):
+    ask_for_step_skip(k_check_dependencies)
+if (not bool(config[k_script_steps][k_check_dependencies][k_skip])):
+    if (bool(config[k_script_steps][k_check_dependencies][k_stop])):
+        input("Press a key to proceed")
+    check_dependencies()
+    print("Done")
+else:
+    print("Skipped")
