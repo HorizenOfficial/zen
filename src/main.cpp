@@ -4965,7 +4965,7 @@ bool FindBlockPos(CValidationState &state, CDiskBlockPos &pos, unsigned int nAdd
 
     if (nFile != nLastBlockFile) {
         if (!fKnown) {
-            LogPrintf("Leaving block file %i: %s\n", nFile, vinfoBlockFile.at(nFile).ToString());
+            LogPrintf("Leaving block file %i: %s\n", nLastBlockFile, vinfoBlockFile.at(nLastBlockFile).ToString());
         }
         FlushBlockFile(!fKnown);
         nLastBlockFile = nFile;
