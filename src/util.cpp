@@ -314,8 +314,13 @@ int LogPrintStr(const std::string &str)
             if (fReopenDebugLog) {
                 fReopenDebugLog = false;
                 boost::filesystem::path pathDebug = GetDebugLogPath();
-                if (freopen(pathDebug.string().c_str(),"a", debugLogFp) != NULL)
+                if ((debugLogFp = freopen(pathDebug.string().c_str(),"a", debugLogFp)) != NULL) {
                     setbuf(debugLogFp, NULL); // unbuffered
+                }
+                else {
+                    fprintf(stderr, "Error reopening debug.log file");
+                    return 0;
+                }
             }
 
             ret = FileWriteStr(strTimestamped, debugLogFp);
