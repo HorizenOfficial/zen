@@ -10,6 +10,7 @@ import yaml
 import sys
 import shutil
 
+
 # dictionary keys
 k_repository_root = "repository_root"
 k_version = "version"
@@ -24,6 +25,7 @@ k_weeks_until_deprecation = "weeks_until_deprecation"
 k_script_steps = "script_steps"
 k_initialize_check_main_checked_out = "initialize_check_main_checked_out"
 k_initialize_check_no_pending_changes = "initialize_check_no_pending_changes"
+k_initialize_create_branch = "initialize_create_branch"
 k_set_client_version = "set_client_version"
 k_update_checkpoints = "update_checkpoints"
 k_update_changelog = "update_changelog"
@@ -46,22 +48,22 @@ def git_check_pending_changes():
     result = subprocess.run(["git", "diff"], capture_output=True, text=True, cwd=config[k_repository_root])
     return result.returncode == 0 and result.stdout != ""
 
-def git_commit(commit_title: str, directories_for_add: list[str] = []):
-    for directory_for_add in directories_for_add:
-        subprocess.run(["git", "add", directory_for_add], cwd=config[k_repository_root])  # Add changes to the index
-    result = subprocess.run(["git", "commit", "-a", "-S", "-m", commit_title], capture_output=True, text=True, cwd=config[k_repository_root])  # Commit changes with the given message
-    if (result.returncode != 0 or git_check_pending_changes()):
-        print("Commit failed")
-        sys.exit(-1)
-
 def git_create_branch(branch_name: str):
-   result = subprocess.run(["git", "rev-parse", "--verify", branch_name], capture_output=True, text=True, cwd=config[k_repository_root])  # Commit changes with the given message
+   result = subprocess.run(["git", "rev-parse", "--verify", branch_name], capture_output=True, text=True, cwd=config[k_repository_root])
    if (result.returncode == 0):
         print("Branch already exist; check if script has been already launched or if provided new version is wrong")
         sys.exit(-1)
-   result = subprocess.run(["git", "checkout", "-b", branch_name], capture_output=True, text=True, cwd=config[k_repository_root])  # Commit changes with the given message
+   result = subprocess.run(["git", "checkout", "-b", branch_name], capture_output=True, text=True, cwd=config[k_repository_root])
    if (result.returncode != 0):
         print("Branch creation failed")
+        sys.exit(-1)
+
+def git_commit(commit_title: str, directories_for_add: list[str] = []):
+    for directory_for_add in directories_for_add:
+        subprocess.run(["git", "add", directory_for_add], cwd=config[k_repository_root]) # Add changes to the index
+    result = subprocess.run(["git", "commit", "-a", "-S", "-m", commit_title], capture_output=True, text=True, cwd=config[k_repository_root]) # Commit changes with the given message
+    if (result.returncode != 0 or git_check_pending_changes()):
+        print("Commit failed")
         sys.exit(-1)
 
 
@@ -258,12 +260,17 @@ def initialize():
         config[k_build_number] = input("")
 
     build_number = int(config[k_build_number])
-    if (1 <= build_number and build_number <= 50):
-        prepare_release_branch_name = f"prepare_release/{config[k_version]}{get_build_suffix(build_number)}"
-    else:
+    if (1 > build_number or build_number > 50):
         print("Wrong build number; modify and retry.")
         sys.exit(-1)
-    git_create_branch(prepare_release_branch_name)
+
+    if (interactive):
+        ask_for_step_skip(k_initialize_create_branch)
+    if (not bool(config[k_script_steps][k_initialize_create_branch][k_skip])):
+        if (bool(config[k_script_steps][k_initialize_create_branch][k_stop])):
+            input("Press a key to proceed")
+        prepare_release_branch_name = f"prepare_release/{config[k_version]}{get_build_suffix(build_number)}"
+        git_create_branch(prepare_release_branch_name)
 
     if ("contrib/devtools/prepare_release" in config_file):
         git_commit("Initialize release preparation branch", [os.path.join(config[k_repository_root], "contrib/devtools/prepare_release")])
@@ -363,7 +370,15 @@ def update_checkpoints():
 
 def update_changelog():
     if (interactive):
-        config[k_release_date] = input("Please, enter the new release date (e.g. Mon, 02 Jan 2023): ")
+        config[k_release_date] = input("Please, enter the new release date (e.g. Mon, 2 Jan 2023): ")
+    release_date_split = config[k_release_date].split(" ")
+    if (len(release_date_split) != 4 or
+        not release_date_split[0] in {"Mon,", "Tue,", "Wed,", "Thu,", "Fri,", "Sat,", "Sun,"} or
+        not release_date_split[1].isdigit() or
+        not release_date_split[2] in {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"} or
+        not release_date_split[3].isdigit()):
+            print("Wrong release date; modify and retry.")
+            sys.exit(-1)
     
     line_numbers = find_lines_containing(os.path.join(config[k_repository_root], "contrib/debian/changelog"), 'zen \(.*\).*')
     if (len(line_numbers) < 1):

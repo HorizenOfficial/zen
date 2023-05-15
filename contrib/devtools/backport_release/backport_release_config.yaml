@@ -5,24 +5,6 @@ repository_root: "./"
 version: ""
 # build number (1-24 for beta (1-24), 25-49 for candidate (1-25), 50 for official)
 build_number: ""
-# mainnet config
-mainnet:
-  # height for checkpoint (if empty, current last block is used)
-  checkpoint_height: ""
-  # total transaction from genesis block up to checkpoint (can be found in "debug.log" file)
-  total_transactions: ""
-# testnet config
-testnet:
-  # height for checkpoint (if empty, current last block is used)
-  checkpoint_height: ""
-  # total transaction from genesis block up to checkpoint (can be found in "debug.log" file)
-  total_transactions: ""
-# release date (format "%a, %d %b %Y", e.g. "Mon, 2 Jan 2023")
-release_date: ""
-# approximated release height (mainnet)
-approx_release_height: ""
-# weeks until deprecation
-weeks_until_deprecation: ""
 # script steps flow
 script_steps:
   # initialize_check_main_checked_out (sub)step
@@ -43,26 +25,26 @@ script_steps:
     skip: False
     # stop before step (user interaction for proceeding)
     stop: False
-  # set_client_version step
-  set_client_version:
+  # initialize_merge_branch (sub)step
+  initialize_merge_branch:
     # skip step
     skip: False
     # stop before step (user interaction for proceeding)
     stop: False
-  # update_checkpoints step
-  update_checkpoints:
+  # reset_client_version step
+  reset_client_version:
     # skip step
     skip: False
     # stop before step (user interaction for proceeding)
     stop: False
-  # update_changelog step
-  update_changelog:
+  # reset_checkpoints step
+  reset_checkpoints:
     # skip step
     skip: False
     # stop before step (user interaction for proceeding)
     stop: False
-  # update_deprecation_height step
-  update_deprecation_height:
+  # reset_changelog step
+  reset_changelog:
     # skip step
     skip: False
     # stop before step (user interaction for proceeding)
@@ -73,26 +55,20 @@ script_steps:
     skip: False
     # stop before step (user interaction for proceeding)
     stop: False
-  # update_man_pages step
-  update_man_pages:
+  # reset_man_pages step
+  reset_man_pages:
     # skip step
     skip: False
     # stop before step (user interaction for proceeding)
     stop: False
-  # update_release_notes step
-  update_release_notes:
+  # reset_release_notes step
+  reset_release_notes:
     # skip step
     skip: False
     # stop before step (user interaction for proceeding)
     stop: False
-  # update_readme step
-  update_readme:
-    # skip step
-    skip: False
-    # stop before step (user interaction for proceeding)
-    stop: False
-  # check_dependencies step
-  check_dependencies:
+  # reset_readme step
+  reset_readme:
     # skip step
     skip: False
     # stop before step (user interaction for proceeding)

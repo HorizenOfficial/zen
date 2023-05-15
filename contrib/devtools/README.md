@@ -118,11 +118,38 @@ to the script (it is suggested to put this file in `./contrib/devtools/prepare_r
 the script itself explicitly requests the user to input it; if the user does not input it, then an interactive
 session is started, in which the input of each preparation step is requested to the user.
 A successful run of the script would create a new branch starting from currently selected commit of `main`
-branch and would commit one by one each release preparation step.
+branch (a different branch can be configured) and would commit one by one each release preparation step.
 
 After script completion the user is required to:
 
+- check no error code is returned by the script
 - push from release preparation local branch to remote
 - create release branch on remote
 - open a PR merging release preparation into release branch and wait for approval
 - create annotated tag (vX.Y.Z)
+
+backport_release
+==================
+
+Inside this folder the following are provided:
+
+- a script (backport_release.py),
+- a template config file (backport_release_config.yaml)
+- various config files associated to past releases preparations (backport_release_config-X.Y.Z.yaml)
+
+Run the script for preparing a new release.
+It is suggested to run the script from a terminal located at repository root. 
+The script accepts one command line parameter, being the path of the config file containing all the inputs
+to the script (it is suggested to put this file in `./contrib/devtools/backport_release` folder, naming it as
+`backport_release_config-X.Y.Z.yaml`). If the path of the config file is not provided as command line parameter,
+the script itself explicitly requests the user to input it; if the user does not input it, then an interactive
+session is started, in which the input of each preparation step is requested to the user.
+A successful run of the script would create a new branch starting from currently selected commit of `main`
+branch (a different branch can be configured) and would perform one single commit containing all the release
+backport steps.
+
+After script completion the user is required to:
+
+- check no error code is returned by the script
+- push from release backport local branch to remote
+- open a PR merging release backport into `main` branch and wait for approval
