@@ -163,8 +163,8 @@ extern CWaitableCriticalSection csBestBlock;
 extern CConditionVariable cvBlockChange;
 extern bool fExperimentalMode;
 extern bool fImporting;
-extern bool fReindex;
-extern bool fReindexFast;
+extern std::atomic<bool> fReindex;
+extern std::atomic<bool> fReindexFast;
 extern int nScriptCheckThreads;
 
 extern bool fAddressIndex;
