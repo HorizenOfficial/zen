@@ -31,6 +31,7 @@
 #include <algorithm> // std::shuffle
 #include <random>
 #include <regex>
+#include <atomic>
 
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/filesystem.hpp>
@@ -38,6 +39,7 @@
 #include <boost/math/distributions/poisson.hpp>
 #include <boost/thread.hpp>
 #include <boost/static_assert.hpp>
+
 
 #include "zen/forkmanager.h"
 #include "zen/delay.h"
@@ -78,8 +80,8 @@ CConditionVariable cvBlockChange;
 int nScriptCheckThreads = 0;
 bool fExperimentalMode = false;
 bool fImporting = false;
-bool fReindex = false;
-bool fReindexFast = false;
+std::atomic<bool> fReindex = false;
+std::atomic<bool> fReindexFast = false;
 bool fTxIndex = false;
 bool fMaturityHeightIndex = false;
 
@@ -5771,11 +5773,11 @@ bool static LoadBlockIndexDB()
     // Check whether we need to continue reindexing
     bool fReindexing = false;
     pblocktree->ReadReindexing(fReindexing);
-    fReindex |= fReindexing;
+    fReindex.store( fReindex.load() | fReindexing);
 
     bool fReindexingFast = false;
     pblocktree->ReadFastReindexing(fReindexingFast);
-    fReindexFast |= fReindexingFast;
+    fReindexFast.store( fReindexFast.load() | fReindexingFast);
 
     // Check whether we have a transaction index
     pblocktree->ReadFlag("txindex", fTxIndex);
