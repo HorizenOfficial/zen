@@ -63,7 +63,14 @@ Building from source
     ```
     For a detailed list of dependencies, please refer to the [dependencies section](doc/dependencies.md).
 
-    2. Cross compilation for Windows target
+    2. Mac OS
+    ```
+    xcode-select --install
+    brew install \
+    autoconf coreutils automake libtool pkg-config cmake
+    ```
+
+    3. Cross compilation for Windows target
     ```{r, engine='bash'}
     sudo apt-get install \
     build-essential pkg-config libc6-dev m4 g++-multilib \
@@ -87,8 +94,10 @@ cd zen
 
 * Install for Mac OS (using clang)
 
-Read and follow the README.md at https://github.com/HorizenOfficial/zencash-apple
-
+```
+# Build. Add -jN parameter (where N is the number of cpu cores) to speed up compilation.
+./zcutil/build-mac-clang.sh
+```
 
 * Install for Windows (Cross-Compiled, building on Windows is not supported yet)
 
@@ -113,7 +122,7 @@ Running Regression Tests
 
     2. MacOS
     ```{r, engine='bash'}
-    brew install python@2
+    brew install python
     pip install --upgrade pyblake2 pyzmq websocket-client requests
     ```
 
