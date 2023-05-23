@@ -101,20 +101,20 @@ maintained:
 Usage: git-subtree-check.sh DIR COMMIT
 COMMIT may be omitted, in which case HEAD is used.
 
-prepare_release
+release_management/release_preparation
 ==================
 
 Inside this folder the following are provided:
 
-- a script (prepare_release.py),
-- a template config file (prepare_release_config.yaml)
-- various config files associated to past releases preparations (prepare_release_config-X.Y.Z.yaml)
+- a script (release_preparation.py),
+- a template config file (release_preparation_config.yaml)
+- various config files associated to past releases preparations (configs/release_preparation_config-X.Y.Z.yaml)
 
 Run the script for preparing a new release.
 It is suggested to run the script from a terminal located at repository root. 
 The script accepts one command line parameter, being the path of the config file containing all the inputs
-to the script (it is suggested to put this file in `./contrib/devtools/prepare_release` folder, naming it as
-`prepare_release_config-X.Y.Z.yaml`). If the path of the config file is not provided as command line parameter,
+to the script (it is suggested to put this file in `./contrib/devtools/release_management/configs` folder, naming it
+as `release_preparation_config-X.Y.Z.yaml`). If the path of the config file is not provided as command line parameter,
 the script itself explicitly requests the user to input it; if the user does not input it, then an interactive
 session is started, in which the input of each preparation step is requested to the user.
 A successful run of the script would create a new branch starting from currently selected commit of `main`
@@ -126,22 +126,22 @@ After script completion the user is required to:
 - push from release preparation local branch to remote
 - create release branch on remote
 - open a PR merging release preparation into release branch and wait for approval
-- create annotated tag (vX.Y.Z)
+- once the release preparation branch is merged into the release branch, create annotated tag (vX.Y.Z)
 
-backport_release
+release_management/release_backport
 ==================
 
 Inside this folder the following are provided:
 
-- a script (backport_release.py),
-- a template config file (backport_release_config.yaml)
-- various config files associated to past releases preparations (backport_release_config-X.Y.Z.yaml)
+- a script (release_backport.py),
+- a template config file (release_backport_config.yaml)
+- various config files associated to past releases preparations (configs/release_backport_config-X.Y.Z.yaml)
 
 Run the script for preparing a new release.
 It is suggested to run the script from a terminal located at repository root. 
 The script accepts one command line parameter, being the path of the config file containing all the inputs
-to the script (it is suggested to put this file in `./contrib/devtools/backport_release` folder, naming it as
-`backport_release_config-X.Y.Z.yaml`). If the path of the config file is not provided as command line parameter,
+to the script (it is suggested to put this file in `./contrib/devtools/release_management/configs` folder, naming it
+as `release_backport_config-X.Y.Z.yaml`). If the path of the config file is not provided as command line parameter,
 the script itself explicitly requests the user to input it; if the user does not input it, then an interactive
 session is started, in which the input of each preparation step is requested to the user.
 A successful run of the script would create a new branch starting from currently selected commit of `main`

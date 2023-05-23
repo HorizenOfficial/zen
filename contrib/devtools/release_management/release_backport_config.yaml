@@ -1,4 +1,4 @@
-# THIS IS A TEMPLATE FILE, FOR EXAMPLES ON ACTUAL RELEASES CHECK CONTENT OF prepare_release-X.Y.Z.yaml FILES
+# THIS IS A TEMPLATE FILE, FOR EXAMPLES ON ACTUAL RELEASES CHECK CONTENT OF configs/release_backport_config-X.Y.Z.yaml FILES
 # path to zend project root
 repository_root: "./"
 # new release version (format "major.minor.patch", suffix must not be included if beta or candidate)
@@ -63,12 +63,6 @@ script_steps:
     stop: False
   # reset_release_notes step
   reset_release_notes:
-    # skip step
-    skip: False
-    # stop before step (user interaction for proceeding)
-    stop: False
-  # reset_readme step
-  reset_readme:
     # skip step
     skip: False
     # stop before step (user interaction for proceeding)
