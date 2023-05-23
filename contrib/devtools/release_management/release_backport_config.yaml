@@ -1,0 +1,69 @@
+# THIS IS A TEMPLATE FILE, FOR EXAMPLES ON ACTUAL RELEASES CHECK CONTENT OF configs/release_backport_config-X.Y.Z.yaml FILES
+# path to zend project root
+repository_root: "./"
+# new release version (format "major.minor.patch", suffix must not be included if beta or candidate)
+version: ""
+# build number (1-24 for beta (1-24), 25-49 for candidate (1-25), 50 for official)
+build_number: ""
+# script steps flow
+script_steps:
+  # initialize_check_main_checked_out (sub)step
+  initialize_check_main_checked_out:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # initialize_check_no_pending_changes (sub)step
+  initialize_check_no_pending_changes:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # initialize_create_branch (sub)step
+  initialize_create_branch:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # initialize_merge_branch (sub)step
+  initialize_merge_branch:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # reset_client_version step
+  reset_client_version:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # reset_checkpoints step
+  reset_checkpoints:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # reset_changelog step
+  reset_changelog:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # build_zend step
+  build_zend:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # reset_man_pages step
+  reset_man_pages:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # reset_release_notes step
+  reset_release_notes:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
