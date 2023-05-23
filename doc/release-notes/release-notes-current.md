@@ -19,6 +19,8 @@ zend v4.0.99
 - Fix for limitedmap [#538](https://github.com/HorizenOfficial/zen/pull/538)
 - Fix for return value of function mempoolToJSON [#539](https://github.com/HorizenOfficial/zen/pull/539)
 - Fix logfile output for "Leaving block file" statement [#530](https://github.com/HorizenOfficial/zen/pull/530)
+- Fix undefined behavior of a bitshift executed on a signed integer [#532](https://github.com/HorizenOfficial/zen/pull/532)
+- Improve `debug.log` file reopening procedure [#532](https://github.com/HorizenOfficial/zen/pull/532)
 
 ## Contributors
 * [@a-petrini](https://github.com/a-petrini)
