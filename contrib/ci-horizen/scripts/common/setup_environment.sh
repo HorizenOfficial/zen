@@ -71,8 +71,6 @@ if [ "${TRAVIS_OS_NAME}" = "osx" ]; then
   fi
   if [ "${TRAVIS_BUILD_STAGE_NAME}" = "Build" ]; then
     export PIP3_INSTALL="${PIP3_INSTALL} b2"
-    export B2_DL_DECOMPRESS_FOLDER="${HOME}/zencash-apple"
-    export B2_DL_FILENAME="${TRAVIS_CPU_ARCH}-${TRAVIS_OS_NAME}-${TRAVIS_OSX_IMAGE}-${TRAVIS_BUILD_ID}-${TRAVIS_COMMIT}-zencash-apple.tar.gz"
     export B2_UL_COMPRESS_FOLDER="${TRAVIS_BUILD_DIR}"
     # shellcheck disable=SC2001,SC2155
     export B2_UL_FILENAME="${TRAVIS_CPU_ARCH}-${TRAVIS_OS_NAME}-${TRAVIS_OSX_IMAGE}-${TRAVIS_BUILD_ID}-${TRAVIS_COMMIT}$(sed 's/ //g' <<< "${MAKEFLAGS:-}").tar.gz"
