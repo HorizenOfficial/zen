@@ -12,6 +12,7 @@
 #include "utiltime.h"
 #include "utilmoneystr.h"
 #include "utilstrencodings.h"
+#include "clientversion.h"
 
 #include <boost/thread.hpp>
 #include <boost/thread/synchronized_value.hpp>
@@ -517,9 +518,8 @@ void ThreadShowMetricsScreen()
 
         // Thank you text
         std::cout << _("Zen is economic freedom. Thanks for running a node.") << std::endl;
-        std::cout << _("仕方が無い") << std::endl;
-        std::cout << _("Shikata ga nai.") << std::endl;
-        std::cout << _("它不能得到帮助") << std::endl << std::endl;
+
+        std::cout << "Software Version: " << FormatVersion(CLIENT_VERSION) << std::endl;
 
         // Privacy notice text
         std::cout << PrivacyInfo();
