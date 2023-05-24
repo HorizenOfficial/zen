@@ -3,19 +3,6 @@ language: shell
 os: linux
 
 .com.github.horizenofficial.zen.env-definitions:
-  - &docker_amd64_linux_ubuntu_bionic
-    env:
-      - DOCKER_ARCH=amd64
-      - DOCKER_TARGET_OS=linux
-      - DOCKER_FROM=ubuntu_bionic
-      - DOCKER_IS_DEB=true
-  - &docker_amd64_linux_ubuntu_bionic_legacy_cpu
-    env:
-      - DOCKER_ARCH=amd64
-      - DOCKER_TARGET_OS=linux
-      - DOCKER_FROM=ubuntu_bionic
-      - DOCKER_IS_DEB=true
-      - MAKEFLAGS="--legacy-cpu"
   - &docker_amd64_linux_ubuntu_jammy
     env:
       - DOCKER_ARCH=amd64
@@ -30,72 +17,32 @@ os: linux
       - DOCKER_FROM=ubuntu_jammy
       - DOCKER_IS_DEB=true
       - MAKEFLAGS="--legacy-cpu"
-  - &docker_amd64_windows_ubuntu_bionic
-    env:
-      - DOCKER_ARCH=amd64
-      - DOCKER_TARGET_OS=windows
-      - DOCKER_FROM=ubuntu_bionic
-      - DOCKER_IS_DEB=true
-  - &docker_amd64_windows_ubuntu_bionic_legacy_cpu
-    env:
-      - DOCKER_ARCH=amd64
-      - DOCKER_TARGET_OS=windows
-      - DOCKER_FROM=ubuntu_bionic
-      - DOCKER_IS_DEB=true
-      - MAKEFLAGS="--legacy-cpu"
   - &docker_amd64_linux_ubuntu_focal
     env:
       - DOCKER_ARCH=amd64
       - DOCKER_TARGET_OS=linux
       - DOCKER_FROM=ubuntu_focal
       - DOCKER_IS_DEB=true
-  - &docker_amd64_linux_ubuntu_bionic_unit-tests
+  - &docker_amd64_linux_ubuntu_focal_legacy_cpu
     env:
       - DOCKER_ARCH=amd64
       - DOCKER_TARGET_OS=linux
-      - DOCKER_FROM=ubuntu_bionic
+      - DOCKER_FROM=ubuntu_focal
       - DOCKER_IS_DEB=true
-      - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="btest gtest sec-hard no-dot-so util-test secp256k1 libsnark univalue"
-  - &docker_amd64_linux_ubuntu_bionic_rpc-tests_1
+      - MAKEFLAGS="--legacy-cpu"
+  - &docker_amd64_windows_ubuntu_focal
     env:
       - DOCKER_ARCH=amd64
-      - DOCKER_TARGET_OS=linux
-      - DOCKER_FROM=ubuntu_bionic
+      - DOCKER_TARGET_OS=windows
+      - DOCKER_FROM=ubuntu_focal
       - DOCKER_IS_DEB=true
-      - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:1"
-  - &docker_amd64_linux_ubuntu_bionic_rpc-tests_2
+  - &docker_amd64_windows_ubuntu_focal_legacy_cpu
     env:
       - DOCKER_ARCH=amd64
-      - DOCKER_TARGET_OS=linux
-      - DOCKER_FROM=ubuntu_bionic
+      - DOCKER_TARGET_OS=windows
+      - DOCKER_FROM=ubuntu_focal
       - DOCKER_IS_DEB=true
-      - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:2"
-  - &docker_amd64_linux_ubuntu_bionic_rpc-tests_3
-    env:
-      - DOCKER_ARCH=amd64
-      - DOCKER_TARGET_OS=linux
-      - DOCKER_FROM=ubuntu_bionic
-      - DOCKER_IS_DEB=true
-      - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:3"
-  - &docker_amd64_linux_ubuntu_bionic_rpc-tests_4
-    env:
-      - DOCKER_ARCH=amd64
-      - DOCKER_TARGET_OS=linux
-      - DOCKER_FROM=ubuntu_bionic
-      - DOCKER_IS_DEB=true
-      - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:4"
-  - &docker_amd64_linux_ubuntu_bionic_test-fetch-params
-    env:
-      - DOCKER_ARCH=amd64
-      - DOCKER_TARGET_OS=linux
-      - DOCKER_FROM=ubuntu_bionic
-      - DOCKER_IS_DEB=true
-      - TEST_CMD="./qa/zen/test-fetch-params.sh"
+      - MAKEFLAGS="--legacy-cpu"
   - &docker_amd64_linux_ubuntu_jammy_unit-tests
     env:
       - DOCKER_ARCH=amd64
@@ -122,7 +69,7 @@ os: linux
       - DOCKER_IS_DEB=true
       - MAKEFLAGS="--enable-lcov"
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:1 --coverage"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=5:1 --coverage"
   - &docker_amd64_linux_ubuntu_jammy_rpc-tests_2
     env:
       - DOCKER_ARCH=amd64
@@ -131,7 +78,7 @@ os: linux
       - DOCKER_IS_DEB=true
       - MAKEFLAGS="--enable-lcov"
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:2 --coverage"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=5:2 --coverage"
   - &docker_amd64_linux_ubuntu_jammy_rpc-tests_3
     env:
       - DOCKER_ARCH=amd64
@@ -140,7 +87,7 @@ os: linux
       - DOCKER_IS_DEB=true
       - MAKEFLAGS="--enable-lcov"
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:3 --coverage"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=5:3 --coverage"
   - &docker_amd64_linux_ubuntu_jammy_rpc-tests_4
     env:
       - DOCKER_ARCH=amd64
@@ -149,7 +96,7 @@ os: linux
       - DOCKER_IS_DEB=true
       - MAKEFLAGS="--enable-lcov"
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:4 --coverage"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=5:4 --coverage"
   - &docker_amd64_linux_ubuntu_jammy_rpc-tests_5
     env:
       - DOCKER_ARCH=amd64
@@ -158,16 +105,7 @@ os: linux
       - DOCKER_IS_DEB=true
       - MAKEFLAGS="--enable-lcov"
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:5 --coverage"
-  - &docker_amd64_linux_ubuntu_jammy_rpc-tests_6
-    env:
-      - DOCKER_ARCH=amd64
-      - DOCKER_TARGET_OS=linux
-      - DOCKER_FROM=ubuntu_jammy
-      - DOCKER_IS_DEB=true
-      - MAKEFLAGS="--enable-lcov"
-      - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:6 --coverage"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=5:5 --coverage"
   - &docker_amd64_linux_ubuntu_jammy_test-fetch-params
     env:
       - DOCKER_ARCH=amd64
@@ -216,6 +154,15 @@ os: linux
       - DOCKER_IS_DEB=true
       - TEST_CMD="./qa/zcash/full_test_suite.py"
       - TEST_ARGS="rpc --rpc-extended --rpc-split=4:4"
+  - &docker_amd64_linux_ubuntu_focal_test-fetch-params
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_focal
+      - DOCKER_IS_DEB=true
+      - TEST_CMD="./qa/zen/test-fetch-params.sh"
+
+
   - &amd64_osx_xcode12_3_unit-tests
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
@@ -355,16 +302,13 @@ jobs:
     # build and push docker build/test dependency images
     - stage: Prepare
       <<: *prepare_docker_amd64
-      <<: *docker_amd64_linux_ubuntu_bionic
-    - stage: Prepare
-      <<: *prepare_docker_amd64
       <<: *docker_amd64_linux_ubuntu_jammy
     - stage: Prepare
       <<: *prepare_docker_amd64
       <<: *docker_amd64_linux_ubuntu_focal
     - stage: Prepare
       <<: *prepare_docker_amd64
-      <<: *docker_amd64_windows_ubuntu_bionic
+      <<: *docker_amd64_windows_ubuntu_focal
 
     # check that needed build tools are available
     - stage: Prepare
@@ -378,12 +322,6 @@ jobs:
     # Docker based builds
     - stage: Build
       <<: *build_docker_amd64_x-large
-      <<: *docker_amd64_linux_ubuntu_bionic
-    - stage: Build
-      <<: *build_docker_amd64_x-large
-      <<: *docker_amd64_linux_ubuntu_bionic_legacy_cpu
-    - stage: Build
-      <<: *build_docker_amd64_x-large
       <<: *docker_amd64_linux_ubuntu_jammy
     - stage: Build
       <<: *build_docker_amd64_x-large
@@ -393,10 +331,13 @@ jobs:
       <<: *docker_amd64_linux_ubuntu_focal
     - stage: Build
       <<: *build_docker_amd64_x-large
-      <<: *docker_amd64_windows_ubuntu_bionic
+      <<: *docker_amd64_linux_ubuntu_focal_legacy_cpu
     - stage: Build
       <<: *build_docker_amd64_x-large
-      <<: *docker_amd64_windows_ubuntu_bionic_legacy_cpu
+      <<: *docker_amd64_windows_ubuntu_focal
+    - stage: Build
+      <<: *build_docker_amd64_x-large
+      <<: *docker_amd64_windows_ubuntu_focal_legacy_cpu
     # osx build
     - stage: Build
       if: NOT env(SKIP_OSX) OR tag IS present
@@ -419,24 +360,6 @@ jobs:
     # Docker based tests
     - stage: Test
       <<: *test_docker_amd64_x-large
-      <<: *docker_amd64_linux_ubuntu_bionic_unit-tests
-    - stage: Test
-      <<: *test_docker_amd64_x-large
-      <<: *docker_amd64_linux_ubuntu_bionic_rpc-tests_1
-    - stage: Test
-      <<: *test_docker_amd64_x-large
-      <<: *docker_amd64_linux_ubuntu_bionic_rpc-tests_2
-    - stage: Test
-      <<: *test_docker_amd64_x-large
-      <<: *docker_amd64_linux_ubuntu_bionic_rpc-tests_3
-    - stage: Test
-      <<: *test_docker_amd64_x-large
-      <<: *docker_amd64_linux_ubuntu_bionic_rpc-tests_4
-    - stage: Test
-      <<: *test_docker_amd64
-      <<: *docker_amd64_linux_ubuntu_bionic_test-fetch-params
-    - stage: Test
-      <<: *test_docker_amd64_x-large
       <<: *docker_amd64_linux_ubuntu_jammy_unit-tests
     - stage: Test
       <<: *test_docker_amd64_x-large
@@ -453,9 +376,6 @@ jobs:
     - stage: Test
       <<: *test_docker_amd64_x-large
       <<: *docker_amd64_linux_ubuntu_jammy_rpc-tests_5
-    - stage: Test
-      <<: *test_docker_amd64_x-large
-      <<: *docker_amd64_linux_ubuntu_jammy_rpc-tests_6
     - stage: Test
       <<: *test_docker_amd64_x-large
       <<: *docker_amd64_linux_ubuntu_jammy_clang-tidy
@@ -477,6 +397,9 @@ jobs:
     - stage: Test
       <<: *test_docker_amd64_x-large
       <<: *docker_amd64_linux_ubuntu_focal_rpc-tests_4
+    - stage: Test
+      <<: *test_docker_amd64
+      <<: *docker_amd64_linux_ubuntu_focal_test-fetch-params
     # osx based tests
     - stage: Test
       <<: *test_osx_xcode12_3

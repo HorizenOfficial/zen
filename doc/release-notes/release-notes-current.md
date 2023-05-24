@@ -3,8 +3,9 @@ zend v4.0.99
 
 ## Important notes
 - PR [#526](https://github.com/HorizenOfficial/zen/pull/526) implements [ZenIP-42204](https://github.com/HorizenOfficial/ZenIPs/blob/master/zenip-42204.md), which introduces a hard fork disabling the possibility to move transparent funds to shield addresses. After the hard fork, only shielded-to-shielded and shielded-to-transparent transactions will be allowed. For this reason, the following RPC commands have been (partially or fully) deprecated: `z_sendmany`, `z_shieldcoinbase` and `z_mergetoaddress` (check inline documentation for additional details).
-- PR [#539](https://github.com/HorizenOfficial/zen/pull/541) modifies the data structure returned by RPC method `getrawmempool` [#539](https://github.com/HorizenOfficial/zen/pull/539)
+- PR [#539](https://github.com/HorizenOfficial/zen/pull/539) modifies the data structure returned by RPC method `getrawmempool` [#539](https://github.com/HorizenOfficial/zen/pull/539)
 - PR [#541](https://github.com/HorizenOfficial/zen/pull/541) fixes an issue that made explorers, relying on `zend` RPC commands, not to show old transactions including P2PK scripts. The fix has an effect only on transactions processed after the update, so in case of explorers it is recommended to run a (fast) reindex to properly handle also previously received transactions. However, reindexing is not mandatory.
+- Zend `4.0.0` was the last version supporting Ubuntu Bionic, whose End of Life started on May 31, 2023. PR [#553](https://github.com/HorizenOfficial/zen/pull/553) removes Ubuntu Bionic from Travis, and from that date the minimal supported version will be Ubuntu Focal.
 
 ## New Features and Improvements
 - Implementation of [ZenIP-42204](https://github.com/HorizenOfficial/ZenIPs/blob/master/zenip-42204.md): a hard-fork is introduced which results in shielding txs being deprecated [#526](https://github.com/HorizenOfficial/zen/pull/526)

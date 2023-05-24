@@ -12,7 +12,7 @@ echo "Analyzing all files"
 
 # Recommended checks - amongs those available
 # --checks='modernize*, readability*, hicpp*, cppcoreguidelines*, bugprone*, performance*'
-run-clang-tidy -quiet -header-filter=".*" -checks='cppcoreguidelines*' | \
+run-clang-tidy -quiet -header-filter=".*" -checks='bugprone*, cppcoreguidelines*' | \
 # Filter out all the ANSI escape sequences that colour the report (--use-color is hardwired in run-clang-tidy-14)
 sed -e 's/\x1b\[[0-9;]*m//g' | \
 # Select only the warning lines
