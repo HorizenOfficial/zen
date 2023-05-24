@@ -69,7 +69,7 @@ def git_reset_file(cwd: str, file_to_reset: str):
 
 def git_merge_no_commit(cwd: str, branch_to_merge: str):
     result_merge = subprocess.run(["git", "merge", branch_to_merge, "--no-commit", "--no-ff"], capture_output=True, text=True, cwd=cwd)
-    return result_merge.returncode == 0, result_merge.stdout # in case of merge conflicts the message is contained in stdout (not stderr)
+    return result_merge.returncode == 0, result_merge.stdout, result_merge.stderr
 
 
 # generic utility functions

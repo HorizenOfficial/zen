@@ -85,9 +85,9 @@ def initialize():
         if (bool(config[rmu.k_script_steps][rmu.k_initialize_merge_branch][rmu.k_stop])):
             input("Press a key to proceed")
     release_branch_name = f"release/{config[rmu.k_version]}{rmu.get_build_suffix(build_number)}"
-    result_merge, details_merge = rmu.git_merge_no_commit(config[rmu.k_repository_root], release_branch_name)
+    result_merge, details_merge_stdout, details_merge_stderr = rmu.git_merge_no_commit(config[rmu.k_repository_root], release_branch_name)
     if (not result_merge):
-        print(f"Merge failed (details: {details_merge})")
+        print(f"Merge failed (details:\n{details_merge_stdout}\n{details_merge_stderr})")
         input("Press a key to proceed")
 
     return config
@@ -158,12 +158,16 @@ def reset_release_notes():
     release_notes_file_path_current = os.path.join(config[rmu.k_repository_root], "doc/release-notes/release-notes-current.md")
     release_notes_file_path_backport = os.path.join(config[rmu.k_repository_root], f"doc/release-notes/release-notes-{config[rmu.k_version]}{rmu.get_build_suffix(int(config[rmu.k_build_number]))}.md")
 
-    # keep from "## Important notes\n" (included) to "## Contributors\n" (included)
+    # keep from "## Important Notes\n" (included) to "## Contributors\n" (included)
     with open(release_notes_file_path_current, "r") as file:
         release_notes_lines_current = file.readlines()
     while len(release_notes_lines_current) > 0:
         del release_notes_lines_current[0]
-        if (release_notes_lines_current[0] == "## Important notes\n"):
+        if (len(release_notes_lines_current) > 0 and
+            (release_notes_lines_current[0] == "## Important Notes\n" or
+             release_notes_lines_current[0] == "## New Features and Improvements\n" or
+             release_notes_lines_current[0] == "## Bugfixes and Minor Changes\n" or
+             release_notes_lines_current[0] == "## Contributors\n")):
             break
     while len(release_notes_lines_current) > 0:
         if (release_notes_lines_current[len(release_notes_lines_current) - 1] == "## Contributors\n"):
