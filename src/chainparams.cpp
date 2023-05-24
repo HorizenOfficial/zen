@@ -157,13 +157,11 @@ public:
             ( 1035000, uint256S("0x0000000002cadc8f4c43ab96406211c489318c2e56b8e7d1e4e4b9fa5dffeea5"))
             ( 1107000, uint256S("0x000000000184d804ea3b77864616d5af5bb2dbe1953a805a47c427e9dceeca7b"))
             ( 1218500, uint256S("0x000000000335a5c54143d3fc6e143baeeb9a11e5e2250487b578f370114cd879"))
-            ( 1286500, uint256S("0x0000000002b9240e8e1ce741102c0d873148665e2aa45e5122fabf478b5c2fc2"))
-            ( 1301500, uint256S("0x0000000003bafe8331f9753bc374f9c27539d640a1f86cbd25477e5732d1ff8c"))
-            ( 1318100, uint256S("0x0000000000ad43247472917f4385eb168ea56e43d36c10443cca624331d06720")),
-            1679316836,     // * UNIX timestamp of last checkpoint block
-            34395283,       // * total number of transactions between genesis and last checkpoint
+            ( 1286500, uint256S("0x0000000002b9240e8e1ce741102c0d873148665e2aa45e5122fabf478b5c2fc2")),
+            1674538856,     // * UNIX timestamp of last checkpoint block
+            33465154,       // * total number of transactions between genesis and last checkpoint
                             //   (the tx=... number in the SetBestChain debug.log lines)
-            15030           // * estimated number of transactions per day after checkpoint
+            14983           // * estimated number of transactions per day after checkpoint
                             //   total number of tx / (checkpoint block height / (24 * 24))
         };
 
@@ -192,7 +190,7 @@ public:
         pchMessageStart[1] = 0xf2;
         pchMessageStart[2] = 0xcd;
         pchMessageStart[3] = 0xe6;
-        nDefaultPort = 19033;
+        nDefaultPort = 20033;
 //        nMinerThreads = 0;
         nPruneAfterHeight = 1000;
 
@@ -205,11 +203,7 @@ public:
 
         vFixedSeeds.clear();
         vSeeds.clear();
-        vSeeds.push_back(CDNSSeedData("dnsseed.testnet.horizen.global", "dnsseed.testnet.horizen.global")); // dns seeder
-        vSeeds.push_back(CDNSSeedData("dnsseed.testnet.zensystem.io", "dnsseed.testnet.zensystem.io")); // dns seeder
-        vSeeds.push_back(CDNSSeedData("testnet.horizen.global", "testnet.horizen.global")); // fixed seed
-        vSeeds.push_back(CDNSSeedData("testnet.zensystem.io", "testnet.zensystem.io")); // fixed seed
-        vSeeds.push_back(CDNSSeedData("node1.zenchain.info", "node1.zenchain.info")); // fixed seed
+        vSeeds.push_back(CDNSSeedData("z-nomp5.eu.zenchain.info", "z-nomp5.eu.zenchain.info")); // fixed seed
 
         // guarantees the first 2 characters, when base58 encoded, are "zt"
         // guarantees the first 2 characters, when base58 encoded, are "tm"
@@ -267,12 +261,11 @@ public:
             ( 1021000, uint256S("0x000118d2f94a42758d0efa60d5a95f968a668b0d4669cd7ca0c20b95d1d187e8"))
             ( 1133000, uint256S("0x00022703828f9b9e76d2c11525d9fcc182b2119095b27c5f51081615b3132b11"))
             ( 1201000, uint256S("0x0004acc3f9f26a8314a59962219b23e3c7ed06cbec16893fb0ea8a993167a847"))
-            ( 1216000, uint256S("0x000288327d649ba2a7d570c8e103cc2ed4a4d3a0581d0b4794fc2645756f9ef6"))
-            ( 1232700, uint256S("0x00094f376533c408e24dccaa16dbab3e060aa98b5fddf19aa8af708157c81892")),
-            1679321370,     // * UNIX timestamp of last checkpoint block
-            2102053,        // * total number of transactions between genesis and last checkpoint
+            ( 1209915, uint256S("0x0002d415938818af2e199adbf88220f8fa4eecf53a1bf29fa52aa174ee6322f1")), // fork10_height - 100
+            1675882031,     // * UNIX timestamp of last checkpoint block
+            2074156,        // * total number of transactions between genesis and last checkpoint
                             //   (the tx=... number in the SetBestChain debug.log lines)
-            982             // * estimated number of transactions per day after checkpoint
+            987             // * estimated number of transactions per day after checkpoint
                             //   total number of tx / (checkpoint block height / (24 * 24))
         };
 
