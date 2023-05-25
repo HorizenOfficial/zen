@@ -38,7 +38,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         print("Initializing test directory " + self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
 
-    def setup_network(self, split=False):
+    def setup_network(self):
         assert_equal(MAIN_NODE, HONEST_NODES[0])
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
@@ -47,7 +47,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
 
         for idx in range(NUMB_OF_NODES - 1):
             connect_nodes_bi(self.nodes, idx, idx + 1)
-        self.is_network_split = split
+        self.is_network_split = False
         self.sync_all()
 
     def split_network(self):

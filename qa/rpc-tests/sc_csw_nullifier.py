@@ -37,7 +37,7 @@ class CswNullifierTest(BitcoinTestFramework):
         print("Initializing test directory " + self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
 
-    def setup_network(self, split=False):
+    def setup_network(self):
         assert_equal(MAIN_NODE, NET_NODES[0])
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
@@ -522,7 +522,7 @@ class CswNullifierTest(BitcoinTestFramework):
         mark_logs("\nChecking persistance stopping and restarting nodes", self.nodes, DEBUG_MODE)
         stop_nodes(self.nodes)
         wait_bitcoinds()
-        self.setup_network(False)
+        self.setup_network()
 
         mark_logs("Checking nodes balance...", self.nodes, DEBUG_MODE)
         assert_equal(n0_bal, self.nodes[MAIN_NODE].z_gettotalbalance()['total'])

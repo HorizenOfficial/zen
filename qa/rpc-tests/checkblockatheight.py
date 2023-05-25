@@ -34,11 +34,11 @@ MAIN_NODE = HONEST_NODES[0]                 # Hardcoded alias, do not change
 
 class checkblockatheight(BitcoinTestFramework):
 
-    def setup_chain(self, split=False):
+    def setup_chain(self):
         print("Initializing test directory "+self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
 
-    def setup_network(self, split=False, minAge=FINALITY_MIN_AGE):
+    def setup_network(self, minAge=FINALITY_MIN_AGE):
         assert_equal(MAIN_NODE, HONEST_NODES[0])
 
         self.nodes = []
@@ -52,7 +52,7 @@ class checkblockatheight(BitcoinTestFramework):
 
         for idx in range(NUMB_OF_NODES - 1):
             connect_nodes_bi(self.nodes, idx, idx + 1)
-        self.is_network_split = split
+        self.is_network_split = False
         self.sync_all()
 
     def split_network(self):
@@ -269,7 +269,7 @@ class checkblockatheight(BitcoinTestFramework):
 
         stop_nodes(self.nodes)
         wait_bitcoinds()
-        self.setup_network(False, 0)
+        self.setup_network(minAge=0)
 
         chunks = 305
         self.mark_logs(f"  Node {MAIN_NODE} generates {chunks} blocks")
@@ -446,7 +446,7 @@ class checkblockatheight(BitcoinTestFramework):
         # restart Nodes and check their balance, at this point the 1000 coins should be in the wallet of node2
         stop_nodes(self.nodes)
         wait_bitcoinds()
-        self.setup_network(False, 0)
+        self.setup_network(minAge=0)
 
         final_bal1 = Decimal(self.nodes[HONEST_NODES[1]].getbalance() )
         final_bal2 = Decimal(self.nodes[HONEST_NODES[2]].getbalance() )
