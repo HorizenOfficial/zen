@@ -1476,29 +1476,35 @@ void ThreadDNSAddressSeed()
     }
 
     const vector<CDNSSeedData> &vSeeds = Params().DNSSeeds();
+    const unsigned int nMaxIPs = 256;
+    const int nThreeDays = 3 * 24 * 3600;
+    const int nFourDays = 4 * 24 * 3600;
     int found = 0;
 
     LogPrintf("Loading addresses from DNS seeds (could take a while)\n");
 
-    BOOST_FOREACH(const CDNSSeedData &seed, vSeeds) {
+    for(const CDNSSeedData &seed : vSeeds)
+    {
         if (HaveNameProxy()) {
             AddOneShot(seed.host);
-        } else {
-            vector<CNetAddr> vIPs;
-            vector<CAddress> vAdd;
-            if (LookupHost(seed.host.c_str(), vIPs))
-            {
-                BOOST_FOREACH(const CNetAddr& ip, vIPs)
-                {
-                    int nOneDay = 24*3600;
-                    CAddress addr = CAddress(CService(ip, Params().GetDefaultPort()));
-                    addr.nTime = GetTime() - 3*nOneDay - GetRand(4*nOneDay); // use a random age between 3 and 7 days old
-                    vAdd.push_back(addr);
-                    found++;
-                }
-            }
-            addrman.Add(vAdd, CNetAddr(seed.name, true));
+            continue;
+        } 
+    
+        vector<CNetAddr> vIPs;
+        if (!LookupHost(seed.host.c_str(), vIPs, nMaxIPs))
+        {
+            continue;
         }
+
+        vector<CAddress> vAdd;
+        for(const CNetAddr& ip : vIPs)
+        {
+            vAdd.emplace_back(CService(ip, Params().GetDefaultPort()));
+            vAdd.back().nTime = GetTime() - nThreeDays - GetRand(nFourDays); // use a random age between 3 and 7 days old
+        }
+        
+        addrman.Add(vAdd, CNetAddr(seed.name, true));
+        found += vAdd.size();
     }
 
     LogPrintf("%d addresses found from DNS seeds\n", found);
