@@ -44,7 +44,7 @@ from .util import hex_str_to_bytes, bytes_to_hex_str, COIN
 
 BIP0031_VERSION = 60000
 MY_VERSION = 170005  # past bip-31 for ping/pong
-MY_SUBVERSION = "/python-mininode-tester:0.0.1/"
+MY_SUBVERSION = b"/python-mininode-tester:0.0.1/"
 
 MAX_INV_SZ = 50000
 

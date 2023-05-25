@@ -2149,8 +2149,8 @@ bool IsInitialBlockDownload()
         return true;
     if (chainActive.Tip() == nullptr)
         return true;
-//    if ((chainActive.Height() < pindexBestHeader->nHeight - 24 * 6 || pindexBestHeader->GetBlockTime() < GetTime() - chainParams.MaxTipAge()))
-//        return true;
+   if ((chainActive.Height() < pindexBestHeader->nHeight - 24 * 6 || pindexBestHeader->GetBlockTime() < GetTime() - chainParams.MaxTipAge()))
+       return true;
     LogPrintf("Leaving InitialBlockDownload (latching to false)\n");
     lockIBDState.store(true, std::memory_order_relaxed);
     return false;
