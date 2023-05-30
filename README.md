@@ -59,7 +59,7 @@ Building from source
     sudo apt-get install \
     build-essential pkg-config libc6-dev m4 g++-multilib \
     autoconf libtool ncurses-dev unzip git python \
-    zlib1g-dev bsdmainutils automake curl
+    zlib1g-dev bsdmainutils automake curl cmake
     ```
     For a detailed list of dependencies, please refer to the [dependencies section](doc/dependencies.md).
 
@@ -75,7 +75,7 @@ Building from source
     sudo apt-get install \
     build-essential pkg-config libc6-dev m4 g++-multilib \
     autoconf libtool ncurses-dev unzip git python \
-    zlib1g-dev wget bsdmainutils automake mingw-w64
+    zlib1g-dev wget bsdmainutils automake mingw-w64 cmake
     ```
 
 * Install for Linux
