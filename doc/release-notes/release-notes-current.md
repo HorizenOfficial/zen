@@ -22,6 +22,7 @@ zend v4.0.99
 - Fix logfile output for "Leaving block file" statement [#530](https://github.com/HorizenOfficial/zen/pull/530)
 - Fix undefined behavior of a bitshift executed on a signed integer [#552](https://github.com/HorizenOfficial/zen/pull/552)
 - Improve `debug.log` file reopening procedure [#552](https://github.com/HorizenOfficial/zen/pull/552)
+- Introduce a maximum dns look up for one entry [#561](https://github.com/HorizenOfficial/zen/pull/561)
 
 ## Contributors
 [@JackPiri](https://github.com/JackPiri)
