@@ -25,7 +25,7 @@ class headers(BitcoinTestFramework):
         initialize_chain_clean(self.options.tmpdir, 4)
 
     def setup_nodes(self):
-        return start_nodes(4, self.options.tmpdir)
+        self.nodes = start_nodes(4, self.options.tmpdir)
 
     def setup_network(self, split=False):
         self.nodes = []
@@ -43,26 +43,11 @@ class headers(BitcoinTestFramework):
         self.is_network_split = split
         self.sync_all()
 
-    def split_network(self):
-#        assert not self.is_network_split
-        disconnect_nodes(self.nodes[1], 2)
-        disconnect_nodes(self.nodes[2], 1)
-        self.is_network_split = True
-
     def split_network_2(self):
 #        assert not self.is_network_split
         disconnect_nodes(self.nodes[1], 3)
         disconnect_nodes(self.nodes[3], 1)
         self.is_network_split = True
-
-
-    def join_network(self):
-#        assert self.is_network_split
-        connect_nodes_bi(self.nodes, 2, 1)
-        connect_nodes_bi(self.nodes, 1, 2)
-#        self.sync_all()
-        time.sleep(2)
-#        self.is_network_split = False
 
     def join_network_2(self):
 #        assert self.is_network_split
@@ -156,7 +141,7 @@ class headers(BitcoinTestFramework):
 #-------------------------------------------------
         stop_nodes(self.nodes)
         wait_bitcoinds()
-        self.nodes = self.setup_nodes()
+        self.setup_nodes()
         connect_nodes_bi(self.nodes, 0, 1)
 #-------------------------------------------------
         self.is_network_split = True
@@ -208,7 +193,7 @@ class headers(BitcoinTestFramework):
 #-------------------------------------------------
         stop_nodes(self.nodes)
         wait_bitcoinds()
-        self.nodes = self.setup_nodes()
+        self.setup_nodes()
         connect_nodes_bi(self.nodes, 0, 1)
         connect_nodes_bi(self.nodes, 1, 2)
 #-------------------------------------------------

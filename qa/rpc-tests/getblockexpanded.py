@@ -30,15 +30,10 @@ class getblockexpanded(BitcoinTestFramework):
         initialize_chain_clean(self.options.tmpdir, 2)
         self.first_round = True
 
-    def setup_network(self, split=False):
+    def setup_nodes(self):
         self.nodes = []
         self.nodes += [start_node(0, self.options.tmpdir,extra_args=['-txindex=1','-maturityheightindex=1'])]
         self.nodes += [start_node(1, self.options.tmpdir)]
-
-        connect_nodes_bi(self.nodes,0,1)
-
-        self.is_network_split=False
-        self.sync_all()
 
     def check_equal(self, a, b):
         if len(a) != len(b):

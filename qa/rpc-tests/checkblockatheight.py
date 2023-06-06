@@ -66,14 +66,6 @@ class checkblockatheight(BitcoinTestFramework):
         self.is_network_split = split
         self.sync_all()
 
-    def split_network(self):
-        # Split the network of 4 nodes into nodes 0-1-2 and 3.
-        assert not self.is_network_split
-        disconnect_nodes(self.nodes[2], 3)
-        disconnect_nodes(self.nodes[3], 2)
-        self.is_network_split = True
-
-
     def join_network(self):
         #Join the (previously split) network pieces together: 0-1-2-3
         assert self.is_network_split
@@ -272,7 +264,7 @@ class checkblockatheight(BitcoinTestFramework):
         self.sync_all()
 
         self.mark_logs("  Split network: (0)---(1)---(2)   (3)")
-        self.split_network()
+        self.split_network(2)
 
         self.mark_logs("  Node0 generating 1 honest block")
         blocks.extend(self.nodes[0].generate(1)) 

@@ -27,31 +27,9 @@ class quality_nodes(BitcoinTestFramework):
         print("Initializing test directory " + self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
 
-    def setup_network(self, split=False):
-        self.nodes = []
-
+    def setup_nodes(self, split=False):
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args=
             [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-scproofqueuesize=0', '-logtimemicros=1']] * NUMB_OF_NODES)
-
-        connect_nodes_bi(self.nodes, 0, 1)
-        sync_blocks(self.nodes[1:NUMB_OF_NODES])
-        sync_mempools(self.nodes[1:NUMB_OF_NODES])
-        self.is_network_split = split
-        self.sync_all()
-
-    def split_network(self):
-        # Split the network of three nodes into nodes 0 and 1.
-        assert not self.is_network_split
-        disconnect_nodes(self.nodes[0], 1)
-        disconnect_nodes(self.nodes[1], 0)
-        self.is_network_split = True
-
-    def join_network(self):
-        # Join the (previously split) network pieces together: 0-1
-        assert self.is_network_split
-        connect_nodes_bi(self.nodes, 0, 1)
-        time.sleep(2)
-        self.is_network_split = False
 
     def run_test(self):
 
@@ -165,7 +143,7 @@ class quality_nodes(BitcoinTestFramework):
 
         amount_cert_0 = [{"address": addr_node0, "amount": bwt_amount}]
 
-        self.split_network()
+        self.split_network(0)
 
         #----------------------Network Part 1
 
@@ -232,7 +210,7 @@ class quality_nodes(BitcoinTestFramework):
         cert2_mined = self.nodes[1].generate(1)[0]
         assert_true(cert_2_epoch_0 in self.nodes[1].getblock(cert2_mined, True)['cert'])
 
-        self.join_network()
+        self.join_network(0)
 
         self.sync_all()
         assert_true(cert_1_epoch_0 in self.nodes[0].getblock(cert1_mined, True)['cert'])
@@ -250,7 +228,7 @@ class quality_nodes(BitcoinTestFramework):
         self.nodes[0].generate(EPOCH_LENGTH - 2)
         self.sync_all()
 
-        self.split_network()
+        self.split_network(0)
 
         #----------------------Network Part 1
 
@@ -331,7 +309,7 @@ class quality_nodes(BitcoinTestFramework):
         cert2_mined = self.nodes[1].generate(1)[0]
         assert_true(cert_2_epoch_1 in self.nodes[1].getblock(cert2_mined, True)['cert'])
 
-        self.join_network()
+        self.join_network(0)
 
         assert_true(cert_1_epoch_1 in self.nodes[0].getblock(cert1_mined, True)['cert'])
 

@@ -43,22 +43,6 @@ class ScInvalidateTest(BitcoinTestFramework):
         self.is_network_split = split
         self.sync_all()
 
-    def split_network(self):
-        # Split the network of three nodes into nodes 0-1 and 2.
-        assert not self.is_network_split
-        disconnect_nodes(self.nodes[1], 2)
-        disconnect_nodes(self.nodes[2], 1)
-        self.is_network_split = True
-
-    def join_network(self):
-        # Join the (previously split) network pieces together: 0-1-2
-        assert self.is_network_split
-        connect_nodes_bi(self.nodes, 1, 2)
-        connect_nodes_bi(self.nodes, 2, 1)
-        # self.sync_all()
-        time.sleep(2)
-        self.is_network_split = False
-
     def run_test(self):
         ''' This test creates a Sidechain and forwards funds to it and then verifies
           after a fork that reverts the Sidechain creation, the forward and mbtr transfer transactions to it
@@ -215,6 +199,7 @@ class ScInvalidateTest(BitcoinTestFramework):
 
         mark_logs("\nJoining network", self.nodes, DEBUG_MODE)
         self.join_network()
+        time.sleep(2)
         mark_logs("\nNetwork joined", self.nodes, DEBUG_MODE)
 
         # Checking the network chain tips

@@ -28,25 +28,13 @@ class cbh_doscpu(BitcoinTestFramework):
         print("Initializing test directory "+self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
 
-    def setup_network(self, split=False, minAge=FINALITY_MIN_AGE):
-        self.nodes = []
+    def setup_nodes(self, split=False, minAge=FINALITY_MIN_AGE):
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
             extra_args = [
                 ["-allownonstandardtx=1", "-logtimemicros", "-debug=py", "-debug=net", "-debug=cbh", "-cbhsafedepth="+str(FINALITY_SAFE_DEPTH), "-cbhminage="+str(minAge)],
                 ["-allownonstandardtx=1", "-logtimemicros", "-debug=py", "-debug=net", "-debug=cbh", "-cbhsafedepth="+str(FINALITY_SAFE_DEPTH), "-cbhminage="+str(minAge)],
                 ["-allownonstandardtx=1", "-logtimemicros", "-debug=py", "-debug=net", "-debug=cbh", "-cbhsafedepth="+str(FINALITY_SAFE_DEPTH), "-cbhminage="+str(minAge)]
             ])
-
-        if not split:
-            connect_nodes_bi(self.nodes, 1, 2)
-            connect_nodes_bi(self.nodes, 2, 1)
-            sync_blocks(self.nodes[1:NUMB_OF_NODES])
-            sync_mempools(self.nodes[1:NUMB_OF_NODES])
-
-        connect_nodes_bi(self.nodes, 0, 1)
-        connect_nodes_bi(self.nodes, 1, 0)
-        self.is_network_split = split
-        self.sync_all()
 
     def mark_logs(self, msg):
         print(msg)

@@ -17,11 +17,8 @@ class GetBlockTemplateTest(BitcoinTestFramework):
         print("Initializing test directory "+self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, 4)
 
-    def setup_network(self, split=False):
+    def setup_nodes(self, split=False):
         self.nodes = start_nodes(2, self.options.tmpdir)
-        connect_nodes_bi(self.nodes,0,1)
-        self.is_network_split=False
-        self.sync_all()
 
     def run_test(self):
         node = self.nodes[0]

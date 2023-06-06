@@ -7,14 +7,17 @@
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, connect_nodes, \
-    gather_inputs, sync_blocks
+    gather_inputs, sync_blocks, connect_nodes_bi
 
 import time
 
 class JoinSplitTest(BitcoinTestFramework):
     def setup_network(self):
-        # Start with split network:
-        return super(JoinSplitTest, self).setup_network(True)
+        self.setup_nodes()
+        connect_nodes_bi(self.nodes, 0, 1)
+        connect_nodes_bi(self.nodes, 2, 3)
+        self.is_network_split = True
+        self.sync_all()
 
     def txid_in_mempool(self, node, txid):
         exception_triggered = False

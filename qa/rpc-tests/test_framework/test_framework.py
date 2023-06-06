@@ -18,7 +18,8 @@ from test_framework.wsproxy import JSONWSException
 from test_framework.util import assert_equal, check_json_precision, \
     initialize_chain, initialize_chain_clean, \
     start_nodes, connect_nodes_bi, stop_nodes, \
-    sync_blocks, sync_mempools, wait_bitcoinds
+    sync_blocks, sync_mempools, wait_bitcoinds, \
+    disconnect_nodes, assert_false
 
 MINER_REWARD_POST_H200 = 7.50
 
@@ -50,35 +51,26 @@ class BitcoinTestFramework(object):
         initialize_chain(self.options.tmpdir)
 
     def setup_nodes(self):
-        return start_nodes(4, self.options.tmpdir)
+        self.nodes = start_nodes(4, self.options.tmpdir)
 
-    def setup_network(self, split = False):
-        self.nodes = self.setup_nodes()
+    def setup_network(self):
+        # setup_network by default provides linear topology ep. 1 - 2 - 3 - ... - N
+        self.setup_nodes()
+        self.numb_of_nodes = len(self.nodes)
 
-        # Connect the nodes as a "chain".  This allows us
-        # to split the network between nodes 1 and 2 to get
-        # two halves that can work on competing chains.
+        for idx, _ in enumerate(self.nodes):
+            if idx < (self.numb_of_nodes-1):
+                connect_nodes_bi(self.nodes, idx, idx+1)
 
-        # If we joined network halves, connect the nodes from the joint
-        # on outward.  This ensures that chains are properly reorganised.
-        if not split:
-            connect_nodes_bi(self.nodes, 1, 2)
-            sync_blocks(self.nodes[1:3])
-            sync_mempools(self.nodes[1:3])
+        self.is_network_split = False
+        self.sync_all()       
 
-        connect_nodes_bi(self.nodes, 0, 1)
-        connect_nodes_bi(self.nodes, 2, 3)
-        self.is_network_split = split
-        self.sync_all()
-
-    def split_network(self):
-        """
-        Split the network of four nodes into nodes 0/1 and 2/3.
-        """
+    def split_network(self, id = 1):
+        # Split the network of between adjanced nodes in linear topology ep. nodes 0-1 and 2-3.
         assert not self.is_network_split
-        stop_nodes(self.nodes)
-        wait_bitcoinds()
-        self.setup_network(True)
+        disconnect_nodes(self.nodes[id], id + 1)
+        disconnect_nodes(self.nodes[id + 1], id)
+        self.is_network_split = True
 
     def sync_all(self):
         if self.is_network_split:
@@ -90,14 +82,16 @@ class BitcoinTestFramework(object):
             sync_blocks(self.nodes)
             sync_mempools(self.nodes)
 
-    def join_network(self):
-        """
-        Join the (previously split) network halves together.
-        """
+    def join_network(self, id = 1):
+        # Join the (previously split) adjanced nodes in linear network together: 0-1 >-< 2-3
         assert self.is_network_split
-        stop_nodes(self.nodes)
-        wait_bitcoinds()
-        self.setup_network(False)
+        connect_nodes_bi(self.nodes, id, id + 1)
+        self.is_network_split = False
+
+    def join_network_sync(self, id = 1):
+        # Join the (previously split) adjanced nodes in linear network together: 0-1 >-< 2-3 and syncs both parts
+        self.join_network(id)
+        self.sync_all()
 
     def main(self):
         import optparse
@@ -149,7 +143,7 @@ class BitcoinTestFramework(object):
             print("Unexpected exception caught during testing: " + str(e))
             traceback.print_tb(sys.exc_info()[2])
 
-        if not self.options.noshutdown:
+        if not self.options.noshutdown and len(self.nodes) > 0:
             print("Stopping nodes")
             stop_nodes(self.nodes)
             wait_bitcoinds()
