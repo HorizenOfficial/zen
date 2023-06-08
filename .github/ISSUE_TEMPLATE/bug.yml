@@ -91,7 +91,7 @@ body:
         - Backing-up the `~/.zen` directory might help making the problem reproducible. Please redact appropriately.
         - Taking a VM snapshot is really helpful for interactively testing fixes.
       placeholder: |
-        Please drag&drop here any related attachment.
+        Provide here any related attachment.
     validations:
       required: false
 

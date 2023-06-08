@@ -3,3 +3,6 @@ contact_links:
   - name: General Zen support channel
     url: https://horizen.io/invite/discord
     about: Ask general Zen questions/requests
+  - name: Zen security policy
+    url: https://github.com/HorizenOfficial/zen/security/policy
+    about: View security policy
