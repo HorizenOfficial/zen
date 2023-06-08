@@ -1,0 +1,97 @@
+name: Bug report
+description: This issue tracker is for technical issues related to `zend`.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        #### Scope
+
+        - General Zen questions and/or support requests are best directed to the [Discord](https://horizen.io/invite/discord), or [Support Portal](https://support.horizen.io).
+        - For reporting security vulnerabilities or for sensitive discussions with our security team, please see the [Bug Bounty Policy and Scope](https://horizenofficial.atlassian.net/wiki/spaces/ZEN/pages/136871957/Bug+Bounty+Submission+Policy+and+Scope), or send an encrypted email to security@horizen.io with information. The public key for that address is available [here](https://HorizenOfficial.github.io/keys/).
+        
+        ----
+  - type: textarea
+    id: describe-the-issue
+    attributes:
+      label: Describe the issue
+      description: |
+        Please provide a general summary of the issue you're experiencing:
+    validations:
+      required: true
+  - type: textarea
+    id: reproduceability
+    attributes:
+      label: Can you reliably reproduce the issue?
+      description: |
+        If so, please list the steps to reproduce below:
+      placeholder: |
+        1.
+        2.
+        3.
+        ...
+    validations:
+      required: false
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected behavior
+      description: |
+        Tell us what should happen:
+    validations:
+      required: false
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual behavior and errors
+      description: |
+        Tell us what happens instead including any noticeable error outputs (e.g. any messages displayed on-screen when a crash occurred):
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: The full version of `zend` you are using
+      description: |
+        Put here the output of command `zend --version`:
+      placeholder: |
+        v4.0.0-ac01ef02a
+    validations:
+      required: true
+  - type: textarea
+    id: machine-specs
+    attributes:
+      label: Machine specs
+      description: |
+        Put here the information related to the machine you are using:
+      value: |
+        - OS name and version: 
+        - CPU: 
+        - RAM: 
+        - Disk size: 
+        - Disk type (HD/SDD): 
+        - Linux kernel version (uname -a): 
+        - Compiler version (gcc -version):
+    validations:
+      required: true
+  - type: textarea
+    id: other-info
+    attributes:
+      label: Any extra information that might be useful in the debugging process
+      description: |
+        This includes the relevant contents of `~/.zen/debug.log`. You can paste raw text, attach the file directly in the issue or link to the text via a pastebin type site.
+        Please also include any non-standard things you did during compilation (extra flags, dependency version changes, etc...) if applicable.
+    validations:
+      required: false
+  - type: textarea
+    id: backup
+    attributes:
+      label: Do you have a back-up of `~/.zen` directory and/or a VM snapshot?
+      description: |
+        - Backing-up the `~/.zen` directory might help making the problem reproducible. Please redact appropriately.
+        - Taking a VM snapshot is really helpful for interactively testing fixes.
+      placeholder: |
+        Provide here any related attachment.
+    validations:
+      required: false
+

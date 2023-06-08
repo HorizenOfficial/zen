@@ -1,0 +1,39 @@
+name: Feature Request
+description: Suggest an idea for improving `zend`.
+labels: [feature]
+body:
+  - type: textarea
+    id: feature
+    attributes:
+      label: Please describe the feature you'd like to see added
+      placeholder: Provide here any useful attachment if applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: related-problem
+    attributes:
+      label: Is your feature related to a problem? If so please describe it
+      placeholder: Provide here any useful attachment if applicable.
+    validations:
+      required: false
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the solution you'd like
+      placeholder: Provide here any useful attachment if applicable.
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Describe any alternatives you've considered
+      placeholder: Provide here any useful attachment if applicable.
+    validations:
+      required: false
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Please leave any additional context
+      placeholder: Provide here any useful attachment if applicable.
+    validations:
+      required: false
