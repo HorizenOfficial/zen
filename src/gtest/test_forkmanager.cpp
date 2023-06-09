@@ -489,7 +489,7 @@ TEST(ForkManager, ShieldedPoolDeprecationForkMainnet) {
 TEST(ForkManager, ShieldedPoolDeprecationForkTestnet) {
     SelectParams(CBaseChainParams::TESTNET);
 
-    int shieldedPoolDeprecationForkHeight = 2000001;    // // TODO: MODIFY PLACEHOLDER!
+    int shieldedPoolDeprecationForkHeight = 1282000;    // // TODO: MODIFY PLACEHOLDER!
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight - 1), true);
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight), false);
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight + 1), false);
