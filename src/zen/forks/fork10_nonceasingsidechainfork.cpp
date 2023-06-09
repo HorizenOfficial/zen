@@ -6,6 +6,6 @@ NonCeasingSidechainFork::NonCeasingSidechainFork()
 {
     setHeightMap({{CBaseChainParams::Network::MAIN,1363115},
                   {CBaseChainParams::Network::REGTEST,480},
-                  {CBaseChainParams::Network::TESTNET,1228700}});
+                  {CBaseChainParams::Network::TESTNET,1210015}});
 }
 }
