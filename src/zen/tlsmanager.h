@@ -43,7 +43,7 @@ public:
         function code and reason code. */
      static const long SELECT_TIMEDOUT = 0xFFFFFFFF;
 
-     int waitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL* ssl, int timeoutSec, unsigned long& err_code);
+     int waitFor(SSLConnectionRoutine eRoutine, const CAddress& peerAddress, SSL* ssl, int timeoutSec, unsigned long& err_code);
 
      SSL* connect(SOCKET hSocket, const CAddress& addrConnect, unsigned long& err_code);
      SSL_CTX* initCtx(
