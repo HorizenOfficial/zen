@@ -231,7 +231,7 @@ int TLSManager::waitFor(SSLConnectionRoutine eRoutine, const CAddress& peerAddre
                     for (int i{1}; i < 3; ++i) {
                         if (!(shutDownStatus & i)) {
                             retOp = SSL_shutdown(ssl); // Send/receive close_notify
-                            MilliSleep(5);
+                            MilliSleep(5); // Give the peer a chance to send close_notify and be nice on cpu
                         }
                         shutDownStatus = SSL_get_shutdown(ssl);
                     }
@@ -242,7 +242,7 @@ int TLSManager::waitFor(SSLConnectionRoutine eRoutine, const CAddress& peerAddre
         default:
             assert(false); // should never happen
         }
-
+success:
         if (retOp == 1 /*success for any of the three operations*/) {
             err_code = 0;
             LogPrint("tls", "TLS: %s completed, fd=%d, peer=%s\n", eRoutine_str, hSocket, peerAddress.ToString());
@@ -251,31 +251,32 @@ int TLSManager::waitFor(SSLConnectionRoutine eRoutine, const CAddress& peerAddre
         
         // Examine error
         int sslErr = SSL_get_error(ssl, retOp);
-
-        // if (sslErr != SSL_ERROR_WANT_READ && sslErr != SSL_ERROR_WANT_WRITE) {
-        //     err_code = ERR_get_error();
-        //     const char* error_str = ERR_error_string(err_code, NULL);
-        //     LogPrint("tls", "TLS: WARNING: %s: %s():%d - routine(%s), sslErr[0x%x], retOp[%d], errno[0x%x], lib[0x%x], func[0x%x], reas[0x%x]-> err: %s\n",
-        //              __FILE__, __func__, __LINE__,
-        //              eRoutine_str, sslErr, retOp, errno, ERR_GET_LIB(err_code), ERR_GET_FUNC(err_code), ERR_GET_REASON(err_code), error_str);
-        //     retOp = -1;
-        //     break;
-        // }
-
-        
         std::string ssl_error_str{};
         int result{0};
 
         switch (sslErr) {
         case SSL_ERROR_SSL:
-            // Handle the case for shutdown sent while the peer still sending data after we've sent close_notify
+            // - case for shutdown sent while the peer still sending data after we've sent close_notify
             // we should temporarily ignore this error and continue reading until the peer closes the connection
+            // - case for shutdown sent while still in init phase
             // For other errors we intentionally do fail (no retries)
-            err_code = ERR_get_error();
-            if (auto reason{ERR_GET_REASON(err_code)}; reason != SSL_R_APPLICATION_DATA_AFTER_CLOSE_NOTIFY) {
-                ssl_error_str = "SSL_ERROR_SSL:" + std::to_string(reason);
-                result = -1;
-                break;
+            {
+                err_code = ERR_get_error();
+                auto reason{ERR_GET_REASON(err_code)};
+                if (reason == SSL_R_APPLICATION_DATA_AFTER_CLOSE_NOTIFY) {
+                    // Actually do nothing here. Let fall through to the next case
+                    // where we will read more data
+                } else if (reason == SSL_R_SHUTDOWN_WHILE_IN_INIT) {
+                    // We're forcing a shutdown on a not-fully established ssl connection
+                    // i.e. the async handshake has not completed yet.
+                    // We can safely ignore this error
+                    retOp = 1;
+                    goto success;
+                } else {
+                    LogPrint("tls", "TLS: %s: %s: %s peer=%s SSL_ERROR_SSL reason %d\n",
+                             __FILE__, __func__, eRoutine_str, peerAddress.ToString(), reason);
+                    return -1;
+                }
             }
             [[fallthrough]]; // Need to read more
         case SSL_ERROR_WANT_READ:
@@ -299,16 +300,16 @@ int TLSManager::waitFor(SSLConnectionRoutine eRoutine, const CAddress& peerAddre
         }
 
         if (result == 0 /*timeout*/) {
-            LogPrint("tls", "TLS: %s: %s():%d - %s timeout on %s\n", __FILE__, __func__, __LINE__,
+            LogPrint("tls", "TLS: WARNING %s: %s():%d - %s timeout on %s\n", __FILE__, __func__, __LINE__,
                      ssl_error_str, eRoutine_str);
             retOp = -1;
             break;
         } else if (result == -1 /*error*/) {
-            LogPrint("tls", "TLS: %s: %s: %s ssl_err_code: 0x%x; errno: %s\n",
+            LogPrint("tls", "TLS: ERROR %s: %s: %s ssl_err_code: 0x%x; errno: %s\n",
                      __FILE__, __func__, eRoutine_str, sslErr, strerror(errno));
             retOp = -1;
             break;
-        }
+        };
 
         // Something happened on the socket hence we continue the loop
 
