@@ -2441,7 +2441,6 @@ CNode::~CNode()
         {
             unsigned long err_code = 0;
             tlsmanager.waitFor(SSL_SHUTDOWN, addr, ssl, 0 /*no retries here make no sense on destructor*/, err_code);
-
             SSL_free(ssl);
             ssl = NULL;
         }
