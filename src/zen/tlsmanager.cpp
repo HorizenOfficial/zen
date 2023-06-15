@@ -186,7 +186,7 @@ int tlsCertVerificationCallback(int preverify_ok, X509_STORE_CTX* chainContext)
  * @param timeoutSec timeout in seconds.
  * @return int returns nError corresponding to the connection event.
  */
-int TLSManager::waitFor(SSLConnectionRoutine eRoutine, const CAddress& peerAddress, SSL* ssl, int timeoutSec, unsigned long& err_code)
+int TLSManager::waitFor(SSLConnectionRoutine eRoutine, const CAddress& peerAddress, SSL* ssl, int timeoutMilliSec, unsigned long& err_code)
 {
     std::string eRoutine_str{};
     int retOp{0};
@@ -195,7 +195,7 @@ int TLSManager::waitFor(SSLConnectionRoutine eRoutine, const CAddress& peerAddre
     err_code = 0;
     fd_set socketSet;
     struct timeval timeout {
-        timeoutSec, 0
+        timeoutMilliSec / 1000, (timeoutMilliSec % 1000) * 1000
     };
 
     FD_ZERO(&socketSet);
@@ -247,8 +247,14 @@ success:
             err_code = 0;
             LogPrint("tls", "TLS: %s completed, fd=%d, peer=%s\n", eRoutine_str, hSocket, peerAddress.ToString());
             break;
+        };
+
+        if (timeoutMilliSec == 0) {
+            LogPrint("tls", "TLS: %s failed, fd=%d, peer=%s\n", eRoutine_str, hSocket, peerAddress.ToString());
+            retOp = -1;
+            break;
         }
-        
+
         // Examine error
         int sslErr = SSL_get_error(ssl, retOp);
         std::string ssl_error_str{};
@@ -336,7 +342,7 @@ SSL* TLSManager::connect(SOCKET hSocket, const CAddress& addrConnect, unsigned l
 
     if ((ssl = SSL_new(tls_ctx_client))) {
         if (SSL_set_fd(ssl, hSocket)) {
-            int ret = TLSManager::waitFor(SSL_CONNECT, addrConnect, ssl, (DEFAULT_CONNECT_TIMEOUT / 1000), err_code);
+            int ret = TLSManager::waitFor(SSL_CONNECT, addrConnect, ssl, DEFAULT_CONNECT_TIMEOUT, err_code);
             if (ret == 1)
             {
                 bConnectedTLS = true;
@@ -527,11 +533,7 @@ SSL* TLSManager::accept(SOCKET hSocket, const CAddress& addr, unsigned long& err
 
     if ((ssl = SSL_new(tls_ctx_server))) {
         if (SSL_set_fd(ssl, hSocket)) {
-            int ret = TLSManager::waitFor(SSL_ACCEPT, addr, ssl, (DEFAULT_CONNECT_TIMEOUT / 1000), err_code);
-            if (ret == 1)
-            {
-                bAcceptedTLS = true;
-            }
+            bAcceptedTLS = (TLSManager::waitFor(SSL_ACCEPT, addr, ssl, DEFAULT_CONNECT_TIMEOUT, err_code) == 1);
         }
     }
     else
