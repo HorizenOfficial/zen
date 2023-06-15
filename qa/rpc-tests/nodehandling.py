@@ -72,12 +72,20 @@ class NodeHandlingTest (BitcoinTestFramework):
         print("Connection to self stress test. " \
               "Constantly trying to connect to self every 0.5 sec. " \
               "The whole test takes approx 5 mins")
-        for x in range(600):
+        total_duration = 300 # 5 min
+        start_time = time.time()
+        connections_count = 0
+        while time.time() - start_time < total_duration:
             connect_nodes(self.nodes[0], 0)
-            time.sleep(0.5)
-            # self-connection should be disconnected during the version checking
+            connections_count += 1
+            time.sleep(0.1)
             for node in self.nodes[0].getpeerinfo():
                 assert(node['addr'] != url.hostname+":"+str(p2p_port(0)))
+            if(connections_count % 10 == 0):
+                print(f"Connections count: {connections_count} in {time.time() - start_time:.2f} seconds")
+
+        print(f"Total connections count: {connections_count} in {total_duration:.2f} seconds")
+
 
 if __name__ == '__main__':
     NodeHandlingTest ().main ()
