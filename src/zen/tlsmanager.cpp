@@ -297,7 +297,6 @@ success:
             // For all othe errors we intentionally do fail (no retries)
             err_code = ERR_get_error();
             {
-                const char* error_str = ERR_error_string(err_code, NULL);
                 LogPrint("tls", "TLS: %s: %s():%d - routine(%s), sslErr[0x%x], retOp[%d], errno[0x%x], lib[0x%x], func[0x%x], reas[0x%x]-> err: %s\n",
                          __FILE__, __func__, __LINE__,
                          eRoutine_str, sslErr, retOp, errno, ERR_GET_LIB(err_code), ERR_GET_FUNC(err_code), ERR_GET_REASON(err_code), "unknown");
