@@ -329,13 +329,12 @@ def connect_nodes(from_connection, node_num):
     from_connection.addnode(ip_port, "onetry")
     # poll until version handshake complete to avoid race conditions
     # with transaction relaying
-    start_time = time.time()
-    loops = 0
-    while any(peer['version'] == 0 for peer in from_connection.getpeerinfo()):
+    while True:
         time.sleep(0.1)
-        loops += 1
-    print(f"[debug] connect_nodes op peerinfo time: {(time.time() - start_time)} seconds {loops}")
-    #print "Connected node%d %s" % (node_num, ip_port)
+        peer_info = from_connection.getpeerinfo()
+        zero_version_peers = [peer for peer in peer_info if peer['version'] == 0]
+        if len(zero_version_peers) == 0:
+            break
     
 def connect_nodes_bi(nodes, a, b):
     connect_nodes(nodes[a], b)
