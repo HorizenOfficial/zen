@@ -31,7 +31,7 @@ namespace libzcash {
 static CCriticalSection cs_ParamsIO;
 
 template<typename T>
-void saveToFile(const std::string path, T& obj) {
+void saveToFile(const std::string& path, T& obj) {
     LOCK(cs_ParamsIO);
 
     std::stringstream ss;
@@ -45,7 +45,7 @@ void saveToFile(const std::string path, T& obj) {
 }
 
 template<typename T>
-void loadFromFile(const std::string path, T& objIn) {
+void loadFromFile(const std::string& path, T& objIn) {
     LOCK(cs_ParamsIO);
 
     std::stringstream ss;
@@ -76,15 +76,15 @@ public:
     r1cs_ppzksnark_processed_verification_key<ppzksnark_ppT> vk_precomp;
     std::string pkPath;
 
-    JoinSplitCircuit(const std::string vkPath, const std::string pkPath) : pkPath(pkPath) {
+    JoinSplitCircuit(const std::string& vkPath, const std::string pkPath) : pkPath(pkPath) {
         loadFromFile(vkPath, vk);
         vk_precomp = r1cs_ppzksnark_verifier_process_vk(vk);
     }
     ~JoinSplitCircuit() {}
 
-    static void generate(const std::string r1csPath,
-                         const std::string vkPath,
-                         const std::string pkPath)
+    static void generate(const std::string& r1csPath,
+                         const std::string& vkPath,
+                         const std::string& pkPath)
     {
         protoboard<FieldT> pb;
 
@@ -369,17 +369,17 @@ public:
 };
 
 template<size_t NumInputs, size_t NumOutputs>
-void JoinSplit<NumInputs, NumOutputs>::Generate(const std::string r1csPath,
-                                                const std::string vkPath,
-                                                const std::string pkPath)
+void JoinSplit<NumInputs, NumOutputs>::Generate(const std::string& r1csPath,
+                                                const std::string& vkPath,
+                                                const std::string& pkPath)
 {
     initialize_curve_params();
     JoinSplitCircuit<NumInputs, NumOutputs>::generate(r1csPath, vkPath, pkPath);
 }
 
 template<size_t NumInputs, size_t NumOutputs>
-JoinSplit<NumInputs, NumOutputs>* JoinSplit<NumInputs, NumOutputs>::Prepared(const std::string vkPath,
-                                                                             const std::string pkPath)
+JoinSplit<NumInputs, NumOutputs>* JoinSplit<NumInputs, NumOutputs>::Prepared(const std::string& vkPath,
+                                                                             const std::string& pkPath)
 {
     initialize_curve_params();
     return new JoinSplitCircuit<NumInputs, NumOutputs>(vkPath, pkPath);

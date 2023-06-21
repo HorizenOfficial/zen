@@ -143,7 +143,7 @@ UniValue ValueFromAmount(const CAmount& amount)
             strprintf("%s%d.%08d", sign ? "-" : "", quotient, remainder));
 }
 
-uint256 ParseHashV(const UniValue& v, string strName)
+uint256 ParseHashV(const UniValue& v, const string& strName)
 {
     string strHex;
     if (v.isStr())
@@ -154,11 +154,11 @@ uint256 ParseHashV(const UniValue& v, string strName)
     result.SetHex(strHex);
     return result;
 }
-uint256 ParseHashO(const UniValue& o, string strKey)
+uint256 ParseHashO(const UniValue& o, const string& strKey)
 {
     return ParseHashV(find_value(o, strKey), strKey);
 }
-vector<unsigned char> ParseHexV(const UniValue& v, string strName)
+vector<unsigned char> ParseHexV(const UniValue& v, const string& strName)
 {
     string strHex;
     if (v.isStr())
@@ -167,7 +167,7 @@ vector<unsigned char> ParseHexV(const UniValue& v, string strName)
         throw JSONRPCError(RPC_INVALID_PARAMETER, strName+" must be hexadecimal string (not '"+strHex+"')");
     return ParseHex(strHex);
 }
-vector<unsigned char> ParseHexO(const UniValue& o, string strKey)
+vector<unsigned char> ParseHexO(const UniValue& o, const string& strKey)
 {
     return ParseHexV(find_value(o, strKey), strKey);
 }

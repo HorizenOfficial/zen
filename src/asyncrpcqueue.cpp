@@ -98,7 +98,7 @@ void AsyncRPCQueue::addOperation(const std::shared_ptr<AsyncRPCOperation> &ptrOp
 /**
  * Return the operation for a given operation id.
  */
-std::shared_ptr<AsyncRPCOperation> AsyncRPCQueue::getOperationForId(AsyncRPCOperationId id) const {
+std::shared_ptr<AsyncRPCOperation> AsyncRPCQueue::getOperationForId(const AsyncRPCOperationId& id) const {
     std::shared_ptr<AsyncRPCOperation> ptr;
 
     std::lock_guard<std::mutex> guard(lock_);

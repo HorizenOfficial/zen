@@ -50,14 +50,14 @@ int find_output(UniValue obj, int n) {
 
 AsyncRPCOperation_sendmany::AsyncRPCOperation_sendmany(
         CMutableTransaction contextualTx,
-        std::string fromAddress,
-        std::vector<SendManyRecipient> tOutputs,
-        std::vector<SendManyRecipient> zOutputs,
+        const std::string& fromAddress,
+        std::vector<SendManyRecipient>&& tOutputs,
+        std::vector<SendManyRecipient>&& zOutputs,
         int minDepth,
         CAmount fee,
         UniValue contextInfo,
         bool sendChangeToSource) :
-        tx_(contextualTx), fromaddress_(fromAddress), t_outputs_(tOutputs), z_outputs_(zOutputs), mindepth_(minDepth), fee_(fee), contextinfo_(contextInfo), sendChangeToSource_(sendChangeToSource)
+        tx_(contextualTx), fromaddress_(fromAddress), t_outputs_(std::move(tOutputs)), z_outputs_(std::move(zOutputs)), mindepth_(minDepth), fee_(fee), contextinfo_(contextInfo), sendChangeToSource_(sendChangeToSource)
 {
     assert(fee_ >= 0);
 
@@ -69,7 +69,7 @@ AsyncRPCOperation_sendmany::AsyncRPCOperation_sendmany(
         throw JSONRPCError(RPC_INVALID_PARAMETER, "From address parameter missing");
     }
 
-    if (tOutputs.size() == 0 && zOutputs.size() == 0) {
+    if (t_outputs_.size() == 0 && z_outputs_.size() == 0) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "No recipients");
     }
 
@@ -1132,7 +1132,7 @@ void AsyncRPCOperation_sendmany::add_taddr_change_output_to_tx(CAmount amount, b
     tx_ = CTransaction(rawTx);
 }
 
-std::array<unsigned char, ZC_MEMO_SIZE> AsyncRPCOperation_sendmany::get_memo_from_hex_string(std::string s) {
+std::array<unsigned char, ZC_MEMO_SIZE> AsyncRPCOperation_sendmany::get_memo_from_hex_string(const std::string& s) {
     std::array<unsigned char, ZC_MEMO_SIZE> memo = {{0x00}};
 
     std::vector<unsigned char> rawMemo = ParseHex(s.c_str());

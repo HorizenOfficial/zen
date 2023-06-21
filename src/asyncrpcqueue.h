@@ -45,7 +45,7 @@ public:
     void finishAndWait(); // block thread until existing operations have finished, threads terminated
     void cancelAllOperations(); // mark all operations in the queue as cancelled
     size_t getOperationCount() const;
-    std::shared_ptr<AsyncRPCOperation> getOperationForId(AsyncRPCOperationId) const;
+    std::shared_ptr<AsyncRPCOperation> getOperationForId(const AsyncRPCOperationId&) const;
     std::shared_ptr<AsyncRPCOperation> popOperationForId(AsyncRPCOperationId);
     void addOperation(const std::shared_ptr<AsyncRPCOperation> &ptrOperation);
     std::vector<AsyncRPCOperationId> getAllOperationIds() const;

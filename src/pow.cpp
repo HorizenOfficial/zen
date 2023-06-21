@@ -143,7 +143,7 @@ void generateEquihash(CBlock& block)
 
         // (x_1, x_2, ...) = A(I, V, n, k)
         std::function<bool(std::vector<unsigned char>)> validBlock =
-                [&block](std::vector<unsigned char> soln) {
+                [&block](const std::vector<unsigned char>& soln) {
             block.nSolution = soln;
             solutionTargetChecks.increment();
             return CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus());

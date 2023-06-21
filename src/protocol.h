@@ -90,7 +90,7 @@ class CAddress : public CService
 {
 public:
     CAddress();
-    explicit CAddress(CService ipIn, uint64_t nServicesIn = NODE_NETWORK);
+    explicit CAddress(const CService& ipIn, uint64_t nServicesIn = NODE_NETWORK);
 
     void Init();
 
