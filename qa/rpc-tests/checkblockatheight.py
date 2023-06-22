@@ -282,7 +282,7 @@ class checkblockatheight(BitcoinTestFramework):
 
         # we will perform on attack aimed at reverting from this block (latest generated) upward
         h_attacked = h_current
-        hash_attacked = blocks[-1];
+        hash_attacked = blocks[-1]
         assert hash_attacked == blocks[h_attacked]
         hash_attacked_swapped = swap_bytes(hash_attacked)
         hex_tmp = "%04x" % h_attacked

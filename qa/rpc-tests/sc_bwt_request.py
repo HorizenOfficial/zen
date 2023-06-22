@@ -111,7 +111,7 @@ class sc_bwt_request(BitcoinTestFramework):
         except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
-            assert_true(False);
+            assert_true(False)
 
         n1_net_bal = bal_before_sc_creation - creation_amount1 - fee_cr1
 

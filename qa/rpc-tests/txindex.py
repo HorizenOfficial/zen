@@ -70,8 +70,8 @@ class TxIndexTest(BitcoinTestFramework):
         pprint.pprint(verbose)
         print("##### RAW ######")
         pprint.pprint(self.nodes[3].getrawtransaction(txid, 1))
-        assert_equal(verbose["vout"][0]["valueZat"], to_satoshis(amount));
-        assert_equal(verbose["vout"][0]["value"], amount);
+        assert_equal(verbose["vout"][0]["valueZat"], to_satoshis(amount))
+        assert_equal(verbose["vout"][0]["value"], amount)
 
         print("Passed\n")
 

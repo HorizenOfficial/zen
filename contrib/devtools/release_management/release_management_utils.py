@@ -80,10 +80,14 @@ def get_version_string_details(version_string: str):
     return digits
 
 def get_build_suffix(build_number: int):
-    if (1 <= build_number and build_number <= 24):
-        return f"-beta{build_number}"
+    if (0 <= build_number and build_number <= 24):
+        return f"-beta{build_number + 1}"
     if (25 <= build_number and build_number <= 49):
         return f"-rc{build_number - 24}"
+    if (build_number == 50):
+        return ""
+    if (51 <= build_number):
+        return f"-alpha{build_number - 50}"
     return ""
 
 def replace_string_in_file(filepath: str, old_string_regex: str, new_string: str, ):

@@ -85,7 +85,7 @@ class sc_big_block(BitcoinTestFramework):
             except JSONRPCException as e:
                 errorString = e.error['message']
                 mark_logs(errorString,self.nodes,DEBUG_MODE)
-                assert_true(False);
+                assert_true(False)
 
             return tx, scid
 
@@ -194,7 +194,7 @@ class sc_big_block(BitcoinTestFramework):
         scc_txs = []
 
         for i in range(0, TOT_NUM_OF_SIDECHAINS):
-            tx, scid = create_sc(cmdInput, self.nodes[0]);
+            tx, scid = create_sc(cmdInput, self.nodes[0])
             mark_logs("Created SC {} with scid={} via tx={}".format(i, scid, tx), self.nodes,DEBUG_MODE)
             scids.append(scid)
             scc_txs.append(tx)

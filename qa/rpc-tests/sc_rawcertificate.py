@@ -56,7 +56,7 @@ class sc_rawcert(BitcoinTestFramework):
                 if aUtx['amount'] > min_amount:
                     utx = aUtx
                     change = aUtx['amount'] - min_amount
-                    break;
+                    break
  
             if utx == False:
                 pprint.pprint(listunspent)
@@ -465,7 +465,7 @@ class sc_rawcert(BitcoinTestFramework):
             if aUtx['amount'] > CERT_FEE:
                 utx = aUtx
                 change = aUtx['amount'] - CERT_FEE
-                break;
+                break
 
         assert_equal(utx!=False, True)
         '''
@@ -665,7 +665,7 @@ class sc_rawcert(BitcoinTestFramework):
             if x['txid'] == cert and x['category'] == "send":
                 certFee = x['fee']
                 conf = x['confirmations']
-                break;
+                break
 
         assert_equal(conf, 1)
         assert_equal(certFee, Decimal("0.0"))

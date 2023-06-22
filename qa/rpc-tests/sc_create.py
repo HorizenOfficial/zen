@@ -59,14 +59,14 @@ class SCCreateTest(BitcoinTestFramework):
         that if fails with the expected error message (unless this last parameter is empty).
         '''
 
-        should_fail: bool = expected_error_message != "" or expected_error_message is not None
+        should_fail: bool = expected_error_message is not None and expected_error_message != ""
 
         try:
             self.nodes[node_index].sc_create(sc_creation_params)
-            if not should_fail:
+            if should_fail:
                 assert(False)
         except JSONRPCException as e:
-            assert_equal(expected_error_message, e.error['message'])
+            assert_equal(e.error['message'], expected_error_message)
 
     def run_test(self):
 
@@ -272,7 +272,7 @@ class SCCreateTest(BitcoinTestFramework):
             'wCertVk': cert_vk
         }
 
-        self.try_sidechain_creation(0, cmdInput, "Insufficient transparent funds , have 0.00, need 1.00 (minconf=1)")
+        self.try_sidechain_creation(0, cmdInput, "Insufficient transparent funds, have 0.00, need 1.00 (minconf=1)")
 
         # ---------------------------------------------------------------------------------------
         mark_logs("\nNode 2 tries to create a SC with immature funds", self.nodes, DEBUG_MODE)
@@ -288,7 +288,7 @@ class SCCreateTest(BitcoinTestFramework):
             'wCertVk': cert_vk
         }
 
-        self.try_sidechain_creation(0, cmdInput, "Insufficient transparent funds , have 0.00, need 1.00 (minconf=1)")
+        self.try_sidechain_creation(0, cmdInput, "Insufficient transparent funds, have 0.00, need 1.00 (minconf=1)")
 
         # ---------------------------------------------------------------------------------------
         mark_logs("\nNode 1 tries to create a SC with null amount", self.nodes, DEBUG_MODE)
@@ -346,7 +346,7 @@ class SCCreateTest(BitcoinTestFramework):
             'minconf': 2
         }
 
-        expected_error_message = f"Insufficient transparent funds  for taddr[{node1_other_address}], have 0.00, need 1.00 (minconf={cmdInput['minconf']})"
+        expected_error_message = f"Insufficient transparent funds for taddr[{node1_other_address}], have 0.00, need 1.00 (minconf={cmdInput['minconf']})"
         self.try_sidechain_creation(1, cmdInput, expected_error_message)
 
         # ---------------------------------------------------------------------------------------

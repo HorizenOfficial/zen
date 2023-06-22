@@ -142,7 +142,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         self.doTest(sc_fork_reached)
 
         # reach the height where the next block is the last before the fork point where certificates are supported
-        delta = ForkHeights['MINIMAL_SC'] - currentHeight - 2;
+        delta = ForkHeights['MINIMAL_SC'] - currentHeight - 2
         self.nodes[0].generate(delta) 
         self.sync_all()
 

@@ -1,9 +1,9 @@
 # THIS IS A TEMPLATE FILE, FOR EXAMPLES ON ACTUAL RELEASES CHECK CONTENT OF configs/release_backport_config-X.Y.Z.yaml FILES
 # path to zend project root
 repository_root: "./"
-# release version to be backported (format "major.minor.patch", suffix must not be included if beta or candidate)
+# release version to be backported (format "major.minor.patch", suffix must not be included if beta or candidate or alpha)
 version: ""
-# build number (1-24 for beta (1-24), 25-49 for candidate (1-25), 50 for official)
+# build number (0-24 for beta (1-25), 25-49 for candidate (1-25), 50 for official, 51+ for alpha (1+))
 build_number: ""
 # script steps flow
 script_steps:

@@ -140,7 +140,7 @@ class WalletNullifiersTest (BitcoinTestFramework):
         # This requires that node 1 be unlocked, which triggers caching of
         # uncached nullifiers.
         self.nodes[1].walletpassphrase("test", 600)
-        mytaddr1 = self.nodes[1].getnewaddress();
+        mytaddr1 = self.nodes[1].getnewaddress()
         recipients = []
         recipients.append({"address":mytaddr1, "amount":1.0})
         myopid = self.nodes[1].z_sendmany(myzaddr, recipients)

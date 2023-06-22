@@ -85,13 +85,14 @@ def initialize():
         config[rmu.k_version] = input("Enter the new version (format major.minor.patch, e.g. 3.3.1): ")
         print("Enter the build number:")
         print("Please, use the following values:")
-        print("[ 1, 24] when releasing a beta version (e.g. 3.3.1-beta1, 3.3.1-beta2, etc.)")
+        print("[ 0, 24] when releasing a beta version (e.g. 3.3.1-beta1, 3.3.1-beta2, etc.)")
         print("[25, 49] when releasing a release candidate (e.g. 3.3.1-rc1, 3.3.1-rc2, etc.)")
-        print("    [50] when making an official release (e.g. 3.3.1)")
+        print("    [50] when releasing an official release (e.g. 3.3.1)")
+        print("   [51+] when releasing an alpha version (e.g. 3.3.1-alpha1, 3.3.1-alpha2, etc.)")
         config[rmu.k_build_number] = input("")
 
     build_number = int(config[rmu.k_build_number])
-    if (1 > build_number or build_number > 50):
+    if (0 > build_number):
         print("Wrong build number; modify and retry.")
         sys.exit(-1)
 

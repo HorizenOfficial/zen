@@ -71,7 +71,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         '''
         Create a SC, advance two epochs, move to the limit of the safe guard and then split the network. 
         One network part sends a certificate to keep the sidechain alive and then generates two blocks.
-        The other network part generates one block, theny sends a CSW.
+        The other network part generates one block, then sends a CSW.
         When the network is joined, verify that the SC is alive and that the CSW transaction has been
         removed from mempool.
         '''
@@ -173,7 +173,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
 
         amount_cert = [{"address": addr_node1, "amount": bt_amount}]
         try:
-            cert_bad = self.nodes[2].sc_send_certificate(scid, epoch_number, quality,
+            cert_net_first_part = self.nodes[2].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert, 0, 0, 0.01)
         except JSONRPCException as e:
             errorString = e.error['message']
@@ -181,8 +181,8 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
             assert(False)
         sync_mempools(self.nodes[0:3])
 
-        mark_logs("Check cert {} is in mempool".format(cert_bad), self.nodes, DEBUG_MODE)
-        assert_true(cert_bad in self.nodes[0].getrawmempool())
+        mark_logs("Check cert {} is in mempool".format(cert_net_first_part), self.nodes, DEBUG_MODE)
+        assert_true(cert_net_first_part in self.nodes[0].getrawmempool())
 
         mark_logs("Generates two blocks to make the chain longer than sub-network 2", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(2)
@@ -236,31 +236,31 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         funded_tx = self.nodes[3].fundrawtransaction(rawtx)
         sigRawtx = self.nodes[3].signrawtransaction(funded_tx['hex'])
         try:
-            csw_bad = self.nodes[3].sendrawtransaction(sigRawtx['hex'])
-            pprint.pprint(self.nodes[3].getrawtransaction(tx, 1))
-            assert(False)
+            csw_net_second_part = self.nodes[3].sendrawtransaction(sigRawtx['hex'])
+            self.nodes[3].getrawtransaction(csw_net_second_part, 1)
         except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send csw failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            assert(False)
 
-        mark_logs("Check the CSW tx {} is in mempool...".format(csw_bad), self.nodes, DEBUG_MODE)
-        assert_true(csw_bad in self.nodes[3].getrawmempool())
+        mark_logs("Check the CSW tx {} is in mempool...".format(csw_net_second_part), self.nodes, DEBUG_MODE)
+        assert_true(csw_net_second_part in self.nodes[3].getrawmempool())
 
         #============================================================================================
         mark_logs("\nJoining network", self.nodes, DEBUG_MODE)
         self.join_network()
         mark_logs("Network joined", self.nodes, DEBUG_MODE)
 
-        mark_logs("\nCheck that the sidechain is ceased", self.nodes, DEBUG_MODE)
+        mark_logs("\nCheck that the sidechain is alive", self.nodes, DEBUG_MODE)
         ret = self.nodes[3].getscinfo(scid, False, False)['items'][0]
         assert_equal(ret['state'], "ALIVE")
 
-        mark_logs("Check CSW tx {} is no more in mempool, since we crossed the epoch safeguard".format(csw_bad), self.nodes, DEBUG_MODE)
-        assert_false(csw_bad in self.nodes[3].getrawmempool()) 
+        mark_logs("Check CSW tx {} is no more in mempool, since we crossed the epoch safeguard".format(csw_net_second_part), self.nodes, DEBUG_MODE)
+        assert_false(csw_net_second_part in self.nodes[3].getrawmempool()) 
 
         mark_logs("And that no info are available too...", self.nodes, DEBUG_MODE)
         try:
-            self.nodes[3].getrawtransaction(csw_bad, 1)
+            self.nodes[3].getrawtransaction(csw_net_second_part, 1)
             assert(False)
         except JSONRPCException as e:
             errorString = e.error['message']

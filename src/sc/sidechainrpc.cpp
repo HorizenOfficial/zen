@@ -953,7 +953,7 @@ void ScRpcCmd::addInputs()
             addrDetails = strprintf(" for taddr[%s]", _fromMcAddress.ToString());
 
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS,
-            strprintf("Insufficient transparent funds %s, have %s, need %s (minconf=%d)",
+            strprintf("Insufficient transparent funds%s, have %s, need %s (minconf=%d)",
             addrDetails, FormatMoney(_totalInputAmount), FormatMoney(targetAmount), _minConf));
     }
 

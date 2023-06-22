@@ -238,7 +238,7 @@ class quality_mempool(BitcoinTestFramework):
             if aUtx['amount'] > HIGH_CERT_FEE and aUtx['txid'] == cert_1_epoch_0:
                 utx = aUtx
                 change = aUtx['amount'] - CERT_FEE
-                break;
+                break
 
         inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
         outputs = { self.nodes[0].getnewaddress(): change }
@@ -366,7 +366,7 @@ class quality_mempool(BitcoinTestFramework):
             if aUtx['amount'] > HIGH_CERT_FEE and aUtx['txid'] == cert_1_epoch_0:
                 utx = aUtx
                 change = aUtx['amount'] - HIGH_CERT_FEE
-                break;
+                break
 
         inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
         outputs = { self.nodes[0].getnewaddress(): change }
@@ -613,7 +613,7 @@ class quality_mempool(BitcoinTestFramework):
             if aUtx['amount'] > HIGH_CERT_FEE and aUtx['txid'] == cert_5_epoch_0:
                 utx = aUtx
                 change = aUtx['amount'] - CERT_FEE
-                break;
+                break
 
         inputs = [{'txid': utx['txid'], 'vout': utx['vout']}]
         outputs = {self.nodes[0].getnewaddress(): change}

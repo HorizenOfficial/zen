@@ -55,14 +55,15 @@ def initialize():
         config[rmu.k_version] = input("Enter the backported version (format major.minor.patch, e.g. 3.3.1): ")
         print("Enter the backported build number:")
         print("Please, use the following values:")
-        print("[ 1, 24] when releasing a beta version (e.g. 3.3.1-beta1, 3.3.1-beta2, etc.)")
-        print("[25, 49] when releasing a release candidate (e.g. 3.3.1-rc1, 3.3.1-rc2, etc.)")
-        print("    [50] when making an official release (e.g. 3.3.1)")
+        print("[ 0, 24] when backporting a beta version (e.g. 3.3.1-beta1, 3.3.1-beta2, etc.)")
+        print("[25, 49] when backporting a release candidate (e.g. 3.3.1-rc1, 3.3.1-rc2, etc.)")
+        print("    [50] when backporting an official release (e.g. 3.3.1)")
+        print("   [51+] when backporting an alpha version (e.g. 3.3.1-alpha1, 3.3.1-alpha2, etc.)")
         config[rmu.k_build_number] = input("")
     config[rmu.k_is_official_version] = (config[rmu.k_build_number] == "50")
 
     build_number = int(config[rmu.k_build_number])
-    if (1 > build_number or build_number > 50):
+    if (0 > build_number):
         print("Wrong build number; modify and retry.")
         sys.exit(-1)
 
@@ -98,7 +99,7 @@ def reset_client_version():
     rep_maj = rmu.replace_string_in_file(os.path.join(config[rmu.k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_MAJOR, (\d+)\)",    f"define(_CLIENT_VERSION_MAJOR, {version_digits[0]})")
     rep_min = rmu.replace_string_in_file(os.path.join(config[rmu.k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_MINOR, (\d+)\)",    f"define(_CLIENT_VERSION_MINOR, {version_digits[1]})")
     rep_rev = rmu.replace_string_in_file(os.path.join(config[rmu.k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_REVISION, (\d+)\)", f"define(_CLIENT_VERSION_REVISION, {99})")
-    rep_bld = rmu.replace_string_in_file(os.path.join(config[rmu.k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_BUILD, (\d+)\)",    f"define(_CLIENT_VERSION_BUILD, {0})")
+    rep_bld = rmu.replace_string_in_file(os.path.join(config[rmu.k_repository_root], "configure.ac"), r"define\(_CLIENT_VERSION_BUILD, (\d+)\)",    f"define(_CLIENT_VERSION_BUILD, {51})")
     if (not rep_maj and not rep_min and not rep_rev and not rep_bld):
         print("Version replacement failed (configure.ac)")
         sys.exit(-1)
@@ -108,7 +109,7 @@ def reset_client_version():
     rep_maj = rmu.replace_string_in_file(os.path.join(config[rmu.k_repository_root], "src/clientversion.h"), r"(#define\s+CLIENT_VERSION_MAJOR\s+)(\d+)",    f"\\g<1>{version_digits[0]}")
     rep_min = rmu.replace_string_in_file(os.path.join(config[rmu.k_repository_root], "src/clientversion.h"), r"(#define\s+CLIENT_VERSION_MINOR\s+)(\d+)",    f"\\g<1>{version_digits[1]}")
     rep_rev = rmu.replace_string_in_file(os.path.join(config[rmu.k_repository_root], "src/clientversion.h"), r"(#define\s+CLIENT_VERSION_REVISION\s+)(\d+)", f"\\g<1>{99}")
-    rep_bld = rmu.replace_string_in_file(os.path.join(config[rmu.k_repository_root], "src/clientversion.h"), r"(#define\s+CLIENT_VERSION_BUILD\s+)(\d+)",    f"\\g<1>{0}")
+    rep_bld = rmu.replace_string_in_file(os.path.join(config[rmu.k_repository_root], "src/clientversion.h"), r"(#define\s+CLIENT_VERSION_BUILD\s+)(\d+)",    f"\\g<1>{51}")
     if (not rep_maj and not rep_min and not rep_rev and not rep_bld):
         print("Version replacement failed (src/clientversion.h)")
         sys.exit(-1)

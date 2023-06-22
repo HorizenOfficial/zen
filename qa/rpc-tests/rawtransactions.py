@@ -93,9 +93,9 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.sync_all()
         self.nodes[0].generate(101)
         self.sync_all()
-        self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(),1.5);
-        self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(),1.0);
-        self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(),5.0);
+        self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(),1.5)
+        self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(),1.0)
+        self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(),5.0)
         self.sync_all()
         self.nodes[0].generate(5)
         self.sync_all()
@@ -115,7 +115,7 @@ class RawTransactionsTest(BitcoinTestFramework):
             errorString = e.error['message']
             print(errorString)
 
-        assert_equal("Missing inputs" in errorString, True);
+        assert_equal("Missing inputs" in errorString, True)
 
         #########################
         # RAW TX MULTISIG TESTS #
@@ -134,7 +134,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         bal = self.nodes[2].getbalance()
 
         # send 1.2 BTC to msig adr
-        txId       = self.nodes[0].sendtoaddress(mSigObj, 1.2);
+        txId       = self.nodes[0].sendtoaddress(mSigObj, 1.2)
         self.sync_all()
         self.nodes[0].generate(1)
         self.sync_all()
@@ -177,7 +177,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         for outpoint in rawTx['vout']:
             if outpoint['value'] == Decimal('2.20000000'):
                 vout = outpoint
-                break;
+                break
 
         bal = self.nodes[0].getbalance()
         inputs = [{ "txid" : txId, "vout" : vout['n'], "scriptPubKey" : vout['scriptPubKey']['hex']}]
