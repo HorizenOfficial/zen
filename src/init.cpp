@@ -480,7 +480,7 @@ std::string HelpMessage(HelpMessageMode mode)
         strUsage += HelpMessageOpt("-flushwallet", strprintf("Run a thread to flush wallet periodically (default: %u)", 1));
         strUsage += HelpMessageOpt("-stopafterblockimport", strprintf("Stop running after importing blocks from disk (default: %u)", 0));
     }
-    string debugCategories = "addrman, alert, bench, cert, coindb, db, estimatefee, fork, http, libevent, lock, mempool, net, partitioncheck, pow, proxy, prune, "
+    string debugCategories = "addrman, alert, bench, cert, coindb, db, estimatefee, forks, http, libevent, lock, mempool, net, partitioncheck, pow, proxy, prune, "
                              "rand, reindex, rpc, sc, selectcoins, tor, ws, zendoo_mc_cryptolib, zmq, zrpc, zrpcunsafe (implies zrpc)"; // Don't translate these
     strUsage += HelpMessageOpt("-debug=<category>", strprintf(_("Output debugging information (default: %u, supplying <category> is optional)"), 0) + ". " +
         _("If <category> is not supplied or if <category> = 1, output all debugging information.") + " " + _("<category> can be:") + " " + debugCategories + ".");
@@ -604,8 +604,7 @@ std::string HelpMessage(HelpMessageMode mode)
         strUsage += HelpMessageOpt("-metricsrefreshtime", strprintf(_("Number of seconds between metrics refreshes (default: %u if running in a console, %u otherwise)"), 1, 600));
     }
 
-    strUsage += HelpMessageOpt("-maxtipage=<n>",
-        "regtest only - Set the maximum tip age used for the relay of chain blocks)");
+    strUsage += HelpMessageOpt("-maxtipage=<n>", "regtest only - Set the maximum tip age used for the relay of chain blocks)");
 
     return strUsage;
 }
@@ -1172,7 +1171,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     {
         CAmount nMaxFee = 0;
         if (!ParseMoney(mapArgs["-maxtxfee"], nMaxFee))
-            return InitError(strprintf(_("Invalid amount for -maxtxfee=<amount>: '%s'"), mapArgs["-maptxfee"]));
+            return InitError(strprintf(_("Invalid amount for -maxtxfee=<amount>: '%s'"), mapArgs["-maxtxfee"]));
         if (nMaxFee > nHighTransactionMaxFeeWarning)
             InitWarning(_("Warning: -maxtxfee is set very high! Fees this large could be paid on a single transaction."));
         maxTxFee = nMaxFee;

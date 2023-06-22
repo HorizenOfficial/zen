@@ -1,9 +1,9 @@
 # THIS IS A TEMPLATE FILE, FOR EXAMPLES ON ACTUAL RELEASES CHECK CONTENT OF configs/release_preparation_config-X.Y.Z.yaml FILES
 # path to zend project root
 repository_root: "./"
-# new release version (format "major.minor.patch", suffix must not be included if beta or candidate)
+# new release version (format "major.minor.patch", suffix must not be included if beta or candidate or alpha)
 version: ""
-# build number (1-24 for beta (1-24), 25-49 for candidate (1-25), 50 for official)
+# build number (0-24 for beta (1-25), 25-49 for candidate (1-25), 50 for official, 51+ for alpha (1+))
 build_number: ""
 # mainnet config
 mainnet:

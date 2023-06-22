@@ -125,7 +125,7 @@ class sbh_rpc_cmds(BitcoinTestFramework):
         except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
-            assert_true(False);
+            assert_true(False)
 
         self.sync_all()
 

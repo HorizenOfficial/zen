@@ -138,15 +138,15 @@ def initialize_datadir(dirname, n):
     if not os.path.isdir(datadir):
         os.makedirs(datadir)
     with open(os.path.join(datadir, "zen.conf"), 'w') as f:
-        f.write("regtest=1\n");
-        f.write("showmetrics=0\n");
-        f.write("rpcuser=rt\n");
-        f.write("rpcpassword=rt\n");
-        f.write("port="+str(p2p_port(n))+"\n");
-        f.write("rpcport="+str(rpc_port(n))+"\n");
-        f.write("listenonion=0\n");
-#        f.write("debug=net\n");
-#        f.write("logtimemicros=1\n");
+        f.write("regtest=1\n")
+        f.write("showmetrics=0\n")
+        f.write("rpcuser=rt\n")
+        f.write("rpcpassword=rt\n")
+        f.write("port="+str(p2p_port(n))+"\n")
+        f.write("rpcport="+str(rpc_port(n))+"\n")
+        f.write("listenonion=0\n")
+#        f.write("debug=net\n")
+#        f.write("logtimemicros=1\n")
     return datadir
 
 def rpc_url(i, rpchost=None):
@@ -503,7 +503,7 @@ def wait_and_assert_operationid_status(node, myopid, in_status='success', in_err
     assert_equal(in_status, status, "Operation returned mismatched status. Error Message: {}".format(errormsg))
 
     if errormsg is not None:
-        assert_true(in_errormsg is not None, "No error retured. Expected: {}".format(errormsg))
+        assert_true(in_errormsg is not None, "No error returned. Expected: {}".format(errormsg))
         assert_true(in_errormsg in errormsg, "Error returned: {}. Error expected: {}".format(errormsg, in_errormsg))
         return result # if there was an error return the result
     else:
@@ -611,7 +611,7 @@ def get_epoch_data(scid, node, epochLen, is_non_ceasing = False, reference_heigh
     sc_info = node.getscinfo(scid)['items'][0]
     last_cert_data_hash = 'PHANTOM_PREV_CERT_HASH'
     if sc_info['state'] == 'UNCONFIRMED':
-        return None
+        return None, None, None
 
     if is_non_ceasing:
         # For non-ceasing sidechains

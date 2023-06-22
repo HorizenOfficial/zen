@@ -56,7 +56,7 @@ const std::string CLIENT_NAME("zen");
 
 #define RENDER_BETA_STRING(num) "-beta" DO_STRINGIZE(num)
 #define RENDER_RC_STRING(num) "-rc" DO_STRINGIZE(num)
-#define RENDER_DEV_STRING(num) "-" DO_STRINGIZE(num)
+#define RENDER_ALPHA_STRING(num) "-alpha" DO_STRINGIZE(num)
 
 #define RENDER_BUILD(build) \
     BOOST_PP_IF( \
@@ -68,7 +68,7 @@ const std::string CLIENT_NAME("zen");
             BOOST_PP_IF( \
                 BOOST_PP_EQUAL(build, 50), \
                 "", \
-                RENDER_DEV_STRING(BOOST_PP_SUB(build, 50)))))
+                RENDER_ALPHA_STRING(BOOST_PP_SUB(build, 50)))))
 
 #define BUILD_DESC_WITH_SUFFIX(maj, min, rev, build, suffix) \
     "v" DO_STRINGIZE(maj) "." DO_STRINGIZE(min) "." DO_STRINGIZE(rev) RENDER_BUILD(build) "-" DO_STRINGIZE(suffix)
@@ -102,24 +102,21 @@ const std::string CLIENT_DATE(BUILD_DATE);
 
 std::string FormatVersion(int nVersion)
 {
-    if (nVersion % 100 == 0) 
+    if (nVersion % 100 < 25)
     {
-        return strprintf("%d.%d.%d-alpha", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100);
-    } 
-    else if (nVersion % 100 < 25)
-    {
-        return strprintf("%d.%d.%d-beta%d", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100, (nVersion % 100));
+        return strprintf("%d.%d.%d-beta%d", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100, (nVersion % 100)+1);
     } 
     else if (nVersion % 100 < 50)
     {
         return strprintf("%d.%d.%d-rc%d", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100, (nVersion % 100)-24);
     } 
-    else if (nVersion % 100 == 50) 
+    else if (nVersion % 100 == 50)
     {
         return strprintf("%d.%d.%d", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100);
     } 
-    else {
-        return strprintf("%d.%d.%d-%d", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100, (nVersion % 100)-50);
+    else
+    {
+        return strprintf("%d.%d.%d-alpha%d", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100, (nVersion % 100)-50);
     }
 }
 

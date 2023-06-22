@@ -172,7 +172,7 @@ class CeasingSplitTest(BitcoinTestFramework):
         cmdParms = { "minconf":0, "fee":0.0}
         mark_logs("\nNTW part 1) Node1 creates a tx with a bwt request", self.nodes, DEBUG_MODE)
         try:
-            tx_bwt = self.nodes[1].sc_request_transfer(outputs, cmdParms);
+            tx_bwt = self.nodes[1].sc_request_transfer(outputs, cmdParms)
         except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)

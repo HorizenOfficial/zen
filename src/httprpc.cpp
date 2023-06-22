@@ -152,7 +152,7 @@ static bool HTTPReq_JSONRPC(HTTPRequest* req, const std::string &)
 
 static bool InitRPCAuthentication()
 {
-    if (mapArgs["-rpcpassword"] == "")
+    if (mapArgs.count("-rpcpassword") == 0 || mapArgs["-rpcpassword"] == "")
     {
         LogPrintf("No rpcpassword set - using random cookie authentication\n");
         if (!GenerateAuthCookie(&strRPCUserColonPass)) {

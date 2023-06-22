@@ -54,7 +54,7 @@ class GetBlockTemplateBlockMaxComplexityTest(BitcoinTestFramework):
         self.nodes[1].generate(50)
         self.sync_all()
 
-        node1_taddr = self.nodes[1].getnewaddress();
+        node1_taddr = self.nodes[1].getnewaddress()
 
         # Create transaction 3 transactions with 10 inputs each
         # Each transaction complexity will be equal to 10*10=100

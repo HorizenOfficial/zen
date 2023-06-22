@@ -373,9 +373,11 @@ struct CMempoolAddressDeltaKeyCompare
     }
 };
 
-//! \brief Retrieves from script type the associated address type
-//! \param [in] scriptType: the script type used to determine address type
-//! \return addressType: the associated address type
+//! Retrieves from script type the associated address type
+/*!
+  \param scriptType the script type used to determine address type
+  \return the associated address type
+*/
 inline AddressType fromScriptTypeToAddressType(CScript::ScriptType scriptType)
 {
     AddressType addressType = AddressType::UNKNOWN;

@@ -44,12 +44,6 @@ class sc_cr_fw(BitcoinTestFramework):
         Test the situation when both a fw transfer and a certificate for the same scid are in the mempool and a block is mined"
         '''
 
-        def get_epoch_data(node, sc_creating_height, epoch_length):
-            current_height = node.getblockcount()
-            epoch_number = (current_height - sc_creating_height + 1) // epoch_length - 1
-            epoch_block_hash = node.getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * epoch_length))
-            return epoch_number, epoch_block_hash
-
         # forward transfer amounts
         creation_amount = Decimal(MINER_REWARD_POST_H200*(ForkHeights['MINIMAL_SC']-100)) #Most of mature coins owned by Node
         fwt_amount = Decimal("3.0")
@@ -66,7 +60,7 @@ class sc_cr_fw(BitcoinTestFramework):
         # generate a tx in mempool whose coins will be used by the tx creating the sc as input. This will make the creation tx orphan
         # and with null prio (that is because its inputs have 0 conf). As a consequence it would be processed after the forward transfer, making the block invalid.
         # Handling sc dependancies will prevent this scenario.
-        tx = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), creation_amount);
+        tx = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), creation_amount)
         mark_logs("Node 0 sent {} coins to itself via {}".format(creation_amount, tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
@@ -127,7 +121,7 @@ class sc_cr_fw(BitcoinTestFramework):
         mark_logs("creation tx depends on {}".format(dep_cr_tx), self.nodes, DEBUG_MODE)
         assert_equal(tx, dep_cr_tx)
 
-        mark_logs("Check fw txes are in mempools and their prio is greater than sc creation prio", self.nodes, DEBUG_MODE)
+        mark_logs("Check fw txes are in mempools and their prio is lesser than sc creation prio", self.nodes, DEBUG_MODE)
         for fwt in txes:
             assert_equal(True, fwt in self.nodes[1].getrawmempool())
             prio_fwt = mp[fwt]['currentpriority']

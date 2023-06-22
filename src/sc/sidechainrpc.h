@@ -127,7 +127,7 @@ class ScRpcCmdTx : public ScRpcCmd
 class ScRpcCmdCert : public ScRpcCmd
 {
   protected:
-    // this is a reference to the tx that gets processed
+    // this is a reference to the certificate that gets processed
     CMutableScCertificate& _cert;
 
     void init() override;

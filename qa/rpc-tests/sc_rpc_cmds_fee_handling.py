@@ -299,7 +299,7 @@ class ScRpcCmdsFeeHandling(BitcoinTestFramework):
                                          pks      = addr_array,
                                          amounts  = bwt_amount_array)
 
-        mark_logs("Sending certificate without specifying fee amount (aoutom comp)", self.nodes, DEBUG_MODE)
+        mark_logs("Sending certificate without specifying fee amount (autom comp)", self.nodes, DEBUG_MODE)
         # automatic fee computation is OK. Automatic computation takes place if the user does not specify the fee...
         try:
             cert = self.nodes[1].sc_send_certificate(scid, epoch_number, q,
@@ -331,7 +331,7 @@ class ScRpcCmdsFeeHandling(BitcoinTestFramework):
                                          pks      = addr_array,
                                          amounts  = bwt_amount_array)
 
-        mark_logs("Sending certificate with a negative fee amount (aoutom comp)", self.nodes, DEBUG_MODE)
+        mark_logs("Sending certificate with a negative fee amount (autom comp)", self.nodes, DEBUG_MODE)
         # ...or set it as a negative value
         fee = Decimal("-1")
         try:

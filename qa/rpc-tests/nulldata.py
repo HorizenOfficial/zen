@@ -130,7 +130,7 @@ class NullDataTest (BitcoinTestFramework):
             except JSONRPCException as e:
                 # this will be refused because data size exceeds max
                 errorString = e.error['message']
-                assert_equal("scriptpubkey" in errorString, True);
+                assert_equal("scriptpubkey" in errorString, True)
                 print("...Ok, refused data exceeding max size")
 
 

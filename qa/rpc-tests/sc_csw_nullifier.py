@@ -11,7 +11,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, connect_nodes_bi, assert_true, assert_false, mark_logs, \
-    wait_bitcoinds, stop_nodes, get_epoch_data, sync_mempools, sync_blocks, \
+    wait_bitcoinds, stop_nodes, sync_mempools, sync_blocks, \
     disconnect_nodes, advance_epoch, swap_bytes
 from test_framework.test_framework import ForkHeights, MINER_REWARD_POST_H200
 from test_framework.mc_test.mc_test import *
@@ -232,7 +232,7 @@ class CswNullifierTest(BitcoinTestFramework):
 
         amount_2_1 = Decimal(n2_bal)/Decimal('4.0')
         mark_logs("\nNode2 sends {} coins to Node1 using csw funds...".format(amount_2_1), self.nodes, DEBUG_MODE)
-        tx = self.nodes[2].sendtoaddress(self.nodes[1].getnewaddress(), amount_2_1);
+        tx = self.nodes[2].sendtoaddress(self.nodes[1].getnewaddress(), amount_2_1)
         mark_logs("tx = {}".format(tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
@@ -385,7 +385,7 @@ class CswNullifierTest(BitcoinTestFramework):
 
         # Node1 sends all of its balance to Node0
         amount = Decimal(n1_bal) - Decimal("0.0001")
-        tx_1_0 = self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), amount);
+        tx_1_0 = self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), amount)
         mark_logs("tx = {}".format(tx_1_0), self.nodes, DEBUG_MODE)
         mark_logs("Node1 sent {} coins to Node0 using csw funds...".format(amount), self.nodes, DEBUG_MODE)
         sync_mempools(self.nodes[0:2])

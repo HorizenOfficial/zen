@@ -145,9 +145,9 @@ class RESTTest (BitcoinTestFramework):
 
         binaryRequest = b'\x01\x02'
         binaryRequest += binascii.unhexlify(txid)
-        binaryRequest += struct.pack("i", n);
-        binaryRequest += binascii.unhexlify(vintx);
-        binaryRequest += struct.pack("i", 0);
+        binaryRequest += struct.pack("i", n)
+        binaryRequest += binascii.unhexlify(vintx)
+        binaryRequest += struct.pack("i", 0)
 
         bin_response = http_post_call(url.hostname, url.port, '/rest/getutxos'+self.FORMAT_SEPARATOR+'bin', binaryRequest)
         output = BytesIO()
@@ -208,7 +208,7 @@ class RESTTest (BitcoinTestFramework):
         json_request = '/checkmempool/'
         for x in range(0, 15):
             json_request += txid+'-'+str(n)+'/'
-        json_request = json_request.rstrip("/");
+        json_request = json_request.rstrip("/")
         response = http_post_call(url.hostname, url.port, '/rest/getutxos'+json_request+self.FORMAT_SEPARATOR+'json', '', True)
         assert_equal(response.status, 200) # must be a 500 because we exceeding the limits
 
@@ -296,7 +296,7 @@ class RESTTest (BitcoinTestFramework):
         assert_equal(len(json_obj), 5) # now we should have 5 header objects
 
         # do tx test
-        tx_hash = block_json_obj['tx'][0]['txid'];
+        tx_hash = block_json_obj['tx'][0]['txid']
         json_string = http_get_call(url.hostname, url.port, '/rest/tx/'+tx_hash+self.FORMAT_SEPARATOR+"json")
         json_obj = json.loads(json_string)
         assert_equal(json_obj['txid'], tx_hash)

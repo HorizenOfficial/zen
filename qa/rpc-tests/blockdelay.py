@@ -227,7 +227,7 @@ class blockdelay(BitcoinTestFramework):
         self.mark_logs("Joining network")
 #        raw_input("press enter to join the netorks..")
         self.join_network()
-        self.sync_longest_fork(1, 10);
+        self.sync_longest_fork(1, 10)
 
         print("\nNetwork joined")
 
@@ -303,7 +303,7 @@ class blockdelay(BitcoinTestFramework):
         self.nodes[3].generate(64)
         print("Malicious blocks generated")
 
-        self.sync_longest_fork(1, 10);
+        self.sync_longest_fork(1, 10)
 
         for i in range(0, 4):
             print("Node%d  ---" % i)
