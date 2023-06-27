@@ -250,10 +250,10 @@ class WalletProtectCoinbaseTest (BitcoinTestFramework):
         errorString = ""
         try:
             self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 99999)
-            assert(False)
+            assert_equal(False)
         except JSONRPCException as e:
-            errorString = e.error['message']
-            assert_equal("Insufficient funds" in errorString, True)
+            errorCode = e.error["code"]
+            assert_equal(-6, errorCode)
 
         # z_sendmany will fail because of insufficient funds
         recipients = []
@@ -270,10 +270,10 @@ class WalletProtectCoinbaseTest (BitcoinTestFramework):
         # Send will fail because of insufficient funds unless sender uses coinbase utxos
         try:
             self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 21)
-            assert(False)
+            assert_equal(False)
         except JSONRPCException as e:
-            errorString = e.error['message']
-            assert_equal("Insufficient funds, coinbase funds can only be spent after they have been sent to a zaddr" in errorString, True)
+            errorCode = e.error["code"]
+            assert_equal(-4, errorCode)
 
         # Verify that mempools accept tx with joinsplits which have at least the default z_sendmany fee.
         # If this test passes, it confirms that issue #1851 has been resolved, where sending from

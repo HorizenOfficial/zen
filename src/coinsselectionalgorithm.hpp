@@ -41,7 +41,7 @@ protected:
 
     // ---------- auxiliary
     //! The temporary set of selected elements (1->selected, 0->unselected)
-    //! std::vector<char> is used over std::vector<bool> for favoring processing over optimization
+    //! std::vector<char> is used over std::vector<bool> for favoring processing performance over memory optimization
     std::vector<char> tempSelection;
 
     //! Max index of elements (equal to "problemDimension - 1")
@@ -64,7 +64,7 @@ protected:
     //! Flag identifying if the solving routine has completed
     std::atomic<bool> hasCompleted = false;
 
-    //! Milliseconds the solving routine started
+    //! Milliseconds the solving routine started at
     uint64_t executionStartMilliseconds = 0;
 
     //! Milliseconds elapsed completing the solving routine

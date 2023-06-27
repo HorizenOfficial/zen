@@ -8,7 +8,7 @@ from test_framework.util import assert_equal, assert_greater_or_equal_than, init
 import os
 import zipfile
 import time
-from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
+from test_framework.test_framework import MINER_REWARD_POST_H200
 from test_framework.mc_test.mc_test import *
 
 EPS = Decimal(0.00000001)
@@ -19,9 +19,23 @@ class OversizedTxCert(BitcoinTestFramework):
 
         # importing datadir resource
         #
-        # 101 blocks generated on node2 + (0.001 sent from node2 to node0 + 1 block generated on node2) * 2000 +
-        # (1 block genrated on node1 + 100 blocks generated on node2 + shielding on node1 coinbase) * 200 +
-        # 1 block generated on node2
+        # 101 blocks generated on node2 + (0.001 sent from node2 to node0) * 2000 +
+        # 1 block generated on node2 + 200 blocks generated on node1 +
+        # (single shielding on node1 coinbase + 1 block generated on node2) * 200
+        #
+        # node0:
+        # +] ztoEcvcprfPWbfzYXUAFaA12BFCck9hXVYw                                                             -> 2.00000000 {2000 utxos}
+        #
+        # node1:
+        # +] ztjUrw6vnos7grPAFHh98w1Qct2LjX3zxE2                                                             -> 0.00000000
+        # +] ztni5Ykn2RCkojLQX1QdDR4iEGYnBYaH7HMNXo12xYoy5isQfBTLpNeoEjm6LhgeCtbNhCtNcrDpqp8ReR1cwjqadrmhdxV -> 1625.73000000 {200 utxos}
+        #
+        # node2:
+        # +] zta36sLgzD3H81nWXkv3qfLnSBXbXsrg1oW                                                             -> 0.00000000
+        # +] ztr1k6dK5D3XqizVSBhekFMx45NdWeo3gbJ                                                             -> 761.01592000 (+750.01000000 immature) {101 utxos (+100 immature)}
+        # +] ztoap92Ej7A13F3uhBbT81QEvzVNkTgwC6Q                                                             -> 1143.31225000 {101 utxos}
+        # +] ztfUjF8wQfJkzuJYAMSMVgamKGNEacUozb5                                                             -> 9.43158000 {1 utxos}
+        #
 
         resource_file = os.sep.join([os.path.dirname(__file__), 'resources', 'oversized_tx_cert', 'test_setup_.zip'])
         with zipfile.ZipFile(resource_file, 'r') as zip_ref:
@@ -33,7 +47,7 @@ class OversizedTxCert(BitcoinTestFramework):
         initialize_chain_clean(self.options.tmpdir, 3)
 
     def setup_network(self, split=False):
-        self.nodes = start_nodes(3, self.options.tmpdir, extra_args=[['-debug=zrpcunsafe', '-maxtipage=36000000']] * 3 )
+        self.nodes = start_nodes(3, self.options.tmpdir, extra_args=[['-debug=zrpcunsafe', '-maxtipage=36000000', "--nocleanup"]] * 3 )
         connect_nodes_bi(self.nodes,0,1)
         connect_nodes_bi(self.nodes,1,2)
         connect_nodes_bi(self.nodes,0,2)
@@ -132,6 +146,7 @@ class OversizedTxCert(BitcoinTestFramework):
         # two middle value coins are sent but will not suffice (due to oversize) for creating next transaction (even if
         # mixed with other small coins)
         self.nodes[2].sendtoaddress(nt0, 0.5)
+        self.sync_all()
         self.nodes[2].sendtoaddress(nt0, 0.5)
         self.sync_all()
         self.nodes[2].generate(1)
@@ -146,7 +161,6 @@ class OversizedTxCert(BitcoinTestFramework):
             print("Impossible to create transaction (as expected): {}".format(errorString))
 
         # two middle value coins previously sent are selected (together with other small coins) for creating next transaction
-        self.sync_all()
         self.nodes[2].generate(1)
         self.sync_all()
         listunspent0 = self.nodes[0].listunspent(0)
@@ -160,32 +174,23 @@ class OversizedTxCert(BitcoinTestFramework):
         
 
         # ---------- testing sc_create and sc_send_certificate ----------
-        # emptying node0 wallet
-        iter = 0
-        while (iter < 1000): # just for putting a higher limit 
-            iter += 1
-            partialBalance0 = 0
+        # emptying node0 wallet (with some txs, not in a single tx otherwise we would incur in oversized tx)
+        partialBalance0 = 0
+        listunspent0 = self.nodes[0].listunspent(0)
+        while(len(listunspent0) > 0):
+            partialBalance0 = sum(item['amount'] for item in listunspent0[:600]) # an "almost void" transaction supports approximately up to 650 inputs
+            self.nodes[0].sendtoaddress(nt2, partialBalance0, "", "", True)
+            self.sync_all()
+            self.nodes[2].generate(1)
+            self.sync_all()
             listunspent0 = self.nodes[0].listunspent(0)
-            if (len(listunspent0) == 0):
-                break
-            for i in range(len(listunspent0)):
-                partialBalance0 += listunspent0[i]["amount"]
-                if ((i + 1) % 600 == 0 or i == len(listunspent0) - 1): # an "almost void" transaction supports approximately up to 650 inputs
-                    self.nodes[0].sendtoaddress(nt2, partialBalance0, "", "", True)
-                    self.sync_all()
-                    self.nodes[2].generate(1)
-                    self.sync_all()
-                    partialBalance0 = 0
-                    listunspent0 = self.nodes[0].listunspent(0)
-                    break
 
-        # sending a lot of small coins to node0 wallet
+        # sending a lot of small coins to node0 wallet (syncing only at loop end, since only node2 is involved)
         for i in range(1100): # an "almost void" certificate supports approximately up to 1000 inputs
             self.nodes[2].sendtoaddress(nt0, 0.000005)
             if ((i + 1) % 600 == 0 or i == 1100 - 1):
-                self.sync_all()
                 self.nodes[2].generate(1)
-                self.sync_all()
+        self.sync_all()
         
         EPOCH_LENGTH = 10
         FT_SC_FEE = Decimal('0')
@@ -216,11 +221,11 @@ class OversizedTxCert(BitcoinTestFramework):
         scid = self.nodes[0].getscinfo("*")["items"][0]["scid"]
         scid_swapped = str(swap_bytes(scid))
         constant = self.nodes[0].getscinfo("*")["items"][0]["constant"]
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         quality = 1
         mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
         amount_cert = []
-        proof = mcTest.create_test_proof("sc0", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [], [])
+        proof = mcTest.create_test_proof("sc0", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, None, constant, [], [])
         
         try:
             # using only small coins results in an oversized certificate

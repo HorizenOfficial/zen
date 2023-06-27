@@ -945,42 +945,44 @@ size_t ScRpcCmd::addInputs(size_t availableBytes)
             bool res = pwalletMain->SelectCoinsMinConf(targetAmount, conf, conf, vAvailableCoinsFiltered, vCoinsRet, nValueRet, baseInputsSize,
                                                        availableBytes, _automaticFee); // auto fee -> use input net values, manual fee -> fee already explicitly included in target amount
 
+            std::string addrDetails;
+            if (_hasFromAddress)
+                addrDetails = strprintf(" for taddr[%s]", _fromMcAddress.ToString());
+
             if (!res)
             {
-                std::string addrDetails;
-                if (_hasFromAddress)
-                    addrDetails = strprintf(" for taddr[%s]", _fromMcAddress.ToString());
-
-                if (loop == 0)
+                if (totalValue < targetAmount)
                 {
-                    if (totalValue < targetAmount)
-                    {
-                        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS,
-                            strprintf("Insufficient transparent funds %s, have %s, need %s (minconf=%d)",
-                            addrDetails, FormatMoney(totalValue), FormatMoney(targetAmount), _minConf));
-                    }
-                    else
-                    {
-                        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS,
-                            strprintf("Not selectable transparent funds %s, (probably due to prevented oversized tx/cert, available size %d), have %s, need %s (minconf=%d)",
-                            addrDetails, availableBytes, FormatMoney(totalValue), FormatMoney(targetAmount), _minConf));
-                    }
+                    throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS,
+                                       strprintf("Insufficient transparent funds%s, have %s, need %s (minconf=%d)",
+                                       addrDetails, FormatMoney(totalValue), FormatMoney(targetAmount), _minConf));
                 }
                 else
                 {
                     throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS,
-                        strprintf("Insufficient transparent funds %s, have %s, need %s more to avoid creating invalid change output %s (dust threshold is %s)",
-                        addrDetails, FormatMoney(totalValue), FormatMoney(_dustThreshold - (totalValue - targetAmount)), FormatMoney((totalValue - targetAmount)), FormatMoney(_dustThreshold)));
+                                       strprintf("Not selectable transparent funds%s, (probably due to prevented oversized tx/cert, available size %d), have %s, need %s (minconf=%d)",
+                                       addrDetails, availableBytes, FormatMoney(totalValue), FormatMoney(targetAmount), _minConf));
                 }
             }
             else
             {
                 if (nValueRet != targetAmount && nValueRet - targetAmount < _dustThreshold)
                 {
-                    // in this case the selection has exceeded target value but the resulting change would be under dust threshold
-                    // another execution is done summing dust threshold to target value
-                    targetAmount += _dustThreshold;
-                    continue;
+                    // in this case the selection has exceeded target value but the resulting change would be under dust threshold, so...
+
+                    if (totalValue < targetAmount + _dustThreshold)
+                    {
+                        // ...this means there are insufficient funds for avoiding creation of invalid change output
+                        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS,
+                                           strprintf("Insufficient transparent funds%s, have %s, need %s more to avoid creating invalid change output %s (dust threshold is %s)",
+                                           addrDetails, FormatMoney(totalValue), FormatMoney(_dustThreshold - (totalValue - targetAmount)), FormatMoney((totalValue - targetAmount)), FormatMoney(_dustThreshold)));
+                    }
+                    else
+                    {
+                        // ...another execution is done summing dust threshold to target value
+                        targetAmount += _dustThreshold;
+                        continue;
+                    }
                 }
                 _totalInputAmount = nValueRet;
                 break;

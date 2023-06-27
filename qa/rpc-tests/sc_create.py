@@ -388,7 +388,7 @@ class SCCreateTest(BitcoinTestFramework):
         missing_balance_string = f"{(DUST_THRESHOLD - amount_below_dust_threshold):.10f}".rstrip('0').rstrip('.')
         invalid_amount_string = f"{amount_below_dust_threshold:.10f}".rstrip('0').rstrip('.')
         dust_threshold_string = f"{DUST_THRESHOLD:.10f}".rstrip('0').rstrip('.')
-        expected_error_message = f"Insufficient transparent funds, have {current_balance_string}, need {missing_balance_string} more to avoid creating invalid change output {invalid_amount_string} (dust threshold is {dust_threshold_string})"
+        expected_error_message = f"Insufficient transparent funds for taddr[{node1_other_address}], have {current_balance_string}, need {missing_balance_string} more to avoid creating invalid change output {invalid_amount_string} (dust threshold is {dust_threshold_string})"
         self.try_sidechain_creation(1, cmdInput, expected_error_message)
 
         # ---------------------------------------------------------------------------------------

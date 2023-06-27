@@ -178,7 +178,6 @@ TEST_F(WalletTest, note_data_serialisation) {
 
 
 TEST_F(WalletTest, find_unspent_notes) {
-
     SelectParams(CBaseChainParams::TESTNET);
     CWallet wallet;
     auto sk = libzcash::SpendingKey::random();
@@ -336,9 +335,7 @@ TEST_F(WalletTest, find_unspent_notes) {
     mapBlockIndex.erase(blockHash3);
 }
 
-#include <chrono>
-#include <thread>
-TEST(wallet_tests, select_notes)
+TEST_F(WalletTest, select_notes)
 {
     uint256 apk, rho, r;
     CNotePlaintextEntry note;
@@ -348,6 +345,113 @@ TEST(wallet_tests, select_notes)
     size_t selectionTotalBytes = 0, availableBytes = 0;
     std::vector<CNotePlaintextEntry> vecEntries, vNotesRet;
     bool selectionResult = false;
+
+    // just one note of value 10
+    vecEntries.clear();
+    note.plaintext = libzcash::NotePlaintext(libzcash::Note(apk, 10, rho, r), std::array<unsigned char, ZC_MEMO_SIZE>());
+    vecEntries.push_back(note);
+    nTargetValue = 10;
+    selectionResult = wallet.SelectNotes(nTargetValue, vecEntries, vNotesRet, nValueRet, selectionTotalBytes,
+                                         MAX_TX_SIZE, joinsplitsOutputsAmounts);
+    EXPECT_EQ(selectionResult, true);
+    EXPECT_EQ(nValueRet, nTargetValue);
+    // the single note is to be selected
+    EXPECT_EQ(vNotesRet.size(), 1);
+    // but if not enough space is available for selection...
+    selectionResult = wallet.SelectNotes(nTargetValue, vecEntries, vNotesRet, nValueRet, selectionTotalBytes,
+                                         100, joinsplitsOutputsAmounts); // (100 bytes are for sure not enough for a joinsplit)
+    // ...then the selection cannot be performed
+    EXPECT_EQ(selectionResult, false);
+
+
+    // one note of value 10 and two notes of value 5
+    vecEntries.clear();
+    note.plaintext = libzcash::NotePlaintext(libzcash::Note(apk, 10, rho, r), std::array<unsigned char, ZC_MEMO_SIZE>());
+    vecEntries.push_back(note);
+    note.plaintext = libzcash::NotePlaintext(libzcash::Note(apk, 5, rho, r), std::array<unsigned char, ZC_MEMO_SIZE>());
+    vecEntries.push_back(note);
+    vecEntries.push_back(note);
+    nTargetValue = 10;
+    selectionResult = wallet.SelectNotes(nTargetValue, vecEntries, vNotesRet, nValueRet, selectionTotalBytes,
+                                         MAX_TX_SIZE, joinsplitsOutputsAmounts);
+    EXPECT_EQ(selectionResult, true);
+    EXPECT_EQ(nValueRet, nTargetValue);
+    // 2 smaller notes are to be selected (quantity maximization)
+    EXPECT_EQ(vNotesRet.size(), 2);
+
+
+    //many small notes with big target
+    vecEntries.clear();
+    for (int i = 0; i < 1000; ++i)
+    {
+        note.plaintext = libzcash::NotePlaintext(libzcash::Note(apk, 1, rho, r), std::array<unsigned char, ZC_MEMO_SIZE>());
+        vecEntries.push_back(note);
+    }
+    nTargetValue = 1000;
+    joinsplitsOutputsAmounts.push_back(nTargetValue);
+    selectionResult = wallet.SelectNotes(nTargetValue, vecEntries, vNotesRet, nValueRet, selectionTotalBytes,
+                                         MAX_TX_SIZE, joinsplitsOutputsAmounts);
+    // the selection cannot be performed
+    EXPECT_EQ(selectionResult, false);
+    // but if the target value is decreased...
+    nTargetValue = 100;
+    joinsplitsOutputsAmounts[0] = nTargetValue;
+    selectionResult = wallet.SelectNotes(nTargetValue, vecEntries, vNotesRet, nValueRet, selectionTotalBytes,
+                                         MAX_TX_SIZE, joinsplitsOutputsAmounts);
+    // ...then the selection can be performed
+    EXPECT_EQ(selectionResult, true);
+    EXPECT_EQ(nValueRet, nTargetValue);
+    // 100 notes are to be selected
+    EXPECT_EQ(vNotesRet.size(), 100);
+
+
+    //one big note with many small targets
+    vecEntries.clear();
+    note.plaintext = libzcash::NotePlaintext(libzcash::Note(apk, 1000, rho, r), std::array<unsigned char, ZC_MEMO_SIZE>());
+    vecEntries.push_back(note);
+    nTargetValue = 1000;
+    joinsplitsOutputsAmounts.clear();
+    for (int i = 0; i < 1000; ++i)
+    {
+        joinsplitsOutputsAmounts.push_back(1);
+    }
+    selectionResult = wallet.SelectNotes(nTargetValue, vecEntries, vNotesRet, nValueRet, selectionTotalBytes,
+                                         MAX_TX_SIZE, joinsplitsOutputsAmounts);
+    // the selection cannot be performed
+    EXPECT_EQ(selectionResult, false);
+    // but if the number of targets is decreased...
+    nTargetValue = 10;
+    joinsplitsOutputsAmounts.clear();
+    for (int i = 0; i < 10; ++i)
+    {
+        joinsplitsOutputsAmounts.push_back(1);
+    }
+    selectionResult = wallet.SelectNotes(nTargetValue, vecEntries, vNotesRet, nValueRet, selectionTotalBytes,
+                                         MAX_TX_SIZE, joinsplitsOutputsAmounts);
+    // ...then the selection can be performed
+    EXPECT_EQ(selectionResult, true);
+    EXPECT_EQ(nValueRet, note.plaintext.value());
+    // the single note is to be selected
+    EXPECT_EQ(vNotesRet.size(), 1);
+
+
+    // some notes
+    vecEntries.clear();
+    note.plaintext = libzcash::NotePlaintext(libzcash::Note(apk, 2, rho, r), std::array<unsigned char, ZC_MEMO_SIZE>());
+    vecEntries.push_back(note);
+    note.plaintext = libzcash::NotePlaintext(libzcash::Note(apk, 3, rho, r), std::array<unsigned char, ZC_MEMO_SIZE>());
+    vecEntries.push_back(note);
+    note.plaintext = libzcash::NotePlaintext(libzcash::Note(apk, 5, rho, r), std::array<unsigned char, ZC_MEMO_SIZE>());
+    vecEntries.push_back(note);
+    note.plaintext = libzcash::NotePlaintext(libzcash::Note(apk, 7, rho, r), std::array<unsigned char, ZC_MEMO_SIZE>());
+    vecEntries.push_back(note);
+    nTargetValue = 11;
+    selectionResult = wallet.SelectNotes(nTargetValue, vecEntries, vNotesRet, nValueRet, selectionTotalBytes,
+                                         MAX_TX_SIZE, joinsplitsOutputsAmounts);
+    // a selection without an exact match can be performed
+    EXPECT_EQ(selectionResult, true);
+    EXPECT_GT(nValueRet, nTargetValue);
+}
 
 TEST_F(WalletTest, set_note_addrs_in_cwallettx) {
     auto sk = libzcash::SpendingKey::random();
