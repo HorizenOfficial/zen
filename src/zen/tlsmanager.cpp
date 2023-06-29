@@ -729,7 +729,7 @@ int TLSManager::threadSocketHandler(CNode* pnode, fd_set& fdsetRecv, fd_set& fds
     if (sendSet) {
         TRY_LOCK(pnode->cs_vSend, lockSend);
         if (lockSend)
-            SocketSendData(pnode);
+            connman->SocketSendData(pnode);
     }
     return 0;
 }

@@ -78,13 +78,15 @@ static const size_t MAPRECEIVED_MAX_SZ = 8 * 120 * 100;
 /** The maximum number of peer connections to maintain. */
 static const unsigned int DEFAULT_MAX_PEER_CONNECTIONS = 125;
 
+static const int MAX_OUTBOUND_CONNECTIONS = 8;
+
 unsigned int ReceiveFloodSize();
 unsigned int SendBufferSize();
 
 void AddressCurrentlyConnected(const CService& addr);
 unsigned short GetListenPort();
 bool BindListenPort(const CService &bindAddr, std::string& strError, bool fWhitelisted = false);
-void SocketSendData(CNode *pnode);
+
 SSL_CTX* create_context(bool server_side);
 EVP_PKEY *generate_key();
 X509 *generate_x509(EVP_PKEY *pkey);
@@ -715,6 +717,27 @@ public:
     bool Read(CAddrMan& addr);
 };
 
+struct ListenSocket {
+    SOCKET socket;
+    bool whitelisted;
+
+    ListenSocket(SOCKET socket, bool whitelisted) : socket(socket), whitelisted(whitelisted) {}
+};
+
+
+namespace zen {
+typedef struct _NODE_ADDR {
+    std::string ipAddr;
+    int64_t time; // time in msec, of an attempt to connect via TLS
+
+    _NODE_ADDR(std::string _ipAddr, int64_t _time = 0) : ipAddr(_ipAddr), time(_time) {}
+    bool operator==(const _NODE_ADDR b) const
+    {
+        return (ipAddr == b.ipAddr);
+    }
+} NODE_ADDR, *PNODE_ADDR;
+}
+
 class CConnman {
 public:
     struct Options
@@ -786,6 +809,8 @@ public:
     CNode* FindNode(const std::string& addrName);
     CNode* FindNode(const CService& ip);
     CNode* ConnectNode(CAddress addrConnect, const char *pszDest = NULL);
+
+    void SocketSendData(CNode *pnode);
 
     CConnman();
     ~CConnman();

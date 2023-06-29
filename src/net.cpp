@@ -68,17 +68,6 @@ extern std::unique_ptr<CConnman> connman;
 
 using namespace std;
 
-namespace {
-    const int MAX_OUTBOUND_CONNECTIONS = 8;
-
-    struct ListenSocket {
-        SOCKET socket;
-        bool whitelisted;
-
-        ListenSocket(SOCKET socket, bool whitelisted) : socket(socket), whitelisted(whitelisted) {}
-    };
-}
-
 //
 // Global state variables
 //
@@ -840,7 +829,7 @@ CConnman::~CConnman()
 
 
 // requires LOCK(cs_vSend)
-void SocketSendData(CNode *pnode)
+void CConnman::SocketSendData(CNode *pnode)
 {
     std::deque<CSerializeData>::iterator it = pnode->vSendMsg.begin();
 
@@ -2573,7 +2562,7 @@ void CNode::EndMessage() UNLOCK_FUNCTION(cs_vSend)
 
     // If write queue empty, attempt "optimistic write"
     if (it == vSendMsg.begin())
-        SocketSendData(this);
+        connman->SocketSendData(this);
 
     LEAVE_CRITICAL_SECTION(cs_vSend);
 }
