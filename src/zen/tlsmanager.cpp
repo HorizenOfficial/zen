@@ -12,6 +12,8 @@
 #include "tlsmanager.h"
 #include "utiltls.h"
 
+extern std::unique_ptr<CConnman> connman;
+
 using namespace std;
 namespace zen
 {

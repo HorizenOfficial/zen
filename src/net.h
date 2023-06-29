@@ -724,4 +724,68 @@ public:
     bool Read(CAddrMan& addr);
 };
 
+class CConnman {
+public:
+    struct Options
+    {
+        uint64_t nLocalServices = 0;
+        int nMaxConnections = 0;
+        int m_max_outbound_full_relay = 0;
+        int m_max_outbound_block_relay = 0;
+        int nMaxAddnode = 0;
+        int nMaxFeeler = 0;
+        // CClientUIInterface* uiInterface = nullptr;
+        // NetEventsInterface* m_msgproc = nullptr;
+        // BanMan* m_banman = nullptr;
+        unsigned int nSendBufferMaxSize = 0;
+        unsigned int nReceiveFloodSize = 0;
+        uint64_t nMaxOutboundLimit = 0;
+        // int64_t m_peer_connect_timeout = DEFAULT_PEER_CONNECT_TIMEOUT;
+        std::vector<std::string> vSeedNodes;
+        // std::vector<NetWhitelistPermissions> vWhitelistedRange;
+        // std::vector<NetWhitebindPermissions> vWhiteBinds;
+        std::vector<CService> vBinds;
+        std::vector<CService> onion_binds;
+        bool bind_on_any;
+        bool m_use_addrman_outgoing = true;
+        std::vector<std::string> m_specified_outgoing;
+        std::vector<std::string> m_added_nodes;
+        bool m_i2p_accept_incoming;
+    };
+
+    void Init(const Options& connOptions) EXCLUSIVE_LOCKS_REQUIRED(!m_added_nodes_mutex, !m_total_bytes_sent_mutex)
+    {
+        // AssertLockNotHeld(m_total_bytes_sent_mutex);
+
+        // nLocalServices = connOptions.nLocalServices;
+        // nMaxConnections = connOptions.nMaxConnections;
+        // m_max_outbound_full_relay = std::min(connOptions.m_max_outbound_full_relay, connOptions.nMaxConnections);
+        // m_max_outbound_block_relay = connOptions.m_max_outbound_block_relay;
+        // m_use_addrman_outgoing = connOptions.m_use_addrman_outgoing;
+        // nMaxAddnode = connOptions.nMaxAddnode;
+        // nMaxFeeler = connOptions.nMaxFeeler;
+        // m_max_outbound = m_max_outbound_full_relay + m_max_outbound_block_relay + nMaxFeeler;
+        // // m_client_interface = connOptions.uiInterface;
+        // // m_banman = connOptions.m_banman;
+        // // m_msgproc = connOptions.m_msgproc;
+        // nSendBufferMaxSize = connOptions.nSendBufferMaxSize;
+        // nReceiveFloodSize = connOptions.nReceiveFloodSize;
+        // // m_peer_connect_timeout = std::chrono::seconds{connOptions.m_peer_connect_timeout};
+        // {
+        //     LOCK(m_total_bytes_sent_mutex);
+        //     nMaxOutboundLimit = connOptions.nMaxOutboundLimit;
+        // }
+        // // vWhitelistedRange = connOptions.vWhitelistedRange;
+        // {
+        //     LOCK(m_added_nodes_mutex);
+        //     m_added_nodes = connOptions.m_added_nodes;
+        // }
+        // m_onion_binds = connOptions.onion_binds;
+    }
+
+
+    CConnman();
+    ~CConnman();
+};
+
 #endif // BITCOIN_NET_H

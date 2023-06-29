@@ -1361,6 +1361,9 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     RegisterNodeSignals(GetNodeSignals());
 
+    connman.reset();
+    connman = std::make_unique<CConnman>();
+
     if (mapArgs.count("-onlynet")) {
         std::set<enum Network> nets;
         BOOST_FOREACH(const std::string& snet, mapMultiArgs["-onlynet"]) {

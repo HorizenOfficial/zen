@@ -63,6 +63,8 @@ using namespace zen;
     #error "ERROR: Your OpenSSL version does not support TLS v1.2"
 #endif
 
+// TEMPORARY! This should be removed as soon as we get rid of boost:thread
+extern std::unique_ptr<CConnman> connman;
 
 using namespace std;
 
@@ -815,6 +817,23 @@ int CNetMessage::readData(const char *pch, unsigned int nBytes)
 
 
 
+
+
+//////////////////////
+///    CConnman    ///
+//////////////////////
+
+CConnman::CConnman() {
+    Options connOptions;
+    Init(connOptions);
+    // SetNetworkActive(network_active);
+}
+
+CConnman::~CConnman()
+{
+    // Interrupt();
+    // Stop();
+}
 
 
 
