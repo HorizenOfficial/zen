@@ -4617,8 +4617,8 @@ bool ActivateBestChain(CValidationState &state, CBlock *pblock, bool &postponeRe
             // Don't relay blocks if pruning -- could cause a peer to try to download, resulting
             // in a stalled download if the block file is pruned before the request.
             if (nLocalServices & NODE_NETWORK) {
-                LOCK(cs_vNodes);
-                BOOST_FOREACH(CNode* pnode, vNodes)
+                LOCK(connman->cs_vNodes);
+                BOOST_FOREACH(CNode* pnode, connman->vNodes)
                 {
                     if (chainActive.Height() > (pnode->nStartingHeight != -1 ? pnode->nStartingHeight - 2000 : nBlockEstimate))
                     {
@@ -7159,7 +7159,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             {
                 // Relay to a limited number of other nodes
                 {
-                    LOCK(cs_vNodes);
+                    LOCK(connman->cs_vNodes);
                     // Use deterministic randomness to send to the same nodes for 24 hours
                     // at a time so the addrKnowns of the chosen nodes prevent repeats
                     static uint256 hashSalt;
@@ -7169,7 +7169,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                     uint256 hashRand = ArithToUint256(UintToArith256(hashSalt) ^ (hashAddr<<32) ^ ((GetTime()+hashAddr)/(24*60*60)));
                     hashRand = Hash(BEGIN(hashRand), END(hashRand));
                     multimap<uint256, CNode*> mapMix;
-                    BOOST_FOREACH(CNode* pnode, vNodes)
+                    BOOST_FOREACH(CNode* pnode, connman->vNodes)
                     {
                         if (pnode->nVersion < CADDR_TIME_VERSION)
                             continue;
@@ -8039,8 +8039,8 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
         static int64_t nLastRebroadcast;
         if (!IsInitialBlockDownload() && (GetTime() - nLastRebroadcast > 24 * 60 * 60))
         {
-            LOCK(cs_vNodes);
-            BOOST_FOREACH(CNode* pnode, vNodes)
+            LOCK(connman->cs_vNodes);
+            BOOST_FOREACH(CNode* pnode, connman->vNodes)
             {
                 // Periodically clear addrKnown to allow refresh broadcasts
                 if (nLastRebroadcast)
@@ -8049,7 +8049,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
                 // Rebroadcast our address
                 AdvertizeLocal(pnode);
             }
-            if (!vNodes.empty())
+            if (!connman->vNodes.empty())
                 nLastRebroadcast = GetTime();
         }
 
@@ -8381,8 +8381,8 @@ bool RelayAlternativeChain(CValidationState &state, CBlock *pblock, BlockSet* sF
 
     int nodeHeight = -1;
     if (nLocalServices & NODE_NETWORK) {
-        LOCK(cs_vNodes);
-        BOOST_FOREACH(CNode* pnode, vNodes)
+        LOCK(connman->cs_vNodes);
+        BOOST_FOREACH(CNode* pnode, connman->vNodes)
         {
             if (pnode->nStartingHeight != -1)
             {

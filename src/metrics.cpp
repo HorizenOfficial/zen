@@ -221,9 +221,9 @@ int printStats(bool mining)
     int connections = 0;
     int tlsConnections = 0;
     {
-        LOCK2(cs_main, cs_vNodes);
-        connections = vNodes.size();
-        tlsConnections = std::count_if(vNodes.begin(), vNodes.end(), [](CNode* n) {return n->ssl != NULL;});
+        LOCK2(cs_main, connman->cs_vNodes);
+        connections = connman->vNodes.size();
+        tlsConnections = std::count_if(connman->vNodes.begin(), connman->vNodes.end(), [](CNode* n) {return n->ssl != NULL;});
     }
     unsigned long mempool_count = mempool->size();
 /*
@@ -292,8 +292,8 @@ int printMiningStatus(bool mining)
         } else {
             bool fvNodesEmpty;
             {
-                LOCK(cs_vNodes);
-                fvNodesEmpty = vNodes.empty();
+                LOCK(connman->cs_vNodes);
+                fvNodesEmpty = connman->vNodes.empty();
             }
             if (fvNodesEmpty) {
                 std::cout << _("Mining is paused while waiting for connections.") << std::endl;

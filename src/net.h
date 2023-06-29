@@ -165,19 +165,13 @@ extern CAddrMan addrman;
 /** Maximum number of connections to simultaneously allow (aka connection slots) */
 extern int nMaxConnections;
 
-extern std::vector<CNode*> vNodes;
-extern CCriticalSection cs_vNodes;
+//// extern std::vector<CNode*> vNodes;
+//// extern CCriticalSection cs_vNodes;
 extern std::map<CInv, CDataStream> mapRelay;
 extern std::deque<std::pair<int64_t, CInv> > vRelayExpiration;
 extern CCriticalSection cs_mapRelay;
 extern LimitedMap<CInv, int64_t> mapAlreadyAskedFor;
 extern LimitedMap<CInv, int64_t> mapAlreadyReceived;
-
-extern std::vector<std::string> vAddedNodes;
-extern CCriticalSection cs_vAddedNodes;
-
-extern NodeId nLastNodeId;
-extern CCriticalSection cs_nLastNodeId;
 
 extern SSL_CTX *tls_ctx_server;
 extern SSL_CTX *tls_ctx_client;
@@ -807,13 +801,21 @@ public:
     std::unique_ptr<CSemaphore> semOutbound = nullptr;
     std::unique_ptr<CNode> pnodeLocalHost = nullptr;
 
-    std::deque<std::string> vOneShots;
-    CCriticalSection cs_vOneShots;
+    std::vector<CNode*> vNodes;
+    CCriticalSection cs_vNodes;
+    std::vector<std::string> vAddedNodes;
+    CCriticalSection cs_vAddedNodes;
+    std::atomic<NodeId> nLastNodeId{0};
+    NodeId GetNewNodeId();
 
     std::vector<zen::NODE_ADDR> vNonTLSNodesInbound;
     CCriticalSection cs_vNonTLSNodesInbound;
     std::vector<zen::NODE_ADDR> vNonTLSNodesOutbound;
     CCriticalSection cs_vNonTLSNodesOutbound;
+
+    std::deque<std::string> vOneShots;
+    CCriticalSection cs_vOneShots;
+
     // Network stats
     void RecordBytesRecv(uint64_t bytes);
     void RecordBytesSent(uint64_t bytes);

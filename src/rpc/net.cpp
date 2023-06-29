@@ -36,9 +36,9 @@ UniValue getconnectioncount(const UniValue& params, bool fHelp)
             + HelpExampleRpc("getconnectioncount", "")
         );
 
-    LOCK2(cs_main, cs_vNodes);
+    LOCK2(cs_main, connman->cs_vNodes);
 
-    return (int)vNodes.size();
+    return (int)(connman->vNodes.size());
 }
 
 UniValue ping(const UniValue& params, bool fHelp)
@@ -59,9 +59,9 @@ UniValue ping(const UniValue& params, bool fHelp)
         );
 
     // Request that each node send a ping during next message processing pass
-    LOCK2(cs_main, cs_vNodes);
+    LOCK2(cs_main, connman->cs_vNodes);
 
-    BOOST_FOREACH(CNode* pNode, vNodes) {
+    BOOST_FOREACH(CNode* pNode, connman->vNodes) {
         pNode->fPingQueued = true;
     }
 
@@ -72,9 +72,9 @@ static void CopyNodeStats(std::vector<CNodeStats>& vstats)
 {
     vstats.clear();
 
-    LOCK(cs_vNodes);
-    vstats.reserve(vNodes.size());
-    BOOST_FOREACH(CNode* pnode, vNodes) {
+    LOCK(connman->cs_vNodes);
+    vstats.reserve(connman->vNodes.size());
+    BOOST_FOREACH(CNode* pnode, connman->vNodes) {
         CNodeStats stats;
         pnode->copyStats(stats);
         vstats.push_back(stats);
@@ -213,23 +213,23 @@ UniValue addnode(const UniValue& params, bool fHelp)
         return NullUniValue;
     }
 
-    LOCK(cs_vAddedNodes);
-    vector<string>::iterator it = vAddedNodes.begin();
-    for(; it != vAddedNodes.end(); it++)
+    LOCK(connman->cs_vAddedNodes);
+    vector<string>::iterator it = connman->vAddedNodes.begin();
+    for(; it != connman->vAddedNodes.end(); it++)
         if (strNode == *it)
             break;
 
     if (strCommand == "add")
     {
-        if (it != vAddedNodes.end())
+        if (it != connman->vAddedNodes.end())
             throw JSONRPCError(RPC_CLIENT_NODE_ALREADY_ADDED, "Error: Node already added");
-        vAddedNodes.push_back(strNode);
+        connman->vAddedNodes.push_back(strNode);
     }
     else if(strCommand == "remove")
     {
-        if (it == vAddedNodes.end())
+        if (it == connman->vAddedNodes.end())
             throw JSONRPCError(RPC_CLIENT_NODE_NOT_ADDED, "Error: Node has not been added.");
-        vAddedNodes.erase(it);
+        connman->vAddedNodes.erase(it);
     }
 
     return NullUniValue;
@@ -302,15 +302,15 @@ UniValue getaddednodeinfo(const UniValue& params, bool fHelp)
     list<string> laddedNodes(0);
     if (params.size() == 1)
     {
-        LOCK(cs_vAddedNodes);
-        BOOST_FOREACH(const std::string& strAddNode, vAddedNodes)
+        LOCK(connman->cs_vAddedNodes);
+        BOOST_FOREACH(const std::string& strAddNode, connman->vAddedNodes)
             laddedNodes.push_back(strAddNode);
     }
     else
     {
         string strNode = params[1].get_str();
-        LOCK(cs_vAddedNodes);
-        BOOST_FOREACH(const std::string& strAddNode, vAddedNodes) {
+        LOCK(connman->cs_vAddedNodes);
+        BOOST_FOREACH(const std::string& strAddNode, connman->vAddedNodes) {
             if (strAddNode == strNode)
             {
                 laddedNodes.push_back(strAddNode);
@@ -347,7 +347,7 @@ UniValue getaddednodeinfo(const UniValue& params, bool fHelp)
         }
     }
 
-    LOCK(cs_vNodes);
+    LOCK(connman->cs_vNodes);
     for (list<pair<string, vector<CService> > >::iterator it = laddedAddreses.begin(); it != laddedAddreses.end(); it++)
     {
         UniValue obj(UniValue::VOBJ);
@@ -359,7 +359,7 @@ UniValue getaddednodeinfo(const UniValue& params, bool fHelp)
             bool fFound = false;
             UniValue node(UniValue::VOBJ);
             node.pushKV("address", addrNode.ToString());
-            BOOST_FOREACH(CNode* pnode, vNodes) {
+            BOOST_FOREACH(CNode* pnode, connman->vNodes) {
                 if (pnode->addr == addrNode)
                 {
                     fFound = true;
@@ -480,7 +480,7 @@ UniValue getnetworkinfo(const UniValue& params, bool fHelp)
     obj.pushKV("protocolversion",PROTOCOL_VERSION);
     obj.pushKV("localservices",       strprintf("%016x", nLocalServices));
     obj.pushKV("timeoffset",    0);
-    obj.pushKV("connections",   (int)vNodes.size());
+    obj.pushKV("connections",   (int)(connman->vNodes.size()));
     obj.pushKV("tls_cert_verified", ValidateCertificate(tls_ctx_server));
     obj.pushKV("networks",      GetNetworksInfo());
     obj.pushKV("relayfee",      ValueFromAmount(::minRelayTxFee.GetFeePerK()));
