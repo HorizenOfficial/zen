@@ -19,7 +19,7 @@ EPOCH_LENGTH = 17
 FT_SC_FEE = Decimal('0')
 MBTR_SC_FEE = Decimal('0')
 CERT_FEE = Decimal('0.00015')
-GET_BLOCK_TEMPLATE_DELAY = 5 # Seconds
+GET_BLOCK_TEMPLATE_DELAY = 5 + 1 # Seconds ("+1" due to the fact the getblocktemplate trigger condition is ">5")
 
 
 class sc_cert_base(BitcoinTestFramework):
@@ -138,20 +138,25 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("\nCall GetBlockTemplate on each node to create a cached (empty) version", self.nodes, DEBUG_MODE)
         for i in range(0, NUMB_OF_NODES):
             self.nodes[i].getblocktemplate()
+        startTime = time.time()
 
-        mark_logs("Node 0 sends a normal mainchain transaction to mempool and checks that it's not immediately included into the block template", self.nodes, DEBUG_MODE)
+        mark_logs("Node 0 sends a transaction", self.nodes, DEBUG_MODE)
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 0.1)
-        self.sync_all()
+        sync_mempools(self.nodes, 0.1) # syncing mempools only because there is no need to check for blocks sync and here it's important to be as quick as possible
 
+        mark_logs("Check that the transaction is not immediately included into the block template", self.nodes, DEBUG_MODE)
+        mark_logs(f"Elapsed seconds from last cached result: {time.time() - startTime}", self.nodes, DEBUG_MODE)
         for i in range(0, NUMB_OF_NODES):
-            assert(len(self.nodes[i].getblocktemplate()['certificates']) == 0)
-            assert(len(self.nodes[i].getblocktemplate()['transactions']) == 0)
+            blocktemplate = self.nodes[i].getblocktemplate()
+            assert(len(blocktemplate['certificates']) == 0)
+            assert(len(blocktemplate['transactions']) == 0)
 
         mark_logs(f"Wait {GET_BLOCK_TEMPLATE_DELAY} seconds and check that the transaction is now included into the block template", self.nodes, DEBUG_MODE)
         time.sleep(GET_BLOCK_TEMPLATE_DELAY)
         for i in range(0, NUMB_OF_NODES):
-            assert(len(self.nodes[i].getblocktemplate()['certificates']) == 0)
-            assert(len(self.nodes[i].getblocktemplate()['transactions']) == 1)
+            blocktemplate = self.nodes[i].getblocktemplate()
+            assert(len(blocktemplate['certificates']) == 0)
+            assert(len(blocktemplate['transactions']) == 1)
 
         mark_logs("Node 0 mines one block to clean the mempool", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
@@ -161,6 +166,7 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("\nCall GetBlockTemplate on each node to create a new cached version", self.nodes, DEBUG_MODE)
         for i in range(0, NUMB_OF_NODES):
             self.nodes[i].getblocktemplate()
+        startTime = time.time()
 
         mark_logs("Node 0 sends a certificate", self.nodes, DEBUG_MODE)
         try:
@@ -171,18 +177,21 @@ class sc_cert_base(BitcoinTestFramework):
             errorString = e.error['message']
             mark_logs(f"Send certificate failed with reason {errorString}", self.nodes, DEBUG_MODE)
             assert(False)
-        self.sync_all()
+        sync_mempools(self.nodes, 0.1) # syncing mempools only because there is no need to check for blocks sync and here it's important to be as quick as possible
 
         mark_logs("Check that the certificate is not immediately included into the block template", self.nodes, DEBUG_MODE)
+        mark_logs(f"Elapsed seconds from last cached result: {time.time() - startTime}", self.nodes, DEBUG_MODE)
         for i in range(0, NUMB_OF_NODES):
-            assert(len(self.nodes[i].getblocktemplate()['certificates']) == 0)
-            assert(len(self.nodes[i].getblocktemplate()['transactions']) == 0)
+            blocktemplate = self.nodes[i].getblocktemplate()
+            assert(len(blocktemplate['certificates']) == 0)
+            assert(len(blocktemplate['transactions']) == 0)
 
         mark_logs(f"Wait {GET_BLOCK_TEMPLATE_DELAY} seconds and check that the certificate is now included into the block template", self.nodes, DEBUG_MODE)
         time.sleep(GET_BLOCK_TEMPLATE_DELAY)
         for i in range(0, NUMB_OF_NODES):
-            assert(len(self.nodes[i].getblocktemplate()['certificates']) == 1)
-            assert(len(self.nodes[i].getblocktemplate()['transactions']) == 0)
+            blocktemplate = self.nodes[i].getblocktemplate()
+            assert(len(blocktemplate['certificates']) == 1)
+            assert(len(blocktemplate['transactions']) == 0)
 
         mark_logs("Node 0 mines one block to clean the mempool", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
@@ -200,9 +209,11 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("\nCall GetBlockTemplate on each node to create a new cached version", self.nodes, DEBUG_MODE)
         for i in range(0, NUMB_OF_NODES):
             self.nodes[i].getblocktemplate()
+        startTime = time.time()
 
-        mark_logs("Node 0 sends a normal transaction and a certificate", self.nodes, DEBUG_MODE)
+        mark_logs("Node 0 sends a transaction and a certificate", self.nodes, DEBUG_MODE)
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 0.1)
+        sync_mempools(self.nodes, 0.1) # syncing mempools only because there is no need to check for blocks sync and here it's important to be as quick as possible
 
         try:
             cert_epoch_0 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
@@ -212,18 +223,21 @@ class sc_cert_base(BitcoinTestFramework):
             errorString = e.error['message']
             mark_logs(f"Send certificate failed with reason {errorString}", self.nodes, DEBUG_MODE)
             assert(False)
-        self.sync_all()
+        sync_mempools(self.nodes, 0.1) # syncing mempools only because there is no need to check for blocks sync and here it's important to be as quick as possible
 
-        mark_logs("Check that the certificate is not immediately included into the block template", self.nodes, DEBUG_MODE)
+        mark_logs("Check that the transaction and the certificate are not immediately included into the block template", self.nodes, DEBUG_MODE)
+        mark_logs(f"Elapsed seconds from last cached result: {time.time() - startTime}", self.nodes, DEBUG_MODE)
         for i in range(0, NUMB_OF_NODES):
-            assert(len(self.nodes[i].getblocktemplate()['certificates']) == 0)
-            assert(len(self.nodes[i].getblocktemplate()['transactions']) == 0)
+            blocktemplate = self.nodes[i].getblocktemplate()
+            assert(len(blocktemplate['certificates']) == 0)
+            assert(len(blocktemplate['transactions']) == 0)
 
-        mark_logs(f"Wait {GET_BLOCK_TEMPLATE_DELAY} seconds and check that the certificate is now included into the block template", self.nodes, DEBUG_MODE)
+        mark_logs(f"Wait {GET_BLOCK_TEMPLATE_DELAY} seconds and check that the transaction and the certificate are now included into the block template", self.nodes, DEBUG_MODE)
         time.sleep(GET_BLOCK_TEMPLATE_DELAY)
         for i in range(0, NUMB_OF_NODES):
-            assert(len(self.nodes[i].getblocktemplate()['certificates']) == 1)
-            assert(len(self.nodes[i].getblocktemplate()['transactions']) == 1)
+            blocktemplate = self.nodes[i].getblocktemplate()
+            assert(len(blocktemplate['certificates']) == 1)
+            assert(len(blocktemplate['transactions']) == 1)
 
         for i in range(0, NUMB_OF_NODES):
             # Check that `getblocktemplate` doesn't include "merkleTree" and "scTxsCommitment" if not explicitly requested
