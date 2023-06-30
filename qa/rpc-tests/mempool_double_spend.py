@@ -43,14 +43,6 @@ class TxnMallTest(BitcoinTestFramework):
             connect_nodes_bi(self.nodes, idx, idx+1)
         self.is_network_split = False
 
-
-    def split_network(self):
-        # Disconnect the "double spend" node from the network
-        idx = DOUBLE_SPEND_NODE_INDEX
-        disconnect_nodes(self.nodes[idx], idx - 1)
-        disconnect_nodes(self.nodes[idx - 1], idx)
-        self.is_network_split = True
-
     def run_test(self):
 
         node0_address = self.nodes[0].getnewaddress()
@@ -79,7 +71,7 @@ class TxnMallTest(BitcoinTestFramework):
         self.sync_all()
 
         mark_logs("Split the network", self.nodes, DEBUG_MODE)
-        self.split_network()
+        self.split_network(DOUBLE_SPEND_NODE_INDEX - 1)
 
         # Search the unspent utxo containing 10.1 coins.
         list_unspent = self.nodes[0].listunspent()

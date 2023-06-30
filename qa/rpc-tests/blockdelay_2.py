@@ -23,45 +23,19 @@ class blockdelay_2(BitcoinTestFramework):
         print("Initializing test directory "+self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, 3)
 
-    def setup_network(self, split=False):
-        self.nodes = []
-
+    def setup_nodes(self, split=False):
         self.nodes = start_nodes(3, self.options.tmpdir)
-
-        connect_nodes_bi(self.nodes, 0, 1)
-        connect_nodes_bi(self.nodes, 1, 2)
-        #connect_nodes_bi(self.nodes, 0, 2)
-        self.is_network_split = split
-        self.sync_all()
-
-    def split_network(self):
-        # Split the network of three nodes into nodes 0 and 1/2.
-#        assert not self.is_network_split
-        disconnect_nodes(self.nodes[1], 0)
-        disconnect_nodes(self.nodes[0], 1)
-        #disconnect_nodes(self.nodes[0], 2)
-        #disconnect_nodes(self.nodes[2], 0)
-        self.is_network_split = True
         
-    def split_network_2(self):
-        # Split the network of three nodes into nodes 0, 1 and 2.
-        disconnect_nodes(self.nodes[1], 2)
-        disconnect_nodes(self.nodes[2], 1)
-
-
-    def join_network(self):
+    def join_network(self, id = 0):
         #Join the (previously split) network halves together.
-        assert self.is_network_split
-        connect_nodes_bi(self.nodes, 0, 1)
-        connect_nodes_bi(self.nodes, 1, 0)
-        
-        sync_blocks(self.nodes[1:2])
-        sync_mempools(self.nodes[1:2])
-        
-    def join_network_2(self):
-        connect_nodes_bi(self.nodes, 1, 2)
-        sync_blocks(self.nodes[2:3])
-        sync_mempools(self.nodes[2:3])
+        connect_nodes_bi(self.nodes, id, id + 1)
+        sync_blocks(self.nodes[id + 1: id + 2])
+        sync_mempools(self.nodes[id + 1:id + 2])
+
+    def split_network(self, id = 1):
+        # Split the network of between adjanced nodes in linear topology ep. nodes 0-1 and 2-3.
+        disconnect_nodes(self.nodes[id], id + 1)
+        disconnect_nodes(self.nodes[id + 1], id)
 
     def dump_ordered_tips(self, tip_list):
         sorted_x = sorted(tip_list, key=lambda k: k['status'])
@@ -174,7 +148,7 @@ class blockdelay_2(BitcoinTestFramework):
         
         print("\nFirst split. Best block hash is %s: "+first_main_blockhash)
         print("\n\nSplit network")
-        self.split_network()
+        self.split_network(0)
         print("The network is splitted")
         print("\n0 ... 1 <--> 2")
         self.get_network_info()
@@ -280,7 +254,7 @@ class blockdelay_2(BitcoinTestFramework):
         print("\nSecond split. Best block hash is %s: "+second_main_blockhash)
         
         print("\n\nSplit network again")
-        self.split_network_2()
+        self.split_network(1)
         print("The network is split again")
         print("\n0 ... 1 ... 2")
         self.get_network_info()
@@ -351,7 +325,7 @@ class blockdelay_2(BitcoinTestFramework):
 #                                                 +-->[32]...->[37]
 
         print("\nJoining network...")
-        self.join_network()
+        self.join_network(0)
         time.sleep(5)
         print("\nNetwork joined")
         self.get_network_info()
@@ -454,7 +428,7 @@ class blockdelay_2(BitcoinTestFramework):
             print("Best block hash for node "+str(i)+": "+self.nodes[i].getbestblockhash())
             
         print("\nJoining network again...")
-        self.join_network_2()
+        self.join_network(1)
         time.sleep(5)
         print("\nNetwork joined")
         self.get_network_info()
@@ -537,7 +511,7 @@ class blockdelay_2(BitcoinTestFramework):
         print("\nThird split. Best block hash is %s: "+self.nodes[1].getbestblockhash())
         
         print("\n\nSplit network again")
-        self.split_network_2()
+        self.split_network(1)
         print("The network is split again")
         print("\n0 <--> 1 ... 2")
         self.get_network_info()
@@ -594,7 +568,7 @@ class blockdelay_2(BitcoinTestFramework):
         assert self.nodes[0].getbestblockhash() != self.nodes[2].getbestblockhash()
         
         print("\nJoining network...")
-        self.join_network_2()
+        self.join_network(1)
         time.sleep(5)
         print("\nNetwork joined")
         self.get_network_info()

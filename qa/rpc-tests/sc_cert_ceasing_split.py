@@ -34,36 +34,10 @@ class CeasingSplitTest(BitcoinTestFramework):
         print("Initializing test directory " + self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
 
-    def setup_network(self, split=False):
+    def setup_nodes(self):
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
                                  extra_args=[['-scproofqueuesize=0', '-logtimemicros=1', '-debug=sc', '-debug=py',
                                               '-debug=mempool', '-debug=net', '-debug=bench']] * NUMB_OF_NODES)
-
-        if not split:
-            # 2 and 3 are joint only if split==false
-            connect_nodes_bi(self.nodes, 2, 3)
-            sync_blocks(self.nodes[2:4])
-            sync_mempools(self.nodes[2:4])
-
-        connect_nodes_bi(self.nodes, 0, 1)
-        connect_nodes_bi(self.nodes, 1, 2)
-        self.is_network_split = split
-        self.sync_all()
-
-    def split_network(self):
-        # Split the network of three nodes into nodes 0-1-2 and 3.
-        assert not self.is_network_split
-        disconnect_nodes(self.nodes[2], 3)
-        disconnect_nodes(self.nodes[3], 2)
-        self.is_network_split = True
-
-    def join_network(self):
-        # Join the (previously split) network pieces together: 0-1-2-3
-        assert self.is_network_split
-        connect_nodes_bi(self.nodes, 2, 3)
-        connect_nodes_bi(self.nodes, 3, 2)
-        time.sleep(2)
-        self.is_network_split = False
 
     def run_test(self):
         '''
@@ -152,7 +126,7 @@ class CeasingSplitTest(BitcoinTestFramework):
 
         #============================================================================================
         mark_logs("\nSplit network", self.nodes, DEBUG_MODE)
-        self.split_network()
+        self.split_network(2)
         mark_logs("The network is split: 0-1-2 .. 3", self.nodes, DEBUG_MODE)
 
         # Network part 0-1-2
@@ -231,7 +205,8 @@ class CeasingSplitTest(BitcoinTestFramework):
 
         #============================================================================================
         mark_logs("\nJoining network", self.nodes, DEBUG_MODE)
-        self.join_network()
+        self.join_network(2)
+        time.sleep(2)
         mark_logs("Network joined", self.nodes, DEBUG_MODE)
 
         any_error = False

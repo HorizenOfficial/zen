@@ -8,7 +8,7 @@ from test_framework.test_framework import ForkHeights, MINER_REWARD_POST_H200
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_false, assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, \
-    mark_logs, disconnect_nodes
+    mark_logs
 from test_framework.mc_test.mc_test import *
 import os
 from decimal import Decimal
@@ -41,21 +41,6 @@ class ScSplitTest(BitcoinTestFramework):
         self.is_network_split = split
         self.sync_all()
 
-    def split_network(self):
-        # Split the network of three nodes into nodes 0-1 and 2.
-        assert not self.is_network_split
-        disconnect_nodes(self.nodes[1], 2)
-        disconnect_nodes(self.nodes[2], 1)
-        self.is_network_split = True
-
-    def join_network(self):
-        # Join the (previously split) network pieces together: 0-1-2
-        assert self.is_network_split
-        connect_nodes_bi(self.nodes, 1, 2)
-        connect_nodes_bi(self.nodes, 2, 1)
-        time.sleep(2)
-        self.is_network_split = False
-
     def run_test(self):
         '''
         This test creates a Sidechain and forwards funds to it and then verifies
@@ -83,7 +68,7 @@ class ScSplitTest(BitcoinTestFramework):
 
         # Split the network: (0)--(1) / (2)
         mark_logs("\nSplit network", self.nodes, DEBUG_MODE)
-        self.split_network()
+        self.split_network(1)
         mark_logs("The network is split: 0-1 .. 2", self.nodes, DEBUG_MODE)
 
         txes = []
@@ -180,6 +165,7 @@ class ScSplitTest(BitcoinTestFramework):
 
         mark_logs("\nJoining network", self.nodes, DEBUG_MODE)
         self.join_network()
+        time.sleep(2)
         mark_logs("Network joined", self.nodes, DEBUG_MODE)
 
         mark_logs("\nChecking that sc info on Node1 are not available anymore in blockchain since tx has been reverted...", self.nodes, DEBUG_MODE)

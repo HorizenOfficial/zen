@@ -43,21 +43,6 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         sync_mempools(self.nodes[1:NUMB_OF_NODES])
         self.sync_all()
 
-    def split_network(self):
-        # Split the network of three nodes into nodes 0 and 1
-        assert not self.is_network_split
-        disconnect_nodes(self.nodes[0], 1)
-        disconnect_nodes(self.nodes[1], 0)
-        self.is_network_split = True
-
-    def join_network(self):
-        # Join the (previously split) network pieces together: 0-1
-        assert self.is_network_split
-        connect_nodes_bi(self.nodes, 0, 1)
-        time.sleep(2)
-        self.is_network_split = False
-
-
     def try_send_certificate(self, node_idx, scid, epoch_number, quality, ref_height, mbtr_fee, ft_fee, bt, expect_failure, failure_reason=None):
         scid_swapped = str(swap_bytes(scid))
         _, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[node_idx], 0, True, ref_height)
@@ -291,7 +276,7 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         #------------------------------------------------
         mark_logs("## Split network ##", self.nodes, DEBUG_MODE)
         #------------------------------------------------
-        self.split_network()
+        self.split_network(0)
 
         #------------------------------------------------
         mark_logs("## Test ok, node 1 sends epoch 2 certificate ##", self.nodes, DEBUG_MODE)
@@ -320,7 +305,8 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         #------------------------------------------------
         mark_logs("## Join network ##", self.nodes, DEBUG_MODE)
         #------------------------------------------------
-        self.join_network()
+        self.join_network(0)
+        time.sleep(2)
         self.sync_all()
 
         #------------------------------------------------

@@ -24,41 +24,12 @@ class sc_fwd_maturity(BitcoinTestFramework):
         print("Initializing test directory " + self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
 
-    def setup_network(self, split=False):
-        self.nodes = []
-
+    def setup_nodes(self):
         self.nodes = start_nodes(
             NUMB_OF_NODES, self.options.tmpdir,
             extra_args=[['-sccoinsmaturity=2', '-logtimemicros=1', '-debug=sc',
                          '-debug=py', '-debug=mempool', '-debug=net',
                          '-debug=bench']] * NUMB_OF_NODES)
-
-        if not split:
-            # 1 and 2 are joint only if split==false
-            connect_nodes_bi(self.nodes, 1, 2)
-            sync_blocks(self.nodes[1:NUMB_OF_NODES])
-            sync_mempools(self.nodes[1:NUMB_OF_NODES])
-
-        connect_nodes_bi(self.nodes, 0, 1)
-        self.is_network_split = split
-        self.sync_all()
-
-    def split_network(self):
-        # Split the network of three nodes into nodes 0-1 and 2.
-        assert not self.is_network_split
-        disconnect_nodes(self.nodes[1], 2)
-        disconnect_nodes(self.nodes[2], 1)
-        self.is_network_split = True
-
-    def join_network(self):
-        # Join the (previously split) network pieces together: 0-1-2
-        assert self.is_network_split
-        connect_nodes_bi(self.nodes, 1, 2)
-        connect_nodes_bi(self.nodes, 2, 1)
-        # self.sync_all()
-        time.sleep(2)
-        self.is_network_split = False
-
 
     def run_test(self):
 

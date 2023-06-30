@@ -49,18 +49,6 @@ class provaFee(BitcoinTestFramework):
         self.sync_all()
         self.firstRound = True
 
-    def split_network(self):
-        # Split the network of three nodes into nodes 0/1 and 2/3.
-        disconnect_nodes(self.nodes[1], 2)
-        disconnect_nodes(self.nodes[2], 1)
-        self.is_network_split = True
-
-    def join_network(self):
-        #Join the (previously split) network halves together.
-        assert self.is_network_split
-        connect_nodes_bi(self.nodes, 1, 2)
-        self.is_network_split = False
-
     def assert_txs_in_mempool(self, expected_txs_in_nodes_0_and_1):
         assert_equal(len(self.nodes[0].getrawmempool()), expected_txs_in_nodes_0_and_1)
         assert_equal(len(self.nodes[1].getrawmempool()), expected_txs_in_nodes_0_and_1)

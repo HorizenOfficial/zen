@@ -23,38 +23,12 @@ class headers(BitcoinTestFramework):
         print("Initializing test directory "+self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, 2)
 
-    def setup_network(self, split=False):
-        self.nodes = []
-
+    def setup_nodes(self):
         self.nodes = start_nodes(2, self.options.tmpdir,
             extra_args = [
                 ["-debug=1", "-logtimemicros=1"],
                 ["-debug=1", "-logtimemicros=1"]
             ])
-
-        if not split:
-            connect_nodes_bi(self.nodes, 0, 1)
-            sync_blocks(self.nodes[0:2])
-            sync_mempools(self.nodes[0:2])
-
-        self.is_network_split = split
-        self.sync_all()
-
-    def split_network(self):
-        # Split the network of two nodes into nodes 0 and 1.
-        assert not self.is_network_split
-        disconnect_nodes(self.nodes[0], 1)
-        disconnect_nodes(self.nodes[1], 0)
-        self.is_network_split = True
-
-
-    def join_network(self):
-        #Join the (previously split) network halves together.
-        assert self.is_network_split
-        connect_nodes_bi(self.nodes, 0, 1)
-        connect_nodes_bi(self.nodes, 1, 0)
-        self.sync_all()
-        self.is_network_split = False
 
     def dump_ordered_tips(self, tip_list):
         sorted_x = sorted(tip_list, key=lambda k: k['status'])
@@ -65,7 +39,6 @@ class headers(BitcoinTestFramework):
             else:
                 print(" ",y)
             c = 1
-
 
     def run_test(self):
         blocks = []

@@ -23,35 +23,6 @@ class blockdelay(BitcoinTestFramework):
         print("Initializing test directory "+self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, 5)
 
-    def setup_network(self, split=False):
-        self.nodes = []
-
-        # -exportdir option means we must provide a valid path to the destination folder for wallet backups
-        ed0 = "-exportdir=" + self.options.tmpdir + "/node0"
-        ed1 = "-exportdir=" + self.options.tmpdir + "/node1"
-        ed2 = "-exportdir=" + self.options.tmpdir + "/node2"
-        ed3 = "-exportdir=" + self.options.tmpdir + "/node3"
-        self.nodes = start_nodes(4, self.options.tmpdir)
-
-
-        if not split:
-            connect_nodes_bi(self.nodes, 1, 2)
-            sync_blocks(self.nodes[1:3])
-            sync_mempools(self.nodes[1:3])
-
-        connect_nodes_bi(self.nodes, 0, 1)
-        connect_nodes_bi(self.nodes, 2, 3)
-        self.is_network_split = split
-        self.sync_all()
-
-    def split_network(self):
-        # Split the network of four nodes into nodes 0/1 and 2/3.
-        assert not self.is_network_split
-        disconnect_nodes(self.nodes[1], 2)
-        disconnect_nodes(self.nodes[2], 1)
-        self.is_network_split = True
-
-
     def join_network(self):
         #Join the (previously split) network halves together.
         assert self.is_network_split
@@ -155,7 +126,7 @@ class blockdelay(BitcoinTestFramework):
 # Node(3): [0]->..->[104]
 
         print("\n\nSplit network")
-        self.split_network()
+        self.split_network(1)
         print("The network is split")
 
         print("\nNode0 sends 3.0 coins to Node1\n")

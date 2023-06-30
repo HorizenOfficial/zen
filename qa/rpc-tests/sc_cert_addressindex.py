@@ -7,7 +7,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import initialize_chain_clean, assert_equal, \
     start_nodes, get_epoch_data, assert_true, \
     sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
-    swap_bytes, to_satoshis, disconnect_nodes
+    swap_bytes, to_satoshis, stop_nodes, wait_bitcoinds
 from test_framework.test_framework import ForkHeights
 from test_framework.mc_test.mc_test import generate_random_field_element_hex, CertTestUtils
 from decimal import Decimal
@@ -33,36 +33,11 @@ class sc_cert_addressindex(BitcoinTestFramework):
         print("Initializing test directory "+self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
 
-    def setup_network(self, split=False):
+    def setup_nodes(self):
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args= [['-blockprioritysize=0',
             '-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', 
             '-scproofqueuesize=0', '-logtimemicros=1', '-txindex', '-addressindex', f'-sccoinsmaturity={SC_COINS_MAT}']] * NUMB_OF_NODES )
-
-        for idx, _ in enumerate(self.nodes):
-            if idx < (NUMB_OF_NODES-1):
-                connect_nodes_bi(self.nodes, idx, idx+1)
-
-        sync_blocks(self.nodes[1:NUMB_OF_NODES])
-        sync_mempools(self.nodes[1:NUMB_OF_NODES])
-        self.is_network_split = split
-        self.sync_all()
-
-    def split_network(self):
-        # Split the network of three nodes into nodes 0 and 1.
-        assert not self.is_network_split
-        disconnect_nodes(self.nodes[0], 1)
-        disconnect_nodes(self.nodes[1], 0)
-        self.is_network_split = True
-
-    def join_network(self):
-        # Join the (previously split) network pieces together: 0-1
-        assert self.is_network_split
-        connect_nodes_bi(self.nodes, 0, 1)
-        connect_nodes_bi(self.nodes, 1, 0)
-        # self.sync_all()
-        time.sleep(2)
-        self.is_network_split = False
-
+    
     def run_test(self):
 
         mark_logs(f"Node 0 generates {ForkHeights['NON_CEASING_SC']} blocks", self.nodes, DEBUG_MODE)
@@ -390,7 +365,7 @@ class sc_cert_addressindex(BitcoinTestFramework):
 
         # Split the network: (0) / (1)
         mark_logs("\nSplit network", self.nodes, DEBUG_MODE)
-        self.split_network()
+        self.split_network(0)
         mark_logs("The network is split: 0 / 1", self.nodes, DEBUG_MODE)
 
 
@@ -461,7 +436,8 @@ class sc_cert_addressindex(BitcoinTestFramework):
             assert_equal(self.nodes[1].getblockchaininfo()['blocks'], current_height - 1)
 
         mark_logs("\nJoining network", self.nodes, DEBUG_MODE)
-        self.join_network()
+        self.join_network(0)
+        time.sleep(2)
         mark_logs("\nNetwork joined", self.nodes, DEBUG_MODE)
 
         ####### Test getaddresstxids ########

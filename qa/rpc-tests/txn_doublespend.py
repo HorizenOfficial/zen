@@ -9,7 +9,7 @@
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, connect_nodes, \
-    sync_blocks, gather_inputs
+    sync_blocks, gather_inputs, connect_nodes_bi, sync_mempools
 from decimal import Decimal
 
 class TxnMallTest(BitcoinTestFramework):
@@ -19,8 +19,18 @@ class TxnMallTest(BitcoinTestFramework):
                           help="Test double-spend of 1-confirmed transaction")
 
     def setup_network(self):
-        # Start with split network:
-        return super(TxnMallTest, self).setup_network(True)
+        self.setup_nodes()
+
+        # Connect the nodes as a "chain".  This allows us
+        # to split the network between nodes 1 and 2 to get
+        # two halves that can work on competing chains.
+        # If we joined network halves, connect the nodes from the joint
+        # on outward.  This ensures that chains are properly reorganised.
+
+        connect_nodes_bi(self.nodes, 0, 1)
+        connect_nodes_bi(self.nodes, 2, 3)
+        self.is_network_split = True
+        self.sync_all()
 
     def run_test(self):
         mining_reward = Decimal("11.4375")

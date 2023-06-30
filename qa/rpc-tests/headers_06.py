@@ -40,26 +40,11 @@ class headers(BitcoinTestFramework):
         self.is_network_split = split
         self.sync_all()
 
-    def split_network(self):
-        assert not self.is_network_split
-        disconnect_nodes(self.nodes[1], 2)
-        disconnect_nodes(self.nodes[2], 1)
-        self.is_network_split = True
-
     def split_network_2(self):
 #        assert not self.is_network_split
         disconnect_nodes(self.nodes[1], 3)
         disconnect_nodes(self.nodes[3], 1)
 #        self.is_network_split = True
-
-
-    def join_network(self):
-        assert self.is_network_split
-        connect_nodes_bi(self.nodes, 1, 2)
-        connect_nodes_bi(self.nodes, 2, 1)
-#        self.sync_all()
-        time.sleep(2)
-        self.is_network_split = False
 
     def join_network_2(self):
 #        assert self.is_network_split
@@ -142,7 +127,7 @@ class headers(BitcoinTestFramework):
 # Node(3): [0]->[1]
 
         print("\n\nSplit nodes (1)----x   x---(2)")
-        self.split_network()
+        self.split_network(1)
         print("The network is split")
         self.mark_logs("The network is split")
 
@@ -181,9 +166,9 @@ class headers(BitcoinTestFramework):
         print("\n\nJoin nodes (1)--(2)")
         # raw_input("press enter to join the netorks..")
         self.mark_logs("Joining network")
-        self.join_network()
+        self.join_network(1)
 
-        time.sleep(2)
+        time.sleep(4)
         print("\nNetwork joined") 
         self.mark_logs("Network joined")
 
