@@ -117,13 +117,13 @@ Running Regression Tests
     sudo apt-get install \
     python python-dev python-pip python-setuptools \
     python-wheel python-wheel-common python-zmq
-    pip install --upgrade pyblake2 websocket-client requests
+    pip install --upgrade websocket-client requests
     ```
 
     2. MacOS
     ```{r, engine='bash'}
     brew install python
-    pip install --upgrade pyblake2 pyzmq websocket-client requests
+    pip install --upgrade pyzmq websocket-client requests
     ```
 
 2. Start test suite
