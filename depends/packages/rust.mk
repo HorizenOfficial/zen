@@ -1,12 +1,12 @@
 package=rust
-$(package)_version=1.51.0
+$(package)_version=1.70.0
 $(package)_download_path=https://static.rust-lang.org/dist
 $(package)_file_name_linux=rust-$($(package)_version)-x86_64-unknown-linux-gnu.tar.gz
-$(package)_sha256_hash_linux=9e125977aa13f012a68fdc6663629c685745091ae244f0587dd55ea4e3a3e42f
+$(package)_sha256_hash_linux=8499c0b034dd881cd9a880c44021632422a28dc23d7a81ca0a97b04652245982
 $(package)_file_name_darwin=rust-$($(package)_version)-x86_64-apple-darwin.tar.gz
-$(package)_sha256_hash_darwin=765212098a415996b767d1e372ce266caf94027402b269fec33291fffc085ca4
+$(package)_sha256_hash_darwin=e5819fdbfc7f1a4d5d82cb4c3b7662250748450b45a585433bfb75648bc45547
 $(package)_file_name_mingw32=rust-$($(package)_version)-x86_64-pc-windows-gnu.tar.gz
-$(package)_sha256_hash_mingw32=5a571ded9b870bcb25a64dfd37d4ba4863ebb9ed467219374ccd0147d491561f
+$(package)_sha256_hash_mingw32=52945bf6ab861d05be100e88a95766760d2daff1a0c0a2eff32a7fd8071495bd
 
 ifeq ($(host_os),mingw32)
 $(package)_build_subdir=buildos
