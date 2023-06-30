@@ -27,24 +27,24 @@ define $(package)_preprocess_cmds
   rm toml.temp 
 endef
 
+# Shutting down warning generated with the newer rust version 
+#   --> src/rustzcash.rs:61:38
+#    |
+# 61 |     static ref JUBJUB: JubjubBls12 = { JubjubBls12::new() };
+#    |                                      ^^                  ^^
+#    |
+#    = note: `#[warn(unused_braces)]` on by default
+# 
+#   warning: use of deprecated constant `std::sync::ONCE_INIT`: the `new` function is now preferred
+#   --> src/rustzcash.rs:60:1
+#    |
+# 60 | / lazy_static! {
+# 61 | |     static ref JUBJUB: JubjubBls12 = { JubjubBls12::new() };
+# 62 | | }
+#    | |_^
+#    |
+# 
 define $(package)_build_cmds
-  # Shutting down warning generated with the newer rust version 
-  #   --> src/rustzcash.rs:61:38
-  #    |
-  # 61 |     static ref JUBJUB: JubjubBls12 = { JubjubBls12::new() };
-  #    |                                      ^^                  ^^
-  #    |
-  #    = note: `#[warn(unused_braces)]` on by default
-  # 
-  #   warning: use of deprecated constant `std::sync::ONCE_INIT`: the `new` function is now preferred
-  #   --> src/rustzcash.rs:60:1
-  #    |
-  # 60 | / lazy_static! {
-  # 61 | |     static ref JUBJUB: JubjubBls12 = { JubjubBls12::new() };
-  # 62 | | }
-  #    | |_^
-  #    |
-  # 
   RUSTFLAGS="-A unused_braces -A deprecated" cargo build $($(package)_build_opts)
 endef
 
