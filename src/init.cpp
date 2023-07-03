@@ -267,7 +267,8 @@ void Shutdown()
     pzcashParams = NULL;
     globalVerifyHandle.reset();
     ECC_Stop();
-    CNode::NetCleanup();
+    connman->NetCleanup();
+    connman.reset();
     LogPrintf("%s: done\n", __func__);
 }
 

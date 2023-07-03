@@ -616,6 +616,7 @@ void CNode::GetBanned(std::map<CSubNet, int64_t> &banMap)
     banMap = setBanned; //create a thread safe copy
 }
 
+/// To be moved to CConnman
 bool CNode::IsWhitelistedRange(const CNetAddr &addr) {
     LOCK(cs_vWhitelistedRange);
     BOOST_FOREACH(const CSubNet& subnet, vWhitelistedRange) {
@@ -625,6 +626,7 @@ bool CNode::IsWhitelistedRange(const CNetAddr &addr) {
     return false;
 }
 
+/// To be moved to CConnman
 void CNode::AddWhitelistedRange(const CSubNet &subnet) {
     LOCK(cs_vWhitelistedRange);
     vWhitelistedRange.push_back(subnet);
@@ -779,10 +781,70 @@ CConnman::CConnman() {
     // SetNetworkActive(network_active);
 }
 
+void CConnman::Stop()
+{
+    // StopThreads();
+    NetCleanup();
+};
+
 CConnman::~CConnman()
 {
-    // Interrupt();
-    // Stop();
+    StopNode();
+    Stop();
+}
+
+// Temporary!
+// This shouldn't be neeed after boost::thread refactoring
+void DumpAddresses();
+
+
+// In Bitcoin this is called CConnman::Interrupt() and it also features
+// calls to condMsgProc.notify_all(), interruptNet() and InterruptSocks5()
+bool CConnman::StopNode()
+{
+    LogPrintf("StopNode()\n");
+    if (semOutbound)
+        for (int i=0; i<MAX_OUTBOUND_CONNECTIONS; i++)
+            semOutbound->post();
+
+    if (fAddressesInitialized)
+    {
+        DumpAddresses();
+        fAddressesInitialized = false;
+    }
+
+    return true;
+}
+
+void CConnman::NetCleanup()
+{
+    // Close sockets
+    BOOST_FOREACH(CNode* pnode, vNodes)
+    pnode->CloseSocketDisconnect();
+    BOOST_FOREACH(ListenSocket& hListenSocket, vhListenSocket)
+        if (hListenSocket.socket != INVALID_SOCKET)
+            if (!CloseSocket(hListenSocket.socket))
+                LogPrintf("CloseSocket(hListenSocket) failed with error %s\n", NetworkErrorString(WSAGetLastError()));
+
+    // clean up some globals (to help leak detection)
+    BOOST_FOREACH(CNode *pnode, vNodes)
+        delete pnode;
+    BOOST_FOREACH(CNode *pnode, vNodesDisconnected)
+        delete pnode;
+    vNodes.clear();
+    vNodesDisconnected.clear();
+    vhListenSocket.clear();
+    // delete semOutbound;
+    // semOutbound = NULL;
+    // delete pnodeLocalHost;
+    // pnodeLocalHost = NULL;
+    semOutbound.reset(nullptr);
+    pnodeLocalHost.reset(nullptr);
+
+#ifdef WIN32
+    // Shutdown Windows Sockets
+    WSACleanup();
+#endif
 }
 
 // requires LOCK(cs_vSend)
@@ -1477,13 +1539,6 @@ void ThreadDNSAddressSeed()
 
 
 
-
-
-
-
-
-
-
 /// To be moved to CConnman after boost::thread refactoring
 void DumpAddresses()
 {
@@ -2053,54 +2108,6 @@ void CConnman::StartNode(boost::thread_group& threadGroup, CScheduler& scheduler
     
     // Dump network addresses
     scheduler.scheduleEvery(&DumpAddresses, DUMP_ADDRESSES_INTERVAL);
-}
-
-bool CConnman::StopNode()
-{
-    LogPrintf("StopNode()\n");
-    if (semOutbound)
-        for (int i=0; i<MAX_OUTBOUND_CONNECTIONS; i++)
-            semOutbound->post();
-
-    if (fAddressesInitialized)
-    {
-        DumpAddresses();
-        fAddressesInitialized = false;
-    }
-
-    return true;
-}
-
-//// To be moved to CConnman, this is the CConnman::StopNodes() in Bitcoin
-void CNode::NetCleanup()
-{
-    // Close sockets
-    BOOST_FOREACH(CNode* pnode, connman->vNodes)
-    pnode->CloseSocketDisconnect();
-    BOOST_FOREACH(ListenSocket& hListenSocket, connman->vhListenSocket)
-        if (hListenSocket.socket != INVALID_SOCKET)
-            if (!CloseSocket(hListenSocket.socket))
-                LogPrintf("CloseSocket(hListenSocket) failed with error %s\n", NetworkErrorString(WSAGetLastError()));
-
-    // clean up some globals (to help leak detection)
-    BOOST_FOREACH(CNode *pnode, connman->vNodes)
-        delete pnode;
-    BOOST_FOREACH(CNode *pnode, connman->vNodesDisconnected)
-        delete pnode;
-    connman->vNodes.clear();
-    connman->vNodesDisconnected.clear();
-    connman->vhListenSocket.clear();
-    // delete semOutbound;
-    // semOutbound = NULL;
-    // delete pnodeLocalHost;
-    // pnodeLocalHost = NULL;
-    connman->semOutbound.reset(nullptr);
-    connman->pnodeLocalHost.reset(nullptr);
-
-#ifdef WIN32
-    // Shutdown Windows Sockets
-    WSACleanup();
-#endif
 }
 
 void Relay(const CTransactionBase& tx, const CDataStream& ss)
