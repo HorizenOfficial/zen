@@ -1808,12 +1808,21 @@ void ThreadMessageHandler()
     }
 }
 
+bool InitError(const std::string &str);
 
+bool CConnman::Bind(const CService &addr, unsigned int flags) {
+    if (!(flags & BF_EXPLICIT) && IsLimited(addr))
+        return false;
+    std::string strError;
+    if (!BindListenPort(addr, strError, (flags & BF_WHITELIST) != 0)) {
+        if (flags & BF_REPORT_ERROR)
+            return InitError(strError);
+        return false;
+    }
+    return true;
+}
 
-
-
-/// To be moved to CConnman
-bool BindListenPort(const CService &addrBind, string& strError, bool fWhitelisted)
+bool CConnman::BindListenPort(const CService &addrBind, string& strError, bool fWhitelisted)
 {
     strError = "";
     int nOne = 1;
@@ -1908,7 +1917,7 @@ bool BindListenPort(const CService &addrBind, string& strError, bool fWhiteliste
         return false;
     }
 
-    connman->vhListenSocket.push_back(ListenSocket(hListenSocket, fWhitelisted));
+    vhListenSocket.push_back(ListenSocket(hListenSocket, fWhitelisted));
 
     if (addrBind.IsRoutable() && fDiscover && !fWhitelisted)
         AddLocal(addrBind, LOCAL_BIND);

@@ -96,14 +96,6 @@ static AMQPNotificationInterface* pAMQPNotificationInterface = NULL;
 #define MIN_CORE_FILEDESCRIPTORS 825
 #endif
 
-/** Used to pass flags to the Bind() function */
-enum BindFlags {
-    BF_NONE         = 0,
-    BF_EXPLICIT     = (1U << 0),
-    BF_REPORT_ERROR = (1U << 1),
-    BF_WHITELIST    = (1U << 2),
-};
-
 static const char* FEE_ESTIMATES_FILENAME="fee_estimates.dat";
 CClientUIInterface uiInterface; // Declared but not defined in ui_interface.h
 
@@ -292,7 +284,7 @@ void HandleSIGHUP(int)
     fReopenDebugLog = true;
 }
 
-bool static InitError(const std::string &str)
+bool InitError(const std::string &str)
 {
     uiInterface.ThreadSafeMessageBox(str, "", CClientUIInterface::MSG_ERROR);
     return false;
@@ -301,18 +293,6 @@ bool static InitError(const std::string &str)
 bool static InitWarning(const std::string &str)
 {
     uiInterface.ThreadSafeMessageBox(str, "", CClientUIInterface::MSG_WARNING);
-    return true;
-}
-
-bool static Bind(const CService &addr, unsigned int flags) {
-    if (!(flags & BF_EXPLICIT) && IsLimited(addr))
-        return false;
-    std::string strError;
-    if (!BindListenPort(addr, strError, (flags & BF_WHITELIST) != 0)) {
-        if (flags & BF_REPORT_ERROR)
-            return InitError(strError);
-        return false;
-    }
     return true;
 }
 
@@ -1433,7 +1413,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 CService addrBind;
                 if (!Lookup(strBind.c_str(), addrBind, GetListenPort(), false))
                     return InitError(strprintf(_("Cannot resolve -bind address: '%s'"), strBind));
-                fBound |= Bind(addrBind, (BF_EXPLICIT | BF_REPORT_ERROR));
+                fBound |= connman->Bind(addrBind, (BF_EXPLICIT | BF_REPORT_ERROR));
             }
             BOOST_FOREACH(const std::string& strBind, mapMultiArgs["-whitebind"]) {
                 CService addrBind;
@@ -1441,14 +1421,14 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                     return InitError(strprintf(_("Cannot resolve -whitebind address: '%s'"), strBind));
                 if (addrBind.GetPort() == 0)
                     return InitError(strprintf(_("Need to specify a port with -whitebind: '%s'"), strBind));
-                fBound |= Bind(addrBind, (BF_EXPLICIT | BF_REPORT_ERROR | BF_WHITELIST));
+                fBound |= connman->Bind(addrBind, (BF_EXPLICIT | BF_REPORT_ERROR | BF_WHITELIST));
             }
         }
         else {
             struct in_addr inaddr_any;
             inaddr_any.s_addr = INADDR_ANY;
-            fBound |= Bind(CService(in6addr_any, GetListenPort()), BF_NONE);
-            fBound |= Bind(CService(inaddr_any, GetListenPort()), !fBound ? BF_REPORT_ERROR : BF_NONE);
+            fBound |= connman->Bind(CService(in6addr_any, GetListenPort()), BF_NONE);
+            fBound |= connman->Bind(CService(inaddr_any, GetListenPort()), !fBound ? BF_REPORT_ERROR : BF_NONE);
         }
         if (!fBound)
             return InitError(_("Failed to listen on any port. Use -listen=0 if you want this."));

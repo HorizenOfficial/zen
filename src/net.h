@@ -85,7 +85,6 @@ unsigned int SendBufferSize();
 
 void AddressCurrentlyConnected(const CService& addr);
 unsigned short GetListenPort();
-bool BindListenPort(const CService &bindAddr, std::string& strError, bool fWhitelisted = false);
 
 SSL_CTX* create_context(bool server_side);
 EVP_PKEY *generate_key();
@@ -703,6 +702,13 @@ struct ListenSocket {
     ListenSocket(SOCKET socket, bool whitelisted) : socket(socket), whitelisted(whitelisted) {}
 };
 
+/** Used to pass flags to the Bind() function */
+enum BindFlags {
+    BF_NONE         = 0,
+    BF_EXPLICIT     = (1U << 0),
+    BF_REPORT_ERROR = (1U << 1),
+    BF_WHITELIST    = (1U << 2),
+};
 
 namespace zen {
 typedef struct _NODE_ADDR {
@@ -778,6 +784,9 @@ public:
 
     void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler /*, const Options& connOptions*/);
     bool StopNode();
+
+    bool Bind(const CService &addr, unsigned int flags);
+    bool BindListenPort(const CService &bindAddr, std::string& strError, bool fWhitelisted = false);
 
     void AddOneShot(const std::string& strDest);
     void ProcessOneShot();
