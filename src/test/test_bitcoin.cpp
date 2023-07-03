@@ -25,9 +25,8 @@
 
 #include "librustzcash.h"
 
-CClientUIInterface uiInterface; // Declared but not defined in ui_interface.h
-CWallet* pwalletMain;
-ZCJoinSplit *pzcashParams;
+extern CWallet* pwalletMain;
+extern ZCJoinSplit *pzcashParams;
 
 extern bool fPrintToConsole;
 extern void noui_connect();
@@ -121,17 +120,17 @@ TestingSetup::~TestingSetup()
         boost::filesystem::remove_all(pathTemp);
 }
 
-void Shutdown(void* parg)
+void static Shutdown(void* parg)
 {
   exit(0);
 }
 
-void StartShutdown()
+void static StartShutdown()
 {
   exit(0);
 }
 
-bool ShutdownRequested()
+bool static ShutdownRequested()
 {
   return false;
 }
