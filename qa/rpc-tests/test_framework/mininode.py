@@ -31,7 +31,6 @@ from threading import RLock
 from threading import Thread
 import logging
 import copy
-from pyblake2 import blake2b
 
 from .equihash import (
     gbp_basic,
@@ -754,7 +753,7 @@ class CBlock(CBlockHeader):
 
     def is_valid(self, n=48, k=5):
         # H(I||...
-        digest = blake2b(digest_size=(512//n)*n//8, person=zcash_person(n, k))
+        digest = hashlib.blake2b(digest_size=(512//n)*n//8, person=zcash_person(n, k))
         digest.update(super(CBlock, self).serialize()[:108])
         hash_nonce(digest, self.nNonce)
         if not gbp_validate(self.nSolution, digest, n, k):
@@ -773,7 +772,7 @@ class CBlock(CBlockHeader):
     def solve(self, n=48, k=5):
         target = uint256_from_compact(self.nBits)
         # H(I||...
-        digest = blake2b(digest_size=(512//n)*n//8, person=zcash_person(n, k))
+        digest = hashlib.blake2b(digest_size=(512//n)*n//8, person=zcash_person(n, k))
         digest.update(super(CBlock, self).serialize()[:108])
         self.nNonce = 0
         while True:

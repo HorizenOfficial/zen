@@ -42,7 +42,6 @@ buildbot_modules:
 
 # Python modules required to run the Zcash RPC test suite
 rpc_test_modules:
-  - pyblake2
   - pyzmq
 
 # Environment variables
