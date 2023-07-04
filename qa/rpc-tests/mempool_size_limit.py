@@ -477,13 +477,15 @@ class mempool_size_limit(BitcoinTestFramework):
             assert(ct in mpool1)
 
         mark_logs("Sending low fee non ceasing certificates, expecting success", self.nodes, DEBUG_MODE)
+        cert_fees = []
         nc_certs = [self.nodes[0].sendrawtransaction(certs[2][0]['hex']),
                     self.nodes[0].sendrawtransaction(certs[3][0]['hex'])]
         cert_sent_size = (len(certs[2][0]['hex']) + len(certs[3][0]['hex'])) // 2
         cert_sent = 2
+        cert_fees.append(certs[2][0]['fee'] / (len(certs[2][0]['hex']) // 2))
+        cert_fees.append(certs[3][0]['fee'] / (len(certs[3][0]['hex']) // 2))
 
         mark_logs("Filling mpool with low fee certificates, expecting success and transaction eviction", self.nodes, DEBUG_MODE)
-        cert_fees = []
         highest_quality_sc0 = 0
         last_cert_size = 0
         min_sc0_fee = MAX_FEE
@@ -506,6 +508,7 @@ class mempool_size_limit(BitcoinTestFramework):
             assert(False)
         except JSONRPCException as e:
             assert_equal(e.error['code'], -7)
+            print("Ok")
 
         mark_logs("Sending high fee certificates, expecting success and sc0 low quality certificate eviction", self.nodes, DEBUG_MODE)
         cert_fees.sort()
@@ -531,6 +534,7 @@ class mempool_size_limit(BitcoinTestFramework):
 
         mark_logs("Sending one more high fee certificate with lower fee, expecting failure", self.nodes, DEBUG_MODE)
 
+        saw_rejection = False
         while len(certs[1]) > 0:
             c = certs[1].pop(0)
             cfee = c['fee'] / (len(c['hex']) // 2)
@@ -540,7 +544,11 @@ class mempool_size_limit(BitcoinTestFramework):
             except JSONRPCException as e:
                 assert_equal(e.error['code'], -7)
                 assert(cfee <= cert_fees.pop(0))
+                print("Ok")
+                saw_rejection = True
                 break
+
+        assert(saw_rejection)
 
         # TODO: how to sync on node1's mempool?
         #print("Wait for last certificate to be present in node1 mempool")
@@ -557,8 +565,8 @@ class mempool_size_limit(BitcoinTestFramework):
         for i in range(1):
             print(f"Checking composition of mpool{i}")
             mpool = self.nodes[i].getrawmempool()
-            print(f"Make sure top quality sc0 cert {high_quality_cert_sc0} is still in")
-            assert(high_quality_cert_sc0 in mpool)
+            print(f"Make sure top quality sc0 cert {high_quality_cert_sc0} is not in! (Low fee)")
+            assert(high_quality_cert_sc0 not in mpool)
             for ct in ctransactions:
                 assert(ct in mpool) # make sure that chained transactions, known to be high fee, have not been evicted
 
@@ -585,6 +593,10 @@ class mempool_size_limit(BitcoinTestFramework):
             assert(tx_size <= node_limit - node_cert_limit)
             assert(tx_size + cert_size <= node_limit)
             assert(tx_size + cert_size == usage)
+
+            print("Check no ban assigned")
+            for p in self.nodes[n].getpeerinfo():
+                assert_equal(p['banscore'], 0)
 
 
 if __name__ == '__main__':

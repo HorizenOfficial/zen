@@ -6,6 +6,7 @@
 #include "txmempool.h"
 #include "uint256.h"
 #include "util.h"
+#include "main.h" // DEFAULT_MAX_MEMPOOL_SIZE_MB
 
 #include "test/test_bitcoin.h"
 
@@ -15,7 +16,7 @@ BOOST_FIXTURE_TEST_SUITE(policyestimator_tests, BasicTestingSetup)
 
 BOOST_AUTO_TEST_CASE(BlockPolicyEstimates)
 {
-    CTxMemPool mpool(CFeeRate(1000));
+    CTxMemPool mpool(CFeeRate(1000), DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000);
     CAmount basefee(2000);
     double basepri = 1e6;
     CAmount deltaFee(100);

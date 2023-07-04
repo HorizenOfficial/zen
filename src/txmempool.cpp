@@ -17,6 +17,9 @@
 #include "validationinterface.h"
 #include <undo.h>
 
+#include <vector>
+#include <stack>
+
 CMemPoolEntry::CMemPoolEntry():
     nFee(0), nModSize(0), nUsageSize(0), nTime(0), dPriority(0.0)
 {
@@ -110,8 +113,8 @@ bool CSidechainMemPoolEntry::HasCert(const uint256& hash) const
     return GetCert(hash) != mBackwardCertificates.end();
 }
 
-CTxMemPool::CTxMemPool(const CFeeRate& _minRelayFee) :
-    nTransactionsUpdated(0), nCertificatesUpdated(0), cachedInnerUsage(0)
+CTxMemPool::CTxMemPool(const CFeeRate& _minRelayFee, uint64_t max_size) :
+    nTransactionsUpdated(0), nCertificatesUpdated(0), cachedInnerUsage(0), m_max_size(max_size)
 {
     // Sanity checks off by default for performance, because otherwise
     // accepting transactions becomes O(N^2) where N is the number
@@ -158,6 +161,13 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
     // Used by main.cpp AcceptToMemoryPool(), which DOES do
     // all the appropriate checks.
     LOCK(cs);
+
+    if (!trimToSize(&entry, m_max_size)) {
+        LogPrint("mempool", "trimToSize: Not accepting new tx into mempool\n");
+        // not accepted into mempool
+        return false;
+    }
+
     mapTx[hash] = entry;
     const CTransaction& tx = mapTx[hash].GetTx();
 
@@ -209,6 +219,13 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
 bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntry &entry, bool fCurrentEstimate)
 {
     LOCK(cs);
+
+    if (!trimToSize(&entry, m_max_size)) {
+        LogPrint("mempool", "trimToSize: Not accepting new cert into mempool\n");
+        // not accepted into mempool
+        return false;
+    }
+
     mapCertificate[hash] = entry;
     const CScCertificate& cert = mapCertificate[hash].GetCertificate();
 
@@ -592,6 +609,74 @@ std::vector<uint256> CTxMemPool::mempoolDependenciesOf(const CTransactionBase& o
     return res;
 }
 
+CRawFeeRate CTxMemPool::avgFeeRateWithDeps(const uint256& rootTx, const bool certificatesAllowed, std::map<uint256, CRawFeeRate>& cache) const
+{
+    // depth first graph traversal with cache
+
+    CRawFeeRate res;
+    std::stack<std::pair<uint256, bool>> to_visit;
+    std::set<uint256> already_visited;
+    to_visit.push({rootTx, false});
+    while (!to_visit.empty()) {
+        std::pair<uint256, bool>& curr = to_visit.top();
+        const uint256& curr_hash = curr.first;
+        CRawFeeRate curr_rate;
+        if (cache.find(curr_hash) != cache.end()) {
+            curr_rate = cache.at(curr_hash);
+        }
+        else {
+            bool is_certificate = mapCertificate.find(curr_hash) != mapCertificate.end();
+            if (!curr.second) {
+                // First explore descendants
+                std::vector<uint256> deps = is_certificate ?
+                                                mempoolDirectDependenciesOf(mapCertificate.at(curr_hash).GetCertificate())
+                                                : mempoolDirectDependenciesOf(mapTx.at(curr_hash).GetTx());
+                for (uint256& hash: deps) {
+                    auto ires = already_visited.insert(std::move(hash));
+                    if (ires.second) {
+                        to_visit.push({*ires.first, false});
+                    }
+                }
+                curr.second = true;
+                continue;
+            }
+
+            // Then process the feerate
+            if (is_certificate && !certificatesAllowed) {
+                LogPrint("mempool", "%s():%d - Setting max fee for cert %s\n", __func__, __LINE__, curr_hash.ToString());
+                curr_rate = CRawFeeRate(CRawFeeRate::MAX_FEE, 1);
+            }
+            else {
+                const CMemPoolEntry* entry = is_certificate ?
+                                                dynamic_cast<const CMemPoolEntry*>(&mapCertificate.at(curr_hash))
+                                                : dynamic_cast<const CMemPoolEntry*>(&mapTx.at(curr_hash));
+                curr_rate = CRawFeeRate(entry->GetFee(), entry->GetSize());
+            }
+
+            assert(cache.find(curr_hash) == cache.end());
+            cache.insert({curr_hash, curr_rate});
+        }
+        res += curr_rate;
+
+        to_visit.pop();
+    }
+
+    return res;
+}
+
+void CTxMemPool::remove(const uint256& origTx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive)
+{
+    auto tx = mapTx.find(origTx);
+    if (tx != mapTx.end()) {
+        remove(tx->second.GetTx(), removedTxs, removedCerts, fRecursive);
+        return;
+    }
+    auto cert = mapCertificate.find(origTx);
+    if (cert != mapCertificate.end()) {
+        remove(cert->second.GetCertificate(), removedTxs, removedCerts, fRecursive);
+    }
+}
+
 void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive)
 {
     // Remove transaction from memory pool
@@ -605,9 +690,11 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
 
     for(const uint256& hash : objToRemove)
     {
-        if (mapTx.count(hash))
+        const auto& entry_it = mapTx.find(hash);
+        if (entry_it != mapTx.end())
         {
-            const CTransaction& tx = mapTx[hash].GetTx();
+            const CTxMemPoolEntry& entry = entry_it->second;
+            const CTransaction& tx = entry.GetTx();
             mapRecentlyAddedTxBase.erase(hash);
 
             for(const CTxIn& txin: tx.GetVin())
@@ -665,8 +752,8 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
             }
 
             removedTxs.push_back(tx);
-            totalTxSize -= mapTx[hash].GetTxSize();
-            cachedInnerUsage -= mapTx[hash].DynamicMemoryUsage();
+            totalTxSize -= entry.GetTxSize();
+            cachedInnerUsage -= entry.DynamicMemoryUsage();
 
             LogPrint("mempool", "%s():%d - removing tx [%s] from mempool\n", __func__, __LINE__, hash.ToString() );
             mapTx.erase(hash);
@@ -678,7 +765,6 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
                 removeAddressIndex(hash);
             if (fSpentIndex)
                 removeSpentIndex(hash);
-
         } else if (mapCertificate.count(hash))
         {
             const CScCertificate& cert = mapCertificate[hash].GetCertificate();
@@ -2007,6 +2093,67 @@ size_t CTxMemPool::DynamicMemoryUsage() const {
           memusage::DynamicUsage(mapCertificate) +
           memusage::DynamicUsage(mapSidechains) +
           cachedInnerUsage);
+}
+
+bool CTxMemPool::trimToSize(const CMemPoolEntry* entry, size_t max_size) {
+    LOCK(cs);
+    size_t new_entry_usage = entry ? entry->GetSize() : 0;
+    assert(new_entry_usage < max_size);
+    size_t current_usage = totalTxSize + totalCertificateSize;
+    // If the mempool size is within the limits, do nothing and return immediately.
+    if (current_usage + new_entry_usage <= max_size) return true;
+
+    const CCertificateMemPoolEntry* certificate = dynamic_cast<const CCertificateMemPoolEntry*>(entry);
+    if (certificate && totalTxSize > m_max_size / 2) {
+        LogPrint("mempool", "%s():%d - Trying to remove transactions to make room for certificate (tot_tx: %zu, max: %zu)\n", __func__, __LINE__, totalTxSize, m_max_size / 2);
+        trimToSize(nullptr, m_max_size - new_entry_usage);
+        current_usage = totalTxSize + totalCertificateSize;
+        if (current_usage + new_entry_usage <= m_max_size) return true;
+    }
+
+    // we must either reject incoming tx, or remove something
+    int64_t size_to_be_removed = current_usage + new_entry_usage - max_size;
+    std::multimap<CRawFeeRate, uint256> raw_fee_rates;
+    std::map<uint256, CRawFeeRate> rates_cache;
+    const bool certificatesAllowed = certificate || totalCertificateSize > m_max_size / 2;
+    LogPrint("mempool", "%s():%d - Trying to remove something to make room (certificatesAllowed: %d, size: %d)\n", __func__, __LINE__, certificatesAllowed, size_to_be_removed);
+    for (const auto& tx: mapTx) {
+        CRawFeeRate feerate = avgFeeRateWithDeps(tx.first, certificatesAllowed, rates_cache);
+        raw_fee_rates.insert({feerate, tx.first});
+    }
+    for (const auto& cert: mapCertificate) {
+        CRawFeeRate feerate = avgFeeRateWithDeps(cert.first, certificatesAllowed, rates_cache);
+        raw_fee_rates.insert({feerate, cert.first});
+    }
+
+    // Check what should be removed, and if this selection includes entry...
+    std::vector<uint256*> to_be_removed;
+    for (auto remove_candidate = raw_fee_rates.begin(); remove_candidate != raw_fee_rates.end() && size_to_be_removed > 0; ++remove_candidate) {
+        // If it includes entry (i.e. the incoming tx/cert has a fee eq/lower than other elements that would be evicted),
+        // then just reject the incoming transaction and do nothing else
+        if (entry && remove_candidate->first >= CFeeRate(entry->GetFee(), entry->GetSize())) return false;
+
+        to_be_removed.push_back(&remove_candidate->second);
+        size_to_be_removed -= remove_candidate->first.GetBytes();
+    }
+
+    // Actually remove things from mempool
+    for (const uint256* r: to_be_removed) {
+        std::list<CTransaction> removed_txs;
+        std::list<CScCertificate> removed_certs;
+        remove(*r, removed_txs, removed_certs, true);
+        // Might even remove nothing at one iteration, if r was removed as a dependency in a previous iteration already.
+        LogPrint("mempool", "%s():%d - Removed %s and its dependants\n", __func__, __LINE__, r->ToString());
+        for(const CTransaction &t: removed_txs) {
+            LogPrint("mempool", "%s():%d - Syncing tx %s\n", __func__, __LINE__, t.GetHash().ToString());
+            SyncWithWallets(t, nullptr);
+        }
+        for(const CScCertificate &c: removed_certs) {
+            LogPrint("mempool", "%s():%d - Syncing cert %s\n", __func__, __LINE__, c.GetHash().ToString());
+            SyncWithWallets(c, nullptr);
+        }
+    }
+    return true;
 }
 
 std::pair<uint256, CAmount> CTxMemPool::FindCertWithQuality(const uint256& scId, int64_t certQuality) const

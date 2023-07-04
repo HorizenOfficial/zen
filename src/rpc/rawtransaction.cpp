@@ -1856,6 +1856,11 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp)
 
                 throw JSONRPCError(RPC_TRANSACTION_ERROR, state.GetRejectReason());
             }
+
+            if (res == MempoolReturnValue::MEMPOOL_FULL)
+            {
+                throw JSONRPCError(RPC_OUT_OF_MEMORY, "mempool full, transaction not accepted to mempool");
+            }
         } else if (fHaveChain)
             throw JSONRPCError(RPC_TRANSACTION_ALREADY_IN_CHAIN, "transaction already in block chain");
 
@@ -1891,6 +1896,11 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp)
                             strprintf("%i: %s", CValidationState::CodeToChar(state.GetRejectCode()), state.GetRejectReason()));
 
                 throw JSONRPCError(RPC_TRANSACTION_ERROR, "certificate not accepted to mempool");
+            }
+
+            if (res == MempoolReturnValue::MEMPOOL_FULL)
+            {
+                throw JSONRPCError(RPC_OUT_OF_MEMORY, "mempool full, certificate not accepted to mempool");
             }
         }
         else if (fHaveChain)

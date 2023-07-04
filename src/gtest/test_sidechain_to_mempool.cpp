@@ -46,7 +46,7 @@ public:
 class SidechainsInMempoolTestSuite: public ::testing::Test {
 public:
     SidechainsInMempoolTestSuite():
-        aMempool(::minRelayTxFee),
+        aMempool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000),
         pathTemp(boost::filesystem::temp_directory_path() / boost::filesystem::unique_path()),
         chainStateDbSize(2 * 1024 * 1024),
         pChainStateDb(nullptr),

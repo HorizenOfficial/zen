@@ -98,7 +98,7 @@ TEST_F(MempoolTest, PriorityStatsDoNotCrash) {
     FakeCoinsViewDB fakeDB;
     CCoinsViewCache view(&fakeDB);
 
-    CTxMemPool testPool(CFeeRate(0));
+    CTxMemPool testPool(CFeeRate(0), DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000);
 
     // Values taken from core dump (parameters of entry)
     CAmount nFees = 0;
@@ -116,7 +116,7 @@ TEST_F(MempoolTest, PriorityStatsDoNotCrash) {
 
 TEST_F(MempoolTest, TxInputLimit) {
 
-    CTxMemPool pool(::minRelayTxFee);
+    CTxMemPool pool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000);
 
     boost::filesystem::path pathTemp(boost::filesystem::temp_directory_path() / boost::filesystem::unique_path());
     boost::filesystem::create_directories(pathTemp);
@@ -203,7 +203,7 @@ TEST_F(MempoolTest, TxInputLimit) {
 TEST_F(MempoolTest, OverwinterNotActiveYet) {
     // UpdateNetworkUpgradeParameters(Consensus::UPGRADE_OVERWINTER, Consensus::NetworkUpgrade::NO_ACTIVATION_HEIGHT);
 
-    CTxMemPool pool(::minRelayTxFee);
+    CTxMemPool pool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000);
     bool missingInputs;
     CMutableTransaction mtx = GetValidTransaction();
     mtx.vjoinsplit.resize(0); // no joinsplits
@@ -234,7 +234,7 @@ TEST_F(MempoolTest, SproutV3TxFailsAsExpected) {
     CCoinsViewDB* pChainStateDb = new CCoinsViewDB(chainStateDbSize, DEFAULT_DB_MAX_OPEN_FILES, false, /*fWipe*/true);
     pcoinsTip = new CCoinsViewCache(pChainStateDb);
 
-    CTxMemPool pool(::minRelayTxFee);
+    CTxMemPool pool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000);
     CMutableTransaction mtx = GetValidTransaction(GROTH_TX_VERSION);
     mtx.vjoinsplit.resize(0); // no joinsplits
     CValidationState state1;
@@ -270,7 +270,7 @@ TEST_F(MempoolTest, SproutV3TxWhenGrothNotActive) {
     pcoinsTip = new CCoinsViewCache(pChainStateDb);
 
 
-    CTxMemPool pool(::minRelayTxFee);
+    CTxMemPool pool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000);
     CMutableTransaction mtx = GetValidTransaction(GROTH_TX_VERSION);
     mtx.vjoinsplit.resize(0); // no joinsplits
 
@@ -308,7 +308,7 @@ TEST_F(MempoolTest, SproutNegativeVersionTx) {
     chainSettingUtils::ExtendChainActiveToHeight(100);
     pcoinsTip->SetBestBlock(chainActive.Tip()->GetBlockHash());
 
-    CTxMemPool pool(::minRelayTxFee);
+    CTxMemPool pool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000);
     CMutableTransaction mtx = GetValidTransaction();
     mtx.vjoinsplit.resize(0); // no joinsplits
 
@@ -447,7 +447,7 @@ TEST(ProcessMempoolMsgTest, TxesInMempoolAreRelayed)
 {
     SelectParams(CBaseChainParams::REGTEST);
 
-    CTxMemPool aMempool(::minRelayTxFee);
+    CTxMemPool aMempool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000);
 
     // Populate mempool with a tx and a cert
     CTransaction scTx = txCreationUtils::createNewSidechainTxWith(CAmount(0), /*epochLength*/0);

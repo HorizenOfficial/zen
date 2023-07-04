@@ -668,7 +668,7 @@ MempoolReturnValue BlockchainTestManager::TestAcceptTxToMemoryPool(CValidationSt
 {
     CCoinsViewCache* saved_pcoinsTip = pcoinsTip;
 
-    CTxMemPool pool(::minRelayTxFee);
+    CTxMemPool pool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000);
     pcoinsTip = viewCache.get();
     pcoinsTip->SetBestBlock(chainActive.Tip()->GetBlockHash());
     pindexBestHeader = chainActive.Tip();

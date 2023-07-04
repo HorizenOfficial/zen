@@ -103,7 +103,7 @@ uint64_t nPruneTarget = 0;
 /** Fees smaller than this (in satoshi) are considered zero fee (for relaying and mining) */
 CFeeRate minRelayTxFee = CFeeRate(DEFAULT_MIN_RELAY_TX_FEE);
 
-CTxMemPool mempool(::minRelayTxFee);
+CTxMemPool mempool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000);
 
 map<uint256, COrphanTx> mapOrphanTransactions GUARDED_BY(cs_main);;
 map<uint256, set<uint256> > mapOrphanTransactionsByPrev GUARDED_BY(cs_main);;
@@ -1469,7 +1469,11 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
         }
 
         // Store transaction in memory
-        pool.addUnchecked(certHash, entry, !IsInitialBlockDownload());
+        if (!pool.addUnchecked(certHash, entry, !IsInitialBlockDownload())) {
+            state.DoS(0, false, CValidationState::Code::INSUFFICIENT_FEE, "mempool is full");
+            LogPrint("mempool", "Not adding cert %s because mempool is full!\n", certHash.ToString());
+            return MempoolReturnValue::MEMPOOL_FULL;
+        }
 
         // Add memory address index
         if (fAddressIndex) {
@@ -1795,7 +1799,11 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
             }
         }
 
-        pool.addUnchecked(hash, entry, !IsInitialBlockDownload());
+        if (!pool.addUnchecked(hash, entry, !IsInitialBlockDownload())) {
+            state.DoS(0, false, CValidationState::Code::INSUFFICIENT_FEE, "mempool is full");
+            LogPrint("mempool", "Not adding tx %s because mempool is full!\n", hash.ToString());
+            return MempoolReturnValue::MEMPOOL_FULL;
+        }
 
         // Add memory address index
         if (fAddressIndex) {

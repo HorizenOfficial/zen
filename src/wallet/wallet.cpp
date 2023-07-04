@@ -1243,10 +1243,10 @@ bool CWallet::UpdatedNoteData(const CWalletTransactionBase& wtxIn, CWalletTransa
  *
  * If pblock is null, this transaction has either recently entered the mempool from the
  * network, is re-entering the mempool after a block was disconnected, or is exiting the
- * mempool because it conflicts with another transaction. In all these cases, if there is
- * an existing wallet transaction, the wallet transaction's Merkle branch data is _not_
- * updated; instead, the transaction being in the mempool or conflicted is determined on
- * the fly in CMerkleTx::GetDepthInMainChain().
+ * mempool because it conflicts with another transaction, or the mempool is full. In all these
+ * cases, if there is an existing wallet transaction, the wallet transaction's Merkle branch
+ * data is _not_ updated; instead, the transaction being in the mempool or conflicted is
+ * determined on the fly in CMerkleTx::GetDepthInMainChain().
  */
 bool CWallet::AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock* pblock, int bwtMaturityDepth, bool fUpdate)
 {

@@ -1631,7 +1631,7 @@ TEST_F(SidechainsTestSuite, GetScIdsOnChainstateDbSelectOnlySidechains) {
 ////////////////////////////////// GetSidechain /////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainsTestSuite, GetSidechainForFwdTransfersInMempool) {
-    CTxMemPool aMempool(CFeeRate(1));
+    CTxMemPool aMempool(CFeeRate(1), DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000);
 
     //Confirm a Sidechain
     CAmount creationAmount = 10;
@@ -1679,7 +1679,7 @@ TEST_F(SidechainsTestSuite, GetSidechainForFwdTransfersInMempool) {
 }
 
 TEST_F(SidechainsTestSuite, GetSidechainForScCreationInMempool) {
-    CTxMemPool aMempool(CFeeRate(1));
+    CTxMemPool aMempool(CFeeRate(1), DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000);
 
     //Confirm a Sidechain
     CAmount creationAmount = 10;

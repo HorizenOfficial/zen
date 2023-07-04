@@ -546,7 +546,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, CheckAcceptsLowerQualityCertsInDifferen
 }
 
 TEST_F(SidechainsMultipleCertsTestSuite, CheckInMempoolDelegateToBackingView) {
-    CTxMemPool aMempool(::minRelayTxFee);
+    CTxMemPool aMempool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000);
     CCoinsViewMemPool viewMempool(sidechainsView, aMempool);
 
     CSidechain initialScState;
@@ -584,7 +584,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, CheckInMempoolDelegateToBackingView) {
 }
 
 TEST_F(SidechainsMultipleCertsTestSuite, CertsInMempoolDoNotAffectCheckQuality) {
-    CTxMemPool aMempool(::minRelayTxFee);
+    CTxMemPool aMempool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000);
     CCoinsViewMemPool viewMempool(sidechainsView, aMempool);
 
     CSidechain initialScState;

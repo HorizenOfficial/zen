@@ -59,6 +59,7 @@ public:
     int64_t GetTime() const { return nTime; }
     unsigned int GetHeight() const { return nHeight; }
     size_t DynamicMemoryUsage() const { return nUsageSize; }
+    virtual size_t GetSize() const = 0;
 };
 
 /**
@@ -79,6 +80,7 @@ public:
     double GetPriority(unsigned int currentHeight) const override;
     size_t GetTxSize() const { return nTxSize; }
     bool WasClearAtEntry() const { return hadNoDependencies; }
+    virtual size_t GetSize() const override { return GetTxSize(); }
 };
 
 class CCertificateMemPoolEntry : public CMemPoolEntry
@@ -95,6 +97,7 @@ public:
     const CScCertificate& GetCertificate() const { return this->cert; }
     double GetPriority(unsigned int currentHeight) const override;
     size_t GetCertificateSize() const { return nCertificateSize; }
+    virtual size_t GetSize() const override { return GetCertificateSize(); }
 };
 
 class CBlockPolicyEstimator;
@@ -162,6 +165,7 @@ private:
     uint64_t totalTxSize = 0; //! sum of all mempool tx' byte sizes
     uint64_t totalCertificateSize = 0; //! sum of all mempool tx' byte sizes
     uint64_t cachedInnerUsage; //! sum of dynamic memory usage of all the map elements (NOT the maps themselves)
+    /*const*/ uint64_t m_max_size;
 
     bool checkTxImmatureExpenditures(const CTransaction& tx, const CCoinsViewCache * const pcoins);
     bool checkCertImmatureExpenditures(const CScCertificate& cert, const CCoinsViewCache * const pcoins);
@@ -191,7 +195,7 @@ public:
     std::map<uint256, const CTransaction*> mapNullifiers;
     std::map<uint256, std::pair<double, CAmount> > mapDeltas;
 
-    CTxMemPool(const CFeeRate& _minRelayFee);
+    CTxMemPool(const CFeeRate& _minRelayFee, uint64_t max_size);
     ~CTxMemPool();
 
     CTxMemPool(const CTxMemPool& ) = delete;
@@ -212,6 +216,7 @@ public:
     bool checkIncomingCertConflicts(const CScCertificate& incomingCert) const;
 
     void setSanityCheck(bool _fSanityCheck) { fSanityCheck = _fSanityCheck; }
+    void setMaxSize(uint64_t max_size) { m_max_size = max_size; }
 
     std::pair<uint256, CAmount> FindCertWithQuality(const uint256& scId, int64_t certQuality) const;
     bool RemoveCertAndSync(const uint256& certToRmHash);
@@ -235,7 +240,10 @@ public:
     std::vector<uint256> mempoolDependenciesFrom(const CTransactionBase& origTx) const;
     std::vector<uint256> mempoolDependenciesOf(const CTransactionBase& origTx) const;
 
+    CRawFeeRate avgFeeRateWithDeps(const uint256& rootTx, const bool certificatesAllowed, std::map<uint256, CRawFeeRate>& cache) const;
+
     void remove(const CTransactionBase& origTx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive = false);
+    void remove(const uint256& origTx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive = false);
 
     void removeWithAnchor(const uint256 &invalidRoot);
 
@@ -381,6 +389,7 @@ public:
     bool ReadFeeEstimates(CAutoFile& filein);
 
     size_t DynamicMemoryUsage() const;
+    bool trimToSize(const CMemPoolEntry* entry, size_t max_size);
 };
 
 /** 
