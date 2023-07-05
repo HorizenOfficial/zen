@@ -47,9 +47,9 @@ class WalletUtilityDB : public CDB
 
         std::string getAddress(CDataStream ssKey);
         std::string getKey(CDataStream ssKey, CDataStream ssValue);
-        std::string getCryptedKey(CDataStream ssKey, CDataStream ssValue, std::string masterPass);
+        std::string getCryptedKey(CDataStream ssKey, CDataStream ssValue, const std::string& masterPass);
         bool updateMasterKeys(CDataStream ssKey, CDataStream ssValue);
-        bool parseKeys(bool dumppriv, std::string masterPass);
+        bool parseKeys(bool dumppriv, const std::string& masterPass);
 
         bool DecryptSecret(const std::vector<unsigned char>& vchCiphertext, const uint256& nIV, CKeyingMaterial& vchPlaintext);
         bool Unlock();
@@ -141,7 +141,7 @@ bool WalletUtilityDB::DecryptKey(const std::vector<unsigned char>& vchCryptedSec
 /*
  * Encrypted private key in WIF format
  */
-std::string WalletUtilityDB::getCryptedKey(CDataStream ssKey, CDataStream ssValue, std::string masterPass)
+std::string WalletUtilityDB::getCryptedKey(CDataStream ssKey, CDataStream ssValue, const std::string& masterPass)
 {
     mPass = masterPass.c_str();
     CPubKey vchPubKey;
@@ -188,7 +188,7 @@ bool WalletUtilityDB::updateMasterKeys(CDataStream ssKey, CDataStream ssValue)
 /*
  * Look at all the records and parse keys for addresses and private keys
  */
-bool WalletUtilityDB::parseKeys(bool dumppriv, std::string masterPass)
+bool WalletUtilityDB::parseKeys(bool dumppriv, const std::string& masterPass)
 {
     DBErrors result = DB_LOAD_OK;
     std::string strType;

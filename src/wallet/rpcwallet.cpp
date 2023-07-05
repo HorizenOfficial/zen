@@ -5449,7 +5449,7 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
     }
     // Create operation and add to global queue
     std::shared_ptr<AsyncRPCQueue> q = getAsyncRPCQueue();
-    std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(contextualTx, fromaddress, taddrRecipients, zaddrRecipients, nMinDepth, nFee, contextInfo, sendChangeToSource) );
+    std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(contextualTx, fromaddress, std::move(taddrRecipients), std::move(zaddrRecipients), nMinDepth, nFee, contextInfo, sendChangeToSource) );
     q->addOperation(operation);
     AsyncRPCOperationId operationId = operation->getId();
     return operationId;

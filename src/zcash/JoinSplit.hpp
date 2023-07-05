@@ -30,7 +30,7 @@ public:
     SpendingKey key;
 
     JSInput();
-    JSInput(ZCIncrementalWitness witness,
+    JSInput(const ZCIncrementalWitness& witness,
             Note note,
             SpendingKey key) : witness(witness), note(note), key(key) { }
 
@@ -56,11 +56,11 @@ class JoinSplit {
 public:
     virtual ~JoinSplit() {}
 
-    static void Generate(const std::string r1csPath,
-                         const std::string vkPath,
-                         const std::string pkPath);
-    static JoinSplit<NumInputs, NumOutputs>* Prepared(const std::string vkPath,
-                                                      const std::string pkPath);
+    static void Generate(const std::string& r1csPath,
+                         const std::string& vkPath,
+                         const std::string& pkPath);
+    static JoinSplit<NumInputs, NumOutputs>* Prepared(const std::string& vkPath,
+                                                      const std::string& pkPath);
 
     static uint256 h_sig(const uint256& randomSeed,
                          const std::array<uint256, NumInputs>& nullifiers,

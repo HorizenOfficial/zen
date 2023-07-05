@@ -51,8 +51,8 @@ public:
 
     MerklePath() { }
 
-    MerklePath(std::vector<std::vector<bool>> authentication_path, std::vector<bool> index)
-    : authentication_path(authentication_path), index(index) { }
+    MerklePath(std::vector<std::vector<bool>>&& authentication_path, std::vector<bool>&& index)
+    : authentication_path(std::move(authentication_path)), index(std::move(index)) { }
 };
 
 template<size_t Depth, typename Hash>
@@ -138,7 +138,7 @@ private:
     // Collapsed "left" subtrees ordered toward the root of the tree.
     std::vector<std::optional<Hash>> parents;
     MerklePath path(std::deque<Hash> filler_hashes = std::deque<Hash>()) const;
-    Hash root(size_t depth, std::deque<Hash> filler_hashes = std::deque<Hash>()) const;
+    Hash root(size_t depth, std::deque<Hash> &&filler_hashes = std::deque<Hash>()) const;
     bool is_complete(size_t depth = Depth) const;
     size_t next_depth(size_t skip) const;
     void wfcheck() const;

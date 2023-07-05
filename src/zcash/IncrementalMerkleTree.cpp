@@ -58,7 +58,7 @@ private:
     static EmptyMerkleRoots<Depth, Hash> emptyroots;
 public:
     PathFiller() : queue() { }
-    PathFiller(std::deque<Hash> queue) : queue(queue) { }
+    PathFiller(std::deque<Hash> &&queue) : queue(std::move(queue)) { }
 
     Hash next(size_t depth) {
         if (queue.size() > 0) {
@@ -227,8 +227,8 @@ size_t IncrementalMerkleTree<Depth, Hash>::next_depth(size_t skip) const {
 // This calculates the root of the tree.
 template<size_t Depth, typename Hash>
 Hash IncrementalMerkleTree<Depth, Hash>::root(size_t depth,
-                                              std::deque<Hash> filler_hashes) const {
-    PathFiller<Depth, Hash> filler(filler_hashes);
+                                              std::deque<Hash>&& filler_hashes) const {
+    PathFiller<Depth, Hash> filler(std::move(filler_hashes));
 
     Hash combine_left =  left  ? *left  : filler.next(0);
     Hash combine_right = right ? *right : filler.next(0);
@@ -265,7 +265,7 @@ MerklePath IncrementalMerkleTree<Depth, Hash>::path(std::deque<Hash> filler_hash
         throw std::runtime_error("can't create an authentication path for the beginning of the tree");
     }
 
-    PathFiller<Depth, Hash> filler(filler_hashes);
+    PathFiller<Depth, Hash> filler(std::move(filler_hashes));
 
     std::vector<Hash> path;
     std::vector<bool> index;
@@ -309,7 +309,7 @@ MerklePath IncrementalMerkleTree<Depth, Hash>::path(std::deque<Hash> filler_hash
     std::reverse(merkle_path.begin(), merkle_path.end());
     std::reverse(index.begin(), index.end());
 
-    return MerklePath(merkle_path, index);
+    return MerklePath(std::move(merkle_path), std::move(index));
 }
 
 template<size_t Depth, typename Hash>
