@@ -16,7 +16,7 @@
 #include <consensus/validation.h>
 
 #include <sc/sidechain.h>
-#include <txmempool.h>
+#include "txmempool.h"
 #include <init.h>
 #include <undo.h>
 #include <gtest/libzendoo_test_files.h>
@@ -46,19 +46,20 @@ public:
 class SidechainsInMempoolTestSuite: public ::testing::Test {
 public:
     SidechainsInMempoolTestSuite():
-        aMempool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000),
+        aMempool(new CTxMemPool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000)),
         pathTemp(boost::filesystem::temp_directory_path() / boost::filesystem::unique_path()),
         chainStateDbSize(2 * 1024 * 1024),
         pChainStateDb(nullptr),
         minimalHeightForSidechains(SidechainFork().getHeight(CBaseChainParams::REGTEST)),
         csMainLock(cs_main, "cs_main", __FILE__, __LINE__),
-        csAMempool(aMempool.cs, "cs_AMempool", __FILE__, __LINE__)
+        csAMempool(aMempool->cs, "cs_AMempool", __FILE__, __LINE__)
     {
         SelectParams(CBaseChainParams::REGTEST);
 
         boost::filesystem::create_directories(pathTemp);
         mapArgs["-datadir"] = pathTemp.string();
 
+        mempool.reset(new CTxMemPool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000));
         pChainStateDb = new CCoinsOnlyViewDB(chainStateDbSize,/*fWipe*/true);
         pcoinsTip     = new CCoinsViewCache(pChainStateDb);
     }
@@ -72,7 +73,7 @@ public:
     }
 
     void TearDown() override {
-        mempool.clear();
+        mempool->clear();
         chainActive.SetTip(nullptr);
         mapBlockIndex.clear();
     }
@@ -90,7 +91,7 @@ public:
     }
 
 protected:
-    CTxMemPool aMempool;
+    std::shared_ptr<CTxMemPool> aMempool;
     CTransaction GenerateScTx(const CAmount & creationTxAmount, int epochLenght = -1, bool ceasedVkDefined = true);
     CTransaction GenerateFwdTransferTx(const uint256 & newScId, const CAmount & fwdTxAmount);
     CTransaction GenerateBtrTx(const uint256 & scId, const CAmount & mbtrFee = CAmount(1));
@@ -135,7 +136,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewSidechainIsAcceptedToMempool) {
     CTransaction scTx = GenerateScTx(CAmount(1));
     CValidationState txState;
 
-    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, txState, scTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+    MempoolReturnValue res = AcceptTxToMemoryPool(*mempool, txState, scTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
                                                   MempoolProofVerificationFlag::SYNC);
     EXPECT_TRUE(res == MempoolReturnValue::VALID);
 }
@@ -145,7 +146,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnknownSidechainAreNotAllowed
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
     CValidationState fwdTxState;
 
-    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+    MempoolReturnValue res = AcceptTxToMemoryPool(*mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
                                                   MempoolProofVerificationFlag::SYNC);
     EXPECT_TRUE(res == MempoolReturnValue::INVALID);
 }
@@ -156,14 +157,14 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnconfirmedSidechainsAreAllow
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CValidationState scTxState;
 
-    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, scTxState, scTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+    MempoolReturnValue res = AcceptTxToMemoryPool(*mempool, scTxState, scTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
                                                   MempoolProofVerificationFlag::SYNC);
     EXPECT_TRUE(res == MempoolReturnValue::VALID);
-    ASSERT_TRUE(mempool.hasSidechainCreationTx(scId));
+    ASSERT_TRUE(mempool->hasSidechainCreationTx(scId));
 
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
     CValidationState fwdTxState;
-    res = AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+    res = AcceptTxToMemoryPool(*mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
                                MempoolProofVerificationFlag::SYNC);
     EXPECT_TRUE(res == MempoolReturnValue::VALID);
 }
@@ -184,7 +185,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSidechainsAreAllowed
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
     CValidationState fwdTxState;
 
-    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+    MempoolReturnValue res = AcceptTxToMemoryPool(*mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
                                                   MempoolProofVerificationFlag::SYNC);
     EXPECT_TRUE(res == MempoolReturnValue::VALID);
 }
@@ -194,7 +195,7 @@ TEST_F(SidechainsInMempoolTestSuite, BtrToUnknownSidechainAreNotAllowed) {
     CTransaction btrTx = GenerateBtrTx(scId);
     CValidationState btrTxState;
 
-    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, btrTxState, btrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+    MempoolReturnValue res = AcceptTxToMemoryPool(*mempool, btrTxState, btrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
                                                   MempoolProofVerificationFlag::SYNC);
     EXPECT_TRUE(res == MempoolReturnValue::INVALID);
 }
@@ -204,14 +205,14 @@ TEST_F(SidechainsInMempoolTestSuite, BtrToUnconfirmedSidechainsAreAllowed) {
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CValidationState scTxState;
 
-    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, scTxState, scTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+    MempoolReturnValue res = AcceptTxToMemoryPool(*mempool, scTxState, scTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
                                                   MempoolProofVerificationFlag::SYNC);
     ASSERT_TRUE(res == MempoolReturnValue::VALID);
-    ASSERT_TRUE(mempool.hasSidechainCreationTx(scId));
+    ASSERT_TRUE(mempool->hasSidechainCreationTx(scId));
 
     CTransaction btrTx = GenerateBtrTx(scId);
     CValidationState btrTxState;
-    res = AcceptTxToMemoryPool(mempool, btrTxState, btrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+    res = AcceptTxToMemoryPool(*mempool, btrTxState, btrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
                                MempoolProofVerificationFlag::SYNC);
     ASSERT_TRUE(res == MempoolReturnValue::VALID);
 }
@@ -232,7 +233,7 @@ TEST_F(SidechainsInMempoolTestSuite, BtrToConfirmedSidechainsAreAllowed) {
     CTransaction btrTx = GenerateBtrTx(scId);
     CValidationState btrTxState;
 
-    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, btrTxState, btrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+    MempoolReturnValue res = AcceptTxToMemoryPool(*mempool, btrTxState, btrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
                                                   MempoolProofVerificationFlag::SYNC);
     EXPECT_TRUE(res == MempoolReturnValue::VALID);
 }
@@ -241,29 +242,29 @@ TEST_F(SidechainsInMempoolTestSuite, hasSidechainCreationTxTest) {
     uint256 scId = uint256S("1492");
 
     //Case 1: no sidechain related tx in mempool
-    bool res = aMempool.hasSidechainCreationTx(scId);
+    bool res = aMempool->hasSidechainCreationTx(scId);
     EXPECT_FALSE(res);
 
     //Case 2: fwd transfer tx only in mempool
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
     CTxMemPoolEntry fwdPoolEntry(fwdTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(fwdPoolEntry.GetTx().GetHash(), fwdPoolEntry);
-    res = aMempool.hasSidechainCreationTx(scId);
+    aMempool->addUnchecked(fwdPoolEntry.GetTx().GetHash(), fwdPoolEntry);
+    res = aMempool->hasSidechainCreationTx(scId);
     EXPECT_FALSE(res);
 
     //Case 3: btr tx only in mempool
     CTransaction btrTx = GenerateBtrTx(scId);
     CTxMemPoolEntry btrTxEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(btrTxEntry.GetTx().GetHash(), btrTxEntry, /*fCurrentEstimate*/true);
-    res = aMempool.hasSidechainCreationTx(scId);
+    aMempool->addUnchecked(btrTxEntry.GetTx().GetHash(), btrTxEntry, /*fCurrentEstimate*/true);
+    res = aMempool->hasSidechainCreationTx(scId);
     EXPECT_FALSE(res);
 
     //Case 4: sc creation tx in mempool
     CTransaction scTx  = GenerateScTx(CAmount(10));
     const uint256& scIdOk = scTx.GetScIdFromScCcOut(0);
     CTxMemPoolEntry scPoolEntry(scTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(scPoolEntry.GetTx().GetHash(), scPoolEntry);
-    res = aMempool.hasSidechainCreationTx(scIdOk);
+    aMempool->addUnchecked(scPoolEntry.GetTx().GetHash(), scPoolEntry);
+    res = aMempool->hasSidechainCreationTx(scIdOk);
     EXPECT_TRUE(res);
 }
 
@@ -274,25 +275,25 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsAndBtrInMempool_ScNonRecursiveRemo
     CTransaction scTx = GenerateScTx(CAmount(10));
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CTxMemPoolEntry scEntry(scTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(scTx.GetHash(), scEntry);
-    ASSERT_TRUE(aMempool.hasSidechainCreationTx(scId));
+    aMempool->addUnchecked(scTx.GetHash(), scEntry);
+    ASSERT_TRUE(aMempool->hasSidechainCreationTx(scId));
 
     CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
     CTxMemPoolEntry fwdEntry1(fwdTx1, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(fwdTx1.GetHash(), fwdEntry1);
+    aMempool->addUnchecked(fwdTx1.GetHash(), fwdEntry1);
 
     CTransaction fwdTx2 = GenerateFwdTransferTx(scId, CAmount(20));
     CTxMemPoolEntry fwdEntry2(fwdTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
+    aMempool->addUnchecked(fwdTx2.GetHash(), fwdEntry2);
 
     CTransaction btrTx = GenerateBtrTx(scId);
     CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
 
-    aMempool.addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true);
+    aMempool->addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true);
 
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    aMempool.remove(scTx, removedTxs, removedCerts, /*fRecursive*/false);
+    aMempool->remove(scTx, removedTxs, removedCerts, /*fRecursive*/false);
 
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), scTx));
     EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
@@ -307,19 +308,19 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndBtrsOnlyInMempool_FwdNonRecursiveRem
 
     CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
     CTxMemPoolEntry fwdEntry1(fwdTx1, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(fwdTx1.GetHash(), fwdEntry1);
+    aMempool->addUnchecked(fwdTx1.GetHash(), fwdEntry1);
 
     CTransaction fwdTx2 = GenerateFwdTransferTx(scId, CAmount(20));
     CTxMemPoolEntry fwdEntry2(fwdTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
+    aMempool->addUnchecked(fwdTx2.GetHash(), fwdEntry2);
 
     CTransaction btrTx = GenerateBtrTx(scId);
     CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true);
+    aMempool->addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true);
 
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    aMempool.remove(fwdTx1, removedTxs, removedCerts, /*fRecursive*/false);
+    aMempool->remove(fwdTx1, removedTxs, removedCerts, /*fRecursive*/false);
 
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
     EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
@@ -334,19 +335,19 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndBtrsOnlyInMempool_BtrNonRecursiveRem
 
     CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
     CTxMemPoolEntry fwdEntry1(fwdTx1, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(fwdTx1.GetHash(), fwdEntry1);
+    aMempool->addUnchecked(fwdTx1.GetHash(), fwdEntry1);
 
     CTransaction fwdTx2 = GenerateFwdTransferTx(scId, CAmount(20));
     CTxMemPoolEntry fwdEntry2(fwdTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
+    aMempool->addUnchecked(fwdTx2.GetHash(), fwdEntry2);
 
     CTransaction btrTx = GenerateBtrTx(scId);
     CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true);
+    aMempool->addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true);
 
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    aMempool.remove(btrTx, removedTxs, removedCerts, /*fRecursive*/false);
+    aMempool->remove(btrTx, removedTxs, removedCerts, /*fRecursive*/false);
 
     EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
     EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
@@ -361,24 +362,24 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsAndBtrInMempool_ScRecursiveRemoval
     CTransaction scTx = GenerateScTx(CAmount(10));
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CTxMemPoolEntry scEntry(scTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(scTx.GetHash(), scEntry);
-    ASSERT_TRUE(aMempool.hasSidechainCreationTx(scId));
+    aMempool->addUnchecked(scTx.GetHash(), scEntry);
+    ASSERT_TRUE(aMempool->hasSidechainCreationTx(scId));
 
     CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
     CTxMemPoolEntry fwdEntry1(fwdTx1, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(fwdTx1.GetHash(), fwdEntry1);
+    aMempool->addUnchecked(fwdTx1.GetHash(), fwdEntry1);
 
     CTransaction fwdTx2 = GenerateFwdTransferTx(scId, CAmount(20));
     CTxMemPoolEntry fwdEntry2(fwdTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
+    aMempool->addUnchecked(fwdTx2.GetHash(), fwdEntry2);
 
     CTransaction btrTx = GenerateBtrTx(scId);
     CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true);
+    aMempool->addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true);
 
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    aMempool.remove(scTx, removedTxs, removedCerts, /*fRecursive*/true);
+    aMempool->remove(scTx, removedTxs, removedCerts, /*fRecursive*/true);
 
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), scTx));
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
@@ -394,19 +395,19 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndBtrOnlyInMempool_ScRecursiveRemoval)
 
     CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
     CTxMemPoolEntry fwdEntry1(fwdTx1, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(fwdTx1.GetHash(), fwdEntry1);
+    aMempool->addUnchecked(fwdTx1.GetHash(), fwdEntry1);
 
     CTransaction fwdTx2 = GenerateFwdTransferTx(scId, CAmount(20));
     CTxMemPoolEntry fwdEntry2(fwdTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
+    aMempool->addUnchecked(fwdTx2.GetHash(), fwdEntry2);
 
     CTransaction btrTx = GenerateBtrTx(scId);
     CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true);
+    aMempool->addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true);
 
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    aMempool.remove(scTx, removedTxs, removedCerts, /*fRecursive*/true);
+    aMempool->remove(scTx, removedTxs, removedCerts, /*fRecursive*/true);
 
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
@@ -421,19 +422,19 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsAndBtrInMempool_FwdRecursiveRemova
 
     CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
     CTxMemPoolEntry fwdEntry1(fwdTx1, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(fwdTx1.GetHash(), fwdEntry1);
+    aMempool->addUnchecked(fwdTx1.GetHash(), fwdEntry1);
 
     CTransaction fwdTx2 = GenerateFwdTransferTx(scId, CAmount(20));
     CTxMemPoolEntry fwdEntry2(fwdTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
+    aMempool->addUnchecked(fwdTx2.GetHash(), fwdEntry2);
 
     CTransaction btrTx = GenerateBtrTx(scId);
     CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true);
+    aMempool->addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true);
 
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    aMempool.remove(fwdTx2, removedTxs, removedCerts, /*fRecursive*/true);
+    aMempool->remove(fwdTx2, removedTxs, removedCerts, /*fRecursive*/true);
 
     EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
@@ -448,19 +449,19 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsAndBtrInMempool_BtrRecursiveRemova
 
     CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
     CTxMemPoolEntry fwdEntry1(fwdTx1, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(fwdTx1.GetHash(), fwdEntry1);
+    aMempool->addUnchecked(fwdTx1.GetHash(), fwdEntry1);
 
     CTransaction fwdTx2 = GenerateFwdTransferTx(scId, CAmount(20));
     CTxMemPoolEntry fwdEntry2(fwdTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
+    aMempool->addUnchecked(fwdTx2.GetHash(), fwdEntry2);
 
     CTransaction btrTx = GenerateBtrTx(scId);
     CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true);
+    aMempool->addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true);
 
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    aMempool.remove(btrTx, removedTxs, removedCerts, /*fRecursive*/true);
+    aMempool->remove(btrTx, removedTxs, removedCerts, /*fRecursive*/true);
 
     EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
     EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
@@ -481,16 +482,16 @@ TEST_F(SidechainsInMempoolTestSuite, SimpleCertRemovalFromMempool) {
         CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(6), /*numBwt*/2,
         /*ftScFee*/0, /*mbtrScFee*/0);
     CCertificateMemPoolEntry certEntry(cert, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    mempool.addUnchecked(cert.GetHash(), certEntry);
+    mempool->addUnchecked(cert.GetHash(), certEntry);
 
     //Remove the certificate
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    mempool.remove(cert, removedTxs, removedCerts, /*fRecursive*/false);
+    mempool->remove(cert, removedTxs, removedCerts, /*fRecursive*/false);
 
     EXPECT_TRUE(removedTxs.size() == 0);
     EXPECT_TRUE(std::count(removedCerts.begin(), removedCerts.end(), cert));
-    EXPECT_FALSE(mempool.existsCert(cert.GetHash()));
+    EXPECT_FALSE(mempool->existsCert(cert.GetHash()));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, ConflictingCertRemovalFromMempool) {
@@ -507,7 +508,7 @@ TEST_F(SidechainsInMempoolTestSuite, ConflictingCertRemovalFromMempool) {
         CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(6), /*numBwt*/2,
         /*ftScFee*/0, /*mbtrScFee*/0);
     CCertificateMemPoolEntry certEntry1(cert1, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    mempool.addUnchecked(cert1.GetHash(), certEntry1);
+    mempool->addUnchecked(cert1.GetHash(), certEntry1);
 
     //Remove the certificate
     std::list<CTransaction> removedTxs;
@@ -515,11 +516,11 @@ TEST_F(SidechainsInMempoolTestSuite, ConflictingCertRemovalFromMempool) {
     CScCertificate cert2 = txCreationUtils::createCertificate(scId, /*epochNum*/0,
         CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0), /*numBwt*/2,
         /*ftScFee*/0, /*mbtrScFee*/0);
-    mempool.removeConflicts(cert2, removedTxs, removedCerts);
+    mempool->removeConflicts(cert2, removedTxs, removedCerts);
 
     EXPECT_TRUE(removedTxs.size() == 0);
     EXPECT_TRUE(std::count(removedCerts.begin(), removedCerts.end(), cert1));
-    EXPECT_FALSE(mempool.existsCert(cert1.GetHash()));
+    EXPECT_FALSE(mempool->existsCert(cert1.GetHash()));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_CertRemovalDoesNotAffectFwt) {
@@ -534,27 +535,27 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_CertRemovalDoesNotAffe
     //load a fwt in mempool
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(20));
     CTxMemPoolEntry fwdEntry(fwdTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    mempool.addUnchecked(fwdTx.GetHash(), fwdEntry);
+    mempool->addUnchecked(fwdTx.GetHash(), fwdEntry);
 
     //load a certificate in mempool
     CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNum*/0,
         CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/0, /*mbtrScFee*/0);
     CCertificateMemPoolEntry certEntry1(cert, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    mempool.addUnchecked(cert.GetHash(), certEntry1);
+    mempool->addUnchecked(cert.GetHash(), certEntry1);
 
     //Remove the certificate
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    mempool.remove(cert, removedTxs, removedCerts, /*fRecursive*/false);
+    mempool->remove(cert, removedTxs, removedCerts, /*fRecursive*/false);
 
     EXPECT_TRUE(std::count(removedCerts.begin(), removedCerts.end(), cert));
-    EXPECT_FALSE(mempool.existsCert(cert.GetHash()));
+    EXPECT_FALSE(mempool->existsCert(cert.GetHash()));
     EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx));
-    EXPECT_TRUE(mempool.existsTx(fwdTx.GetHash()));
-    ASSERT_TRUE(mempool.mapSidechains.count(scId));
-    EXPECT_TRUE(mempool.mapSidechains.at(scId).fwdTxHashes.count(fwdTx.GetHash()));
-    EXPECT_TRUE(mempool.mapSidechains.at(scId).mBackwardCertificates.empty());
+    EXPECT_TRUE(mempool->existsTx(fwdTx.GetHash()));
+    ASSERT_TRUE(mempool->mapSidechains.count(scId));
+    EXPECT_TRUE(mempool->mapSidechains.at(scId).fwdTxHashes.count(fwdTx.GetHash()));
+    EXPECT_TRUE(mempool->mapSidechains.at(scId).mBackwardCertificates.empty());
 }
 
 TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_FwtRemovalDoesNotAffectCert) {
@@ -569,27 +570,27 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_FwtRemovalDoesNotAffec
     //load a fwd in mempool
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(20));
     CTxMemPoolEntry fwdEntry(fwdTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    mempool.addUnchecked(fwdTx.GetHash(), fwdEntry);
+    mempool->addUnchecked(fwdTx.GetHash(), fwdEntry);
 
     //load a certificate in mempool
     CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNum*/0,
         CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/0, /*mbtrScFee*/0);
     CCertificateMemPoolEntry certEntry1(cert, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    mempool.addUnchecked(cert.GetHash(), certEntry1);
+    mempool->addUnchecked(cert.GetHash(), certEntry1);
 
     //Remove the certificate
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    mempool.remove(fwdTx, removedTxs, removedCerts, /*fRecursive*/false);
+    mempool->remove(fwdTx, removedTxs, removedCerts, /*fRecursive*/false);
 
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx));
-    EXPECT_FALSE(mempool.existsTx(fwdTx.GetHash()));
+    EXPECT_FALSE(mempool->existsTx(fwdTx.GetHash()));
     EXPECT_FALSE(std::count(removedCerts.begin(), removedCerts.end(), cert));
-    EXPECT_TRUE(mempool.existsCert(cert.GetHash()));
-    ASSERT_TRUE(mempool.mapSidechains.count(scId));
-    EXPECT_FALSE(mempool.mapSidechains.at(scId).fwdTxHashes.count(fwdTx.GetHash()));
-    EXPECT_TRUE(mempool.mapSidechains.at(scId).HasCert(cert.GetHash()));
+    EXPECT_TRUE(mempool->existsCert(cert.GetHash()));
+    ASSERT_TRUE(mempool->mapSidechains.count(scId));
+    EXPECT_FALSE(mempool->mapSidechains.at(scId).fwdTxHashes.count(fwdTx.GetHash()));
+    EXPECT_TRUE(mempool->mapSidechains.at(scId).HasCert(cert.GetHash()));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, CertCannotSpendSameQualityCertOutput)
@@ -613,8 +614,8 @@ TEST_F(SidechainsInMempoolTestSuite, CertCannotSpendSameQualityCertOutput)
         /*ftScFee*/0, /*mbtrScFee*/0, /*quality*/certQuality);
 
     CCertificateMemPoolEntry mempoolParentCertCertEntry(parentCert, /*fee*/dummyNonZeroFee, /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    mempool.addUnchecked(parentCert.GetHash(), mempoolParentCertCertEntry);
-    ASSERT_TRUE(mempool.exists(parentCert.GetHash()));
+    mempool->addUnchecked(parentCert.GetHash(), mempoolParentCertCertEntry);
+    ASSERT_TRUE(mempool->exists(parentCert.GetHash()));
 
     CScCertificate sameQualityChildCert = GenerateCertificate(scId, /*epochNum*/0, dummyCumTree, /*inputAmount*/dummyInputAmount,
         /*changeTotalAmount*/dummyNonZeroChange,/*numChangeOut*/1, /*bwtAmount*/dummyBwtAmount, /*numBwt*/2,
@@ -622,7 +623,7 @@ TEST_F(SidechainsInMempoolTestSuite, CertCannotSpendSameQualityCertOutput)
     ASSERT_TRUE(sameQualityChildCert.GetHash() != parentCert.GetHash());
 
     //test
-    EXPECT_FALSE(mempool.checkIncomingCertConflicts(sameQualityChildCert));
+    EXPECT_FALSE(mempool->checkIncomingCertConflicts(sameQualityChildCert));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, CertCannotSpendHigherQualityCertOutput)
@@ -646,15 +647,15 @@ TEST_F(SidechainsInMempoolTestSuite, CertCannotSpendHigherQualityCertOutput)
         /*ftScFee*/CAmount(0), /*mbtrScFee*/CAmount(0), /*quality*/topQuality);
 
     CCertificateMemPoolEntry mempoolParentCertCertEntry(parentCert, /*fee*/dummyNonZeroFee, /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    mempool.addUnchecked(parentCert.GetHash(), mempoolParentCertCertEntry);
-    ASSERT_TRUE(mempool.exists(parentCert.GetHash()));
+    mempool->addUnchecked(parentCert.GetHash(), mempoolParentCertCertEntry);
+    ASSERT_TRUE(mempool->exists(parentCert.GetHash()));
 
     CScCertificate lowerQualityChildCert = GenerateCertificate(scId, /*epochNum*/0, dummyCumTree, /*inputAmount*/dummyInputAmount,
         /*changeTotalAmount*/dummyNonZeroChange,/*numChangeOut*/1, /*bwtAmount*/dummyBwtAmount, /*numBwt*/2,
         /*ftScFee*/CAmount(0), /*mbtrScFee*/CAmount(0), /*quality*/topQuality/2, &parentCert);
 
     //test
-    EXPECT_FALSE(mempool.checkIncomingCertConflicts(lowerQualityChildCert));
+    EXPECT_FALSE(mempool->checkIncomingCertConflicts(lowerQualityChildCert));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, CswInputsPerScLimit) {
@@ -674,15 +675,15 @@ TEST_F(SidechainsInMempoolTestSuite, CswInputsPerScLimit) {
         CTransaction cswTx1 = GenerateCSWTx(cswInput);
  
         CValidationState dummyState;
-        EXPECT_TRUE(mempool.checkCswInputsPerScLimit(cswTx1));
+        EXPECT_TRUE(mempool->checkCswInputsPerScLimit(cswTx1));
 
         CTxMemPoolEntry cswEntry(cswTx1, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-        EXPECT_TRUE(mempool.addUnchecked(cswTx1.GetHash(), cswEntry));
+        EXPECT_TRUE(mempool->addUnchecked(cswTx1.GetHash(), cswEntry));
 
         lastTxHash = cswTx1.GetHash();
     }
 
-    EXPECT_TRUE(mempool.getNumOfCswInputs(scId1) == SC_MAX_NUM_OF_CSW_INPUTS_IN_MEMPOOL);
+    EXPECT_TRUE(mempool->getNumOfCswInputs(scId1) == SC_MAX_NUM_OF_CSW_INPUTS_IN_MEMPOOL);
 
     CFieldElement nullifier{};
     blockchain_test_utils::RandomSidechainField(nullifier);
@@ -692,39 +693,39 @@ TEST_F(SidechainsInMempoolTestSuite, CswInputsPerScLimit) {
     CTransaction cswTx1 = GenerateCSWTx(cswInput);
  
     CValidationState dummyState;
-    EXPECT_FALSE(mempool.checkCswInputsPerScLimit(cswTx1));
+    EXPECT_FALSE(mempool->checkCswInputsPerScLimit(cswTx1));
 
 
     // check that a csw for a different scid would be accepted instead
     uint256 scId2 = uint256S("bbb");
     CTxCeasedSidechainWithdrawalInput cswInput2 = GenerateCSWInput(scId2, "aabb", "ccdd", "eeff", cswTxCoins, &nullifier);
     CTransaction cswTx2 = GenerateCSWTx(cswInput2);
-    EXPECT_TRUE(mempool.checkCswInputsPerScLimit(cswTx2));
+    EXPECT_TRUE(mempool->checkCswInputsPerScLimit(cswTx2));
     CTxMemPoolEntry cswEntry2(cswTx2, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    EXPECT_TRUE(mempool.addUnchecked(cswTx2.GetHash(), cswEntry2));
-    EXPECT_TRUE(mempool.getNumOfCswInputs(scId2) == 1);
+    EXPECT_TRUE(mempool->addUnchecked(cswTx2.GetHash(), cswEntry2));
+    EXPECT_TRUE(mempool->getNumOfCswInputs(scId2) == 1);
 
     //Remove one csw tx related to scid1 from mempool
 
     CTransaction lastTxSc1;
-    EXPECT_TRUE(mempool.lookup(lastTxHash, lastTxSc1));
+    EXPECT_TRUE(mempool->lookup(lastTxHash, lastTxSc1));
 
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    mempool.remove(lastTxSc1, removedTxs, removedCerts, /*fRecursive*/false);
+    mempool->remove(lastTxSc1, removedTxs, removedCerts, /*fRecursive*/false);
 
-    EXPECT_FALSE(mempool.existsTx(lastTxHash));
+    EXPECT_FALSE(mempool->existsTx(lastTxHash));
 
     // check that the counter for scid1 is back in the allowd range
-    EXPECT_TRUE(mempool.getNumOfCswInputs(scId1) == (SC_MAX_NUM_OF_CSW_INPUTS_IN_MEMPOOL - 1));
+    EXPECT_TRUE(mempool->getNumOfCswInputs(scId1) == (SC_MAX_NUM_OF_CSW_INPUTS_IN_MEMPOOL - 1));
 
     // check that now the tx would be ok
-    EXPECT_TRUE(mempool.checkCswInputsPerScLimit(cswTx1));
+    EXPECT_TRUE(mempool->checkCswInputsPerScLimit(cswTx1));
 
     CTxMemPoolEntry cswEntry(cswTx1, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    EXPECT_TRUE(mempool.addUnchecked(cswTx1.GetHash(), cswEntry));
+    EXPECT_TRUE(mempool->addUnchecked(cswTx1.GetHash(), cswEntry));
 
-    EXPECT_TRUE(mempool.getNumOfCswInputs(scId1)  == SC_MAX_NUM_OF_CSW_INPUTS_IN_MEMPOOL);
+    EXPECT_TRUE(mempool->getNumOfCswInputs(scId1)  == SC_MAX_NUM_OF_CSW_INPUTS_IN_MEMPOOL);
 
     // now use a tx with multiple csw input for scid2 and check that the tx exceed the limit
     CMutableTransaction mutTx;
@@ -742,9 +743,9 @@ TEST_F(SidechainsInMempoolTestSuite, CswInputsPerScLimit) {
     }
     CTransaction cswTx(mutTx);
 
-    EXPECT_FALSE(mempool.checkCswInputsPerScLimit(cswTx));
+    EXPECT_FALSE(mempool->checkCswInputsPerScLimit(cswTx));
 
-    EXPECT_TRUE(mempool.getNumOfCswInputs(scId2) == 1);
+    EXPECT_TRUE(mempool->getNumOfCswInputs(scId2) == 1);
 }
 
 TEST_F(SidechainsInMempoolTestSuite, DuplicatedCSWsToCeasedSidechainAreRejected) {
@@ -754,14 +755,14 @@ TEST_F(SidechainsInMempoolTestSuite, DuplicatedCSWsToCeasedSidechainAreRejected)
     CTransaction cswTx = GenerateCSWTx(cswInput);
 
     CTxMemPoolEntry cswEntry(cswTx, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    EXPECT_TRUE(mempool.addUnchecked(cswTx.GetHash(), cswEntry));
+    EXPECT_TRUE(mempool->addUnchecked(cswTx.GetHash(), cswEntry));
 
     CMutableTransaction duplicatedCswTx = cswTx;
     duplicatedCswTx.addOut(CTxOut(CAmount(5), CScript()));
     ASSERT_TRUE(cswTx.GetHash() != duplicatedCswTx.GetHash());
 
     CValidationState dummyState;
-    EXPECT_FALSE(mempool.checkIncomingTxConflicts(duplicatedCswTx));
+    EXPECT_FALSE(mempool->checkIncomingTxConflicts(duplicatedCswTx));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, UnconfirmedFwtTxToCeasedSidechainsAreRemovedFromMempool) {
@@ -782,13 +783,13 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedFwtTxToCeasedSidechainsAreRemove
 
     CTransaction fwtTx = GenerateFwdTransferTx(scId, CAmount(10));
     CTxMemPoolEntry fwtEntry(fwtTx, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    EXPECT_TRUE(mempool.addUnchecked(fwtTx.GetHash(), fwtEntry));
+    EXPECT_TRUE(mempool->addUnchecked(fwtTx.GetHash(), fwtEntry));
 
     // Sidechain State is Active. No removed Txs and Certs expected.
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
     int dummyHeight{1815};
-    mempool.removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
+    mempool->removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
     EXPECT_TRUE(removedTxs.size() == 0);
     EXPECT_TRUE(removedCerts.size() == 0);
 
@@ -801,7 +802,7 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedFwtTxToCeasedSidechainsAreRemove
     // Sidechain State is Ceased. FT expected to be removed.
     removedTxs.clear();
     removedCerts.clear();
-    mempool.removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
+    mempool->removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
     EXPECT_TRUE(removedTxs.size() == 1);
     EXPECT_TRUE(std::find(removedTxs.begin(), removedTxs.end(), fwtTx) != removedTxs.end());
     EXPECT_TRUE(removedCerts.size() == 0);
@@ -831,12 +832,12 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedCsw_LargerThanSidechainBalanceAr
     CTransaction cswTx = GenerateCSWTx(cswInput);
 
     CTxMemPoolEntry cswEntry(cswTx, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    EXPECT_TRUE(mempool.addUnchecked(cswTx.GetHash(), cswEntry));
+    EXPECT_TRUE(mempool->addUnchecked(cswTx.GetHash(), cswEntry));
 
     // Sidechain State is Ceased and there is no Sidechain balance conflicts in the mempool. No removed Txs and Certs expected.
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    mempool.removeOutOfScBalanceCsw(&sidechainsView, removedTxs, removedCerts);
+    mempool->removeOutOfScBalanceCsw(&sidechainsView, removedTxs, removedCerts);
     EXPECT_TRUE(removedTxs.size() == 0);
     EXPECT_TRUE(removedCerts.size() == 0);
 
@@ -845,12 +846,12 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedCsw_LargerThanSidechainBalanceAr
     CTxCeasedSidechainWithdrawalInput cswInput2 = GenerateCSWInput(scId, "ddcc", "aabb", "eeff", cswTxCoins2);
     CTransaction cswTx2 = GenerateCSWTx(cswInput2);
     CTxMemPoolEntry cswEntry2(cswTx2, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    EXPECT_TRUE(mempool.addUnchecked(cswTx2.GetHash(), cswEntry2));
+    EXPECT_TRUE(mempool->addUnchecked(cswTx2.GetHash(), cswEntry2));
 
     // Mempool CSW Txs total withdrawal amount is greater than Sidechain mature balance -> both Txs expected to be removed.
     removedTxs.clear();
     removedCerts.clear();
-    mempool.removeOutOfScBalanceCsw(&sidechainsView, removedTxs, removedCerts);
+    mempool->removeOutOfScBalanceCsw(&sidechainsView, removedTxs, removedCerts);
     EXPECT_TRUE(removedTxs.size() == 2);
     EXPECT_TRUE(std::find(removedTxs.begin(), removedTxs.end(), cswTx) != removedTxs.end());
     EXPECT_TRUE(std::find(removedTxs.begin(), removedTxs.end(), cswTx2) != removedTxs.end());
@@ -881,14 +882,14 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedCswForAliveSidechainsAreRemovedF
     CTransaction cswTx = GenerateCSWTx(cswInput);
 
     CTxMemPoolEntry cswEntry(cswTx, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    EXPECT_TRUE(mempool.addUnchecked(cswTx.GetHash(), cswEntry));
+    EXPECT_TRUE(mempool->addUnchecked(cswTx.GetHash(), cswEntry));
 
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
     int dummyHeight{1789};
     // Sidechain State is Ceased and there is no Sidechain balance conflicts in the mempool. No removed Txs and Certs expected.
-    mempool.removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
-    mempool.removeOutOfScBalanceCsw(&sidechainsView, removedTxs, removedCerts);
+    mempool->removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
+    mempool->removeOutOfScBalanceCsw(&sidechainsView, removedTxs, removedCerts);
     EXPECT_TRUE(removedTxs.size() == 0);
     EXPECT_TRUE(removedCerts.size() == 0);
 
@@ -901,7 +902,7 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedCswForAliveSidechainsAreRemovedF
     // Mempool CSW Txs total withdrawal amount is greater than Sidechain mature balance -> both Txs expected to be removed.
     removedTxs.clear();
     removedCerts.clear();
-    mempool.removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
+    mempool->removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
     EXPECT_TRUE(removedTxs.size() == 1);
     EXPECT_TRUE(std::find(removedTxs.begin(), removedTxs.end(), cswTx) != removedTxs.end());
     EXPECT_TRUE(removedCerts.size() == 0);
@@ -934,17 +935,17 @@ TEST_F(SidechainsInMempoolTestSuite, SimpleCswRemovalFromMempool) {
 
     CTransaction cswTx(mutTx);
     CTxMemPoolEntry cswEntry(cswTx, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    mempool.addUnchecked(cswTx.GetHash(), cswEntry);
+    mempool->addUnchecked(cswTx.GetHash(), cswEntry);
 
     //Remove the csw tx
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    mempool.remove(cswTx, removedTxs, removedCerts, /*fRecursive*/false);
+    mempool->remove(cswTx, removedTxs, removedCerts, /*fRecursive*/false);
 
     //checks
     EXPECT_TRUE(removedCerts.size() == 0);
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), cswTx));
-    EXPECT_FALSE(mempool.existsTx(cswTx.GetHash()));
+    EXPECT_FALSE(mempool->existsTx(cswTx.GetHash()));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, CSWsToCeasedSidechainWithoutVK) {
@@ -987,7 +988,7 @@ TEST_F(SidechainsInMempoolTestSuite, CSWsToCeasedSidechainWithoutVK) {
 
     CValidationState cswTxState;
 
-    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, cswTxState, cswTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+    MempoolReturnValue res = AcceptTxToMemoryPool(*mempool, cswTxState, cswTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
                                                   MempoolProofVerificationFlag::SYNC);
     EXPECT_TRUE(res == MempoolReturnValue::INVALID);
 }
@@ -1020,7 +1021,7 @@ TEST_F(SidechainsInMempoolTestSuite, ConflictingCswRemovalFromMempool) {
 
     CTransaction cswTx(mutTx);
     CTxMemPoolEntry cswEntry(cswTx, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    mempool.addUnchecked(cswTx.GetHash(), cswEntry);
+    mempool->addUnchecked(cswTx.GetHash(), cswEntry);
 
     //Remove the csw tx due to nullifier conflict with cswConfirmedTx
     std::list<CTransaction> removedTxs;
@@ -1032,12 +1033,12 @@ TEST_F(SidechainsInMempoolTestSuite, ConflictingCswRemovalFromMempool) {
 
     CTransaction cswConfirmedTx(mutConfirmedTx);
     ASSERT_TRUE(cswTx.GetHash() != cswConfirmedTx.GetHash());
-    mempool.removeConflicts(cswConfirmedTx, removedTxs, removedCerts);
+    mempool->removeConflicts(cswConfirmedTx, removedTxs, removedCerts);
 
     //checks
     EXPECT_TRUE(removedCerts.size() == 0);
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), cswTx));
-    EXPECT_FALSE(mempool.existsTx(cswTx.GetHash()));
+    EXPECT_FALSE(mempool->existsTx(cswTx.GetHash()));
 }
 
 
@@ -1063,15 +1064,15 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedTxSpendingImmatureCoinbaseIsDrop
     mutTx.vin.push_back(CTxIn(COutPoint(coinBase.GetHash(), 0), CScript(), -1));
     CTransaction mempoolTx1(mutTx);
     CTxMemPoolEntry mempoolEntry1(mempoolTx1, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    mempool.addUnchecked(mempoolTx1.GetHash(), mempoolEntry1);
-    EXPECT_TRUE(mempool.exists(mempoolTx1.GetHash()));
+    mempool->addUnchecked(mempoolTx1.GetHash(), mempoolEntry1);
+    EXPECT_TRUE(mempool->exists(mempoolTx1.GetHash()));
 
     mutTx.vin.clear();
     mutTx.vin.push_back(CTxIn(COutPoint(coinBase.GetHash(), 1), CScript(), -1));
     CTransaction mempoolTx2(mutTx);
     CTxMemPoolEntry mempoolEntry2(mempoolTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    mempool.addUnchecked(mempoolTx2.GetHash(), mempoolEntry2);
-    EXPECT_TRUE(mempool.exists(mempoolTx2.GetHash()));
+    mempool->addUnchecked(mempoolTx2.GetHash(), mempoolEntry2);
+    EXPECT_TRUE(mempool->exists(mempoolTx2.GetHash()));
 
     //Revert chain undoing coinbase maturity, and check mempool cleanup
     chainSettingUtils::ExtendChainActiveToHeight(chainActive.Height() -1);
@@ -1081,13 +1082,13 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedTxSpendingImmatureCoinbaseIsDrop
     //test
     std::list<CTransaction> outdatedTxs;
     std::list<CScCertificate> outdatedCerts;
-    mempool.removeStaleTransactions(pcoinsTip, outdatedTxs, outdatedCerts);
+    mempool->removeStaleTransactions(pcoinsTip, outdatedTxs, outdatedCerts);
 
     //Check
-    EXPECT_FALSE(mempool.exists(mempoolTx1.GetHash()));
+    EXPECT_FALSE(mempool->exists(mempoolTx1.GetHash()));
     EXPECT_TRUE(std::find(outdatedTxs.begin(), outdatedTxs.end(), mempoolTx1) != outdatedTxs.end());
 
-    EXPECT_FALSE(mempool.exists(mempoolTx2.GetHash()));
+    EXPECT_FALSE(mempool->exists(mempoolTx2.GetHash()));
     EXPECT_TRUE(std::find(outdatedTxs.begin(), outdatedTxs.end(), mempoolTx2) != outdatedTxs.end());
 }
 
@@ -1105,8 +1106,8 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedFwdsTowardUnconfirmedSidechainsA
     CTransaction scCreationTx(mutScCreationTx);
     uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
     CTxMemPoolEntry scPoolEntry(scCreationTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    mempool.addUnchecked(scCreationTx.GetHash(), scPoolEntry);
-    ASSERT_TRUE(mempool.hasSidechainCreationTx(scId));
+    mempool->addUnchecked(scCreationTx.GetHash(), scPoolEntry);
+    ASSERT_TRUE(mempool->hasSidechainCreationTx(scId));
 
     // create coinbase to finance fwt
     int fwtHeight {201};
@@ -1118,15 +1119,15 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedFwdsTowardUnconfirmedSidechainsA
     mutFwdTx.vin.push_back(CTxIn(inputTxHash, 0, CScript()));
     CTransaction fwdTx(mutFwdTx);
     CTxMemPoolEntry mempoolEntry(fwdTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/fwtHeight);
-    mempool.addUnchecked(fwdTx.GetHash(), mempoolEntry);
+    mempool->addUnchecked(fwdTx.GetHash(), mempoolEntry);
 
     //test
     std::list<CTransaction> outdatedTxs;
     std::list<CScCertificate> outdatedCerts;
-    mempool.removeStaleTransactions(&sidechainsView, outdatedTxs, outdatedCerts);
+    mempool->removeStaleTransactions(&sidechainsView, outdatedTxs, outdatedCerts);
 
     //checks
-    EXPECT_TRUE(mempool.exists(fwdTx.GetHash()));
+    EXPECT_TRUE(mempool->exists(fwdTx.GetHash()));
     EXPECT_FALSE(std::find(outdatedTxs.begin(), outdatedTxs.end(), fwdTx) != outdatedTxs.end());
 }
 
@@ -1156,15 +1157,15 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedFwdsTowardAliveSidechainsAreNotDr
     mutFwdTx.vin.push_back(CTxIn(inputTxHash, 0, CScript()));
     CTransaction fwdTx(mutFwdTx);
     CTxMemPoolEntry mempoolEntry(fwdTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/fwtHeight);
-    mempool.addUnchecked(fwdTx.GetHash(), mempoolEntry);
+    mempool->addUnchecked(fwdTx.GetHash(), mempoolEntry);
 
     //test
     std::list<CTransaction> outdatedTxs;
     std::list<CScCertificate> outdatedCerts;
-    mempool.removeStaleTransactions(&sidechainsView, outdatedTxs, outdatedCerts);
+    mempool->removeStaleTransactions(&sidechainsView, outdatedTxs, outdatedCerts);
 
     //checks
-    EXPECT_TRUE(mempool.exists(fwdTx.GetHash()));
+    EXPECT_TRUE(mempool->exists(fwdTx.GetHash()));
     EXPECT_FALSE(std::find(outdatedTxs.begin(), outdatedTxs.end(), fwdTx) != outdatedTxs.end());
 }
 
@@ -1194,15 +1195,15 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedFwdsTowardCeasedSidechainsAreDrop
     mutFwdTx.vin.push_back(CTxIn(inputTxHash, 0, CScript()));
     CTransaction fwdTx(mutFwdTx);
     CTxMemPoolEntry mempoolEntry(fwdTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/fwtHeight);
-    mempool.addUnchecked(fwdTx.GetHash(), mempoolEntry);
+    mempool->addUnchecked(fwdTx.GetHash(), mempoolEntry);
 
     //test
     std::list<CTransaction> outdatedTxs;
     std::list<CScCertificate> outdatedCerts;
-    mempool.removeStaleTransactions(&sidechainsView, outdatedTxs, outdatedCerts);
+    mempool->removeStaleTransactions(&sidechainsView, outdatedTxs, outdatedCerts);
 
     //checks
-    EXPECT_FALSE(mempool.exists(fwdTx.GetHash()));
+    EXPECT_FALSE(mempool->exists(fwdTx.GetHash()));
     EXPECT_TRUE(std::find(outdatedTxs.begin(), outdatedTxs.end(), fwdTx) != outdatedTxs.end());
 }
 
@@ -1236,15 +1237,15 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedMbtrTowardCeasedSidechainIsDroppe
     mutMbtrTx.vmbtr_out.push_back(mcBwtReq);
     CTransaction mbtrTx(mutMbtrTx);
     CTxMemPoolEntry mempoolEntry(mbtrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/mbtrHeight);
-    mempool.addUnchecked(mbtrTx.GetHash(), mempoolEntry, /*fCurrentEstimate*/true);
+    mempool->addUnchecked(mbtrTx.GetHash(), mempoolEntry, /*fCurrentEstimate*/true);
 
     //test
     std::list<CTransaction> outdatedTxs;
     std::list<CScCertificate> outdatedCerts;
-    mempool.removeStaleTransactions(&sidechainsView, outdatedTxs, outdatedCerts);
+    mempool->removeStaleTransactions(&sidechainsView, outdatedTxs, outdatedCerts);
 
     //checks
-    EXPECT_FALSE(mempool.exists(mbtrTx.GetHash()));
+    EXPECT_FALSE(mempool->exists(mbtrTx.GetHash()));
     EXPECT_TRUE(std::find(outdatedTxs.begin(), outdatedTxs.end(), mbtrTx) != outdatedTxs.end());
 }
 
@@ -1280,14 +1281,14 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedCertTowardAliveSidechainIsNotDrop
     mutCert.vin.push_back(CTxIn(inputTxHash, 0, CScript()));
     CScCertificate cert(mutCert);
     CCertificateMemPoolEntry mempoolEntry(cert, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/certHeight);
-    mempool.addUnchecked(cert.GetHash(), mempoolEntry);
+    mempool->addUnchecked(cert.GetHash(), mempoolEntry);
 
     //test
     std::list<CScCertificate> outdatedCerts;
-    mempool.removeStaleCertificates(&sidechainsView, outdatedCerts);
+    mempool->removeStaleCertificates(&sidechainsView, outdatedCerts);
 
     //checks
-    EXPECT_TRUE(mempool.exists(cert.GetHash()));
+    EXPECT_TRUE(mempool->exists(cert.GetHash()));
     EXPECT_FALSE(std::find(outdatedCerts.begin(), outdatedCerts.end(), cert) != outdatedCerts.end());
 }
 
@@ -1319,14 +1320,14 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedCertTowardCeasedSidechainIsDroppe
     mutCert.vin.push_back(CTxIn(inputTxHash, 0, CScript()));
     CScCertificate cert(mutCert);
     CCertificateMemPoolEntry mempoolEntry(cert, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/certHeight);
-    mempool.addUnchecked(cert.GetHash(), mempoolEntry);
+    mempool->addUnchecked(cert.GetHash(), mempoolEntry);
 
     //test
     std::list<CScCertificate> outdatedCerts;
-    mempool.removeStaleCertificates(&sidechainsView, outdatedCerts);
+    mempool->removeStaleCertificates(&sidechainsView, outdatedCerts);
 
     //checks
-    EXPECT_FALSE(mempool.exists(cert.GetHash()));
+    EXPECT_FALSE(mempool->exists(cert.GetHash()));
     EXPECT_TRUE(std::find(outdatedCerts.begin(), outdatedCerts.end(), cert) != outdatedCerts.end());
 }
 
@@ -1341,8 +1342,8 @@ TEST_F(SidechainsInMempoolTestSuite, DependenciesInEmptyMempool) {
     tx_1.addOut(dummyOut);
 
     //test and checks
-    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_1).empty());
-    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_1).empty());
+    EXPECT_TRUE(aMempool->mempoolDependenciesFrom(tx_1).empty());
+    EXPECT_TRUE(aMempool->mempoolDependenciesOf(tx_1).empty());
 }
 
 TEST_F(SidechainsInMempoolTestSuite, DependenciesOfSingleTransaction) {
@@ -1357,11 +1358,11 @@ TEST_F(SidechainsInMempoolTestSuite, DependenciesOfSingleTransaction) {
     CTxMemPoolEntry tx_1_entry(tx_1, /*fee*/dummyAmount, /*time*/ 1000, /*priority*/1.0, /*height*/1987);
 
     //test
-    aMempool.addUnchecked(tx_1.GetHash(), tx_1_entry);
+    aMempool->addUnchecked(tx_1.GetHash(), tx_1_entry);
 
     //checks
-    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_1).empty());
-    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_1).empty());
+    EXPECT_TRUE(aMempool->mempoolDependenciesFrom(tx_1).empty());
+    EXPECT_TRUE(aMempool->mempoolDependenciesOf(tx_1).empty());
 }
 
 
@@ -1376,27 +1377,27 @@ TEST_F(SidechainsInMempoolTestSuite, DependenciesOfSimpleChain) {
     tx_1.vin.push_back(CTxIn(uint256(), 0, dummyScript));
     tx_1.addOut(dummyOut);
     CTxMemPoolEntry tx_1_entry(tx_1, /*fee*/dummyAmount, /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    ASSERT_TRUE(aMempool.addUnchecked(tx_1.GetHash(), tx_1_entry));
+    ASSERT_TRUE(aMempool->addUnchecked(tx_1.GetHash(), tx_1_entry));
 
     CMutableTransaction tx_2;
     tx_2.vin.push_back(CTxIn(tx_1.GetHash(), 0, dummyScript));
     tx_2.addOut(dummyOut);
     CTxMemPoolEntry tx_2_entry(tx_2, /*fee*/dummyAmount, /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    ASSERT_TRUE(aMempool.addUnchecked(tx_2.GetHash(), tx_2_entry));
+    ASSERT_TRUE(aMempool->addUnchecked(tx_2.GetHash(), tx_2_entry));
 
     CMutableTransaction tx_3;
     tx_3.vin.push_back(CTxIn(tx_2.GetHash(), 0, dummyScript));
     CTxMemPoolEntry tx_3_entry(tx_3, /*fee*/dummyAmount, /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    ASSERT_TRUE(aMempool.addUnchecked(tx_3.GetHash(), tx_3_entry));
+    ASSERT_TRUE(aMempool->addUnchecked(tx_3.GetHash(), tx_3_entry));
 
     //checks
-    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_1).empty());
-    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_2) == std::vector<uint256>({tx_1.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_3) == std::vector<uint256>({tx_2.GetHash(),tx_1.GetHash()}));
+    EXPECT_TRUE(aMempool->mempoolDependenciesFrom(tx_1).empty());
+    EXPECT_TRUE(aMempool->mempoolDependenciesFrom(tx_2) == std::vector<uint256>({tx_1.GetHash()}));
+    EXPECT_TRUE(aMempool->mempoolDependenciesFrom(tx_3) == std::vector<uint256>({tx_2.GetHash(),tx_1.GetHash()}));
 
-    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_1) == std::vector<uint256>({tx_2.GetHash(),tx_3.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_2) == std::vector<uint256>({tx_3.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_3).empty());
+    EXPECT_TRUE(aMempool->mempoolDependenciesOf(tx_1) == std::vector<uint256>({tx_2.GetHash(),tx_3.GetHash()}));
+    EXPECT_TRUE(aMempool->mempoolDependenciesOf(tx_2) == std::vector<uint256>({tx_3.GetHash()}));
+    EXPECT_TRUE(aMempool->mempoolDependenciesOf(tx_3).empty());
 }
 
 TEST_F(SidechainsInMempoolTestSuite, DependenciesOfTree) {
@@ -1411,53 +1412,53 @@ TEST_F(SidechainsInMempoolTestSuite, DependenciesOfTree) {
     tx_root.addOut(dummyOut_1);
     tx_root.addOut(dummyOut_2);
     CTxMemPoolEntry tx_root_entry(tx_root, /*fee*/dummyAmount, /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    ASSERT_TRUE(aMempool.addUnchecked(tx_root.GetHash(), tx_root_entry));
+    ASSERT_TRUE(aMempool->addUnchecked(tx_root.GetHash(), tx_root_entry));
 
     CMutableTransaction tx_child_1;
     tx_child_1.vin.push_back(CTxIn(tx_root.GetHash(), 0, dummyScript));
     tx_child_1.addOut(dummyOut_1);
     tx_child_1.addOut(dummyOut_2);
     CTxMemPoolEntry tx_child_1_entry(tx_child_1, /*fee*/dummyAmount, /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    ASSERT_TRUE(aMempool.addUnchecked(tx_child_1.GetHash(), tx_child_1_entry));
+    ASSERT_TRUE(aMempool->addUnchecked(tx_child_1.GetHash(), tx_child_1_entry));
 
     CMutableTransaction tx_child_2;
     tx_child_2.vin.push_back(CTxIn(tx_root.GetHash(), 1, dummyScript));
     tx_child_2.addOut(dummyOut_1);
     tx_child_2.addOut(dummyOut_2);
     CTxMemPoolEntry tx_child_2_entry(tx_child_2, /*fee*/dummyAmount, /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    ASSERT_TRUE(aMempool.addUnchecked(tx_child_2.GetHash(), tx_child_2_entry));
+    ASSERT_TRUE(aMempool->addUnchecked(tx_child_2.GetHash(), tx_child_2_entry));
 
     CMutableTransaction tx_grandchild_1;
     tx_grandchild_1.vin.push_back(CTxIn(tx_child_1.GetHash(), 0, dummyScript));
     CTxMemPoolEntry tx_grandchild_1_entry(tx_grandchild_1, /*fee*/dummyAmount, /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    ASSERT_TRUE(aMempool.addUnchecked(tx_grandchild_1.GetHash(), tx_grandchild_1_entry));
+    ASSERT_TRUE(aMempool->addUnchecked(tx_grandchild_1.GetHash(), tx_grandchild_1_entry));
 
     CMutableTransaction tx_grandchild_2;
     tx_grandchild_2.vin.push_back(CTxIn(tx_child_1.GetHash(), 1, dummyScript));
     CTxMemPoolEntry tx_grandchild_2_entry(tx_grandchild_2, /*fee*/dummyAmount, /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    ASSERT_TRUE(aMempool.addUnchecked(tx_grandchild_2.GetHash(), tx_grandchild_2_entry));
+    ASSERT_TRUE(aMempool->addUnchecked(tx_grandchild_2.GetHash(), tx_grandchild_2_entry));
 
     CMutableTransaction tx_grandchild_3;
     tx_grandchild_3.vin.push_back(CTxIn(tx_child_2.GetHash(), 0, dummyScript));
     CTxMemPoolEntry tx_grandchild_3_entry(tx_grandchild_3, /*fee*/dummyAmount, /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    ASSERT_TRUE(aMempool.addUnchecked(tx_grandchild_3.GetHash(), tx_grandchild_3_entry));
+    ASSERT_TRUE(aMempool->addUnchecked(tx_grandchild_3.GetHash(), tx_grandchild_3_entry));
 
     //checks
-    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_root).empty());
-    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_child_1) == std::vector<uint256>({tx_root.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_child_2) == std::vector<uint256>({tx_root.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_grandchild_1) == std::vector<uint256>({tx_child_1.GetHash(), tx_root.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_grandchild_2) == std::vector<uint256>({tx_child_1.GetHash(), tx_root.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_grandchild_3) == std::vector<uint256>({tx_child_2.GetHash(), tx_root.GetHash()}));
+    EXPECT_TRUE(aMempool->mempoolDependenciesFrom(tx_root).empty());
+    EXPECT_TRUE(aMempool->mempoolDependenciesFrom(tx_child_1) == std::vector<uint256>({tx_root.GetHash()}));
+    EXPECT_TRUE(aMempool->mempoolDependenciesFrom(tx_child_2) == std::vector<uint256>({tx_root.GetHash()}));
+    EXPECT_TRUE(aMempool->mempoolDependenciesFrom(tx_grandchild_1) == std::vector<uint256>({tx_child_1.GetHash(), tx_root.GetHash()}));
+    EXPECT_TRUE(aMempool->mempoolDependenciesFrom(tx_grandchild_2) == std::vector<uint256>({tx_child_1.GetHash(), tx_root.GetHash()}));
+    EXPECT_TRUE(aMempool->mempoolDependenciesFrom(tx_grandchild_3) == std::vector<uint256>({tx_child_2.GetHash(), tx_root.GetHash()}));
 
-    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_root)
+    EXPECT_TRUE(aMempool->mempoolDependenciesOf(tx_root)
         == std::vector<uint256>({tx_child_1.GetHash(), tx_grandchild_2.GetHash(), tx_grandchild_1.GetHash(),
                                  tx_child_2.GetHash(), tx_grandchild_3.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_child_1) == std::vector<uint256>({tx_grandchild_1.GetHash(), tx_grandchild_2.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_child_2) == std::vector<uint256>({tx_grandchild_3.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_grandchild_1).empty());
-    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_grandchild_2).empty());
-    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_grandchild_3).empty());
+    EXPECT_TRUE(aMempool->mempoolDependenciesOf(tx_child_1) == std::vector<uint256>({tx_grandchild_1.GetHash(), tx_grandchild_2.GetHash()}));
+    EXPECT_TRUE(aMempool->mempoolDependenciesOf(tx_child_2) == std::vector<uint256>({tx_grandchild_3.GetHash()}));
+    EXPECT_TRUE(aMempool->mempoolDependenciesOf(tx_grandchild_1).empty());
+    EXPECT_TRUE(aMempool->mempoolDependenciesOf(tx_grandchild_2).empty());
+    EXPECT_TRUE(aMempool->mempoolDependenciesOf(tx_grandchild_3).empty());
 }
 
 TEST_F(SidechainsInMempoolTestSuite, DependenciesOfTDAG) {
@@ -1472,28 +1473,28 @@ TEST_F(SidechainsInMempoolTestSuite, DependenciesOfTDAG) {
     tx_root.addOut(dummyOut_1);
     tx_root.addOut(dummyOut_2);
     CTxMemPoolEntry tx_root_entry(tx_root, /*fee*/dummyAmount, /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    ASSERT_TRUE(aMempool.addUnchecked(tx_root.GetHash(), tx_root_entry));
+    ASSERT_TRUE(aMempool->addUnchecked(tx_root.GetHash(), tx_root_entry));
 
     CMutableTransaction tx_child_1;
     tx_child_1.vin.push_back(CTxIn(tx_root.GetHash(), 0, dummyScript));
     tx_child_1.addOut(dummyOut_1);
     CTxMemPoolEntry tx_child_1_entry(tx_child_1, /*fee*/dummyAmount, /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    ASSERT_TRUE(aMempool.addUnchecked(tx_child_1.GetHash(), tx_child_1_entry));
+    ASSERT_TRUE(aMempool->addUnchecked(tx_child_1.GetHash(), tx_child_1_entry));
 
     CMutableTransaction tx_grandchild_1;
     tx_grandchild_1.vin.push_back(CTxIn(tx_root.GetHash(), 1, dummyScript));
     tx_grandchild_1.vin.push_back(CTxIn(tx_child_1.GetHash(), 0, dummyScript));
     CTxMemPoolEntry tx_grandchild_1_entry(tx_grandchild_1, /*fee*/dummyAmount, /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    ASSERT_TRUE(aMempool.addUnchecked(tx_grandchild_1.GetHash(), tx_grandchild_1_entry));
+    ASSERT_TRUE(aMempool->addUnchecked(tx_grandchild_1.GetHash(), tx_grandchild_1_entry));
 
     //checks
-    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_root).empty());
-    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_child_1) == std::vector<uint256>({tx_root.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_grandchild_1) == std::vector<uint256>({tx_child_1.GetHash(),tx_root.GetHash()}));
+    EXPECT_TRUE(aMempool->mempoolDependenciesFrom(tx_root).empty());
+    EXPECT_TRUE(aMempool->mempoolDependenciesFrom(tx_child_1) == std::vector<uint256>({tx_root.GetHash()}));
+    EXPECT_TRUE(aMempool->mempoolDependenciesFrom(tx_grandchild_1) == std::vector<uint256>({tx_child_1.GetHash(),tx_root.GetHash()}));
 
-    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_root) == std::vector<uint256>({tx_child_1.GetHash(), tx_grandchild_1.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_child_1) == std::vector<uint256>({tx_grandchild_1.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_grandchild_1).empty());
+    EXPECT_TRUE(aMempool->mempoolDependenciesOf(tx_root) == std::vector<uint256>({tx_child_1.GetHash(), tx_grandchild_1.GetHash()}));
+    EXPECT_TRUE(aMempool->mempoolDependenciesOf(tx_child_1) == std::vector<uint256>({tx_grandchild_1.GetHash()}));
+    EXPECT_TRUE(aMempool->mempoolDependenciesOf(tx_grandchild_1).empty());
 }
 
 
@@ -1509,17 +1510,17 @@ TEST_F(SidechainsInMempoolTestSuite, CheckFtFeeValidationOnMempool)
     CValidationState fwdTxState;
 
     // Check that a FT with the fee equal to the minimum specified in the sidechain is rejected
-    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+    EXPECT_FALSE(AcceptTxToMemoryPool(*mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
                                       MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
 
     // Check that a FT with the fee greater than the minimum specified in the sidechain is accepted
     fwdTx = GenerateFwdTransferTx(scId, ftScFee + 1);
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+    EXPECT_TRUE(AcceptTxToMemoryPool(*mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
                                      MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
 
     // Check that a FT with the fee less than the minimum specified in the sidechain is rejected
     fwdTx = GenerateFwdTransferTx(scId, ftScFee - 1);
-    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+    EXPECT_FALSE(AcceptTxToMemoryPool(*mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
                                       MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
 }
 
@@ -1532,17 +1533,17 @@ TEST_F(SidechainsInMempoolTestSuite, CheckMbtrFeeValidationOnMempool)
     CValidationState mbtrTxState;
 
     // Check that a MBTR with the fee equal to the minimum specified in the sidechain is accepted
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+    EXPECT_TRUE(AcceptTxToMemoryPool(*mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
                                      MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
 
     // Check that a MBTR with the fee greater than the minimum specified in the sidechain is accepted
     mbtrTx = GenerateBtrTx(scId, mbtrScFee + 1);
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+    EXPECT_TRUE(AcceptTxToMemoryPool(*mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
                                      MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
 
     // Check that a MBTR with the fee less than the minimum specified in the sidechain is rejected
     mbtrTx = GenerateBtrTx(scId, mbtrScFee - 1);
-    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+    EXPECT_FALSE(AcceptTxToMemoryPool(*mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
                                       MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
 }
 
@@ -1558,7 +1559,7 @@ TEST_F(SidechainsInMempoolTestSuite, MbtrDataLengthGreaterThanZeroEnablesMbtr)
     CMutableTransaction mbtrTx = GenerateBtrTx(scId, mbtrScFee);
     CValidationState mbtrTxState;
 
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+    EXPECT_TRUE(AcceptTxToMemoryPool(*mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
                                      MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
 }
 
@@ -1570,7 +1571,7 @@ TEST_F(SidechainsInMempoolTestSuite, MbtrDataLengthZeroDisablesMbtr)
     CMutableTransaction mbtrTx = GenerateBtrTx(scId, mbtrScFee);
     CValidationState mbtrTxState;
 
-    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+    EXPECT_FALSE(AcceptTxToMemoryPool(*mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
                                       MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
 }
 
@@ -1591,7 +1592,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewFtFeeDoesNotRemoveTxFromMempoolOnFirstCe
     CValidationState fwdTxState;
 
     // Check that a FT with an amount greater than the Forward Transfer sidechain fee is accepted
-    ASSERT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+    ASSERT_TRUE(AcceptTxToMemoryPool(*mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
                                      MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
 
     int64_t certQuality = 10;
@@ -1616,7 +1617,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewFtFeeDoesNotRemoveTxFromMempoolOnFirstCe
     ASSERT_TRUE(sidechain.GetMinFtScFee() < ftScFeeForwardTx);
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    mempool.removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
+    mempool->removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
     EXPECT_EQ(removedTxs.size(), 0);
 }
 
@@ -1650,7 +1651,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewFtFeeRemovesTxFromMempool)
         CValidationState fwdTxState;
  
         // Check that a FT with an amount greater than the Forward Transfer sidechain fee is accepted
-        ASSERT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+        ASSERT_TRUE(AcceptTxToMemoryPool(*mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
                                          MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
  
         int64_t certQuality = 10;
@@ -1688,7 +1689,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewFtFeeRemovesTxFromMempool)
             // the FT transaction must be removed as soon as the cert for target epoch arrives
             std::list<CTransaction> removedTxs;
             std::list<CScCertificate> removedCerts;
-            mempool.removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
+            mempool->removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
             EXPECT_EQ(removedTxs.size(), (epNum == targetEpoch) ? 1:0);
 #ifdef DEBUG_TRACE
             CSidechain sidechain;
@@ -1710,7 +1711,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewFtFeeDoesNotRemoveTxFromMempool)
     CValidationState fwdTxState;
 
     // Check that a FT with an amount greater than the Forward Transfer sidechain fee is accepted
-    ASSERT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+    ASSERT_TRUE(AcceptTxToMemoryPool(*mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
                                      MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
 
     int64_t certQuality = 10;
@@ -1731,7 +1732,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewFtFeeDoesNotRemoveTxFromMempool)
     // No transaction must be removed.
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    mempool.removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
+    mempool->removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
     EXPECT_EQ(removedTxs.size(), 0);
 }
 
@@ -1747,7 +1748,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeDoesNotRemoveTxFromMempoolOnFirst
     CValidationState mbtrTxState;
 
     // Check that a FT with the fee equal to the minimum specified in the sidechain is accepted
-    ASSERT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+    ASSERT_TRUE(AcceptTxToMemoryPool(*mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
                                      MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
 
     int64_t certQuality = 10;
@@ -1772,7 +1773,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeDoesNotRemoveTxFromMempoolOnFirst
     ASSERT_TRUE(sidechain.GetMinMbtrScFee() <= mbtrScFee);
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    mempool.removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
+    mempool->removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
     EXPECT_EQ(removedTxs.size(), 0);
 }
 
@@ -1806,7 +1807,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeRemovesTxFromMempool)
         CValidationState mbtrTxState;
  
         // Check that a FT with an amount greater than the Forward Transfer sidechain fee is accepted
-        ASSERT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+        ASSERT_TRUE(AcceptTxToMemoryPool(*mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
                                          MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
  
         int64_t certQuality = 10;
@@ -1844,7 +1845,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeRemovesTxFromMempool)
             // the FT transaction must be removed as soon as the cert for target epoch arrives
             std::list<CTransaction> removedTxs;
             std::list<CScCertificate> removedCerts;
-            mempool.removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
+            mempool->removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
             EXPECT_EQ(removedTxs.size(), (epNum == targetEpoch) ? 1:0);
 #ifdef DEBUG_TRACE
             CSidechain sidechain;
@@ -1866,7 +1867,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeDoesNotRemoveTxFromMempool)
     CValidationState mbtrTxState;
 
     // Check that a FT with the fee equal to the minimum specified in the sidechain is accepted
-    ASSERT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+    ASSERT_TRUE(AcceptTxToMemoryPool(*mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
                                      MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
 
     int64_t certQuality = 10;
@@ -1887,7 +1888,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeDoesNotRemoveTxFromMempool)
     // No transaction must be removed.
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    mempool.removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
+    mempool->removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
     EXPECT_EQ(removedTxs.size(), 0);
 }
 

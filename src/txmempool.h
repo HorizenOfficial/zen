@@ -165,7 +165,7 @@ private:
     uint64_t totalTxSize = 0; //! sum of all mempool tx' byte sizes
     uint64_t totalCertificateSize = 0; //! sum of all mempool tx' byte sizes
     uint64_t cachedInnerUsage; //! sum of dynamic memory usage of all the map elements (NOT the maps themselves)
-    /*const*/ uint64_t m_max_size;
+    const uint64_t m_max_size;
 
     bool checkTxImmatureExpenditures(const CTransaction& tx, const CCoinsViewCache * const pcoins);
     bool checkCertImmatureExpenditures(const CScCertificate& cert, const CCoinsViewCache * const pcoins);
@@ -216,7 +216,6 @@ public:
     bool checkIncomingCertConflicts(const CScCertificate& incomingCert) const;
 
     void setSanityCheck(bool _fSanityCheck) { fSanityCheck = _fSanityCheck; }
-    void setMaxSize(uint64_t max_size) { m_max_size = max_size; }
 
     std::pair<uint256, CAmount> FindCertWithQuality(const uint256& scId, int64_t certQuality) const;
     bool RemoveCertAndSync(const uint256& certToRmHash);
@@ -399,10 +398,10 @@ public:
 class CCoinsViewMemPool : public CCoinsViewBacked
 {
 protected:
-    CTxMemPool &mempool;
+    CTxMemPool& mempool;
 
 public:
-    CCoinsViewMemPool(CCoinsView *baseIn, CTxMemPool &mempoolIn);
+    CCoinsViewMemPool(CCoinsView *baseIn, CTxMemPool& mempoolIn);
 
     bool GetNullifier(const uint256 &txid)                              const override;
     bool GetCoins(const uint256 &txid, CCoins &coins)                   const override;

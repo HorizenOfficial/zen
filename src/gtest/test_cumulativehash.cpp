@@ -5,7 +5,9 @@
 class SidechainsTxCumulativeHashTestSuite: public ::testing::Test
 {
 public:
-    SidechainsTxCumulativeHashTestSuite() = default;
+    SidechainsTxCumulativeHashTestSuite() {
+        mempool.reset(new CTxMemPool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000));
+    };
     ~SidechainsTxCumulativeHashTestSuite() = default;
 };
 

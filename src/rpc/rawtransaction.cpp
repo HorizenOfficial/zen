@@ -1544,9 +1544,9 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
     std::vector<CTxIn> txInputs = (txVersion != SC_CERT_VERSION) ? txVariants[0].vin : certificate.vin;
     // Fetch previous transactions (inputs):
     {
-        LOCK(mempool.cs);
+        LOCK(mempool->cs);
         CCoinsViewCache &viewChain = *pcoinsTip;
-        CCoinsViewMemPool viewMempool(&viewChain, mempool);
+        CCoinsViewMemPool viewMempool(&viewChain, *mempool);
         view.SetBackend(viewMempool); // temporarily switch cache backend to db+mempool view
 
         BOOST_FOREACH(const CTxIn& txin, txInputs) {
@@ -1836,13 +1836,13 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp)
     if (txVersion != SC_CERT_VERSION) {
         uint256 hashTx = tx.GetHash();
         const CCoins* existingCoins = view.AccessCoins(hashTx);
-        bool fHaveMempool = mempool.exists(hashTx);
+        bool fHaveMempool = mempool->exists(hashTx);
         bool fHaveChain = existingCoins && existingCoins->nHeight < 1000000000;
         if (!fHaveMempool && !fHaveChain)
         {
             // push to local node and sync with wallets
             CValidationState state;
-            MempoolReturnValue res = AcceptTxToMemoryPool(mempool, state, tx, LimitFreeFlag::OFF, fRejectAbsurdFee,
+            MempoolReturnValue res = AcceptTxToMemoryPool(*mempool, state, tx, LimitFreeFlag::OFF, fRejectAbsurdFee,
                                                           MempoolProofVerificationFlag::SYNC);
 
             if (res == MempoolReturnValue::MISSING_INPUT)
@@ -1871,7 +1871,7 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp)
         const CCoins* existingCoins = view.AccessCoins(hashCertificate);
         // check that we do not have it already somewhere
         bool fHaveChain = existingCoins;
-        bool fHaveMempool = mempool.existsCert(hashCertificate);
+        bool fHaveMempool = mempool->existsCert(hashCertificate);
 
         if (!fHaveMempool && !fHaveChain)
         {
@@ -1884,7 +1884,7 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp)
                 flag = MempoolProofVerificationFlag::DISABLED;
             }
 
-            MempoolReturnValue res = AcceptCertificateToMemoryPool(mempool, state, cert, LimitFreeFlag::OFF, fRejectAbsurdFee, flag);
+            MempoolReturnValue res = AcceptCertificateToMemoryPool(*mempool, state, cert, LimitFreeFlag::OFF, fRejectAbsurdFee, flag);
 
             if (res == MempoolReturnValue::MISSING_INPUT)
                 throw JSONRPCError(RPC_TRANSACTION_ERROR, "Missing inputs");

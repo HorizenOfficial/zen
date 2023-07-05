@@ -103,7 +103,7 @@ uint64_t nPruneTarget = 0;
 /** Fees smaller than this (in satoshi) are considered zero fee (for relaying and mining) */
 CFeeRate minRelayTxFee = CFeeRate(DEFAULT_MIN_RELAY_TX_FEE);
 
-CTxMemPool mempool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000);
+std::unique_ptr<CTxMemPool> mempool;
 
 map<uint256, COrphanTx> mapOrphanTransactions GUARDED_BY(cs_main);;
 map<uint256, set<uint256> > mapOrphanTransactionsByPrev GUARDED_BY(cs_main);;
@@ -1149,11 +1149,11 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
 CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAllowFree, unsigned int block_priority_size)
 {
     {
-        LOCK(mempool.cs);
+        LOCK(mempool->cs);
         uint256 hash = tx.GetHash();
         double dPriorityDelta = 0;
         CAmount nFeeDelta = 0;
-        mempool.ApplyDeltas(hash, dPriorityDelta, nFeeDelta);
+        mempool->ApplyDeltas(hash, dPriorityDelta, nFeeDelta);
         if (dPriorityDelta > 0 || nFeeDelta > 0)
             return 0;
     }
@@ -1684,7 +1684,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
         double dPriority = view.GetPriority(tx, chainActive.Height());
         LogPrint("mempool", "%s():%d - tx[%s], Computed fee=%lld, prio[%22.8f]\n", __func__, __LINE__, hash.ToString(), nFees, dPriority);
 
-        CTxMemPoolEntry entry(tx, nFees, GetTime(), dPriority, chainActive.Height(), mempool.HasNoInputsOf(tx));
+        CTxMemPoolEntry entry(tx, nFees, GetTime(), dPriority, chainActive.Height(), mempool->HasNoInputsOf(tx));
         unsigned int nSize = entry.GetTxSize();
 
         // Accept a tx if it contains joinsplits and has at least the default fee specified by z_sendmany.
@@ -1860,7 +1860,7 @@ bool GetSpentIndex(CSpentIndexKey &key, CSpentIndexValue &value)
     if (!fSpentIndex)
         return false;
 
-    if (mempool.getSpentIndex(key, value))
+    if (mempool->getSpentIndex(key, value))
         return true;
 
     if (!pblocktree->ReadSpentIndex(key, value))
@@ -1898,7 +1898,7 @@ bool GetTransaction(const uint256 &hash, CTransaction &txOut, uint256 &hashBlock
 {
     LOCK(cs_main);
 
-    if (mempool.lookup(hash, txOut))
+    if (mempool->lookup(hash, txOut))
         return true;
 
     if (fTxIndex)
@@ -1965,7 +1965,7 @@ bool GetCertificate(const uint256 &hash, CScCertificate &certOut, uint256 &hashB
 {
     LOCK(cs_main);
 
-    if (mempool.lookup(hash, certOut))
+    if (mempool->lookup(hash, certOut))
         return true;
 
     if (fTxIndex)
@@ -4174,7 +4174,7 @@ void static UpdateTip(CBlockIndex *pindexNew) {
 
     // New best block
     nTimeBestReceived = GetTime();
-    mempool.AddTransactionsUpdated(1);
+    mempool->AddTransactionsUpdated(1);
 
     double syncProgress = Checkpoints::GuessVerificationProgress(chainParams.Checkpoints(), chainActive.Tip());
     if(fIsStartupSyncing && std::abs(1.0 - syncProgress) < 0.000001) {
@@ -4194,7 +4194,7 @@ void static UpdateTip(CBlockIndex *pindexNew) {
 bool static DisconnectTip(CValidationState &state) {
     CBlockIndex *pindexDelete = chainActive.Tip();
     assert(pindexDelete);
-    mempool.check(pcoinsTip);
+    mempool->check(pcoinsTip);
     // Read block from disk.
     CBlock block;
     if (!ReadBlockFromDisk(block, pindexDelete))
@@ -4217,7 +4217,7 @@ bool static DisconnectTip(CValidationState &state) {
     size_t erased = mapCumtreeHeight.erase(pindexDelete->scCumTreeHash.GetLegacyHash());
     if (erased) {
         LogPrint("sc", "- Removed %zu entries from mapCumtreeHeight\n", erased);
-        mempool.removeCertificatesWithoutRef(pcoinsTip, dummyCerts);
+        mempool->removeCertificatesWithoutRef(pcoinsTip, dummyCerts);
     }
     dummyTxs.clear();
     dummyCerts.clear();
@@ -4236,12 +4236,12 @@ bool static DisconnectTip(CValidationState &state) {
         }
 
         if (tx.IsCoinBase() ||
-            MempoolReturnValue::VALID != AcceptTxToMemoryPool(mempool, stateDummy, tx,
+            MempoolReturnValue::VALID != AcceptTxToMemoryPool(*mempool, stateDummy, tx,
                     LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, MempoolProofVerificationFlag::DISABLED))
         {
             LogPrint("sc", "%s():%d - removing tx [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, tx.GetHash().ToString(), tx.ToString());
-            mempool.remove(tx, dummyTxs, dummyCerts, true);
+            mempool->remove(tx, dummyTxs, dummyCerts, true);
         }
     }
 
@@ -4251,26 +4251,26 @@ bool static DisconnectTip(CValidationState &state) {
         // ignore validation errors in resurrected certificates
         LogPrint("sc", "%s():%d - resurrecting certificate [%s] to mempool\n", __func__, __LINE__, cert.GetHash().ToString());
         CValidationState stateDummy;
-        if (MempoolReturnValue::VALID != AcceptCertificateToMemoryPool(mempool, stateDummy, cert,
+        if (MempoolReturnValue::VALID != AcceptCertificateToMemoryPool(*mempool, stateDummy, cert,
                 LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, MempoolProofVerificationFlag::DISABLED, nullptr))
         {
             LogPrint("sc", "%s():%d - removing certificate [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, cert.GetHash().ToString(), cert.ToString());
 
-            mempool.remove(cert, dummyTxs, dummyCerts, true);
+            mempool->remove(cert, dummyTxs, dummyCerts, true);
         }
     }
 
     if (anchorBeforeDisconnect != anchorAfterDisconnect) {
         // The anchor may not change between block disconnects,
         // in which case we don't want to evict from the mempool yet!
-        mempool.removeWithAnchor(anchorBeforeDisconnect);
+        mempool->removeWithAnchor(anchorBeforeDisconnect);
     }
 
-    mempool.removeStaleTransactions(pcoinsTip, dummyTxs, dummyCerts);
-    mempool.removeStaleCertificates(pcoinsTip, dummyCerts);
+    mempool->removeStaleTransactions(pcoinsTip, dummyTxs, dummyCerts);
+    mempool->removeStaleCertificates(pcoinsTip, dummyCerts);
 
-    mempool.check(pcoinsTip);
+    mempool->check(pcoinsTip);
     // Update chainActive and related variables.
     UpdateTip(pindexDelete->pprev);
     // Get the current commitment tree
@@ -4310,7 +4310,7 @@ static int64_t nTimePostConnect = 0;
  */
 bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *pblock) {
     assert(pindexNew->pprev == chainActive.Tip());
-    mempool.check(pcoinsTip);
+    mempool->check(pcoinsTip);
     // Read block from disk.
     int64_t nTime1 = GetTimeMicros();
     CBlock block;
@@ -4354,13 +4354,13 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     // Remove conflicting transactions from the mempool.
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    mempool.removeForBlock(pblock->vtx, pindexNew->nHeight, removedTxs,  removedCerts, !IsInitialBlockDownload());
-    mempool.removeForBlock(pblock->vcert, pindexNew->nHeight, removedTxs, removedCerts);
+    mempool->removeForBlock(pblock->vtx, pindexNew->nHeight, removedTxs,  removedCerts, !IsInitialBlockDownload());
+    mempool->removeForBlock(pblock->vcert, pindexNew->nHeight, removedTxs, removedCerts);
 
-    mempool.removeStaleTransactions(pcoinsTip, removedTxs, removedCerts);
-    mempool.removeStaleCertificates(pcoinsTip, removedCerts);
+    mempool->removeStaleTransactions(pcoinsTip, removedTxs, removedCerts);
+    mempool->removeStaleCertificates(pcoinsTip, removedCerts);
 
-    mempool.check(pcoinsTip);
+    mempool->check(pcoinsTip);
 
     UpdateTip(pindexNew); // Update chainActive & related variables.
 
@@ -5954,7 +5954,7 @@ void UnloadBlockIndex()
     chainActive.SetTip(NULL);
     pindexBestInvalid = NULL;
     pindexBestHeader = NULL;
-    mempool.clear();
+    mempool->clear();
     mapOrphanTransactions.clear();
     mapOrphanTransactionsByPrev.clear();
     nSyncStarted = 0;
@@ -6497,7 +6497,7 @@ bool static AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
             }
 
             return recentRejects->contains(inv.hash) ||
-                   mempool.exists(inv.hash) ||
+                   mempool->exists(inv.hash) ||
                    mapOrphanTransactions.count(inv.hash) ||
                    pcoinsTip->HaveCoins(inv.hash);
         }
@@ -6662,7 +6662,7 @@ void static ProcessGetData(CNode* pfrom)
                 }
                 if (!pushed && inv.type == MSG_TX) {
                     CTransaction tx;
-                    if (mempool.lookup(inv.hash, tx)) {
+                    if (mempool->lookup(inv.hash, tx)) {
                         CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
                         ss.reserve(1000);
                         ss << tx;
@@ -6673,7 +6673,7 @@ void static ProcessGetData(CNode* pfrom)
                     else
                     {
                         CScCertificate cert;
-                        if (mempool.lookup(inv.hash, cert)) {
+                        if (mempool->lookup(inv.hash, cert)) {
                             CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
                             ss.reserve(1000);
                             ss << cert;
@@ -6769,7 +6769,7 @@ void ProcessTxBaseAcceptToMemoryPool(const CTransactionBase& txBase, CNode* pfro
     MempoolProofVerificationFlag verificationFlag = proofVerificationState == BatchVerificationStateFlag::NOT_VERIFIED_YET ?
                                                     MempoolProofVerificationFlag::ASYNC : MempoolProofVerificationFlag::DISABLED;
 
-    MempoolReturnValue res = AcceptTxBaseToMemoryPool(mempool, state, txBase,
+    MempoolReturnValue res = AcceptTxBaseToMemoryPool(*mempool, state, txBase,
                                                       LimitFreeFlag::ON,
                                                       RejectAbsurdFeeFlag::OFF,
                                                       verificationFlag,
@@ -6777,7 +6777,7 @@ void ProcessTxBaseAcceptToMemoryPool(const CTransactionBase& txBase, CNode* pfro
 
     if (res == MempoolReturnValue::VALID)
     {
-        mempool.check(pcoinsTip);
+        mempool->check(pcoinsTip);
         txBase.Relay();
         std::vector<uint256> vWorkQueue{txBase.GetHash()};
         std::vector<uint256> vEraseQueue;
@@ -6785,7 +6785,7 @@ void ProcessTxBaseAcceptToMemoryPool(const CTransactionBase& txBase, CNode* pfro
         LogPrint("mempool", "%s(): peer=%d %s: accepted %s (poolsz %u)\n", __func__,
             pfrom->id, pfrom->cleanSubVer,
             txBase.GetHash().ToString(),
-            mempool.size());
+            mempool->size());
 
         // Recursively process any orphan transactions that depended on this one
         set<NodeId> setMisbehaving;
@@ -6807,7 +6807,7 @@ void ProcessTxBaseAcceptToMemoryPool(const CTransactionBase& txBase, CNode* pfro
                 if (setMisbehaving.count(fromPeer))
                     continue;
 
-                MempoolReturnValue resOrphan = AcceptTxBaseToMemoryPool(mempool, stateDummy, orphanTx,
+                MempoolReturnValue resOrphan = AcceptTxBaseToMemoryPool(*mempool, stateDummy, orphanTx,
                             LimitFreeFlag::ON,RejectAbsurdFeeFlag::OFF, MempoolProofVerificationFlag::ASYNC, pfrom);
                 if (resOrphan == MempoolReturnValue::VALID)
                 {
@@ -6836,7 +6836,7 @@ void ProcessTxBaseAcceptToMemoryPool(const CTransactionBase& txBase, CNode* pfro
                 {
                     vEraseQueue.push_back(orphanHash);
                 }
-                mempool.check(pcoinsTip);
+                mempool->check(pcoinsTip);
             }
         }
 
@@ -7680,7 +7680,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
     else if (strCommand == "mempool")
     {
-        ProcessMempoolMsg(mempool, pfrom);
+        ProcessMempoolMsg(*mempool, pfrom);
     }
 
 

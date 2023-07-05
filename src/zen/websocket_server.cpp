@@ -550,11 +550,11 @@ private:
                 return INVALID_PARAMETER;
             }
         
-            if (mempool.hasSidechainCertificate(scId))
+            if (mempool->hasSidechainCertificate(scId))
             {
-                const uint256& topQualCertHash = mempool.mapSidechains.at(scId).GetTopQualityCert()->second;
-                const CScCertificate& topQualCert = mempool.mapCertificate.at(topQualCertHash).GetCertificate();
-                const CAmount certFee = mempool.mapCertificate.at(topQualCertHash).GetFee();
+                const uint256& topQualCertHash = mempool->mapSidechains.at(scId).GetTopQualityCert()->second;
+                const CScCertificate& topQualCert = mempool->mapCertificate.at(topQualCertHash).GetCertificate();
+                const CAmount certFee = mempool->mapCertificate.at(topQualCertHash).GetFee();
                 CDataStream ssCert(SER_NETWORK, PROTOCOL_VERSION);
                 ssCert << topQualCert;
                 std::string certHex = HexStr(ssCert.begin(), ssCert.end());

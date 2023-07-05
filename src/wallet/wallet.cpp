@@ -2144,8 +2144,8 @@ void CWallet::ReacceptWalletTransactions()
     for (auto& item : mapSorted)
     {
         CWalletTransactionBase& wtx = *(item.second);
-        LOCK(mempool.cs);
-        AcceptTxBaseToMemoryPool(mempool, stateDummy, *wtx.getTxBase(), LimitFreeFlag::OFF, RejectAbsurdFeeFlag::ON,
+        LOCK(mempool->cs);
+        AcceptTxBaseToMemoryPool(*mempool, stateDummy, *wtx.getTxBase(), LimitFreeFlag::OFF, RejectAbsurdFeeFlag::ON,
                                  MempoolProofVerificationFlag::SYNC);
     }
 }
@@ -3568,7 +3568,7 @@ bool CWallet::CreateTransaction(
                 if (fSendFreeTransactions && nBytes <= MAX_FREE_TRANSACTION_CREATE_SIZE)
                 {
                     // Not enough fee: enough priority?
-                    double dPriorityNeeded = mempool.estimatePriority(nTxConfirmTarget);
+                    double dPriorityNeeded = mempool->estimatePriority(nTxConfirmTarget);
                     // Not enough mempool history to estimate: use hard-coded AllowFree.
                     if (dPriorityNeeded <= 0 && AllowFree(dPriority))
                         break;
@@ -3578,7 +3578,7 @@ bool CWallet::CreateTransaction(
                         break;
                 }
 
-                CAmount nFeeNeeded = GetMinimumFee(nBytes, nTxConfirmTarget, mempool);
+                CAmount nFeeNeeded = GetMinimumFee(nBytes, nTxConfirmTarget, *mempool);
 
                 // If we made it here and we aren't even able to meet the relay fee on the next pass, give up
                 // because we must be at the maximum allowed fee.
@@ -3638,7 +3638,7 @@ bool CWallet::CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey)
         {
             // Broadcast
             CValidationState stateDummy;
-            if (MempoolReturnValue::VALID != AcceptTxBaseToMemoryPool(mempool, stateDummy, *wtxNew.getTxBase(),
+            if (MempoolReturnValue::VALID != AcceptTxBaseToMemoryPool(*mempool, stateDummy, *wtxNew.getTxBase(),
                     LimitFreeFlag::OFF,  RejectAbsurdFeeFlag::ON, MempoolProofVerificationFlag::SYNC))
             {
                 // This must not fail. The transaction has already been signed and recorded.
@@ -4399,7 +4399,7 @@ int CWalletTransactionBase::GetDepthInMainChain(const CBlockIndex* &pindexRet) c
 {
     AssertLockHeld(cs_main);
     int nResult = GetDepthInMainChainINTERNAL(pindexRet);
-    if (nResult == 0 && !mempool.exists(getTxBase()->GetHash()))
+    if (nResult == 0 && !mempool->exists(getTxBase()->GetHash()))
         return -1; // Not in chain, not in mempool
 
     return nResult;

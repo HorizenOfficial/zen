@@ -1115,7 +1115,7 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>
 
         const uint256& txHash = cswNullifierTx->second;
         const auto& it = mapTx.find(txHash);
-        // If CSW nullifier was present in cswNullifers, the containing tx must be present in the mempool.
+        // If CSW nullifier was present in cswNullifers, the containing tx must be present in the mempool->
         assert(it != mapTx.end());
 
         const CTransaction &txConflict = it->second.GetTx();
@@ -1144,7 +1144,7 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
 
         for(const CTxForwardTransferOut& ft: tx.GetVftCcOut())
         {
-            // pCoinsView does not encompass mempool.
+            // pCoinsView does not encompass mempool->
             // Hence we need to checks explicitly for unconfirmed scCreations
             if (hasSidechainCreationTx(ft.scId))
                 continue;
@@ -1158,7 +1158,7 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
 
         for(const CBwtRequestOut& mbtr: tx.GetVBwtRequestOut())
         {
-            // pCoinsView does not encompass mempool.
+            // pCoinsView does not encompass mempool->
             // Hence we need to checks explicitly for unconfirmed scCreations
             if (hasSidechainCreationTx(mbtr.scId))
                 continue;
@@ -1554,7 +1554,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             CValidationState state;
             assert(::ContextualCheckCertInputs(cert, state, mempoolDuplicateCert, false, chainActive, 0, false, Params().GetConsensus(), NULL));
             CTxUndo dummyUndo;
-            bool isTopQualityCert = mempool.mapSidechains.at(cert.GetScId()).GetTopQualityCert()->second == cert.GetHash();
+            bool isTopQualityCert = mempool->mapSidechains.at(cert.GetScId()).GetTopQualityCert()->second == cert.GetHash();
             UpdateCoins(cert, mempoolDuplicateCert, dummyUndo, 1000000, isTopQualityCert);
         }
     }
@@ -1572,7 +1572,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             const CScCertificate& cert = entry->GetCertificate();
             assert(::ContextualCheckCertInputs(cert, state, mempoolDuplicateCert, false, chainActive, 0, false, Params().GetConsensus(), NULL));
             CTxUndo dummyUndo;
-            bool isTopQualityCert = mempool.mapSidechains.at(cert.GetScId()).GetTopQualityCert()->second == cert.GetHash();
+            bool isTopQualityCert = mempool->mapSidechains.at(cert.GetScId()).GetTopQualityCert()->second == cert.GetHash();
             UpdateCoins(entry->GetCertificate(), mempoolDuplicateCert, dummyUndo, 1000000, isTopQualityCert);
             stepsSinceLastRemoveCert = 0;
         }
@@ -1964,7 +1964,7 @@ bool CTxMemPool::IsFullyNotified() {
     return nRecentlyAddedSequence == nNotifiedSequence;
 }
 
-CCoinsViewMemPool::CCoinsViewMemPool(CCoinsView *baseIn, CTxMemPool &mempoolIn) : CCoinsViewBacked(baseIn), mempool(mempoolIn) { }
+CCoinsViewMemPool::CCoinsViewMemPool(CCoinsView *baseIn, CTxMemPool& mempoolIn) : CCoinsViewBacked(baseIn), mempool(mempoolIn) { }
 
 bool CCoinsViewMemPool::GetNullifier(const uint256 &nf) const {
     if (mempool.mapNullifiers.count(nf))

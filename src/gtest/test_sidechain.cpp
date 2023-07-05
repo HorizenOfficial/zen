@@ -6,14 +6,16 @@
 #include <txdb.h>
 #include <chainparams.h>
 #include <consensus/validation.h>
-#include <txmempool.h>
+#include "txmempool.h"
 #include <undo.h>
 #include <main.h>
 
 class SidechainsTestSuite: public ::testing::Test {
 
 public:
-    SidechainsTestSuite(): fakeChainStateDb(nullptr), sidechainsView(nullptr) {};
+    SidechainsTestSuite(): fakeChainStateDb(nullptr), sidechainsView(nullptr) {
+        mempool.reset(new CTxMemPool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000));
+    };
 
     ~SidechainsTestSuite() = default;
 
@@ -533,14 +535,14 @@ TEST_F(SidechainsTestSuite, ScCreationIsApplicableToStateIfScDoesntNotExistYet) 
 TEST_F(SidechainsTestSuite, ScCreationIsNotApplicableToStateIfScIsAlreadyUnconfirmed) {
     //back sidechainsView with mempool
     CCoinsViewCache dummyView(nullptr);
-    CCoinsViewMemPool viewMemPool(&dummyView, mempool);
+    CCoinsViewMemPool viewMemPool(&dummyView, *mempool);
     sidechainsView->SetBackend(viewMemPool);
 
     // setup sidechain initial state
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(1953));
     uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
     CTxMemPoolEntry scCreationPoolEntry(scCreationTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    mempool.addUnchecked(scCreationTx.GetHash(), scCreationPoolEntry);
+    mempool->addUnchecked(scCreationTx.GetHash(), scCreationPoolEntry);
     ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::UNCONFIRMED);
 
     //test
@@ -613,14 +615,14 @@ TEST_F(SidechainsTestSuite, ForwardTransferToUnknownSCsIsApplicableToState) {
 TEST_F(SidechainsTestSuite, ForwardTransferToUnconfirmedSCsIsApplicableToState) {
     //back sidechainsView with mempool
     CCoinsViewCache dummyView(nullptr);
-    CCoinsViewMemPool viewMemPool(&dummyView, mempool);
+    CCoinsViewMemPool viewMemPool(&dummyView, *mempool);
     sidechainsView->SetBackend(viewMemPool);
 
     // setup sidechain initial state
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(1953));
     uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
     CTxMemPoolEntry scCreationPoolEntry(scCreationTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    mempool.addUnchecked(scCreationTx.GetHash(), scCreationPoolEntry);
+    mempool->addUnchecked(scCreationTx.GetHash(), scCreationPoolEntry);
     ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::UNCONFIRMED);
 
     //test
@@ -708,7 +710,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToAliveSidechainWithKeyIsApplicableToSta
 TEST_F(SidechainsTestSuite, McBwtRequestToUnconfirmedSidechainWithKeyIsApplicableToState) {
     //back sidechainsView with mempool
     CCoinsViewCache dummyView(nullptr);
-    CCoinsViewMemPool viewMemPool(&dummyView, mempool);
+    CCoinsViewMemPool viewMemPool(&dummyView, *mempool);
     sidechainsView->SetBackend(viewMemPool);
 
     int viewHeight {1963};
@@ -721,7 +723,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToUnconfirmedSidechainWithKeyIsApplicabl
     CTransaction scCreationTx(mutScCreationTx);
     uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
     CTxMemPoolEntry scCreationPoolEntry(scCreationTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, viewHeight);
-    mempool.addUnchecked(scCreationTx.GetHash(), scCreationPoolEntry);
+    mempool->addUnchecked(scCreationTx.GetHash(), scCreationPoolEntry);
     ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::UNCONFIRMED);
 
     // create mc Bwt request
@@ -790,7 +792,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToAliveSidechainWithoutKeyIsNotApplicabl
 TEST_F(SidechainsTestSuite, McBwtRequestToUnconfirmedSidechainWithoutKeyIsNotApplicableToState) {
     //back sidechainsView with mempool
     CCoinsViewCache dummyView(nullptr);
-    CCoinsViewMemPool viewMemPool(&dummyView, mempool);
+    CCoinsViewMemPool viewMemPool(&dummyView, *mempool);
     sidechainsView->SetBackend(viewMemPool);
 
     int viewHeight {1963};
@@ -802,7 +804,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToUnconfirmedSidechainWithoutKeyIsNotApp
     CTransaction scCreationTx(mutScCreationTx);
     uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
     CTxMemPoolEntry scCreationPoolEntry(scCreationTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, viewHeight);
-    mempool.addUnchecked(scCreationTx.GetHash(), scCreationPoolEntry);
+    mempool->addUnchecked(scCreationTx.GetHash(), scCreationPoolEntry);
     ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::UNCONFIRMED);
     CSidechain storedSc;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId, storedSc));
@@ -1631,7 +1633,7 @@ TEST_F(SidechainsTestSuite, GetScIdsOnChainstateDbSelectOnlySidechains) {
 ////////////////////////////////// GetSidechain /////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainsTestSuite, GetSidechainForFwdTransfersInMempool) {
-    CTxMemPool aMempool(CFeeRate(1), DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000);
+    std::unique_ptr<CTxMemPool> aMempool(new CTxMemPool(CFeeRate(1), DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000));
 
     //Confirm a Sidechain
     CAmount creationAmount = 10;
@@ -1654,7 +1656,7 @@ TEST_F(SidechainsTestSuite, GetSidechainForFwdTransfersInMempool) {
     CAmount fwdAmount = 20;
     CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, fwdAmount);
     CTxMemPoolEntry fwdPoolEntry(fwdTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(fwdPoolEntry.GetTx().GetHash(), fwdPoolEntry);
+    aMempool->addUnchecked(fwdPoolEntry.GetTx().GetHash(), fwdPoolEntry);
 
     //a bwt cert is accepted in mempool too
     CAmount certAmount = 4;
@@ -1665,10 +1667,10 @@ TEST_F(SidechainsTestSuite, GetSidechainForFwdTransfersInMempool) {
     cert.addBwt(CTxOut(certAmount, scriptPubKey));
 
     CCertificateMemPoolEntry bwtPoolEntry(cert, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(bwtPoolEntry.GetCertificate().GetHash(), bwtPoolEntry);
+    aMempool->addUnchecked(bwtPoolEntry.GetCertificate().GetHash(), bwtPoolEntry);
 
     //test
-    CCoinsViewMemPool viewMemPool(sidechainsView, aMempool);
+    CCoinsViewMemPool viewMemPool(sidechainsView, *aMempool);
     CSidechain retrievedInfo;
     viewMemPool.GetSidechain(scId, retrievedInfo);
 
@@ -1679,7 +1681,7 @@ TEST_F(SidechainsTestSuite, GetSidechainForFwdTransfersInMempool) {
 }
 
 TEST_F(SidechainsTestSuite, GetSidechainForScCreationInMempool) {
-    CTxMemPool aMempool(CFeeRate(1), DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000);
+    std::unique_ptr<CTxMemPool> aMempool(new CTxMemPool(CFeeRate(1), DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000));
 
     //Confirm a Sidechain
     CAmount creationAmount = 10;
@@ -1688,16 +1690,16 @@ TEST_F(SidechainsTestSuite, GetSidechainForScCreationInMempool) {
     txCreationUtils::addNewScCreationToTx(scTx, creationAmount);
     const uint256& scId = scTx.GetScIdFromScCcOut(2);
     CTxMemPoolEntry scPoolEntry(scTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(scTx.GetHash(), scPoolEntry);
+    aMempool->addUnchecked(scTx.GetHash(), scPoolEntry);
 
     //a fwd is accepted in mempool
     CAmount fwdAmount = 20;
     CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, fwdAmount);
     CTxMemPoolEntry fwdPoolEntry(fwdTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(fwdPoolEntry.GetTx().GetHash(), fwdPoolEntry);
+    aMempool->addUnchecked(fwdPoolEntry.GetTx().GetHash(), fwdPoolEntry);
 
     //test
-    CCoinsViewMemPool viewMemPool(sidechainsView, aMempool);
+    CCoinsViewMemPool viewMemPool(sidechainsView, *aMempool);
     CSidechain retrievedInfo;
     viewMemPool.GetSidechain(scId, retrievedInfo);
 

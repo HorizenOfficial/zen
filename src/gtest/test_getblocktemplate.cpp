@@ -205,6 +205,7 @@ protected:
     boost::filesystem::path pathTemp;
     GetBlockTemplateTest()
     {
+        mempool.reset(new CTxMemPool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000));
         SetupParams();
         GenerateChainActive();
     }
@@ -286,11 +287,11 @@ protected:
         for(const CMutableTransaction& tx : transactions)
         {
             //To be able to control the order of adding transactions in the blocktemplate based on the number of inputs we provide different fees.
-            ASSERT_TRUE(mempool.addUnchecked(tx.GetHash(), CTxMemPoolEntry(tx, tx.getOut(0).nValue/0.9 *0.1, 0, 0.00, 1)));
+            ASSERT_TRUE(mempool->addUnchecked(tx.GetHash(), CTxMemPoolEntry(tx, tx.getOut(0).nValue/0.9 *0.1, 0, 0.00, 1)));
 
         }
 
-        ASSERT_EQ(mempool.size(), transactions.size());
+        ASSERT_EQ(mempool->size(), transactions.size());
     }
 
 protected:

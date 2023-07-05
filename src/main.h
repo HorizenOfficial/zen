@@ -151,7 +151,7 @@ BOOST_STATIC_ASSERT(DEFAULT_BLOCK_PRIORITY_SIZE_BEFORE_SC <= DEFAULT_BLOCK_MAX_S
 
 extern CScript COINBASE_FLAGS;
 extern CCriticalSection cs_main;
-extern CTxMemPool mempool;
+extern std::unique_ptr<CTxMemPool> mempool;
 typedef boost::unordered_map<uint256, CBlockIndex*, ObjectHasher> BlockMap;
 extern BlockMap mapBlockIndex;
 typedef boost::unordered_map<uint256, int, ObjectHasher> ScCumTreeRootMap;
