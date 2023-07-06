@@ -8,6 +8,7 @@
 
 #include "support/pagelocker.h"
 
+#include <memory>
 #include <string>
 
 //
@@ -16,15 +17,13 @@
 //
 template <typename T>
 struct secure_allocator : public std::allocator<T> {
-    // MSVC8 default copy constructor is broken
-    typedef std::allocator<T> base;
-    typedef typename base::size_type size_type;
-    typedef typename base::difference_type difference_type;
-    typedef typename base::pointer pointer;
-    typedef typename base::const_pointer const_pointer;
-    typedef typename base::reference reference;
-    typedef typename base::const_reference const_reference;
-    typedef typename base::value_type value_type;
+    using base = std::allocator<T>;
+    using traits = std::allocator_traits<base>;
+    using size_type = typename traits::size_type;
+    using difference_type = typename traits::difference_type;
+    using pointer = typename traits::pointer;
+    using const_pointer = typename traits::const_pointer;
+    using value_type = typename traits::value_type;
     secure_allocator() throw() {}
     secure_allocator(const secure_allocator& a) throw() : base(a) {}
     template <typename U>
@@ -37,10 +36,10 @@ struct secure_allocator : public std::allocator<T> {
         typedef secure_allocator<_Other> other;
     };
 
-    T* allocate(std::size_t n, const void* hint = 0)
+    T* allocate(std::size_t n)
     {
         T* p;
-        p = std::allocator<T>::allocate(n, hint);
+        p = std::allocator<T>::allocate(n);
         if (p != NULL)
             LockedPageManager::Instance().LockRange(p, sizeof(T) * n);
         return p;

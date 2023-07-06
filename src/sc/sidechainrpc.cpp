@@ -432,19 +432,20 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
             return false;
         }
 
-        char errBuf[256] = {};
+        const size_t errBufSize = 256;
+        char errBuf[errBufSize] = {};
         int withdrawalEpochLength = elv.get_int();
 
         if (!CSidechain::isNonCeasingSidechain(sc.version, withdrawalEpochLength)
             && (withdrawalEpochLength < getScMinWithdrawalEpochLength()))
         {
-            sprintf(errBuf, "Invalid withdrawalEpochLength: minimum value allowed=%d\n", getScMinWithdrawalEpochLength());
+            snprintf(errBuf, errBufSize, "Invalid withdrawalEpochLength: minimum value allowed=%d\n", getScMinWithdrawalEpochLength());
             error = errBuf;
             return false;
         }
         if (withdrawalEpochLength > getScMaxWithdrawalEpochLength())
         {
-            sprintf(errBuf, "Invalid withdrawalEpochLength: maximum value allowed=%d\n", getScMaxWithdrawalEpochLength());
+            snprintf(errBuf, errBufSize, "Invalid withdrawalEpochLength: maximum value allowed=%d\n", getScMaxWithdrawalEpochLength());
             error = errBuf;
             return false;
         }

@@ -603,8 +603,8 @@ const CFieldElement& FieldElementCertificateField::GetFieldElement(const FieldEl
 
         assert(cfg.getBitSize() <= CFieldElement::BitSize());
     */
-    static_assert(std::numeric_limits<std::result_of<decltype(&FieldElementCertificateFieldConfig::getBitSize)(FieldElementCertificateFieldConfig)>::type>::max() <= CFieldElement::ByteSize()*8, "Restore the assert check if BitSize is greater than the max value of a uint8_t variable");
-
+    static_assert(std::numeric_limits<std::invoke_result<decltype(&FieldElementCertificateFieldConfig::getBitSize), FieldElementCertificateFieldConfig>::type>::max() <= CFieldElement::ByteSize()*8, "Restore the assert check if BitSize is greater than the max value of a uint8_t variable");
+    
     int bytes = getBytesFromBits(cfg.getBitSize(), rem);
 
     if (vRawData.size() != bytes )
