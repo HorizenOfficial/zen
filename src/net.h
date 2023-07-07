@@ -81,14 +81,11 @@ static const unsigned int DEFAULT_MAX_PEER_CONNECTIONS = 125;
 unsigned int ReceiveFloodSize();
 unsigned int SendBufferSize();
 
-void AddOneShot(const std::string& strDest);
 void AddressCurrentlyConnected(const CService& addr);
 CNode* FindNode(const CNetAddr& ip);
 CNode* FindNode(const CSubNet& subNet);
 CNode* FindNode(const std::string& addrName);
 CNode* FindNode(const CService& ip);
-CNode* ConnectNode(CAddress addrConnect, const char *pszDest = NULL);
-bool OpenNetworkConnection(const CAddress& addrConnect, CSemaphoreGrant *grantOutbound = NULL, const char *strDest = NULL, bool fOneShot = false);
 unsigned short GetListenPort();
 bool BindListenPort(const CService &bindAddr, std::string& strError, bool fWhitelisted = false);
 void SocketSendData(CNode *pnode);
@@ -784,11 +781,19 @@ public:
     void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler /*, const Options& connOptions*/);
     bool StopNode();
 
+    void AddOneShot(const std::string& strDest);
+    void ProcessOneShot();
+    bool OpenNetworkConnection(const CAddress& addrConnect, CSemaphoreGrant *grantOutbound = NULL, const char *strDest = NULL, bool fOneShot = false);
+    void AcceptConnection(const ListenSocket& hListenSocket);
+    CNode* ConnectNode(CAddress addrConnect, const char *pszDest = NULL);
 
     CConnman();
     ~CConnman();
     std::unique_ptr<CSemaphore> semOutbound = nullptr;
     std::unique_ptr<CNode> pnodeLocalHost = nullptr;
+
+    std::deque<std::string> vOneShots;
+    CCriticalSection cs_vOneShots;
 
 };
 

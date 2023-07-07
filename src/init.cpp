@@ -1464,7 +1464,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     }
 
     BOOST_FOREACH(const std::string& strDest, mapMultiArgs["-seednode"])
-        AddOneShot(strDest);
+        connman->AddOneShot(strDest);
 
     if (mapArgs.count("-tlskeypath")) {
         boost::filesystem::path pathTLSKey(GetArg("-tlskeypath", ""));

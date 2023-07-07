@@ -103,8 +103,8 @@ CCriticalSection cs_mapRelay;
 LimitedMap<CInv, int64_t> mapAlreadyAskedFor(MAX_INV_SZ);
 LimitedMap<CInv, int64_t> mapAlreadyReceived(MAPRECEIVED_MAX_SZ);
 
-static deque<string> vOneShots;
-CCriticalSection cs_vOneShots;
+//// static deque<string> vOneShots;
+//// CCriticalSection cs_vOneShots;
 
 set<CNetAddr> setservAddNodeAddresses;
 CCriticalSection cs_setservAddNodeAddresses;
@@ -137,7 +137,7 @@ static std::vector<NODE_ADDR> vNonTLSNodesOutbound;
 static CCriticalSection cs_vNonTLSNodesOutbound;
 
 
-void AddOneShot(const std::string& strDest)
+void CConnman::AddOneShot(const std::string& strDest)
 {
     LOCK(cs_vOneShots);
     vOneShots.push_back(strDest);
@@ -394,7 +394,7 @@ CNode* FindNode(const CService& addr)
 
 
 
-CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
+CNode* CConnman::ConnectNode(CAddress addrConnect, const char *pszDest)
 {
     if (pszDest == NULL) {
         if (IsLocal(addrConnect))
@@ -1093,7 +1093,7 @@ static bool AttemptToEvictConnection(bool fPreferNewConnection) {
 }
 
 
-static void AcceptConnection(const ListenSocket& hListenSocket) {
+void CConnman::AcceptConnection(const ListenSocket& hListenSocket) {
     struct sockaddr_storage sockaddr;
     socklen_t len = sizeof(sockaddr);
     SOCKET hSocket = accept(hListenSocket.socket, (struct sockaddr*)&sockaddr, &len);
@@ -1421,7 +1421,7 @@ void ThreadSocketHandler()
         {
             if (hListenSocket.socket != INVALID_SOCKET && FD_ISSET(hListenSocket.socket, &fdsetRecv))
             {
-                AcceptConnection(hListenSocket);
+                connman->AcceptConnection(hListenSocket);
             }
         }
 
@@ -1505,7 +1505,7 @@ void ThreadDNSAddressSeed()
     for(const CDNSSeedData &seed : vSeeds)
     {
         if (HaveNameProxy()) {
-            AddOneShot(seed.host);
+            connman->AddOneShot(seed.host);
             continue;
         } 
     
@@ -1551,7 +1551,7 @@ void DumpAddresses()
            addrman.size(), GetTimeMillis() - nStart);
 }
 
-void static ProcessOneShot()
+void CConnman::ProcessOneShot()
 {
     string strDest;
     {
@@ -1576,11 +1576,11 @@ void ThreadOpenConnections()
     {
         for (int64_t nLoop = 0;; nLoop++)
         {
-            ProcessOneShot();
+            connman->ProcessOneShot();
             BOOST_FOREACH(const std::string& strAddr, mapMultiArgs["-connect"])
             {
                 CAddress addr;
-                OpenNetworkConnection(addr, NULL, strAddr.c_str());
+                connman->OpenNetworkConnection(addr, NULL, strAddr.c_str());
                 
                 for (int i = 0; i < 10 && i < nLoop; i++)
                 {
@@ -1595,7 +1595,7 @@ void ThreadOpenConnections()
     int64_t nStart = GetTime();
     while (true)
     {
-        ProcessOneShot();
+        connman->ProcessOneShot();
 
         MilliSleep(500);
 
@@ -1665,7 +1665,7 @@ void ThreadOpenConnections()
         }
 
         if (addrConnect.IsValid())
-            OpenNetworkConnection(addrConnect, &grant);
+            connman->OpenNetworkConnection(addrConnect, &grant);
     }
 }
 
@@ -1687,7 +1687,7 @@ void ThreadOpenAddedConnections()
             BOOST_FOREACH(const std::string& strAddNode, lAddresses) {
                 CAddress addr;
                 CSemaphoreGrant grant(*connman->semOutbound);
-                OpenNetworkConnection(addr, &grant, strAddNode.c_str());
+                connman->OpenNetworkConnection(addr, &grant, strAddNode.c_str());
                 MilliSleep(500);
             }
             MilliSleep(120000); // Retry every 2 minutes
@@ -1733,7 +1733,7 @@ void ThreadOpenAddedConnections()
         BOOST_FOREACH(vector<CService>& vserv, lservAddressesToAdd)
         {
             CSemaphoreGrant grant(*connman->semOutbound);
-            OpenNetworkConnection(CAddress(vserv[i % vserv.size()]), &grant);
+            connman->OpenNetworkConnection(CAddress(vserv[i % vserv.size()]), &grant);
             MilliSleep(500);
         }
         MilliSleep(120000); // Retry every 2 minutes
@@ -1741,7 +1741,7 @@ void ThreadOpenAddedConnections()
 }
 
 // if successful, this moves the passed grant to the constructed node
-bool OpenNetworkConnection(const CAddress& addrConnect, CSemaphoreGrant *grantOutbound, const char *pszDest, bool fOneShot)
+bool CConnman::OpenNetworkConnection(const CAddress& addrConnect, CSemaphoreGrant *grantOutbound, const char *pszDest, bool fOneShot)
 {
     //
     // Initiate outbound network connection
