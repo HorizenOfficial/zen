@@ -93,7 +93,7 @@ uint64_t nLocalHostNonce = 0;
 static std::vector<ListenSocket> vhListenSocket;
 CAddrMan addrman;
 int nMaxConnections = DEFAULT_MAX_PEER_CONNECTIONS;
-bool fAddressesInitialized = false;
+//// bool fAddressesInitialized = false;
 TLSManager tlsmanager = TLSManager();
 vector<CNode*> vNodes;
 CCriticalSection cs_vNodes;
@@ -130,11 +130,11 @@ static bool operator==(_NODE_ADDR a, _NODE_ADDR b)
     return (a.ipAddr == b.ipAddr);
 }
 
-static std::vector<NODE_ADDR> vNonTLSNodesInbound;
-static CCriticalSection cs_vNonTLSNodesInbound;
+//// static std::vector<NODE_ADDR> vNonTLSNodesInbound;
+//// static CCriticalSection cs_vNonTLSNodesInbound;
 
-static std::vector<NODE_ADDR> vNonTLSNodesOutbound;
-static CCriticalSection cs_vNonTLSNodesOutbound;
+//// static std::vector<NODE_ADDR> vNonTLSNodesOutbound;
+//// static CCriticalSection cs_vNonTLSNodesOutbound;
 
 
 void CConnman::AddOneShot(const std::string& strDest)
@@ -356,7 +356,7 @@ uint64_t CNode::nTotalBytesSent = 0;
 CCriticalSection CNode::cs_totalBytesRecv;
 CCriticalSection CNode::cs_totalBytesSent;
 
-CNode* FindNode(const CNetAddr& ip)
+CNode* CConnman::FindNode(const CNetAddr& ip)
 {
     LOCK(cs_vNodes);
     BOOST_FOREACH(CNode* pnode, vNodes)
@@ -365,7 +365,7 @@ CNode* FindNode(const CNetAddr& ip)
     return NULL;
 }
 
-CNode* FindNode(const CSubNet& subNet)
+CNode* CConnman::FindNode(const CSubNet& subNet)
 {
     LOCK(cs_vNodes);
     BOOST_FOREACH(CNode* pnode, vNodes)
@@ -374,7 +374,7 @@ CNode* FindNode(const CSubNet& subNet)
     return NULL;
 }
 
-CNode* FindNode(const std::string& addrName)
+CNode* CConnman::FindNode(const std::string& addrName)
 {
     LOCK(cs_vNodes);
     BOOST_FOREACH(CNode* pnode, vNodes)
@@ -383,7 +383,7 @@ CNode* FindNode(const std::string& addrName)
     return NULL;
 }
 
-CNode* FindNode(const CService& addr)
+CNode* CConnman::FindNode(const CService& addr)
 {
     LOCK(cs_vNodes);
     BOOST_FOREACH(CNode* pnode, vNodes)
@@ -1251,8 +1251,8 @@ void ThreadNonTLSPoolsCleaner()
 {
     while (true)
     {
-        tlsmanager.cleanNonTLSPool(vNonTLSNodesInbound,  cs_vNonTLSNodesInbound);
-        tlsmanager.cleanNonTLSPool(vNonTLSNodesOutbound, cs_vNonTLSNodesOutbound);
+        tlsmanager.cleanNonTLSPool(connman->vNonTLSNodesInbound,  connman->cs_vNonTLSNodesInbound);
+        tlsmanager.cleanNonTLSPool(connman->vNonTLSNodesOutbound, connman->cs_vNonTLSNodesOutbound);
         MilliSleep(DEFAULT_CONNECT_TIMEOUT);  // sleep and sleep_for are interruption points, which will throw boost::thread_interrupted
     }
 }

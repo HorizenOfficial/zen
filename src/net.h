@@ -82,10 +82,6 @@ unsigned int ReceiveFloodSize();
 unsigned int SendBufferSize();
 
 void AddressCurrentlyConnected(const CService& addr);
-CNode* FindNode(const CNetAddr& ip);
-CNode* FindNode(const CSubNet& subNet);
-CNode* FindNode(const std::string& addrName);
-CNode* FindNode(const CService& ip);
 unsigned short GetListenPort();
 bool BindListenPort(const CService &bindAddr, std::string& strError, bool fWhitelisted = false);
 void SocketSendData(CNode *pnode);
@@ -785,15 +781,36 @@ public:
     void ProcessOneShot();
     bool OpenNetworkConnection(const CAddress& addrConnect, CSemaphoreGrant *grantOutbound = NULL, const char *strDest = NULL, bool fOneShot = false);
     void AcceptConnection(const ListenSocket& hListenSocket);
+    CNode* FindNode(const CNetAddr& ip);
+    CNode* FindNode(const CSubNet& subNet);
+    CNode* FindNode(const std::string& addrName);
+    CNode* FindNode(const CService& ip);
     CNode* ConnectNode(CAddress addrConnect, const char *pszDest = NULL);
 
     CConnman();
     ~CConnman();
+
+    bool fAddressesInitialized {false};
     std::unique_ptr<CSemaphore> semOutbound = nullptr;
     std::unique_ptr<CNode> pnodeLocalHost = nullptr;
 
     std::deque<std::string> vOneShots;
     CCriticalSection cs_vOneShots;
+
+    std::vector<zen::NODE_ADDR> vNonTLSNodesInbound;
+    CCriticalSection cs_vNonTLSNodesInbound;
+    std::vector<zen::NODE_ADDR> vNonTLSNodesOutbound;
+    CCriticalSection cs_vNonTLSNodesOutbound;
+
+    // // To be moved here in the next PR, when we will get rid of boost::thread!
+    // std::thread threadDNSAddressSeed;
+    // std::thread threadSocketHandler;
+    // std::thread threadOpenAddedConnections;
+    // std::thread threadOpenConnections;
+    // std::thread threadMessageHandler;
+    // std::thread threadNonTLSPoolsCleaner;
+    // void ThreadOpenConnections();
+    // void ThreadOpenAddedConnections();
 
 };
 
