@@ -787,6 +787,9 @@ public:
 
     CConnman();
     ~CConnman();
+    std::unique_ptr<CSemaphore> semOutbound = nullptr;
+    std::unique_ptr<CNode> pnodeLocalHost = nullptr;
+
 };
 
 #endif // BITCOIN_NET_H

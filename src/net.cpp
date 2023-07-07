@@ -88,7 +88,7 @@ uint64_t nLocalServices = NODE_NETWORK;
 CCriticalSection cs_mapLocalHost;
 map<CNetAddr, LocalServiceInfo> mapLocalHost;
 static bool vfLimited[NET_MAX] = {};
-static CNode* pnodeLocalHost = NULL;
+//// static CNode* pnodeLocalHost = NULL;
 uint64_t nLocalHostNonce = 0;
 static std::vector<ListenSocket> vhListenSocket;
 CAddrMan addrman;
@@ -115,7 +115,7 @@ CCriticalSection cs_vAddedNodes;
 NodeId nLastNodeId = 0;
 CCriticalSection cs_nLastNodeId;
 
-static CSemaphore *semOutbound = NULL;
+// static CSemaphore *semOutbound = NULL;
 boost::condition_variable messageHandlerCondition;
 
 // Signals for message handling
@@ -1599,7 +1599,7 @@ void ThreadOpenConnections()
 
         MilliSleep(500);
 
-        CSemaphoreGrant grant(*semOutbound);
+        CSemaphoreGrant grant(*connman->semOutbound);
         boost::this_thread::interruption_point();
 
         // Add seed nodes if DNS seeds are all down (an infrastructure attack?).
@@ -1686,7 +1686,7 @@ void ThreadOpenAddedConnections()
             }
             BOOST_FOREACH(const std::string& strAddNode, lAddresses) {
                 CAddress addr;
-                CSemaphoreGrant grant(*semOutbound);
+                CSemaphoreGrant grant(*connman->semOutbound);
                 OpenNetworkConnection(addr, &grant, strAddNode.c_str());
                 MilliSleep(500);
             }
@@ -1732,7 +1732,7 @@ void ThreadOpenAddedConnections()
         }
         BOOST_FOREACH(vector<CService>& vserv, lservAddressesToAdd)
         {
-            CSemaphoreGrant grant(*semOutbound);
+            CSemaphoreGrant grant(*connman->semOutbound);
             OpenNetworkConnection(CAddress(vserv[i % vserv.size()]), &grant);
             MilliSleep(500);
         }
@@ -2040,14 +2040,14 @@ void CConnman::StartNode(boost::thread_group& threadGroup, CScheduler& scheduler
            addrman.size(), GetTimeMillis() - nStart);
     fAddressesInitialized = true;
 
-    if (semOutbound == NULL) {
+    if (semOutbound == nullptr) {
         // initialize semaphore
         int nMaxOutbound = min(MAX_OUTBOUND_CONNECTIONS, nMaxConnections);
-        semOutbound = new CSemaphore(nMaxOutbound);
+        semOutbound = std::make_unique<CSemaphore>(nMaxOutbound);
     }
 
-    if (pnodeLocalHost == NULL)
-        pnodeLocalHost = new CNode(INVALID_SOCKET, CAddress(CService("127.0.0.1", 0), nLocalServices));
+    if (pnodeLocalHost == nullptr)
+        pnodeLocalHost = std::make_unique<CNode>(INVALID_SOCKET, CAddress(CService("127.0.0.1", 0), nLocalServices));
 
     Discover();
 
@@ -2135,10 +2135,12 @@ void CNode::NetCleanup()
     vNodes.clear();
     vNodesDisconnected.clear();
     vhListenSocket.clear();
-    delete semOutbound;
-    semOutbound = NULL;
-    delete pnodeLocalHost;
-    pnodeLocalHost = NULL;
+    // delete semOutbound;
+    // semOutbound = NULL;
+    // delete pnodeLocalHost;
+    // pnodeLocalHost = NULL;
+    connman->semOutbound.reset(nullptr);
+    connman->pnodeLocalHost.reset(nullptr);
 
 #ifdef WIN32
     // Shutdown Windows Sockets
