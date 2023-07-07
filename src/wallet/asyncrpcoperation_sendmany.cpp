@@ -223,7 +223,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
     transactionSizeEstimation.overheadSize = tx_.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
 
     // compute size of dummy change output (when estimating transaction size, change output is always included)
-    transactionSizeEstimation.baseOutputChangeOnlySize = add_taddr_change_output_to_tx(std::numeric_limits<CAmount>::max(), sendChangeToSource_, true);
+    transactionSizeEstimation.baseOutputChangeOnlySize = add_taddr_change_output_to_tx(0, sendChangeToSource_, true);
 
     // add base outputs and store their sizes
     transactionSizeEstimation.baseOutputsNoChangeSize = add_taddr_outputs_to_tx();
@@ -1069,10 +1069,6 @@ size_t AsyncRPCOperation_sendmany::add_taddr_outputs_to_tx()
 size_t AsyncRPCOperation_sendmany::add_taddr_change_output_to_tx(CAmount amount, bool sendChangeToSource, bool onlyComputeDummyChangeSize)
 {
     size_t baseOutputChangeOnlySize = 0;
-    if (onlyComputeDummyChangeSize)
-    {
-        amount = std::numeric_limits<CAmount>::max(); //in this way the change output size is voluntarily slightly overestimated
-    }
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 

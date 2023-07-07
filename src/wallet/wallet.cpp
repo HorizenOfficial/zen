@@ -3402,7 +3402,7 @@ bool CWallet::CreateTransaction(
                     assert(ret);
                     dummyScriptChange = GetScriptForDestination(vchPubKey.GetID());
                 }
-                CTxOut dummyChangeTxOut(std::numeric_limits<CAmount>::max(), dummyScriptChange); //in this way the change output size is voluntarily slightly overestimated
+                CTxOut dummyChangeTxOut(0, dummyScriptChange);
                 transactionSizeEstimation.baseOutputChangeOnlySize = dummyChangeTxOut.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
 
                 // this amount represents the fee to be paid for the transaction without considering inputs

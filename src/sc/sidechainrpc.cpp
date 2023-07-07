@@ -1023,10 +1023,6 @@ size_t ScRpcCmd::addChange(bool onlyComputeDummyChangeSize)
 
     // fee must start from 0 when automatically calculated, and then its updated. It might also be set explicitly to 0
     CAmount change = _totalInputAmount - ( _totalOutputAmount + _fee);
-    if (onlyComputeDummyChangeSize)
-    {
-        change = std::numeric_limits<CAmount>::max(); //in this way the change output size is voluntarily slightly overestimated
-    }
 
     if (change > 0)
     {
@@ -1060,14 +1056,14 @@ size_t ScRpcCmd::addChange(bool onlyComputeDummyChangeSize)
         // Never create dust outputs; if we would, just add the dust to the fee.
         CTxOut newTxOut(change, scriptPubKey);
         baseOutputChangeOnlySize = newTxOut.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
-        if (newTxOut.IsDust(::minRelayTxFee))
+        if (!onlyComputeDummyChangeSize)
         {
-            LogPrint("sc", "%s():%d - adding dust change=%lld to fee\n", __func__, __LINE__, change);
-            _fee += change;
-        }
-        else
-        {
-            if (!onlyComputeDummyChangeSize)
+            if (newTxOut.IsDust(::minRelayTxFee))
+            {
+                LogPrint("sc", "%s():%d - adding dust change=%lld to fee\n", __func__, __LINE__, change);
+                _fee += change;
+            }
+            else
             {
                 addOutput(newTxOut);
             }
