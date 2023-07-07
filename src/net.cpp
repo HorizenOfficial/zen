@@ -340,11 +340,6 @@ void AddressCurrentlyConnected(const CService& addr)
 CNode::eTlsOption CNode::tlsFallbackNonTls = CNode::eTlsOption::FALLBACK_UNSET;
 CNode::eTlsOption CNode::tlsValidate       = CNode::eTlsOption::FALLBACK_UNSET;
 
-uint64_t CNode::nTotalBytesRecv = 0;
-uint64_t CNode::nTotalBytesSent = 0;
-CCriticalSection CNode::cs_totalBytesRecv;
-CCriticalSection CNode::cs_totalBytesSent;
-
 CNode* CConnman::FindNode(const CNetAddr& ip)
 {
     LOCK(cs_vNodes);
@@ -868,7 +863,7 @@ void CConnman::SocketSendData(CNode *pnode)
             pnode->nLastSend = GetTime();
             pnode->nSendBytes += nBytes;
             pnode->nSendOffset += nBytes;
-            pnode->RecordBytesSent(nBytes);
+            RecordBytesSent(nBytes);
 
             if (pnode->nSendOffset == data.size())
             {
@@ -2178,27 +2173,23 @@ void Relay(const CScCertificate& cert)
 }
 #endif
 
-void CNode::RecordBytesRecv(uint64_t bytes)
+void CConnman::RecordBytesRecv(uint64_t bytes)
 {
-    LOCK(cs_totalBytesRecv);
-    nTotalBytesRecv += bytes;
+    nTotalBytesRecv.fetch_add(bytes, std::memory_order_relaxed);
 }
 
-void CNode::RecordBytesSent(uint64_t bytes)
+void CConnman::RecordBytesSent(uint64_t bytes)
 {
-    LOCK(cs_totalBytesSent);
-    nTotalBytesSent += bytes;
+    nTotalBytesSent.fetch_add(bytes, std::memory_order_relaxed);
 }
 
-uint64_t CNode::GetTotalBytesRecv()
+uint64_t CConnman::GetTotalBytesRecv()
 {
-    LOCK(cs_totalBytesRecv);
     return nTotalBytesRecv;
 }
 
-uint64_t CNode::GetTotalBytesSent()
+uint64_t CConnman::GetTotalBytesSent()
 {
-    LOCK(cs_totalBytesSent);
     return nTotalBytesSent;
 }
 

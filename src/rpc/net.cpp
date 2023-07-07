@@ -401,8 +401,8 @@ UniValue getnettotals(const UniValue& params, bool fHelp)
        );
 
     UniValue obj(UniValue::VOBJ);
-    obj.pushKV("totalbytesrecv", CNode::GetTotalBytesRecv());
-    obj.pushKV("totalbytessent", CNode::GetTotalBytesSent());
+    obj.pushKV("totalbytesrecv", connman->GetTotalBytesRecv());
+    obj.pushKV("totalbytessent", connman->GetTotalBytesSent());
     obj.pushKV("timemillis", GetTimeMillis());
     return obj;
 }

@@ -384,11 +384,6 @@ public:
     ~CNode();
 
 private:
-    // Network usage totals
-    static CCriticalSection cs_totalBytesRecv;
-    static CCriticalSection cs_totalBytesSent;
-    static uint64_t nTotalBytesRecv;
-    static uint64_t nTotalBytesSent;
 
     CNode(const CNode&);
     void operator=(const CNode&);
@@ -683,13 +678,6 @@ public:
     static bool IsWhitelistedRange(const CNetAddr &ip);
     static void AddWhitelistedRange(const CSubNet &subnet);
 
-    // Network stats
-    static void RecordBytesRecv(uint64_t bytes);
-    static void RecordBytesSent(uint64_t bytes);
-
-    static uint64_t GetTotalBytesRecv();
-    static uint64_t GetTotalBytesSent();
-
     // resource deallocation on cleanup, called at node shutdown
     static void NetCleanup();
 
@@ -826,6 +814,15 @@ public:
     CCriticalSection cs_vNonTLSNodesInbound;
     std::vector<zen::NODE_ADDR> vNonTLSNodesOutbound;
     CCriticalSection cs_vNonTLSNodesOutbound;
+    // Network stats
+    void RecordBytesRecv(uint64_t bytes);
+    void RecordBytesSent(uint64_t bytes);
+    uint64_t GetTotalBytesRecv();
+    uint64_t GetTotalBytesSent();
+
+private:
+    std::atomic<uint64_t> nTotalBytesRecv = 0;
+    std::atomic<uint64_t> nTotalBytesSent = 0;
 
     // // To be moved here in the next PR, when we will get rid of boost::thread!
     // std::thread threadDNSAddressSeed;

@@ -675,7 +675,7 @@ int TLSManager::threadSocketHandler(CNode* pnode, fd_set& fdsetRecv, fd_set& fds
                         pnode->CloseSocketDisconnect();
                     pnode->nLastRecv = GetTime();
                     pnode->nRecvBytes += nBytes;
-                    pnode->RecordBytesRecv(nBytes);
+                    connman->RecordBytesRecv(nBytes);
                 } else if (nBytes == 0) {
 
                     if (bIsSSL) {
