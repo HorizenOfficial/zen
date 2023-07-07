@@ -805,6 +805,9 @@ public:
     CCriticalSection cs_vNodes;
     std::vector<std::string> vAddedNodes;
     CCriticalSection cs_vAddedNodes;
+    std::list<CNode*> vNodesDisconnected;
+    std::vector<ListenSocket> vhListenSocket;
+
     std::atomic<NodeId> nLastNodeId{0};
     NodeId GetNewNodeId();
 
@@ -812,6 +815,8 @@ public:
     CCriticalSection cs_vNonTLSNodesInbound;
     std::vector<zen::NODE_ADDR> vNonTLSNodesOutbound;
     CCriticalSection cs_vNonTLSNodesOutbound;
+    std::set<CNetAddr> setservAddNodeAddresses;     // This could be removed!
+    CCriticalSection cs_setservAddNodeAddresses;    // This could be removed!
 
     std::deque<std::string> vOneShots;
     CCriticalSection cs_vOneShots;

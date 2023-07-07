@@ -79,7 +79,6 @@ map<CNetAddr, LocalServiceInfo> mapLocalHost;
 static bool vfLimited[NET_MAX] = {};
 //// static CNode* pnodeLocalHost = NULL;
 uint64_t nLocalHostNonce = 0;
-static std::vector<ListenSocket> vhListenSocket;
 CAddrMan addrman;
 int nMaxConnections = DEFAULT_MAX_PEER_CONNECTIONS;
 //// bool fAddressesInitialized = false;
@@ -95,8 +94,6 @@ LimitedMap<CInv, int64_t> mapAlreadyReceived(MAPRECEIVED_MAX_SZ);
 //// static deque<string> vOneShots;
 //// CCriticalSection cs_vOneShots;
 
-set<CNetAddr> setservAddNodeAddresses;
-CCriticalSection cs_setservAddNodeAddresses;
 
 boost::condition_variable messageHandlerCondition;
 
@@ -913,8 +910,6 @@ void CConnman::SocketSendData(CNode *pnode)
     pnode->vSendMsg.erase(pnode->vSendMsg.begin(), it);
 }
 
-static list<CNode*> vNodesDisconnected;
-
 class CNodeRef {
 public:
     CNodeRef(CNode *pnode) : _pnode(pnode) {
@@ -1266,13 +1261,13 @@ void ThreadSocketHandler()
                     // hold in disconnected pool until all refs are released
                     if (pnode->fNetworkNode || pnode->fInbound)
                         pnode->Release();
-                    vNodesDisconnected.push_back(pnode);
+                    connman->vNodesDisconnected.push_back(pnode);
                 }
             }
         }
         {
             // Delete disconnected nodes
-            list<CNode*> vNodesDisconnectedCopy = vNodesDisconnected;
+            list<CNode*> vNodesDisconnectedCopy = connman->vNodesDisconnected;
             BOOST_FOREACH(CNode* pnode, vNodesDisconnectedCopy)
             {
                 // wait until threads are done using it
@@ -1294,7 +1289,7 @@ void ThreadSocketHandler()
                     }
                     if (fDelete)
                     {
-                        vNodesDisconnected.remove(pnode);
+                        connman->vNodesDisconnected.remove(pnode);
                         delete pnode;
                     }
                 }
@@ -1321,7 +1316,7 @@ void ThreadSocketHandler()
         SOCKET hSocketMax = 0;
         bool have_fds = false;
 
-        BOOST_FOREACH(const ListenSocket& hListenSocket, vhListenSocket) {
+        BOOST_FOREACH(const ListenSocket& hListenSocket, connman->vhListenSocket) {
             FD_SET(hListenSocket.socket, &fdsetRecv);
             hSocketMax = max(hSocketMax, hListenSocket.socket);
             have_fds = true;
@@ -1394,7 +1389,7 @@ void ThreadSocketHandler()
         //
         // Accept new connections
         //
-        BOOST_FOREACH(const ListenSocket& hListenSocket, vhListenSocket)
+        BOOST_FOREACH(const ListenSocket& hListenSocket, connman->vhListenSocket)
         {
             if (hListenSocket.socket != INVALID_SOCKET && FD_ISSET(hListenSocket.socket, &fdsetRecv))
             {
@@ -1687,9 +1682,9 @@ void ThreadOpenAddedConnections()
             {
                 lservAddressesToAdd.push_back(vservNode);
                 {
-                    LOCK(cs_setservAddNodeAddresses);
+                    LOCK(connman->cs_setservAddNodeAddresses);
                     BOOST_FOREACH(const CService& serv, vservNode)
-                        setservAddNodeAddresses.insert(serv);
+                        connman->setservAddNodeAddresses.insert(serv);
                 }
             }
         }
@@ -1940,7 +1935,7 @@ bool BindListenPort(const CService &addrBind, string& strError, bool fWhiteliste
         return false;
     }
 
-    vhListenSocket.push_back(ListenSocket(hListenSocket, fWhitelisted));
+    connman->vhListenSocket.push_back(ListenSocket(hListenSocket, fWhitelisted));
 
     if (addrBind.IsRoutable() && fDiscover && !fWhitelisted)
         AddLocal(addrBind, LOCAL_BIND);
@@ -2099,7 +2094,7 @@ void CNode::NetCleanup()
     // Close sockets
     BOOST_FOREACH(CNode* pnode, connman->vNodes)
     pnode->CloseSocketDisconnect();
-    BOOST_FOREACH(ListenSocket& hListenSocket, vhListenSocket)
+    BOOST_FOREACH(ListenSocket& hListenSocket, connman->vhListenSocket)
         if (hListenSocket.socket != INVALID_SOCKET)
             if (!CloseSocket(hListenSocket.socket))
                 LogPrintf("CloseSocket(hListenSocket) failed with error %s\n", NetworkErrorString(WSAGetLastError()));
@@ -2107,11 +2102,11 @@ void CNode::NetCleanup()
     // clean up some globals (to help leak detection)
     BOOST_FOREACH(CNode *pnode, connman->vNodes)
         delete pnode;
-    BOOST_FOREACH(CNode *pnode, vNodesDisconnected)
+    BOOST_FOREACH(CNode *pnode, connman->vNodesDisconnected)
         delete pnode;
     connman->vNodes.clear();
-    vNodesDisconnected.clear();
-    vhListenSocket.clear();
+    connman->vNodesDisconnected.clear();
+    connman->vhListenSocket.clear();
     // delete semOutbound;
     // semOutbound = NULL;
     // delete pnodeLocalHost;
