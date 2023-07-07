@@ -77,8 +77,6 @@ std::deque<std::pair<int64_t, CInv> > vRelayExpiration;
 CCriticalSection cs_mapRelay;
 LimitedMap<CInv, int64_t> mapAlreadyAskedFor(MAX_INV_SZ);           //// Keep global?
 LimitedMap<CInv, int64_t> mapAlreadyReceived(MAPRECEIVED_MAX_SZ);   //// Keep global?
-std::vector<CSubNet> CNode::vWhitelistedRange;  /// To be moved to CConnman and Options? Anche funzioni di whitelist
-CCriticalSection CNode::cs_vWhitelistedRange;   /// To be moved to CConnman and Options? Anche funzioni di whitelist
 
 
 boost::condition_variable messageHandlerCondition;
@@ -615,8 +613,7 @@ void CNode::GetBanned(std::map<CSubNet, int64_t> &banMap)
     banMap = setBanned; //create a thread safe copy
 }
 
-/// To be moved to CConnman
-bool CNode::IsWhitelistedRange(const CNetAddr &addr) {
+bool CConnman::IsWhitelistedRange(const CNetAddr &addr) {
     LOCK(cs_vWhitelistedRange);
     BOOST_FOREACH(const CSubNet& subnet, vWhitelistedRange) {
         if (subnet.Match(addr))
@@ -625,11 +622,6 @@ bool CNode::IsWhitelistedRange(const CNetAddr &addr) {
     return false;
 }
 
-/// To be moved to CConnman
-void CNode::AddWhitelistedRange(const CSubNet &subnet) {
-    LOCK(cs_vWhitelistedRange);
-    vWhitelistedRange.push_back(subnet);
-}
 
 #undef X
 #define X(name) stats.name = name
@@ -1022,12 +1014,12 @@ public:
 };
 
 //// To be moved to CConnman
-static bool AttemptToEvictConnection(bool fPreferNewConnection) {
+bool CConnman::AttemptToEvictConnection(bool fPreferNewConnection) {
     std::vector<CNodeRef> vEvictionCandidates;
     {
-        LOCK(connman->cs_vNodes);
+        LOCK(cs_vNodes);
 
-        BOOST_FOREACH(CNode *node, connman->vNodes) {
+        BOOST_FOREACH(CNode *node, vNodes) {
             if (node->fWhitelisted)
                 continue;
             if (!node->fInbound)
@@ -1110,7 +1102,7 @@ void CConnman::AcceptConnection(const ListenSocket& hListenSocket) {
         if (!addr.SetSockAddr((const struct sockaddr*)&sockaddr))
             LogPrintf("Warning: Unknown socket family\n");
 
-    bool whitelisted = hListenSocket.whitelisted || CNode::IsWhitelistedRange(addr);
+    bool whitelisted = hListenSocket.whitelisted || CConnman::IsWhitelistedRange(addr);
     {
         LOCK(cs_vNodes);
         BOOST_FOREACH(CNode* pnode, vNodes)

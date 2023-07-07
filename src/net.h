@@ -320,11 +320,6 @@ protected:
     static std::map<CSubNet, int64_t> setBanned;
     static CCriticalSection cs_setBanned;
 
-    // Whitelisted ranges. Any node connecting from these is automatically
-    // whitelisted (as well as those connecting to whitelisted binds).
-    static std::vector<CSubNet> vWhitelistedRange;
-    static CCriticalSection cs_vWhitelistedRange;
-
     // Basic fuzz-testing
     void Fuzz(int nChance); // modifies ssSend
 
@@ -660,9 +655,6 @@ public:
 
     void copyStats(CNodeStats &stats);
 
-    static bool IsWhitelistedRange(const CNetAddr &ip);
-    static void AddWhitelistedRange(const CSubNet &subnet);
-
     // resource deallocation on cleanup, called at node shutdown
     static void NetCleanup();
 
@@ -727,6 +719,8 @@ public:
         int nMaxConnections = 0;
         unsigned int nSendBufferMaxSize = 0;
         unsigned int nReceiveFloodSize = 0;
+        
+        std::vector<CSubNet> vWhitelistedRange;
     };
 
     void Init(const Options& connOptions)
@@ -735,6 +729,10 @@ public:
         nMaxConnections = connOptions.nMaxConnections;
         nSendBufferMaxSize = connOptions.nSendBufferMaxSize;
         nReceiveFloodSize = connOptions.nReceiveFloodSize;
+        {
+            LOCK(cs_vWhitelistedRange);
+            vWhitelistedRange = connOptions.vWhitelistedRange;
+        }
     }
 
     void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler , const Options& connOptions);
@@ -756,6 +754,8 @@ public:
     CNode* FindNode(const std::string& addrName);
     CNode* FindNode(const CService& ip);
     CNode* ConnectNode(CAddress addrConnect, const char *pszDest = NULL);
+    bool IsWhitelistedRange(const CNetAddr &ip);
+    bool AttemptToEvictConnection(bool fPreferNewConnection);
 
     void SocketSendData(CNode *pnode);
 
@@ -785,6 +785,12 @@ public:
 
     std::deque<std::string> vOneShots;
     CCriticalSection cs_vOneShots;
+
+    // Whitelisted ranges. Any node connecting from these is automatically
+    // whitelisted (as well as those connecting to whitelisted binds).
+    std::vector<CSubNet> vWhitelistedRange;
+    CCriticalSection cs_vWhitelistedRange;
+
 
     // Network stats
     void RecordBytesRecv(uint64_t bytes);
