@@ -852,6 +852,14 @@ bool AppInitServers()
     return true;
 }
 
+// Variables internal to initialization process only
+namespace {
+    uint64_t nLocalServices = NODE_NETWORK;
+    int nMaxConnections = DEFAULT_MAX_PEER_CONNECTIONS;
+    unsigned int nSendBufferMaxSize;
+    unsigned int nReceiveFloodSize;
+} // namespace
+
 /** Initialize bitcoin.
  *  @pre Parameters should be parsed and config file should be read.
  */
@@ -1344,6 +1352,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     connman.reset();
     connman = std::make_unique<CConnman>();
+    CConnman::Options connOptions;
 
     if (mapArgs.count("-onlynet")) {
         std::set<enum Network> nets;
@@ -1964,7 +1973,12 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     if (GetBoolArg("-listenonion", DEFAULT_LISTEN_ONION))
         StartTorControl(threadGroup, scheduler);
 
-    connman->StartNode(threadGroup, scheduler);
+    connOptions.nLocalServices      = nLocalServices;
+    connOptions.nMaxConnections     = nMaxConnections;
+    connOptions.nSendBufferMaxSize  = 1000*GetArg("-maxsendbuffer", 1*1000);
+    connOptions.nReceiveFloodSize   = 1000*GetArg("-maxreceivebuffer", 5*1000);
+
+    connman->StartNode(threadGroup, scheduler, connOptions);
 
     // Monitor the chain, and alert if we get blocks much quicker or slower than expected
     int64_t nPowTargetSpacing = Params().GetConsensus().nPowTargetSpacing;

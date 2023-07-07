@@ -167,7 +167,7 @@ CAddress GetLocalAddress(const CNetAddr *paddrPeer)
     {
         ret = CAddress(addr);
     }
-    ret.nServices = nLocalServices;
+    ret.nServices = connman->GetLocalServices();
     ret.nTime = GetTime();
     return ret;
 }
@@ -533,7 +533,7 @@ void CNode::PushVersion()
         LogPrint("net", "send version message: version %d, blocks=%d, us=%s, them=%s, peer=%d\n", PROTOCOL_VERSION, nBestHeight, addrMe.ToString(), addrYou.ToString(), id);
     else
         LogPrint("net", "send version message: version %d, blocks=%d, us=%s, peer=%d\n", PROTOCOL_VERSION, nBestHeight, addrMe.ToString(), id);
-    PushMessage("version", PROTOCOL_VERSION, nLocalServices, nTime, addrYou, addrMe,
+    PushMessage("version", PROTOCOL_VERSION, connman->GetLocalServices(), nTime, addrYou, addrMe,
                 nLocalHostNonce, FormatSubVersion(CLIENT_NAME, CLIENT_VERSION, std::vector<string>()), nBestHeight, true);
 }
 
@@ -1397,7 +1397,7 @@ void ThreadSocketHandler()
                     TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
                     if (lockRecv && (
                         pnode->vRecvMsg.empty() || !pnode->vRecvMsg.front().complete() ||
-                        pnode->GetTotalRecvSize() <= ReceiveFloodSize()))
+                        pnode->GetTotalRecvSize() <= connman->GetReceiveFloodSize()))
                         FD_SET(pnode->hSocket, &fdsetRecv);
                 }
             }
@@ -1832,7 +1832,7 @@ void ThreadMessageHandler()
                     if (!g_signals.ProcessMessages(pnode))
                         pnode->CloseSocketDisconnect();
 
-                    if (pnode->nSendSize < SendBufferSize())
+                    if (pnode->nSendSize < connman->GetSendBufferSize())
                     {
                         if (!pnode->vRecvGetData.empty() || (!pnode->vRecvMsg.empty() && pnode->vRecvMsg[0].complete()))
                         {
@@ -2033,9 +2033,9 @@ void static Discover()
 
 
 
-void CConnman::StartNode(boost::thread_group& threadGroup, CScheduler& scheduler/*, const Options& connOptions*/)
+void CConnman::StartNode(boost::thread_group& threadGroup, CScheduler& scheduler, const Options& connOptions)
 {
-    // Init(connOptions);
+    Init(connOptions);
 
     uiInterface.InitMessage(_("Loading addresses..."));
     // Load addresses for peers.dat
@@ -2170,6 +2170,15 @@ uint64_t CConnman::GetTotalBytesSent()
 {
     return nTotalBytesSent;
 }
+
+uint64_t CConnman::GetLocalServices() const
+{
+    return nLocalServices;
+}
+
+
+
+
 
 void CNode::Fuzz(int nChance)
 {
@@ -2307,9 +2316,13 @@ bool CAddrDB::Read(CAddrMan& addr)
     return true;
 }
 
-//// To be moved in CConnman? To be investigated...
-unsigned int ReceiveFloodSize() { return 1000*GetArg("-maxreceivebuffer", 5*1000); }
-unsigned int SendBufferSize() { return 1000*GetArg("-maxsendbuffer", 1*1000); }
+unsigned int CConnman::GetReceiveFloodSize() {
+    return nReceiveFloodSize;
+}
+
+unsigned int CConnman::GetSendBufferSize() {
+    return nSendBufferMaxSize;
+}
 
 NodeId CConnman::GetNewNodeId()
 {
@@ -2319,7 +2332,7 @@ NodeId CConnman::GetNewNodeId()
 CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNameIn, bool fInboundIn, SSL *sslIn) :
     ssSend(SER_NETWORK, INIT_PROTO_VERSION),
     addrKnown(5000, 0.001),
-    setInventoryKnown(SendBufferSize() / 1000)
+    setInventoryKnown(connman->GetSendBufferSize() / 1000)
 {
     ssl = sslIn;
     nServices = 0;

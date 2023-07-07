@@ -478,7 +478,7 @@ UniValue getnetworkinfo(const UniValue& params, bool fHelp)
     obj.pushKV("subversion",
         FormatSubVersion(CLIENT_NAME, CLIENT_VERSION, std::vector<string>()));
     obj.pushKV("protocolversion",PROTOCOL_VERSION);
-    obj.pushKV("localservices",       strprintf("%016x", nLocalServices));
+    obj.pushKV("localservices",       strprintf("%016x", connman->GetLocalServices()));
     obj.pushKV("timeoffset",    0);
     obj.pushKV("connections",   (int)(connman->vNodes.size()));
     obj.pushKV("tls_cert_verified", ValidateCertificate(tls_ctx_server));

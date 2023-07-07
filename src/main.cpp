@@ -4616,7 +4616,7 @@ bool ActivateBestChain(CValidationState &state, CBlock *pblock, bool &postponeRe
                 nBlockEstimate = Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints());
             // Don't relay blocks if pruning -- could cause a peer to try to download, resulting
             // in a stalled download if the block file is pruned before the request.
-            if (nLocalServices & NODE_NETWORK) {
+            if (connman->GetLocalServices() & NODE_NETWORK) {
                 LOCK(connman->cs_vNodes);
                 BOOST_FOREACH(CNode* pnode, connman->vNodes)
                 {
@@ -6542,7 +6542,7 @@ void static ProcessGetData(CNode* pfrom)
 
     while (it != pfrom->vRecvGetData.end()) {
         // Don't bother if send buffer is too full to respond anyway
-        if (pfrom->nSendSize >= SendBufferSize())
+        if (pfrom->nSendSize >= connman->GetSendBufferSize())
             break;
 
         const CInv &inv = *it;
@@ -7283,7 +7283,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 }
             }
 
-            if (pfrom->nSendSize > (SendBufferSize() * 2)) {
+            if (pfrom->nSendSize > (connman->GetSendBufferSize() * 2)) {
                 Misbehaving(pfrom->GetId(), 50);
                 return error("send buffer size() = %u", pfrom->nSendSize);
             }
@@ -7898,7 +7898,7 @@ bool ProcessMessages(CNode* pfrom)
     std::deque<CNetMessage>::iterator it = pfrom->vRecvMsg.begin();
     while (!pfrom->fDisconnect && it != pfrom->vRecvMsg.end()) {
         // Don't bother if send buffer is too full to respond anyway
-        if (pfrom->nSendSize >= SendBufferSize())
+        if (pfrom->nSendSize >= connman->GetSendBufferSize())
             break;
 
         // get next message
@@ -8380,7 +8380,7 @@ bool RelayAlternativeChain(CValidationState &state, CBlock *pblock, BlockSet* sF
         nBlockEstimate = Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints());
 
     int nodeHeight = -1;
-    if (nLocalServices & NODE_NETWORK) {
+    if (connman->GetLocalServices() & NODE_NETWORK) {
         LOCK(connman->cs_vNodes);
         BOOST_FOREACH(CNode* pnode, connman->vNodes)
         {

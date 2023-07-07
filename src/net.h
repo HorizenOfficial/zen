@@ -80,8 +80,8 @@ static const unsigned int DEFAULT_MAX_PEER_CONNECTIONS = 125;
 
 static const int MAX_OUTBOUND_CONNECTIONS = 8;
 
-unsigned int ReceiveFloodSize();
-unsigned int SendBufferSize();
+// unsigned int ReceiveFloodSize();
+// unsigned int SendBufferSize();
 
 void AddressCurrentlyConnected(const CService& addr);
 unsigned short GetListenPort();
@@ -158,11 +158,9 @@ CAddress GetLocalAddress(const CNetAddr *paddrPeer = NULL);
 
 extern bool fDiscover;
 extern bool fListen;
-extern uint64_t nLocalServices;
 extern uint64_t nLocalHostNonce;
 extern CAddrMan addrman;
 /** Maximum number of connections to simultaneously allow (aka connection slots) */
-extern int nMaxConnections;
 
 extern std::map<CInv, CDataStream> mapRelay;
 extern std::deque<std::pair<int64_t, CInv> > vRelayExpiration;
@@ -729,60 +727,21 @@ public:
     {
         uint64_t nLocalServices = 0;
         int nMaxConnections = 0;
-        int m_max_outbound_full_relay = 0;
-        int m_max_outbound_block_relay = 0;
-        int nMaxAddnode = 0;
-        int nMaxFeeler = 0;
-        // CClientUIInterface* uiInterface = nullptr;
-        // NetEventsInterface* m_msgproc = nullptr;
-        // BanMan* m_banman = nullptr;
         unsigned int nSendBufferMaxSize = 0;
         unsigned int nReceiveFloodSize = 0;
-        uint64_t nMaxOutboundLimit = 0;
-        // int64_t m_peer_connect_timeout = DEFAULT_PEER_CONNECT_TIMEOUT;
-        std::vector<std::string> vSeedNodes;
-        // std::vector<NetWhitelistPermissions> vWhitelistedRange;
-        // std::vector<NetWhitebindPermissions> vWhiteBinds;
-        std::vector<CService> vBinds;
-        std::vector<CService> onion_binds;
-        bool bind_on_any;
-        bool m_use_addrman_outgoing = true;
-        std::vector<std::string> m_specified_outgoing;
-        std::vector<std::string> m_added_nodes;
-        bool m_i2p_accept_incoming;
     };
 
-    void Init(const Options& connOptions) EXCLUSIVE_LOCKS_REQUIRED(!m_added_nodes_mutex, !m_total_bytes_sent_mutex)
+    void Init(const Options& connOptions) // EXCLUSIVE_LOCKS_REQUIRED(!m_added_nodes_mutex, !m_total_bytes_sent_mutex)
     {
         // AssertLockNotHeld(m_total_bytes_sent_mutex);
 
-        // nLocalServices = connOptions.nLocalServices;
-        // nMaxConnections = connOptions.nMaxConnections;
-        // m_max_outbound_full_relay = std::min(connOptions.m_max_outbound_full_relay, connOptions.nMaxConnections);
-        // m_max_outbound_block_relay = connOptions.m_max_outbound_block_relay;
-        // m_use_addrman_outgoing = connOptions.m_use_addrman_outgoing;
-        // nMaxAddnode = connOptions.nMaxAddnode;
-        // nMaxFeeler = connOptions.nMaxFeeler;
-        // m_max_outbound = m_max_outbound_full_relay + m_max_outbound_block_relay + nMaxFeeler;
-        // // m_client_interface = connOptions.uiInterface;
-        // // m_banman = connOptions.m_banman;
-        // // m_msgproc = connOptions.m_msgproc;
-        // nSendBufferMaxSize = connOptions.nSendBufferMaxSize;
-        // nReceiveFloodSize = connOptions.nReceiveFloodSize;
-        // // m_peer_connect_timeout = std::chrono::seconds{connOptions.m_peer_connect_timeout};
-        // {
-        //     LOCK(m_total_bytes_sent_mutex);
-        //     nMaxOutboundLimit = connOptions.nMaxOutboundLimit;
-        // }
-        // // vWhitelistedRange = connOptions.vWhitelistedRange;
-        // {
-        //     LOCK(m_added_nodes_mutex);
-        //     m_added_nodes = connOptions.m_added_nodes;
-        // }
-        // m_onion_binds = connOptions.onion_binds;
+        nLocalServices = connOptions.nLocalServices;
+        nMaxConnections = connOptions.nMaxConnections;
+        nSendBufferMaxSize = connOptions.nSendBufferMaxSize;
+        nReceiveFloodSize = connOptions.nReceiveFloodSize;
     }
 
-    void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler /*, const Options& connOptions*/);
+    void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler , const Options& connOptions);
     bool StopNode();
     void Stop();
     void NetCleanup();
@@ -793,6 +752,7 @@ public:
 
     void AddOneShot(const std::string& strDest);
     void ProcessOneShot();
+
     bool OpenNetworkConnection(const CAddress& addrConnect, CSemaphoreGrant *grantOutbound = NULL, const char *strDest = NULL, bool fOneShot = false);
     void AcceptConnection(const ListenSocket& hListenSocket);
     CNode* FindNode(const CNetAddr& ip);
@@ -835,10 +795,25 @@ public:
     void RecordBytesSent(uint64_t bytes);
     uint64_t GetTotalBytesRecv();
     uint64_t GetTotalBytesSent();
+    unsigned int GetReceiveFloodSize();
+    unsigned int GetSendBufferSize();
+
+    // Used to convey which local services we are offering peers during node
+    // connection.
+    //
+    // The data returned by this is used in CNode construction,
+    // which is used to advertise which services we are offering
+    // that peer during `net_processing.cpp:PushNodeVersion()`.
+    uint64_t GetLocalServices() const;
 
 private:
     std::atomic<uint64_t> nTotalBytesRecv = 0;
     std::atomic<uint64_t> nTotalBytesSent = 0;
+
+    uint64_t nLocalServices;
+    int nMaxConnections;
+    unsigned int nSendBufferMaxSize;
+    unsigned int nReceiveFloodSize;
 
     // // To be moved here in the next PR, when we will get rid of boost::thread!
     // std::thread threadDNSAddressSeed;
