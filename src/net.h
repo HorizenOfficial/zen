@@ -80,9 +80,6 @@ static const unsigned int DEFAULT_MAX_PEER_CONNECTIONS = 125;
 
 static const int MAX_OUTBOUND_CONNECTIONS = 8;
 
-// unsigned int ReceiveFloodSize();
-// unsigned int SendBufferSize();
-
 void AddressCurrentlyConnected(const CService& addr);
 unsigned short GetListenPort();
 
@@ -693,6 +690,7 @@ public:
     bool Read(CAddrMan& addr);
 };
 
+//// This definition can be moved into CConnman after boost::thread refactoring
 struct ListenSocket {
     SOCKET socket;
     bool whitelisted;
@@ -731,10 +729,8 @@ public:
         unsigned int nReceiveFloodSize = 0;
     };
 
-    void Init(const Options& connOptions) // EXCLUSIVE_LOCKS_REQUIRED(!m_added_nodes_mutex, !m_total_bytes_sent_mutex)
+    void Init(const Options& connOptions)
     {
-        // AssertLockNotHeld(m_total_bytes_sent_mutex);
-
         nLocalServices = connOptions.nLocalServices;
         nMaxConnections = connOptions.nMaxConnections;
         nSendBufferMaxSize = connOptions.nSendBufferMaxSize;
@@ -816,6 +812,9 @@ private:
     unsigned int nReceiveFloodSize;
 
     // // To be moved here in the next PR, when we will get rid of boost::thread!
+    //
+    // CThreadInterrupt interruptNet;
+    //
     // std::thread threadDNSAddressSeed;
     // std::thread threadSocketHandler;
     // std::thread threadOpenAddedConnections;
@@ -824,6 +823,10 @@ private:
     // std::thread threadNonTLSPoolsCleaner;
     // void ThreadOpenConnections();
     // void ThreadOpenAddedConnections();
+    // void ThreadNonTLSPoolsCleaner();
+    // void ThreadSocketHandler();
+    // void ThreadDNSAddressSeed();
+    // void void ThreadMessageHandler();
 
 };
 

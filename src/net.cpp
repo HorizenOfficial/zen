@@ -64,21 +64,19 @@ extern std::unique_ptr<CConnman> connman;
 //
 // Global state variables
 //
-bool fDiscover = true;                          //// Keep global
-bool fListen = true;                            //// Keep global
-uint64_t nLocalServices = NODE_NETWORK;         //// To be moved to CConnman + options
-CCriticalSection cs_mapLocalHost;               //// Keep global
-map<CNetAddr, LocalServiceInfo> mapLocalHost;   //// Keep global
-static bool vfLimited[NET_MAX] = {};            //// Keep global
-uint64_t nLocalHostNonce = 0;
+bool fDiscover = true;
+bool fListen = true;
+CCriticalSection cs_mapLocalHost;
+map<CNetAddr, LocalServiceInfo> mapLocalHost;
+static bool vfLimited[NET_MAX] = {};
+uint64_t nLocalHostNonce = 0;  //// This is part of CNode
 CAddrMan addrman;
-int nMaxConnections = DEFAULT_MAX_PEER_CONNECTIONS;//// To be moved to CConnman + options
 TLSManager tlsmanager = TLSManager();
-std::map<CInv, CDataStream> mapRelay;           //// Keep global
-std::deque<std::pair<int64_t, CInv> > vRelayExpiration;//// Keep global
-CCriticalSection cs_mapRelay;                   //// Keep global
-LimitedMap<CInv, int64_t> mapAlreadyAskedFor(MAX_INV_SZ);
-LimitedMap<CInv, int64_t> mapAlreadyReceived(MAPRECEIVED_MAX_SZ);
+std::map<CInv, CDataStream> mapRelay;
+std::deque<std::pair<int64_t, CInv> > vRelayExpiration;
+CCriticalSection cs_mapRelay;
+LimitedMap<CInv, int64_t> mapAlreadyAskedFor(MAX_INV_SZ);           //// Keep global?
+LimitedMap<CInv, int64_t> mapAlreadyReceived(MAPRECEIVED_MAX_SZ);   //// Keep global?
 std::vector<CSubNet> CNode::vWhitelistedRange;  /// To be moved to CConnman and Options? Anche funzioni di whitelist
 CCriticalSection CNode::cs_vWhitelistedRange;   /// To be moved to CConnman and Options? Anche funzioni di whitelist
 
@@ -540,7 +538,8 @@ void CNode::PushVersion()
 
 
 
-
+//// Bitcoin encapsulates all the following functions and members into a 
+////   ban manager, included in the CConnman class
 std::map<CSubNet, int64_t> CNode::setBanned;
 CCriticalSection CNode::cs_setBanned;
 
@@ -778,7 +777,6 @@ int CNetMessage::readData(const char *pch, unsigned int nBytes)
 CConnman::CConnman() {
     Options connOptions;
     Init(connOptions);
-    // SetNetworkActive(network_active);
 }
 
 void CConnman::Stop()
