@@ -13,6 +13,7 @@ import os
 from decimal import Decimal
 import bz2
 import resource
+import sys
 
 NUMB_OF_NODES = 2
 DEBUG_MODE = 1
@@ -34,9 +35,11 @@ class sc_cert_customfields(BitcoinTestFramework):
 
     def setup_network(self, split=False):
 
-        # Set process memory limit to 5 GB
-        _, hard = resource.getrlimit(resource.RLIMIT_AS)
-        resource.setrlimit(resource.RLIMIT_AS, (1024 * 1024 * 1024 * 5, hard))
+        # Set process memory limit to 5 GB (non-darwin, before zend launch)
+        if (sys.platform != "darwin"): # resource.setrlimit does not work on darwin
+            _, hard = resource.getrlimit(resource.RLIMIT_AS)
+            resource.setrlimit(resource.RLIMIT_AS, (1024 * 1024 * 1024 * 5, hard))
+            print("non-darwin; set process memory limit before zend launch")
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
                                  extra_args=[['-logtimemicros=1', '-debug=sc', '-scproofqueuesize=0', 

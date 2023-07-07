@@ -890,7 +890,8 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     }
 
     // ---------------------------------------------------------
-    char errBuf[256] = {};
+    const size_t errBufSize = 256;
+    char errBuf[errBufSize] = {};
     int withdrawalEpochLength = SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH;
     bool isCeasable = true;
     if (setKeyArgs.count("withdrawalEpochLength"))
@@ -902,12 +903,12 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         {
             if (withdrawalEpochLength < getScMinWithdrawalEpochLength())
             {
-                sprintf(errBuf, "Invalid withdrawalEpochLength: minimum value allowed=%d", getScMinWithdrawalEpochLength());
+                snprintf(errBuf, errBufSize, "Invalid withdrawalEpochLength: minimum value allowed=%d", getScMinWithdrawalEpochLength());
                 throw JSONRPCError(RPC_INVALID_PARAMETER, errBuf);
             }
             if (withdrawalEpochLength > getScMaxWithdrawalEpochLength())
             {
-                sprintf(errBuf, "Invalid withdrawalEpochLength: maximum value allowed=%d", getScMaxWithdrawalEpochLength());
+                snprintf(errBuf, errBufSize, "Invalid withdrawalEpochLength: maximum value allowed=%d", getScMaxWithdrawalEpochLength());
                 throw JSONRPCError(RPC_INVALID_PARAMETER, errBuf);
             }
         }
@@ -915,7 +916,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         {
             if (withdrawalEpochLength != 0)
             {
-                sprintf(errBuf, "Invalid withdrawalEpochLength: non-ceasing sidechains must have 0\n");
+                snprintf(errBuf, errBufSize, "Invalid withdrawalEpochLength: non-ceasing sidechains must have 0\n");
                 throw JSONRPCError(RPC_INVALID_PARAMETER, errBuf);
             }
         }
