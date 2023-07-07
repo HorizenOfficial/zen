@@ -91,8 +91,6 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest = NULL);
 bool OpenNetworkConnection(const CAddress& addrConnect, CSemaphoreGrant *grantOutbound = NULL, const char *strDest = NULL, bool fOneShot = false);
 unsigned short GetListenPort();
 bool BindListenPort(const CService &bindAddr, std::string& strError, bool fWhitelisted = false);
-void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler);
-bool StopNode();
 void SocketSendData(CNode *pnode);
 SSL_CTX* create_context(bool server_side);
 EVP_PKEY *generate_key();
@@ -782,6 +780,9 @@ public:
         // }
         // m_onion_binds = connOptions.onion_binds;
     }
+
+    void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler /*, const Options& connOptions*/);
+    bool StopNode();
 
 
     CConnman();

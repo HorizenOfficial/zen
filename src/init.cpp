@@ -209,7 +209,7 @@ void Shutdown()
     GenerateBitcoins(false, 0);
  #endif
 #endif
-    StopNode();
+    connman->StopNode();
     StopTorControl();
     UnregisterNodeSignals(GetNodeSignals());
 
@@ -1983,7 +1983,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     if (GetBoolArg("-listenonion", DEFAULT_LISTEN_ONION))
         StartTorControl(threadGroup, scheduler);
 
-    StartNode(threadGroup, scheduler);
+    connman->StartNode(threadGroup, scheduler);
 
     // Monitor the chain, and alert if we get blocks much quicker or slower than expected
     int64_t nPowTargetSpacing = Params().GetConsensus().nPowTargetSpacing;

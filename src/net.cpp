@@ -2024,8 +2024,10 @@ void static Discover()
 
 
 
-void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler)
+void CConnman::StartNode(boost::thread_group& threadGroup, CScheduler& scheduler/*, const Options& connOptions*/)
 {
+    // Init(connOptions);
+
     uiInterface.InitMessage(_("Loading addresses..."));
     // Load addresses for peers.dat
     int64_t nStart = GetTimeMillis();
@@ -2099,7 +2101,7 @@ void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler)
     scheduler.scheduleEvery(&DumpAddresses, DUMP_ADDRESSES_INTERVAL);
 }
 
-bool StopNode()
+bool CConnman::StopNode()
 {
     LogPrintf("StopNode()\n");
     if (semOutbound)
