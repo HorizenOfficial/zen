@@ -18,10 +18,6 @@
 #include "crypto/common.h"
 #include "zen/utiltls.h"
 
-
-
-
-
 #ifdef WIN32
 #include <string.h>
 #else
@@ -35,7 +31,6 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <zen/tlsmanager.cpp>
-using namespace zen;
 
 // Dump addresses to peers.dat every 15 minutes (900s)
 #define DUMP_ADDRESSES_INTERVAL 900
@@ -66,33 +61,26 @@ using namespace zen;
 // TEMPORARY! This should be removed as soon as we get rid of boost:thread
 extern std::unique_ptr<CConnman> connman;
 
-using namespace std;
-
 //
 // Global state variables
 //
-bool fDiscover = true;
-bool fListen = true;
-uint64_t nLocalServices = NODE_NETWORK;
-CCriticalSection cs_mapLocalHost;
-map<CNetAddr, LocalServiceInfo> mapLocalHost;
-static bool vfLimited[NET_MAX] = {};
-//// static CNode* pnodeLocalHost = NULL;
+bool fDiscover = true;                          //// Keep global
+bool fListen = true;                            //// Keep global
+uint64_t nLocalServices = NODE_NETWORK;         //// To be moved to CConnman + options
+CCriticalSection cs_mapLocalHost;               //// Keep global
+map<CNetAddr, LocalServiceInfo> mapLocalHost;   //// Keep global
+static bool vfLimited[NET_MAX] = {};            //// Keep global
 uint64_t nLocalHostNonce = 0;
 CAddrMan addrman;
-int nMaxConnections = DEFAULT_MAX_PEER_CONNECTIONS;
-//// bool fAddressesInitialized = false;
+int nMaxConnections = DEFAULT_MAX_PEER_CONNECTIONS;//// To be moved to CConnman + options
 TLSManager tlsmanager = TLSManager();
-//// vector<CNode*> vNodes;
-//// CCriticalSection cs_vNodes;
-map<CInv, CDataStream> mapRelay;
-deque<pair<int64_t, CInv> > vRelayExpiration;
-CCriticalSection cs_mapRelay;
+std::map<CInv, CDataStream> mapRelay;           //// Keep global
+std::deque<std::pair<int64_t, CInv> > vRelayExpiration;//// Keep global
+CCriticalSection cs_mapRelay;                   //// Keep global
 LimitedMap<CInv, int64_t> mapAlreadyAskedFor(MAX_INV_SZ);
 LimitedMap<CInv, int64_t> mapAlreadyReceived(MAPRECEIVED_MAX_SZ);
-
-//// static deque<string> vOneShots;
-//// CCriticalSection cs_vOneShots;
+std::vector<CSubNet> CNode::vWhitelistedRange;  /// To be moved to CConnman and Options? Anche funzioni di whitelist
+CCriticalSection CNode::cs_vWhitelistedRange;   /// To be moved to CConnman and Options? Anche funzioni di whitelist
 
 
 boost::condition_variable messageHandlerCondition;
@@ -108,12 +96,6 @@ static bool operator==(_NODE_ADDR a, _NODE_ADDR b)
 {
     return (a.ipAddr == b.ipAddr);
 }
-
-//// static std::vector<NODE_ADDR> vNonTLSNodesInbound;
-//// static CCriticalSection cs_vNonTLSNodesInbound;
-
-//// static std::vector<NODE_ADDR> vNonTLSNodesOutbound;
-//// static CCriticalSection cs_vNonTLSNodesOutbound;
 
 
 void CConnman::AddOneShot(const std::string& strDest)
@@ -365,8 +347,6 @@ CNode* CConnman::FindNode(const CService& addr)
             return (pnode);
     return NULL;
 }
-
-
 
 CNode* CConnman::ConnectNode(CAddress addrConnect, const char *pszDest)
 {
@@ -636,10 +616,6 @@ void CNode::GetBanned(std::map<CSubNet, int64_t> &banMap)
     banMap = setBanned; //create a thread safe copy
 }
 
-
-std::vector<CSubNet> CNode::vWhitelistedRange;
-CCriticalSection CNode::cs_vWhitelistedRange;
-
 bool CNode::IsWhitelistedRange(const CNetAddr &addr) {
     LOCK(cs_vWhitelistedRange);
     BOOST_FOREACH(const CSubNet& subnet, vWhitelistedRange) {
@@ -808,10 +784,6 @@ CConnman::~CConnman()
     // Interrupt();
     // Stop();
 }
-
-
-
-
 
 // requires LOCK(cs_vSend)
 void CConnman::SocketSendData(CNode *pnode)
@@ -989,6 +961,7 @@ public:
     }
 };
 
+//// To be moved to CConnman
 static bool AttemptToEvictConnection(bool fPreferNewConnection) {
     std::vector<CNodeRef> vEvictionCandidates;
     {
@@ -1511,7 +1484,7 @@ void ThreadDNSAddressSeed()
 
 
 
-
+/// To be moved to CConnman after boost::thread refactoring
 void DumpAddresses()
 {
     int64_t nStart = GetTimeMillis();
@@ -1839,7 +1812,7 @@ void ThreadMessageHandler()
 
 
 
-
+/// To be moved to CConnman
 bool BindListenPort(const CService &addrBind, string& strError, bool fWhitelisted)
 {
     strError = "";
@@ -2089,6 +2062,7 @@ bool CConnman::StopNode()
     return true;
 }
 
+//// To be moved to CConnman, this is the CConnman::StopNodes() in Bitcoin
 void CNode::NetCleanup()
 {
     // Close sockets
@@ -2317,6 +2291,7 @@ bool CAddrDB::Read(CAddrMan& addr)
     return true;
 }
 
+//// To be moved in CConnman? To be investigated...
 unsigned int ReceiveFloodSize() { return 1000*GetArg("-maxreceivebuffer", 5*1000); }
 unsigned int SendBufferSize() { return 1000*GetArg("-maxsendbuffer", 1*1000); }
 
