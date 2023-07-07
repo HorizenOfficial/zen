@@ -1086,33 +1086,51 @@ ScRpcCmdCert::ScRpcCmdCert(
 
 void ScRpcCmdCert::_execute()
 {
-    CCertificateSizeEstimation certificateSize;
+    CCertificateSizeEstimation certificateSizeEstimation;
 
     // initialize transaction and compute overhead size
     init();
     addScFees();
-    certificateSize.overheadSize = _cert.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+    certificateSizeEstimation.overheadSize = _cert.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
 
     // compute size of dummy change output (when estimating certificate size, change output is always included)
-    certificateSize.baseOutputChangeOnlySize = addChange(true);
+    certificateSizeEstimation.baseOutputChangeOnlySize = addChange(true);
 
     // add crosschain outputs and store their sizes
-    certificateSize.baseOutputsNoChangeSize = addBackwardTransfers();
+    certificateSizeEstimation.baseOutputsNoChangeSize = addBackwardTransfers();
 
     // add custom fields and store their sizes
     addCustomFields();
     if (!_vCfe.empty())
-        certificateSize.certificateVariableFieldsSize += GetSerializeSize(_vCfe, SER_NETWORK, PROTOCOL_VERSION);
+        certificateSizeEstimation.certificateVariableFieldsSize += GetSerializeSize(_vCfe, SER_NETWORK, PROTOCOL_VERSION);
     if (!_vCmt.empty())
-        certificateSize.certificateVariableFieldsSize += GetSerializeSize(_vCmt, SER_NETWORK, PROTOCOL_VERSION);
+        certificateSizeEstimation.certificateVariableFieldsSize += GetSerializeSize(_vCmt, SER_NETWORK, PROTOCOL_VERSION);
 
     // add base inputs based on available size
-    certificateSize.baseInputsSize = addInputs(MAX_CERT_SIZE - (certificateSize.overheadSize + certificateSize.baseOutputChangeOnlySize + certificateSize.baseOutputsNoChangeSize + certificateSize.certificateVariableFieldsSize));
+    certificateSizeEstimation.baseInputsSize = addInputs(MAX_CERT_SIZE - (certificateSizeEstimation.overheadSize +
+                                                                          certificateSizeEstimation.baseOutputChangeOnlySize +
+                                                                          certificateSizeEstimation.baseOutputsNoChangeSize +
+                                                                          certificateSizeEstimation.certificateVariableFieldsSize));
 
     // add actual change base output
-    certificateSize.baseOutputChangeOnlySize = addChange();
+    certificateSizeEstimation.baseOutputChangeOnlySize = addChange();
 
     sign();
+
+    // this quantity should match the sum of the members of struct transactionSize (apart maybe from change section)
+    unsigned int nBytes = ::GetSerializeSize(_cert, SER_NETWORK, PROTOCOL_VERSION);
+    LogPrint("selectcoins", "Actual cert size: %d, estimated cert size: %d (%d+%d+%d+%d+%d)",
+             nBytes,
+             certificateSizeEstimation.overheadSize +
+             certificateSizeEstimation.baseOutputsNoChangeSize +
+             certificateSizeEstimation.baseOutputChangeOnlySize +
+             certificateSizeEstimation.certificateVariableFieldsSize +
+             certificateSizeEstimation.baseInputsSize,
+             certificateSizeEstimation.overheadSize,
+             certificateSizeEstimation.baseOutputsNoChangeSize,
+             certificateSizeEstimation.baseOutputChangeOnlySize,
+             certificateSizeEstimation.certificateVariableFieldsSize,
+             certificateSizeEstimation.baseInputsSize);
 }
 
 void ScRpcCmdCert::sign()
@@ -1386,13 +1404,16 @@ void ScRpcCmdTx::_execute()
 
     // this quantity should match the sum of the members of struct transactionSize (apart maybe from change section)
     unsigned int nBytes = ::GetSerializeSize(_tx, SER_NETWORK, PROTOCOL_VERSION);
-    LogPrint("selectcoins", "Actual tx size: %d, estimated tx size: %d (dummy change size: %d)",
+    LogPrint("selectcoins", "Actual tx size: %d, estimated tx size: %d (%d+%d+%d+%d)",
              nBytes,
              transactionSizeEstimation.overheadSize +
              transactionSizeEstimation.baseOutputsNoChangeSize +
              transactionSizeEstimation.baseOutputChangeOnlySize +
              transactionSizeEstimation.baseInputsSize,
-             transactionSizeEstimation.baseOutputChangeOnlySize);
+             transactionSizeEstimation.overheadSize,
+             transactionSizeEstimation.baseOutputsNoChangeSize,
+             transactionSizeEstimation.baseOutputChangeOnlySize,
+             transactionSizeEstimation.baseInputsSize);
 }
 
 void ScRpcCmd::execute()
