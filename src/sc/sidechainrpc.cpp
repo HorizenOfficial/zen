@@ -1119,7 +1119,7 @@ void ScRpcCmdCert::_execute()
 
     // this quantity should match the sum of the members of struct transactionSize (apart maybe from change section)
     unsigned int nBytes = ::GetSerializeSize(_cert, SER_NETWORK, PROTOCOL_VERSION);
-    LogPrint("selectcoins", "Actual cert size: %d, estimated cert size: %d (%d+%d+%d+%d+%d)",
+    LogPrint("selectcoins", "Actual cert size: %d, estimated cert size: %d (%d+%d+%d+%d+%d)\n",
              nBytes,
              certificateSizeEstimation.overheadSize +
              certificateSizeEstimation.baseOutputsNoChangeSize +
@@ -1404,7 +1404,7 @@ void ScRpcCmdTx::_execute()
 
     // this quantity should match the sum of the members of struct transactionSize (apart maybe from change section)
     unsigned int nBytes = ::GetSerializeSize(_tx, SER_NETWORK, PROTOCOL_VERSION);
-    LogPrint("selectcoins", "Actual tx size: %d, estimated tx size: %d (%d+%d+%d+%d)",
+    LogPrint("selectcoins", "Actual tx size: %d, estimated tx size: %d (%d+%d+%d+%d)\n",
              nBytes,
              transactionSizeEstimation.overheadSize +
              transactionSizeEstimation.baseOutputsNoChangeSize +

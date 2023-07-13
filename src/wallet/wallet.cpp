@@ -3055,12 +3055,12 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
     }
     else
     {
-        LogPrint("selectcoins", "SelectCoinsMinConf() best subset: ");
+        LogPrint("selectcoins", "SelectCoinsMinConf() best subset (gross value/value):");
         for (int i = 0; i < bestAlgorithm->problemDimension; i++)
         {
             if (bestAlgorithm->GetOptimalSelection()[i])
             {
-                LogPrint("selectcoins", "%s ", FormatMoney(std::get<0>(vValue[bestAlgorithm->ids[i]])));
+                LogPrint("selectcoins", "%s/%d ", FormatMoney(std::get<0>(vValue[bestAlgorithm->ids[i]])), FormatMoney(std::get<1>(vValue[bestAlgorithm->ids[i]])));
                 vCoinsRet.push_back(std::get<2>(vValue[bestAlgorithm->ids[i]]));
                 nValueRet += std::get<0>(vValue[bestAlgorithm->ids[i]]);
             }
@@ -3632,7 +3632,7 @@ bool CWallet::CreateTransaction(
 
                 // this quantity should match the sum of the members of struct transactionSizeEstimation (apart maybe from change section)
                 unsigned int nBytes = ::GetSerializeSize(txNew, SER_NETWORK, PROTOCOL_VERSION);
-                LogPrint("selectcoins", "Actual tx size: %d, estimated tx size: %d (%d+%d+%d+%d)",
+                LogPrint("selectcoins", "Actual tx size: %d, estimated tx size: %d (%d+%d+%d+%d)\n",
                          nBytes,
                          transactionSizeEstimation.overheadSize +
                          transactionSizeEstimation.baseOutputsNoChangeSize +

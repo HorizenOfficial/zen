@@ -770,7 +770,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
 
     // this quantity should match the sum of the members of struct transactionSizeEstimation (apart maybe from change section)
     unsigned int nBytes = ::GetSerializeSize(tx_, SER_NETWORK, PROTOCOL_VERSION);
-    LogPrint("selectcoins", "Actual tx size: %d, estimated tx size: %d (%d+%d+%d+%d+%d)",
+    LogPrint("selectcoins", "Actual tx size: %d, estimated tx size: %d (%d+%d+%d+%d+%d)\n",
          nBytes,
          transactionSizeEstimation.overheadSize +
          transactionSizeEstimation.baseOutputsNoChangeSize +

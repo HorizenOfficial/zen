@@ -747,8 +747,8 @@ private:
       \param coinControl pre-prepared info for selecting specific coins (default to NULL)
       \param availableBytes available bytes (considered as an upper-limit on the sum of inputs sizes) for performing coins selection (default to MAX_TX_SIZE)
       \param useInputsNetValues flag indicating if the net value (equals to gross value minus fee to pay for including the input) of inputs must be used instead
-                                of gross value; if true nTargetValue inValueRet will represent a sum of gross values, if false nValueRet will represent a sum of
-                                net values (default to true)
+                                of gross value; if true nTargetValue will represent a sum of gross values, if false nTargetValue will represent a sum of net values
+                                (default to true)
       \return a flag representing wether the selection actually found (true) an admissible set of coins or not (false)
     */
     bool SelectCoins(const CAmount& nTargetValue, std::vector<COutput>& vCoinsRet, CAmount& nValueRet, size_t& selectionTotalBytes,
@@ -1008,8 +1008,8 @@ public:
       \param selectionTotalBytes the total bytes of selected inputs
       \param availableBytes available bytes (considered as an upper-limit on the sum of inputs sizes) for performing coins selection (default to MAX_TX_SIZE)
       \param useInputsNetValues flag indicating if the net value (equals to gross value minus fee to pay for including the input) of inputs must be used instead
-                                of gross value; if true nTargetValue inValueRet will represent a sum of gross values, if false nValueRet will represent a sum of
-                                net values (default to true)
+                                of gross value; if true nTargetValue will represent a sum of gross values, if false nTargetValue will represent a sum of net values
+                                (default to true)
       \return a flag representing wether the selection actually found (true) an admissible set of coins or not (false)
     */
     bool SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins,
