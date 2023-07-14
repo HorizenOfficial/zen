@@ -447,8 +447,7 @@ extern std::unique_ptr<CConnman> connman;
 
 TEST(ProcessMempoolMsgTest, TxesInMempoolAreRelayed)
 {
-    connman.reset();
-    connman = std::make_unique<CConnman>();
+    connman.reset(new CConnman());
     SelectParams(CBaseChainParams::REGTEST);
 
     std::unique_ptr<CTxMemPool> aMempool(new CTxMemPool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000));

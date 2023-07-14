@@ -653,9 +653,6 @@ public:
 
     void copyStats(CNodeStats &stats);
 
-    // resource deallocation on cleanup, called at node shutdown
-    static void NetCleanup();
-
     // returns the value of the tlsfallbacknontls and tlsvalidate flags set at zend startup (see init.cpp)
     static bool GetTlsFallbackNonTls();
     static bool GetTlsValidate();
@@ -760,16 +757,13 @@ public:
     CConnman();
     ~CConnman();
 
-    bool fAddressesInitialized {false};
-    std::unique_ptr<CSemaphore> semOutbound = nullptr;
-    std::unique_ptr<CNode> pnodeLocalHost = nullptr;
-
     std::vector<CNode*> vNodes;
     CCriticalSection cs_vNodes;
     std::vector<std::string> vAddedNodes;
     CCriticalSection cs_vAddedNodes;
     std::list<CNode*> vNodesDisconnected;
     std::vector<ListenSocket> vhListenSocket;
+    std::unique_ptr<CSemaphore> semOutbound = nullptr;
 
     std::atomic<NodeId> nLastNodeId{0};
     NodeId GetNewNodeId();
@@ -778,8 +772,6 @@ public:
     CCriticalSection cs_vNonTLSNodesInbound;
     std::vector<zen::NODE_ADDR> vNonTLSNodesOutbound;
     CCriticalSection cs_vNonTLSNodesOutbound;
-    std::set<CNetAddr> setservAddNodeAddresses;     // This could be removed!
-    CCriticalSection cs_setservAddNodeAddresses;    // This could be removed!
 
     std::deque<std::string> vOneShots;
     CCriticalSection cs_vOneShots;
@@ -811,6 +803,9 @@ public:
 private:
     std::atomic<uint64_t> nTotalBytesRecv = 0;
     std::atomic<uint64_t> nTotalBytesSent = 0;
+
+    bool fAddressesInitialized {false};
+    std::unique_ptr<CNode> pnodeLocalHost = nullptr;
 
     uint64_t nLocalServices;
     int nMaxConnections;

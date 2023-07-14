@@ -821,10 +821,6 @@ void CConnman::NetCleanup()
     vNodes.clear();
     vNodesDisconnected.clear();
     vhListenSocket.clear();
-    // delete semOutbound;
-    // semOutbound = NULL;
-    // delete pnodeLocalHost;
-    // pnodeLocalHost = NULL;
     semOutbound.reset(nullptr);
     pnodeLocalHost.reset(nullptr);
 
@@ -1696,11 +1692,6 @@ void ThreadOpenAddedConnections()
             if(Lookup(strAddNode.c_str(), vservNode, Params().GetDefaultPort(), fNameLookup, 0))
             {
                 lservAddressesToAdd.push_back(vservNode);
-                {
-                    LOCK(connman->cs_setservAddNodeAddresses);
-                    BOOST_FOREACH(const CService& serv, vservNode)
-                        connman->setservAddNodeAddresses.insert(serv);
-                }
             }
         }
         // Attempt to connect to each IP for each addnode entry until at least one is successful per addnode entry

@@ -46,8 +46,7 @@ BOOST_FIXTURE_TEST_SUITE(DoS_tests, TestingSetup)
 
 BOOST_AUTO_TEST_CASE(DoS_banning)
 {
-    connman.reset();
-    connman = std::make_unique<CConnman>();
+    connman.reset(new CConnman());
     CNode::ClearBanned();
     CAddress addr1(ip(0xa0b0c001));
     CNode dummyNode1(INVALID_SOCKET, addr1, "", true);
@@ -71,8 +70,7 @@ BOOST_AUTO_TEST_CASE(DoS_banning)
 
 BOOST_AUTO_TEST_CASE(DoS_banscore)
 {
-    connman.reset();
-    connman = std::make_unique<CConnman>();
+    connman.reset(new CConnman());
     CNode::ClearBanned();
     mapArgs["-banscore"] = "111"; // because 11 is my favorite number
     CAddress addr1(ip(0xa0b0c001));
@@ -92,8 +90,7 @@ BOOST_AUTO_TEST_CASE(DoS_banscore)
 
 BOOST_AUTO_TEST_CASE(DoS_bantime)
 {
-    connman.reset();
-    connman = std::make_unique<CConnman>();
+    connman.reset(new CConnman());
     CNode::ClearBanned();
     int64_t nStartTime = GetTime();
     SetMockTime(nStartTime); // Overrides future calls to GetTime()

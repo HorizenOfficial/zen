@@ -20,16 +20,6 @@ using namespace std;
 
 namespace zen
 {
-// typedef struct _NODE_ADDR {
-//     std::string ipAddr;
-//     int64_t time; // time in msec, of an attempt to connect via TLS
-
-//     _NODE_ADDR(std::string _ipAddr, int64_t _time = 0) : ipAddr(_ipAddr), time(_time) {}
-// bool operator==(const _NODE_ADDR b) const
-// {
-//     return (ipAddr == b.ipAddr);
-// }
-// } NODE_ADDR, *PNODE_ADDR;
 
 /**
  * @brief A class to wrap some of zen specific TLS functionalities used in the net.cpp

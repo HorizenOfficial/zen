@@ -1350,7 +1350,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     RegisterNodeSignals(GetNodeSignals());
 
-    connman.reset();
+    assert(!connman);
     connman = std::make_unique<CConnman>();
     CConnman::Options connOptions;
 
