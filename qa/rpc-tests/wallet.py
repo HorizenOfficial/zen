@@ -47,7 +47,7 @@ class WalletTest (BitcoinTestFramework):
         assert_equal(self.nodes[1].getbalance("*"), 11.4375)
         assert_equal(self.nodes[2].getbalance("*"), 0)
 
-        # Send 12 BTC from 0 to 2 using sendtoaddress call.
+        # Send 12 and 11.4375 BTC from 0 to 2 using sendtoaddress call.
         # Second transaction will be child of first, and will require a fee
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 12)
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 11.4375)

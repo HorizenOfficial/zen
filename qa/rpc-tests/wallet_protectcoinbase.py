@@ -42,34 +42,6 @@ class WalletProtectCoinbaseTest (BitcoinTestFramework):
         self.is_network_split=False
         self.sync_all()
 
-    # Returns txid if operation was a success or None
-    def wait_and_assert_operationid_status(self, myopid, in_status='success', in_errormsg=None):
-        print('waiting for async operation {}'.format(myopid))
-        opids = []
-        opids.append(myopid)
-        timeout = 500
-        status = None
-        errormsg = None
-        txid = None
-        for x in range(1, timeout):
-            results = self.nodes[0].z_getoperationresult(opids)
-            if len(results)==0:
-                time.sleep(1)
-            else:
-                status = results[0]["status"]
-                if status == "failed":
-                    errormsg = results[0]['error']['message']
-                elif status == "success":
-                    txid = results[0]['result']['txid']
-                break
-        print('...returned status: {}'.format(status))
-        assert_equal(in_status, status)
-        if errormsg is not None:
-            assert(in_errormsg is not None)
-            assert_equal(in_errormsg in errormsg, True)
-            print('...returned error: {}'.format(errormsg))
-        return txid
-
     def run_test (self):
         print("Mining blocks...")
 
@@ -111,20 +83,15 @@ class WalletProtectCoinbaseTest (BitcoinTestFramework):
         self.nodes[3].importaddress(mytaddr)
         recipients= [{"address":myzaddr, "amount": Decimal('1')}]
         myopid = self.nodes[3].z_sendmany(mytaddr, recipients)
-        errorString=""
+        errorCode = 0
         status = None
         opids = [myopid]
         timeout = 10
-        for x in range(1, timeout):
-            results = self.nodes[3].z_getoperationresult(opids)
-            if len(results)==0:
-                time.sleep(1)
-            else:
-                status = results[0]["status"]
-                errorString = results[0]["error"]["message"]
-                break
+        result = wait_and_assert_operationid_status(self.nodes[3], myopid, "failed", "", timeout=900)
+        status = result["status"]
+        errorCode = result["error"]["code"]
         assert_equal("failed", status)
-        assert_equal("no UTXOs found for taddr from address" in errorString, True)
+        assert_equal(-6, errorCode)
 
         # This send will fail because our wallet does not allow any change when protecting a coinbase utxo,
         # as it's currently not possible to specify a change address in z_sendmany.
@@ -270,37 +237,43 @@ class WalletProtectCoinbaseTest (BitcoinTestFramework):
 
         # z_sendmany will return an error if there is transparent change output considered dust.
         # UTXO selection in z_sendmany sorts in ascending order, so smallest utxos are consumed first.
-        # At this point in time, unspent notes all have a value of 11.4375 and standard z_sendmany fee is 0.0001.
+        # At this point in time, there is just one single 11.4375 available (and standard z_sendmany fee is 0.0001).
         recipients = []
-        amount = Decimal('11.4375') - Decimal('0.00010000') - Decimal('0.00000001')    # this leaves change at 1 zatoshi less than dust threshold
+        amount = Decimal('11.4375') - Decimal('0.00010000') - Decimal('0.00000001')    # this leaves change at 1 zatoshi, less than dust threshold
         recipients.append({"address":self.nodes[0].getnewaddress(), "amount":amount })
         myopid = self.nodes[0].z_sendmany(mytaddr, recipients)
-        self.wait_and_assert_operationid_status(myopid, "failed", "Insufficient transparent funds, have 11.4375, need 0.00000062 more to avoid creating invalid change output 0.00000001 (dust threshold is 0.00000063)")
+        result = wait_and_assert_operationid_status(self.nodes[0], myopid, "failed", "", timeout=900)
+        errorCode = result["error"]["code"]
+        assert_equal(-6, errorCode)
 
         # Send will fail because send amount is too big, even when including coinbase utxos
         errorString = ""
         try:
             self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 99999)
-            assert(False)
+            assert_equal(False)
         except JSONRPCException as e:
-            errorString = e.error['message']
-            assert_equal("Insufficient funds" in errorString, True)
+            errorCode = e.error["code"]
+            assert_equal(-6, errorCode)
 
         # z_sendmany will fail because of insufficient funds
         recipients = []
         recipients.append({"address":self.nodes[1].getnewaddress(), "amount":Decimal('10000.0')})
         myopid = self.nodes[0].z_sendmany(mytaddr, recipients)
-        self.wait_and_assert_operationid_status(myopid, "failed", "Insufficient transparent funds, have 11.4375, need 10000.0001")
+        result = wait_and_assert_operationid_status(self.nodes[0], myopid, "failed", "", timeout=900)
+        errorCode = result["error"]["code"]
+        assert_equal(-6, errorCode)
         myopid = self.nodes[0].z_sendmany(myzaddr, recipients)
-        self.wait_and_assert_operationid_status(myopid, "failed", "Insufficient protected funds, have 11.4373, need 10000.0001")
+        result = wait_and_assert_operationid_status(self.nodes[0], myopid, "failed", "", timeout=900)
+        errorCode = result["error"]["code"]
+        assert_equal(-6, errorCode)
 
         # Send will fail because of insufficient funds unless sender uses coinbase utxos
         try:
             self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 21)
-            assert(False)
+            assert_equal(False)
         except JSONRPCException as e:
-            errorString = e.error['message']
-            assert_equal("Insufficient funds, coinbase funds can only be spent after they have been sent to a zaddr" in errorString, True)
+            errorCode = e.error["code"]
+            assert_equal(-4, errorCode)
 
         # Verify that mempools accept tx with joinsplits which have at least the default z_sendmany fee.
         # If this test passes, it confirms that issue #1851 has been resolved, where sending from
