@@ -141,6 +141,7 @@ BITCOIN_CORE_H = \
   clientversion.h \
   coincontrol.h \
   coins.h \
+  coinsselectionalgorithm.hpp \
   compat.h \
   compat/byteswap.h \
   compat/endian.h \
@@ -326,6 +327,7 @@ libbitcoin_wallet_a_SOURCES = \
   paymentdisclosuredb.cpp \
   wallet/rpcdisclosure.cpp \
   wallet/rpcdump.cpp \
+  coinsselectionalgorithm.cpp \
   wallet/rpcwallet.cpp \
   wallet/wallet.cpp \
   wallet/wallet_ismine.cpp \
