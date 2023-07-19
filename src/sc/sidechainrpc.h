@@ -74,8 +74,8 @@ class ScRpcCmd
     // set null all data members that are filled during tx/cert construction  
     virtual void init();
 
-    void addInputs();
-    void addChange();
+    size_t addInputs(size_t availableBytes);
+    size_t addChange(bool onlyComputeDummyChangeSize = false);
     virtual void addOutput(const CTxOut& out) = 0;
     virtual void addInput(const CTxIn& out) = 0;
     virtual void sign() = 0;
@@ -109,7 +109,7 @@ class ScRpcCmdTx : public ScRpcCmd
     void addOutput(const CTxOut& out) override {_tx.addOut(out); }
     void addInput(const CTxIn& in) override    {_tx.vin.push_back(in); }
 
-    virtual void addCcOutputs() = 0;
+    virtual size_t addCcOutputs() = 0;
 
     void sign() override;
     void _execute() override;
@@ -139,7 +139,7 @@ class ScRpcCmdCert : public ScRpcCmd
     void _execute() override;
 
   private:
-    void addBackwardTransfers();
+    size_t addBackwardTransfers();
     void addCustomFields();
     void addScFees();
 
@@ -175,7 +175,7 @@ class ScRpcCmdCert : public ScRpcCmd
 class ScRpcCreationCmdTx : public ScRpcCmdTx
 {
   protected:
-    void addCcOutputs() override;
+    size_t addCcOutputs() override;
 
   public:
     struct sCrOutParams
@@ -208,7 +208,7 @@ class ScRpcCreationCmdTx : public ScRpcCmdTx
 class ScRpcSendCmdTx : public ScRpcCmdTx
 {
   protected:
-    void addCcOutputs() override;
+    size_t addCcOutputs() override;
 
   public:
     struct sFtOutParams
@@ -236,7 +236,7 @@ class ScRpcSendCmdTx : public ScRpcCmdTx
 class ScRpcRetrieveCmdTx : public ScRpcCmdTx
 {
   protected:
-    void addCcOutputs() override;
+    size_t addCcOutputs() override;
 
   public:
     struct sBtOutParams
