@@ -1149,4 +1149,19 @@ struct CMutableTransaction : public CMutableTransactionBase
     bool add(const CFieldElement& acd);
 };
 
+//! Struct for storing transaction subsections size info
+struct CBaseTransactionSizeEstimation
+{
+    size_t overheadSize = 0;
+    size_t baseInputsSize = 0;
+    size_t baseOutputsNoChangeSize = 0;
+    size_t baseOutputChangeOnlySize = 0;
+};
+
+struct CTransactionSizeEstimation : CBaseTransactionSizeEstimation
+{
+    size_t joinsplitsSize = 0;
+    size_t sidechainOutputsSize = 0;
+};
+
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H
