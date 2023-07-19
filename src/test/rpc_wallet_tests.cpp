@@ -1038,8 +1038,8 @@ BOOST_AUTO_TEST_CASE(rpc_z_sendmany_internals)
         std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(mtx, taddr1, {}, std::move(recipients), 1) );
         operation->main();
         BOOST_CHECK(operation->isFailed());
-        std::string msg = operation->getErrorMessage();
-        BOOST_CHECK( msg.find("Insufficient funds, no UTXOs found") != string::npos);
+        int error = operation->getErrorCode();
+        BOOST_CHECK( error == RPCErrorCode::RPC_WALLET_INSUFFICIENT_FUNDS);
     }
 
     // minconf cannot be zero when sending from zaddr
@@ -1060,8 +1060,8 @@ BOOST_AUTO_TEST_CASE(rpc_z_sendmany_internals)
         std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(mtx, zaddr1, std::move(recipients), {}, 1) );
         operation->main();
         BOOST_CHECK(operation->isFailed());
-        std::string msg = operation->getErrorMessage();
-        BOOST_CHECK( msg.find("Insufficient funds, no unspent notes") != string::npos);
+        int error = operation->getErrorCode();
+        BOOST_CHECK( error == RPCErrorCode::RPC_WALLET_INSUFFICIENT_FUNDS);
     }
 
     // get_memo_from_hex_string())

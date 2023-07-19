@@ -1283,7 +1283,26 @@ public:
                           int minDepth=1,
                           bool ignoreSpent=true,
                           bool ignoreUnspendable=true);
-    
+
+    //! Method for selecting notes based on value and size constraints
+    /*!
+      The implementation details of this method are stricly connected to the implementation of AsyncRPCOperation_sendmany::main_impl() as for commit "d1104ef903147338692344069e30c666d8b78614"
+      
+      Unlike coins selection methods (SelectCoins/SelectCoinsMinConf), this method does not provide a distinction between notes gross value and notes net value;
+      gross value is always considered as value.
+      \param nTargetValue the target value (as sum of notes values) to be satisfied (lower-limit), to be considered always as gross value
+      \param vNotes the set of notes on which the selection algorithms have to be executed
+      \param vNotesRet the set of notes returned selection algorithms
+      \param nValueRet the actual total value of notes returned (as sum of returned notes values), to be considered always as gross value
+      \param selectionTotalBytes the total bytes of selected notes
+      \param availableBytes available bytes (considered as an upper-limit on the sum of joinsplits sizes) for performing notes selection (default to MAX_TX_SIZE)
+      \param joinsplitsOutputsAmounts the vector of joinsplits outputs that need to be satisfied by the selected notes (default to empty vector)
+      \return a flag representing wether the selection actually found (true) an admissible set of notes or not (false)
+    */
+    bool SelectNotes(const CAmount& nTargetValue, std::vector<CNotePlaintextEntry> vNotes,
+                     std::vector<CNotePlaintextEntry>& vNotesRet, CAmount& nValueRet, size_t &selectionTotalBytes,
+                     size_t availableBytes = MAX_TX_SIZE, const std::vector<CAmount>& joinsplitsOutputsAmounts = std::vector<CAmount>()) const;
+
     /* Find unspent notes filtered by payment address, min depth and max depth */
     void GetUnspentFilteredNotes(std::vector<CUnspentNotePlaintextEntry>& outEntries,
                                  std::set<libzcash::PaymentAddress>& filterAddresses,

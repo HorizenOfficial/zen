@@ -4601,6 +4601,147 @@ void CWallet::GetFilteredNotes(
     }
 }
 
+bool CWallet::SelectNotes(const CAmount& nTargetValue, std::vector<CNotePlaintextEntry> vNotes,
+                          std::vector<CNotePlaintextEntry>& vNotesRet, CAmount& nValueRet, size_t &selectionTotalBytes,
+                          size_t availableBytes, const std::vector<CAmount>& joinsplitsOutputsAmounts) const
+{
+    vNotesRet.clear();
+    nValueRet = 0;
+    selectionTotalBytes = 0;
+
+    // List of values less than target
+    // <value, note, size>
+    std::vector<std::tuple<CAmount, CNotePlaintextEntry, size_t>> vValue;
+    // Lowest larger (than target value) note
+    // <value, note, size>
+    std::tuple<CAmount, CNotePlaintextEntry, size_t> noteLowestLarger(std::numeric_limits<CAmount>::max(),
+                                                                      CNotePlaintextEntry(),
+                                                                      0);
+
+    CAmount nTotalLower = 0;
+    size_t selectionTotalBytesLower = 0;
+    size_t estimatedNoteSize = JSDescription::getNewInstance(true).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION, GROTH_TX_VERSION);
+
+    BOOST_FOREACH(const CNotePlaintextEntry &note, vNotes)
+    {
+        CAmount value = static_cast<CAmount>(note.plaintext.value());
+
+        // <value, note, size>
+        std::tuple<CAmount, CNotePlaintextEntry, size_t> extendedNote = std::make_tuple(value, note, estimatedNoteSize);
+
+        // if note is less than target, add it to the set of possible notes to be selected
+        if (value < nTargetValue)
+        {
+            vValue.push_back(extendedNote);
+            nTotalLower += value;
+            if (vValue.size() != 1) // this is specific condition (the very second note does not result in a new joinsplit)
+            {
+                selectionTotalBytesLower += estimatedNoteSize;
+            }
+        }
+        // if note is larger than target, check if it is the smallest larger and if its size (eventually
+        // increased by the sum of the notes sizes to be provided for fulfilling recipients) is admissible
+        else if (value < std::get<0>(noteLowestLarger) &&
+                 std::max(1, (int)joinsplitsOutputsAmounts.size()) * estimatedNoteSize <= availableBytes)
+        {
+            noteLowestLarger = extendedNote;
+        }
+    }
+
+    // if the sum of lower notes is an exact match and the total size (eventually increased by the
+    // sum of the notes sizes to be provided for fulfilling recipients) is admissible, then return
+    if (nTotalLower == nTargetValue &&                                                                                                         
+        selectionTotalBytesLower + std::max(0, (int)joinsplitsOutputsAmounts.size() - (int)vValue.size()) * estimatedNoteSize <= availableBytes)
+    {
+        for (unsigned int i = 0; i < vValue.size(); ++i)
+        {
+            vNotesRet.push_back(std::get<1>(vValue[i]));
+            nValueRet += std::get<0>(vValue[i]);
+        }
+        selectionTotalBytes = selectionTotalBytesLower + std::max(0, (int)joinsplitsOutputsAmounts.size() - (int)vValue.size()) * estimatedNoteSize;
+        return true;
+    }
+
+    // if the sum of lower notes is lower than target (or equal but with not admissible size)...
+    if ((nTotalLower < nTargetValue) ||
+        (nTotalLower == nTargetValue && selectionTotalBytesLower + std::max(0, (int)joinsplitsOutputsAmounts.size() - (int)vValue.size()) * estimatedNoteSize > availableBytes))
+    {
+        // ...and there is no larger note then the problem is unsolvable
+        if (std::get<2>(noteLowestLarger) == 0)
+            return false;
+        // ...otherwise return the larger note
+        vNotesRet.push_back(std::get<1>(noteLowestLarger));
+        nValueRet = std::get<0>(noteLowestLarger);
+        selectionTotalBytes = std::max(1, (int)joinsplitsOutputsAmounts.size()) * estimatedNoteSize;
+        return true;
+    }
+
+    // this is done only to speed up the sorting done in algorithm constructor (but doesn't impact the actual solution)
+    std::sort(vValue.begin(), vValue.end(), [](std::tuple<CAmount, CNotePlaintextEntry, size_t> left,
+                                               std::tuple<CAmount, CNotePlaintextEntry, size_t> right)
+                                               -> bool { return ( std::get<0>(left) > std::get<0>(right)); } );
+
+    std::vector<std::tuple<CAmount, size_t, int>> amountsAndSizesAndIds = std::vector<std::tuple<CAmount, size_t, int>>(vValue.size(), {0, 0, 0});
+    for (int i = 0; i < vValue.size(); i++) {
+        amountsAndSizesAndIds[i] = {std::get<0>(vValue[i]), std::get<2>(vValue[i]), i};
+    }
+
+    const CAmount targetAmount = nTargetValue;
+    const CAmount targetAmountPlusOffsetNoChange = nTargetValue; //no change
+    const CAmount targetAmountPlusOffsetMaxChange = std::get<2>(noteLowestLarger) != 0 ?
+                                                    std::min(std::get<0>(noteLowestLarger), nTotalLower) : nTotalLower; //max change
+    const size_t availableTotalSize = availableBytes;
+
+    std::unique_ptr<CCoinsSelectionAlgorithmBase> fastNotOptimalAlgorithm;
+    for (int i = 0, end = COINS_SELECTION_INTERMEDIATE_CHANGE_LEVELS + 2; i < end; ++i)
+    {
+        const CAmount targetAmountPlusOffset = targetAmountPlusOffsetNoChange +
+                                               (double)(i) / (COINS_SELECTION_INTERMEDIATE_CHANGE_LEVELS + 1) * (targetAmountPlusOffsetMaxChange - targetAmountPlusOffsetNoChange);
+        fastNotOptimalAlgorithm = std::unique_ptr<CCoinsSelectionAlgorithmBase>(new CCoinsSelectionForNotes(amountsAndSizesAndIds, targetAmount, targetAmountPlusOffset, availableTotalSize, 0, joinsplitsOutputsAmounts));
+        // no async solving is required for these algorithms
+        fastNotOptimalAlgorithm->Solve();
+        if (fastNotOptimalAlgorithm->GetOptimalTotalSelection() > 0)
+        {
+            break;
+        }
+    }
+
+    // If a solution (using smaller notes) has not been found...
+    if (fastNotOptimalAlgorithm == nullptr || fastNotOptimalAlgorithm->GetOptimalTotalAmount() < nTargetValue)
+    {
+        //...but there is a bigger note (with admissible size), then use it
+        if (std::get<2>(noteLowestLarger) != 0 &&
+            std::get<2>(noteLowestLarger) + std::max(1, (int)joinsplitsOutputsAmounts.size()) * estimatedNoteSize <= availableBytes)
+        {
+            vNotesRet.push_back(std::get<1>(noteLowestLarger));
+            nValueRet = std::get<0>(noteLowestLarger);
+            selectionTotalBytes = std::get<2>(noteLowestLarger) + std::max(1, (int)joinsplitsOutputsAmounts.size()) * estimatedNoteSize ;
+        }
+        //...otherwise the problem is unsolvable
+        else
+        {
+            return false;
+        }
+    }
+    else
+    {
+        for (int i = 0; i < fastNotOptimalAlgorithm->problemDimension; i++)
+        {
+            LogPrint("zrpcunsafe", "SelectNotes() best subset: ");
+            if (fastNotOptimalAlgorithm->GetOptimalSelection()[i])
+            {
+                LogPrint("zrpcunsafe", "%s ", FormatMoney(std::get<0>(vValue[fastNotOptimalAlgorithm->ids[i]])));
+                vNotesRet.push_back(std::get<1>(vValue[fastNotOptimalAlgorithm->ids[i]]));
+                nValueRet += std::get<0>(vValue[fastNotOptimalAlgorithm->ids[i]]);
+            }
+        }
+        selectionTotalBytes = fastNotOptimalAlgorithm->GetOptimalTotalSize();
+        LogPrint("zrpcunsafe", "total %s\n", FormatMoney(fastNotOptimalAlgorithm->GetOptimalTotalAmount()));
+    }
+
+    return true;
+}
+
 bool CWalletTransactionBase::HasInputFrom(const CScript& scriptPubKey) const 
 {
     for(const auto& txin: getTxBase()->GetVin())
