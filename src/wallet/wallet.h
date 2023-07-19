@@ -62,6 +62,8 @@ static const unsigned int MAX_FREE_TRANSACTION_CREATE_SIZE = 1000;
 //  Should be large enough that we can expect not to reorg beyond our cache
 //  unless there is some exceptional network disruption.
 static const unsigned int WITNESS_CACHE_SIZE = COINBASE_MATURITY;
+//! Timeout (in milliseconds) for coins selection optimal algorithm
+static const unsigned int COINS_SELECTION_TIMEOUT = 4000;
 
 class CBlockIndex;
 class CCoinControl;
@@ -734,7 +736,24 @@ private:
 class CWallet : public CCryptoKeyStore, public CValidationInterface
 {
 private:
-    bool SelectCoins(const CAmount& nTargetValue, std::set<std::pair<const CWalletTransactionBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet, bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet, const CCoinControl *coinControl = NULL) const;
+    //! Method for selecting coins
+    /*!
+      \param nTargetValue the target value (as sum of coins values) to be satisfied (lower-limit), can be considered as gross or net value based on useInputsNetValues param
+      \param setCoinsRet the set of coins returned by selection algorithm
+      \param nValueRet the actual total value of coins returned (as sum of returned coins values), to be considered always as gross value
+      \param selectionTotalBytes the total bytes of selected inputs
+      \param fOnlyCoinbaseCoinsRet variable indicating if returned coins are all coinbase
+      \param fNeedCoinbaseCoinsRet variable indicating if coinbase coins are present in the selction (and not including them would result in failing selection)
+      \param coinControl pre-prepared info for selecting specific coins (default to NULL)
+      \param availableBytes available bytes (considered as an upper-limit on the sum of inputs sizes) for performing coins selection (default to MAX_TX_SIZE)
+      \param useInputsNetValues flag indicating if the net value (equals to gross value minus fee to pay for including the input) of inputs must be used instead
+                                of gross value; if true nTargetValue will represent a sum of gross values, if false nTargetValue will represent a sum of net values
+                                (default to true)
+      \return a flag representing wether the selection actually found (true) an admissible set of coins or not (false)
+    */
+    bool SelectCoins(const CAmount& nTargetValue, std::vector<COutput>& vCoinsRet, CAmount& nValueRet, size_t& selectionTotalBytes,
+                     bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet,
+                     const CCoinControl *coinControl = NULL, size_t availableBytes = MAX_TX_SIZE, bool useInputsNetValues = true) const;
 
     CWalletDB *pwalletdbEncryption;
 
@@ -977,8 +996,33 @@ public:
     bool CanSupportFeature(enum WalletFeature wf) { AssertLockHeld(cs_wallet); return nWalletMaxVersion >= wf; }
 
     void AvailableCoins(std::vector<COutput>& vCoins, bool fOnlyConfirmed=true, const CCoinControl *coinControl = nullptr, bool fIncludeZeroValue=false, bool fIncludeCoinBase=true, bool fIncludeCommunityFund=true) const;
+
+    //! Method for filtering coins based on confirmation count and then selecting coins based on value and size constraints
+    /*!
+      \param nTargetValue the target value (as sum of coins values) to be satisfied (lower-limit), can be considered as gross or net value based on useInputsNetValues param
+      \param nConfMine the minimum number of confirmations from this wallet (filtering)
+      \param nConfTheirs the minimum number of confirmations from other nodes (filtering)
+      \param vCoins the set of coins on which the filtering algorithm and then the selection algorithms have to be executed
+      \param setCoinsRet the set of coins returned by filtering and selection algorithms
+      \param nValueRet the actual total value of coins returned (as sum of returned coins values), to be considered always as gross value
+      \param selectionTotalBytes the total bytes of selected inputs
+      \param availableBytes available bytes (considered as an upper-limit on the sum of inputs sizes) for performing coins selection (default to MAX_TX_SIZE)
+      \param useInputsNetValues flag indicating if the net value (equals to gross value minus fee to pay for including the input) of inputs must be used instead
+                                of gross value; if true nTargetValue will represent a sum of gross values, if false nTargetValue will represent a sum of net values
+                                (default to true)
+      \return a flag representing wether the selection actually found (true) an admissible set of coins or not (false)
+    */
     bool SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins,
-        std::set<std::pair<const CWalletTransactionBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet) const;
+                            std::vector<COutput>& vCoinsRet, CAmount& nValueRet, size_t& selectionTotalBytes,
+                            size_t availableBytes = MAX_TX_SIZE, bool useInputsNetValues = true) const;
+
+    //! Method for estimating input size based on dummy signature
+    /*!
+      \param transaction the transaction the input refers to
+      \param position the position of the output within the transaction
+      \return input size estimation (as number of bytes)
+    */
+    size_t EstimateInputSize(const CWalletTransactionBase* transaction, unsigned int position) const;
 
     bool IsSpent(const uint256& hash, unsigned int n) const;
     bool IsSpent(const uint256& nullifier) const;
@@ -988,7 +1032,6 @@ public:
     void UnlockCoin(COutPoint& output);
     void UnlockAllCoins();
     void ListLockedCoins(std::vector<COutPoint>& vOutpts);
-
 
     bool IsLockedNote(uint256 hash, size_t js, uint8_t n) const;
     void LockNote(JSOutPoint& output);
@@ -1117,7 +1160,7 @@ public:
     bool AddAccountingEntry(const CAccountingEntry&, CWalletDB & pwalletdb);
 
     static CFeeRate minTxFee;
-    static CAmount GetMinimumFee(unsigned int nTxBytes, unsigned int nConfirmTarget, const CTxMemPool& pool);
+    static CAmount GetMinimumFee(unsigned int nTxBytes, unsigned int nConfirmTarget, const CTxMemPool& pool, bool payAtLeastCustomFee = true);
 
     bool NewKeyPool();
     bool TopUpKeyPool(unsigned int kpSize = 0);
@@ -1128,7 +1171,7 @@ public:
     int64_t GetOldestKeyPoolTime();
     void GetAllReserveKeys(std::set<CKeyID>& setAddress) const;
 
-    std::set< std::set<CTxDestination> > GetAddressGroupings();
+    std::set<std::set<CTxDestination>> GetAddressGroupings();
     std::map<CTxDestination, CAmount> GetAddressBalances();
 
     std::set<CTxDestination> GetAccountAddresses(const std::string& strAccount) const;
