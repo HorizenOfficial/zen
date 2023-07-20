@@ -6909,6 +6909,21 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
     }
 }
 
+bool static ValidateStreamSize(CNode* pfrom, CDataStream& vRecv, const char* msgTypeName)
+{
+    auto vRecvStreamSz = ReadCompactSize(vRecv);
+    if (vRecvStreamSz > MAX_INV_SZ)
+    {
+        Misbehaving(pfrom->GetId(), 20);
+        return error("message %s size() = %u", msgTypeName, vRecvStreamSz);
+    }
+    else if(vRecvStreamSz * sizeof(CInv)!= vRecv.in_avail()) {
+        Misbehaving(pfrom->GetId(), 20);
+        return error("invalid message payload for %u", vRecvStreamSz);
+    }    
+    return vRecv.Rewind(GetSizeOfCompactSize(vRecvStreamSz));
+}
+
 bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, int64_t nTimeReceived)
 {
     const CChainParams& chainparams = Params();
@@ -7163,13 +7178,13 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
     else if (strCommand == "inv")
     {
+        if (!ValidateStreamSize(pfrom, vRecv, "inv"))
+        {
+            return false;
+        }
+
         vector<CInv> vInv;
         vRecv >> vInv;
-        if (vInv.size() > MAX_INV_SZ)
-        {
-            Misbehaving(pfrom->GetId(), 20);
-            return error("message inv size() = %u", vInv.size());
-        }
 
         LOCK(cs_main);
 
@@ -7215,7 +7230,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                             LogPrint("forks", "%s():%d - adding tip hash [%s]\n", __func__, __LINE__, hash.ToString());
                             bl.vHave.insert(b, hash);
                         }
-                    }
+                    } 
                     pfrom->PushMessage("getheaders", bl, inv.hash);
                     CNodeState *nodestate = State(pfrom->GetId());
                     if (chainActive.Tip()->GetBlockTime() > GetTime() - chainparams.GetConsensus().nPowTargetSpacing * 20 &&
@@ -7250,17 +7265,15 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             pfrom->PushMessage("getdata", vToFetch);
         }
     }
-
-
     else if (strCommand == "getdata")
     {
+        if (!ValidateStreamSize(pfrom, vRecv, "getdata"))
+        {
+            return false;
+        }
+
         vector<CInv> vInv;
         vRecv >> vInv;
-        if (vInv.size() > MAX_INV_SZ)
-        {
-            Misbehaving(pfrom->GetId(), 20);
-            return error("message getdata size() = %u", vInv.size());
-        }
 
         if (fDebug || (vInv.size() != 1))
             LogPrint("net", "received getdata (%u invsz) peer=%d\n", vInv.size(), pfrom->id);
