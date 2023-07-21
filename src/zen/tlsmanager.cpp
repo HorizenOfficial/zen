@@ -193,13 +193,6 @@ int TLSManager::waitFor(SSLConnectionRoutine eRoutine, const CAddress& peerAddre
     const SOCKET hSocket = SSL_get_fd(ssl);
 
     err_code = 0;
-    fd_set socketSet;
-    struct timeval timeout {
-        timeoutMilliSec / 1000, (timeoutMilliSec % 1000) * 1000
-    };
-
-    FD_ZERO(&socketSet);
-    FD_SET(hSocket, &socketSet);
 
     while (true) {
 
@@ -224,6 +217,8 @@ int TLSManager::waitFor(SSLConnectionRoutine eRoutine, const CAddress& peerAddre
             eRoutine_str = "SSL_SHUTDOWN";
             LogPrint("tls", "TLS: %s initiated, fd=%d, peer=%s\n", eRoutine_str, hSocket, peerAddress.ToString());
             {
+                static_assert(SSL_SENT_SHUTDOWN == 1);
+                static_assert(SSL_RECEIVED_SHUTDOWN == 2);
                 int shutDownStatus(SSL_get_shutdown(ssl)); // Bitmask of shutdown state
                 if(shutDownStatus == 3 /* 1 & 2*/) {
                     retOp = 1;// already shut down
@@ -259,6 +254,15 @@ success:
         int sslErr = SSL_get_error(ssl, retOp);
         std::string ssl_error_str{};
         int result{0};
+
+        // select() modifies its arguments, so these must be reinitialized on each iteration
+        fd_set socketSet;
+        struct timeval timeout {
+            timeoutMilliSec / 1000, (timeoutMilliSec % 1000) * 1000
+        };
+
+        FD_ZERO(&socketSet);
+        FD_SET(hSocket, &socketSet);
 
         switch (sslErr) {
         case SSL_ERROR_SSL:
@@ -608,7 +612,7 @@ void TLSManager::cleanNonTLSPool(std::vector<NODE_ADDR>& vPool, CCriticalSection
 }
 
 /**
- * @brief Handles send and recieve functionality in TLS Sockets.
+ * @brief Handles send and receive functionality in TLS Sockets.
  * 
  * @param pnode reference to the CNode object.
  * @param fdsetRecv 
