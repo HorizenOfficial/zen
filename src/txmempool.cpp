@@ -938,13 +938,7 @@ void CTxMemPool::removeCertificatesWithoutRef(const CCoinsViewCache * const pCoi
     std::list<CTransaction> dummyTxs;
     for (const auto& hash: certsToRemove)
     {
-        // there can be dependencies also between certs, so check that a cert is still in map during the loop
-        const auto& cert_it = mapCertificate.find(hash);
-        if (cert_it != mapCertificate.end())
-        {
-            const CScCertificate& cert = cert_it->second.GetCertificate();
-            remove(cert, dummyTxs, outdatedCerts, true);
-        }
+        remove(hash, dummyTxs, outdatedCerts, true);
     }
     LogPrint("mempool", "%s():%d - removed %zu certs and %zu txes\n", __func__, __LINE__, outdatedCerts.size(), dummyTxs.size());
 
@@ -1002,12 +996,7 @@ void CTxMemPool::removeStaleCertificates(const CCoinsViewCache * const pCoinsVie
     std::list<CTransaction> dummyTxs;
     for(const auto& hash: certsToRemove)
     {
-        // there can be dependancy also between certs, so check that a cert is still in map during the loop
-        if (mapCertificate.count(hash))
-        {
-            const CScCertificate& cert = mapCertificate.at(hash).GetCertificate();
-            remove(cert, dummyTxs, outdatedCerts, true);
-        }
+        remove(hash, dummyTxs, outdatedCerts, true);
     }
     LogPrint("mempool", "%s():%d - removed %d certs and %d txes\n", __func__, __LINE__, outdatedCerts.size(), dummyTxs.size());
 }
@@ -1065,12 +1054,7 @@ void CTxMemPool::removeOutOfScBalanceCsw(const CCoinsViewCache * const pCoinsVie
 
     for(const auto& hash: txesToRemove)
     {
-        // there can be dependancy also between txes, so check that a tx is still in map during the loop
-        if (mapTx.count(hash))
-        {
-            const CTransaction& tx = mapTx.at(hash).GetTx();
-            remove(tx, removedTxs, removedCerts, true);
-        }
+        remove(hash, removedTxs, removedCerts, true);
     }
 }
 
@@ -1182,12 +1166,7 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
 
     for(const auto& hash: txesToRemove)
     {
-        // there can be dependancy also between txes, so check that a tx is still in map during the loop
-        if (mapTx.count(hash))
-        {
-            const CTransaction& tx = mapTx.at(hash).GetTx();
-            remove(tx, outdatedTxs, outdatedCerts, true);
-        }
+        remove(hash, outdatedTxs, outdatedCerts, true);
     }
     
     LogPrint("mempool", "%s():%d - removed %d certs and %d txes\n", __func__, __LINE__, outdatedCerts.size(), outdatedTxs.size());
@@ -1259,12 +1238,7 @@ void CTxMemPool::removeConflicts(const CScCertificate &cert, std::list<CTransact
 
     for(const auto& hash: lowerQualCerts)
     {
-        // there can be dependancy also between certs, so check that a cert is still in map during the loop
-        if (mapCertificate.count(hash))
-        {
-            const CScCertificate& cert = mapCertificate.at(hash).GetCertificate();
-            remove(cert, removedTxs, removedCerts, true);
-        }
+        remove(hash, removedTxs, removedCerts, true);
     }
 }
 
@@ -2182,10 +2156,9 @@ bool CTxMemPool::RemoveCertAndSync(const uint256& certToRmHash)
     if(mapCertificate.count(certToRmHash) == 0)
         return true; //nothing to remove
 
-    CScCertificate certToRm = mapCertificate.at(certToRmHash).GetCertificate();
     std::list<CTransaction> conflictingTxs;
     std::list<CScCertificate> conflictingCerts;
-    remove(certToRm, conflictingTxs, conflictingCerts, true);
+    remove(certToRmHash, conflictingTxs, conflictingCerts, true);
 
     // Tell wallet about transactions and certificates that went from mempool to conflicted:
     for(const auto &t: conflictingTxs) {
