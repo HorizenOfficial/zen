@@ -62,8 +62,8 @@ class mempool_size_limit(BitcoinTestFramework):
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args =
             [
-                ['-debug=cert', '-debug=sc', '-debug=mempool', '-maxorphantx=10000', f'-maxmempool={NODE0_LIMIT_B / 1000000}', '-minconf=0', '-allownonstandardtx'],
-                ['-debug=cert', '-debug=sc', '-debug=mempool', '-maxorphantx=10000', f'-maxmempool={NODE1_LIMIT_B / 1000000}', '-minconf=0', '-allownonstandardtx']
+                ['-debug=cert', '-debug=mempool', '-maxorphantx=10000', f'-maxmempool={NODE0_LIMIT_B / 1000000}', '-minconf=0', '-allownonstandardtx'],
+                ['-debug=cert', '-debug=mempool', '-maxorphantx=10000', f'-maxmempool={NODE1_LIMIT_B / 1000000}', '-minconf=0', '-allownonstandardtx']
             ])
 
         connect_nodes_bi(self.nodes, 0, 1)
@@ -126,8 +126,9 @@ class mempool_size_limit(BitcoinTestFramework):
             certFile.write(bytes(str(fee) + '\n', encoding='utf8'))
             certFile.write(bytes(signed_cert["hex"], encoding='utf8'))
             certFile.close()
-            certs.append({'quality': i, 'fee': fee, 'hex': signed_cert["hex"]})
-            tot_size += len(signed_cert['hex'])//2
+            csize = len(signed_cert['hex'])//2
+            tot_size += csize
+            certs.append({'quality': i, 'feerate': fee / csize, 'hex': signed_cert["hex"]})
             quality += 1
             print("Tot cert: " + str(tot_size))
             i += 1
@@ -147,7 +148,7 @@ class mempool_size_limit(BitcoinTestFramework):
         #script_pubkey = script_pubkey + signature_imposter
 
         ## concatenate 128 txouts of above script_pubkey which we'll insert before the txout for change
-        self.txouts = "80"
+        self.txouts = "80" # i.e. decimal 128
         for k in range(128):
             # add txout value
             self.txouts = self.txouts + "b816000000000000"
@@ -159,7 +160,7 @@ class mempool_size_limit(BitcoinTestFramework):
     def load_from_file(self, rFile):
         fee = Decimal(rFile.readline().decode("utf-8"))
         hex = rFile.readline().decode("utf-8")
-        return {"fee": fee, "hex": hex}
+        return {"feerate": fee, "hex": hex}
 
     def load_from_storage(self, path):
         res = []
@@ -200,7 +201,7 @@ class mempool_size_limit(BitcoinTestFramework):
         txFile.write(bytes(str((low_fee) / csize) + '\n', encoding='utf8'))
         txFile.write(bytes(signresult["hex"], encoding='utf8'))
         txFile.close()
-        txs.append({'fee': high_fee / csize, 'hex': signresult["hex"]})
+        txs.append({'feerate': high_fee / csize, 'hex': signresult["hex"]})
 
         ptx = self.nodes[0].decoderawtransaction(signresult["hex"])
 
@@ -218,7 +219,7 @@ class mempool_size_limit(BitcoinTestFramework):
         txFile.write(bytes(str(high_fee / csize) + '\n', encoding='utf8'))
         txFile.write(bytes(signresult["hex"], encoding='utf8'))
         txFile.close()
-        txs.append({'fee': high_fee / csize, 'hex': signresult["hex"]})
+        txs.append({'feerate': high_fee / csize, 'hex': signresult["hex"]})
 
         return txs
 
@@ -233,9 +234,7 @@ class mempool_size_limit(BitcoinTestFramework):
             t = self.utxos.pop()
             inputs = []
             inputs.append({ "txid" : t["txid"], "vout" : t["vout"]})
-            outputs = {}
-            send_value = t['amount']
-            outputs[addr] = self.satoshi_round(send_value)
+            outputs = {addr: self.satoshi_round(t['amount'])} # This will be overwritten anyway
             rawtx = self.nodes[0].createrawtransaction(inputs, outputs)
             out_num_pos = rawtx.find('ffffffff')
             script_position = rawtx.find('76a914')
@@ -252,7 +251,7 @@ class mempool_size_limit(BitcoinTestFramework):
             txFile.write(bytes(str(t['amount'] / tsize) + '\n', encoding='utf8'))
             txFile.write(bytes(signresult["hex"], encoding='utf8'))
             txFile.close()
-            txs.append({'fee': t['amount'] / tsize, 'hex': signresult["hex"]})
+            txs.append({'feerate': (t['amount'] - 128 * Decimal(0.00005816)) / tsize, 'hex': signresult["hex"]})
             i += 1
         print("Created big transaction for a total size: " + str(tot_size))
         return txs
@@ -308,8 +307,8 @@ class mempool_size_limit(BitcoinTestFramework):
             ## Create sidechains
             self.mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
             self.sc = []
-            self.create_sidechains(NUM_CEASING_SIDECHAINS, True)
-            self.create_sidechains(NUM_NONCEASING_SIDECHAINS, False)
+            self.create_sidechains(NUM_CEASING_SIDECHAINS, ceasing = True)
+            self.create_sidechains(NUM_NONCEASING_SIDECHAINS, ceasing = False)
             self.nodes[0].generate(EPOCH_LENGTH) # goto end epoch
             self.sync_all()
 
@@ -363,7 +362,7 @@ class mempool_size_limit(BitcoinTestFramework):
         txs, ctxs, certs = self.setup_test()
 
         def feeSort(e):
-            return e['fee']
+            return e['feerate']
         def qualitySort(e):
             return e['quality']
         ctxs.sort(key=feeSort)
@@ -378,56 +377,54 @@ class mempool_size_limit(BitcoinTestFramework):
         print("Starting actual test")
         # Send chained txs first
         tx_sent = 0
+        tx_fees = {}
         mark_logs("Sending chained transactions", self.nodes, DEBUG_MODE)
         ctransactions = []
         while (len(ctxs) > 0):
-            tx = ctxs.pop(0)['hex']
-            ctransactions.append(self.nodes[0].sendrawtransaction(tx, True))
-            txid = self.nodes[0].decoderawtransaction(tx)['txid']
-            txinfo = self.nodes[0].getrawmempool(True)[txid]
-            feerate = txinfo['fee'] / txinfo['size']
+            tx = ctxs.pop(0)
+            tx_hex = tx['hex']
+            feerate = tx['feerate']
+            ctransactions.append(self.nodes[0].sendrawtransaction(tx_hex, True))
+            txid = self.nodes[0].decoderawtransaction(tx_hex)['txid']
+            tx_fees[txid] = feerate
             tx_sent += len(tx)//2
 
         mark_logs("Filling mempools with more transactions...", self.nodes, DEBUG_MODE)
         tx_sent_size = 0
-        feerates = {}
         minfeerate = MAX_FEE
-        mininput = MAX_FEE
         last_tx_size = 0
         usage = int(self.nodes[0].getmempoolinfo()['bytes'])
         while (usage < NODE0_LIMIT_B - (last_tx_size + 10000)):
             assert(len(txs) > 0)
             tx = txs.pop(len(txs)//2) # pick from the middle, use avg fee
             tx_hex = tx['hex']
-            tx_input = tx['fee']
+            feerate = tx['feerate']
             txid = self.nodes[0].decoderawtransaction(tx_hex)['txid']
             self.nodes[0].sendrawtransaction(tx_hex, True)
             txinfo = self.nodes[0].getrawmempool(True)[txid]
-            feerate = txinfo['fee'] / txinfo['size']
-            feerates[txid] = feerate
+            tx_fees[txid] = feerate
             if (feerate < minfeerate):
                 minfeerate = feerate
-            if (tx_input < mininput):
-                mininput = tx_input
             usage = int(self.nodes[0].getmempoolinfo()['bytes'])
             last_tx_size = len(tx_hex)//2
             assert_equal(last_tx_size, txinfo['size'])
-            #assert_equal(Decimal("7.5") - tx_input, txinfo['fee'])
             tx_sent += last_tx_size
 
         print(f"Mempool almost full: {usage} out of {NODE0_LIMIT_B}")
         self.assert_limits_enforced()
 
-        mark_logs("Sending low fee transction, expecting failure", self.nodes, DEBUG_MODE)
+        mpool = self.nodes[0].getrawmempool()
+        mark_logs("Sending low fee transaction, expecting failure", self.nodes, DEBUG_MODE)
         try:
             tx = txs.pop(0)
             tx_hex = tx['hex']
-            tx_input = tx['fee']
-            assert(tx_input <= mininput)
+            assert(tx['feerate'] <= minfeerate)
             txid = self.nodes[0].decoderawtransaction(tx_hex)['txid']
             self.nodes[0].sendrawtransaction(tx_hex, True)
             assert(False)
         except JSONRPCException as e:
+            assert_equal(e.error['code'], -7)
+            assert_equal(mpool, self.nodes[0].getrawmempool())
             print("Ok")
 
         self.assert_limits_enforced()
@@ -438,10 +435,11 @@ class mempool_size_limit(BitcoinTestFramework):
         try:
             tx = txs.pop()
             tx_hex = tx['hex']
-            tx_input = tx['fee']
-            assert(tx_input > mininput)
+            feerate = tx['feerate']
+            assert(feerate > minfeerate)
             txid = self.nodes[0].decoderawtransaction(tx_hex)['txid']
             self.nodes[0].sendrawtransaction(tx_hex, True)
+            tx_fees[txid] = feerate
             print("Ok")
         except JSONRPCException as e:
             assert(False)
@@ -449,7 +447,10 @@ class mempool_size_limit(BitcoinTestFramework):
         prev_mpool = mpool
         mpool = self.nodes[0].getrawmempool()
         assert(txid in mpool)
-        assert_equal(len(mpool), len(prev_mpool))
+        assert_equal(len(mpool), len(prev_mpool)) # exactly 1 tx has been evicted (all same size)
+        evicted = [x for x in prev_mpool if x not in mpool]
+        for e in evicted:
+            assert(tx_fees[e] <= tx['feerate'])
 
         self.assert_limits_enforced()
 
@@ -466,9 +467,7 @@ class mempool_size_limit(BitcoinTestFramework):
         assert(txid in mpool1)
         assert(len(mpool1) < len(mpool))
         for tx1 in mpool1:
-            assert(tx1 in mpool)
-            txinfo = self.nodes[1].getrawmempool(True)[tx1]
-            feerate = txinfo['fee'] / txinfo['size']
+            feerate = tx_fees[tx1]
             assert(feerate >= minfeerate or tx1 in ctransactions)
 
         # make sure that chained transactions, known to have aggregated high fee, have not been evicted
@@ -478,28 +477,34 @@ class mempool_size_limit(BitcoinTestFramework):
 
         mark_logs("Sending low fee non ceasing certificates, expecting success", self.nodes, DEBUG_MODE)
         cert_fees = []
-        nc_certs = [self.nodes[0].sendrawtransaction(certs[2][0]['hex']),
+        cert_nc = [self.nodes[0].sendrawtransaction(certs[2][0]['hex']),
                     self.nodes[0].sendrawtransaction(certs[3][0]['hex'])]
         cert_sent_size = (len(certs[2][0]['hex']) + len(certs[3][0]['hex'])) // 2
-        cert_sent = 2
-        cert_fees.append(certs[2][0]['fee'] / (len(certs[2][0]['hex']) // 2))
-        cert_fees.append(certs[3][0]['fee'] / (len(certs[3][0]['hex']) // 2))
+        cert_fees.extend([certs[2][0]['feerate'], certs[3][0]['feerate']])
 
         mark_logs("Filling mpool with low fee certificates, expecting success and transaction eviction", self.nodes, DEBUG_MODE)
         highest_quality_sc0 = 0
         last_cert_size = 0
         min_sc0_fee = MAX_FEE
+        prev_mpool = self.nodes[0].getrawmempool()
+        cert_fees_sc0 = {}
+
         while (cert_sent_size < NODE0_CERT_LIMIT_B or usage < NODE0_LIMIT_B - last_cert_size):
             assert(len(certs[0]) > 0)
             c = certs[0].pop(0)
             high_quality_cert_sc0 = self.nodes[0].sendrawtransaction(c['hex'])
             last_cert_size = len(c['hex']) // 2
-            cert_fees.append(c['fee'] / last_cert_size)
-            if (c['fee'] / last_cert_size < min_sc0_fee):
-                min_sc0_fee = c['fee'] / last_cert_size
+            cert_fees.append(c['feerate'])
+            cert_fees_sc0[high_quality_cert_sc0] = c['feerate']
+            if (c['feerate'] / last_cert_size < min_sc0_fee):
+                min_sc0_fee = c['feerate']
             cert_sent_size += last_cert_size
-            cert_sent += 1
             usage = int(self.nodes[0].getmempoolinfo()['bytes'])
+
+        mpool = self.nodes[0].getrawmempool()
+        evicted = [x for x in prev_mpool if x not in mpool]
+        for e in evicted:
+            assert(e in tx_fees) # check that we evicted only transactions
 
         mark_logs("Sending one more low fee certificate, expecting failure", self.nodes, DEBUG_MODE)
         try:
@@ -508,27 +513,35 @@ class mempool_size_limit(BitcoinTestFramework):
             assert(False)
         except JSONRPCException as e:
             assert_equal(e.error['code'], -7)
+            assert_equal(mpool, self.nodes[0].getrawmempool())
             print("Ok")
 
-        mark_logs("Sending high fee certificates, expecting success and sc0 low quality certificate eviction", self.nodes, DEBUG_MODE)
+        mark_logs("Sending high fee certificates, expecting success and sc0 certificate eviction", self.nodes, DEBUG_MODE)
         cert_fees.sort()
         cert_sent_size = 0
-        cert_sent = 0
-        min_sc1_fee = MAX_FEE
-        while (cert_sent_size < NODE0_CERT_LIMIT_B or usage < NODE0_LIMIT_B - last_cert_size):
+        min_fee_sc1 = MAX_FEE
+        max_fee_sc1 = Decimal("0")
+        prev_mpool = self.nodes[0].getrawmempool()
+        while (cert_sent_size < NODE0_CERT_LIMIT_B or int(self.nodes[0].getmempoolinfo()['bytes']) < NODE0_LIMIT_B - last_cert_size):
             assert(len(certs[1]) > 0)
             c = certs[1].pop(0)
             high_quality_cert_sc1 = self.nodes[0].sendrawtransaction(c['hex'])
             last_cert_size = len(c['hex']) // 2
-            if (c['fee'] / last_cert_size < min_sc1_fee):
-                min_sc1_fee = c['fee'] / last_cert_size
-            # TODO: this might not really be robust with different datasets.
-            # The ultimate solution might be scanning logs to check the evicted cert
+            if (c['feerate'] < min_fee_sc1):
+                min_fee_sc1 = c['feerate']
+            elif (c['feerate'] >= max_fee_sc1):
+                max_fee_sc1 = c['feerate']
+                max_fee_sc1_id = high_quality_cert_sc1
             cert_fees.pop(0)
-            cert_fees.append(c['fee'] / last_cert_size)
+            cert_fees.append(c['feerate'])
             cert_sent_size += last_cert_size
-            cert_sent += 1
-            usage = int(self.nodes[0].getmempoolinfo()['bytes'])
+
+        mpool = self.nodes[0].getrawmempool()
+        evicted = [x for x in prev_mpool if x not in mpool]
+        for e in evicted:
+            assert(e in tx_fees or e in cert_fees_sc0 or e in cert_nc) # check that we evicted only transactions or certificates with lower fees
+            if (e in tx_fees):
+                assert(min_fee_sc1 > tx_fees[e])
 
         cert_fees.sort()
 
@@ -537,7 +550,7 @@ class mempool_size_limit(BitcoinTestFramework):
         saw_rejection = False
         while len(certs[1]) > 0:
             c = certs[1].pop(0)
-            cfee = c['fee'] / (len(c['hex']) // 2)
+            cfee = c['feerate']
             try:
                 self.nodes[0].sendrawtransaction(c['hex'])
                 assert(cfee > cert_fees.pop(0))
@@ -550,17 +563,15 @@ class mempool_size_limit(BitcoinTestFramework):
 
         assert(saw_rejection)
 
-        # TODO: how to sync on node1's mempool?
-        #print("Wait for last certificate to be present in node1 mempool")
-        #timeout = 15
-        #waiting = 0
-        #mpool1 = self.nodes[1].getrawmempool()
-        #while high_quality_cert_sc1 not in mpool1 and waiting < timeout:
-        #    print("Waiting...")
-        #    waiting += 1
-        #    time.sleep(1)
-        #    mpool1 = self.nodes[1].getrawmempool()
-        #assert(high_quality_cert_sc1 in mpool1)
+        print("Wait for last certificate to be present in node1 mempool")
+        timeout = 60 # 1 min
+        mpool1 = self.nodes[1].getrawmempool()
+        while max_fee_sc1_id not in mpool1 and timeout >= 0:
+            print("Waiting...")
+            timeout -= 1
+            time.sleep(1)
+            mpool1 = self.nodes[1].getrawmempool()
+        assert(max_fee_sc1_id in mpool1)
 
         for i in range(1):
             print(f"Checking composition of mpool{i}")
