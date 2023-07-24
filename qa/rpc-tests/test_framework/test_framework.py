@@ -12,6 +12,7 @@ import sys
 import shutil
 import tempfile
 import traceback
+from enum import Enum, auto
 
 from test_framework.authproxy import JSONRPCException
 from test_framework.wsproxy import JSONWSException
@@ -30,6 +31,10 @@ ForkHeights = {
     'SHIELDED_POOL_DEPRECATION': 990
 }
 
+class syncType(Enum):
+    SYNC_BLOCKS = auto()
+    SYNC_MEMPOOLS = auto()
+    SYNC_ALL = auto()
 
 class BitcoinTestFramework(object):
 
@@ -82,16 +87,15 @@ class BitcoinTestFramework(object):
             sync_blocks(self.nodes)
             sync_mempools(self.nodes)
 
-    def join_network(self, id = 1):
+    def join_network(self, id = 1, sync_type = syncType.SYNC_BLOCKS):
         # Join the (previously split) adjanced nodes in linear network together: 0-1 >-< 2-3
         assert self.is_network_split
         connect_nodes_bi(self.nodes, id, id + 1)
+        if sync_type == syncType.SYNC_BLOCKS or sync_type == syncType.SYNC_ALL:
+            sync_blocks([self.nodes[id], self.nodes[id + 1]])
+        if sync_type == syncType.SYNC_MEMPOOLS or sync_type == syncType.SYNC_ALL:
+            sync_mempools([self.nodes[id], self.nodes[id + 1]])
         self.is_network_split = False
-
-    def join_network_sync(self, id = 1):
-        # Join the (previously split) adjanced nodes in linear network together: 0-1 >-< 2-3 and syncs both parts
-        self.join_network(id)
-        self.sync_all()
 
     def main(self):
         import optparse

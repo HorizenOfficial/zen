@@ -89,9 +89,8 @@ class headers(BitcoinTestFramework):
         print("\n\nJoin network")
 #        raw_input("press enter to join the netorks..")
         self.mark_logs("Joining network")
-        self.join_network_sync()
+        self.join_network()
 
-        time.sleep(2)
         print("\nNetwork joined") 
         self.mark_logs("Network joined")
 
