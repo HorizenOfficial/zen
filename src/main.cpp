@@ -1440,22 +1440,31 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
             return MempoolReturnValue::INVALID;
         }
 
-        if (fProofVerification == MempoolProofVerificationFlag::ASYNC)
-        {
-            CScAsyncProofVerifier::GetInstance().LoadDataForCertVerification(view, cert, pfrom);
-            return MempoolReturnValue::PARTIALLY_VALIDATED;
-        }
-        else if (fProofVerification == MempoolProofVerificationFlag::SYNC)
-        {
-            CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict, CScProofVerifier::Priority::Low};
-            scVerifier.LoadDataForCertVerification(view, cert);
+        if (fProofVerification != MempoolProofVerificationFlag::DISABLED) {
+            // Check size limitations before proof verification
+            if (!pool.trimToSize(&entry, pool.m_max_size, true)) {
+                state.DoS(0, false, CValidationState::Code::INSUFFICIENT_FEE, "mempool is full");
+                LogPrint("mempool", "Not verifying cert %s because mempool might be full!\n", certHash.ToString());
+                return MempoolReturnValue::MEMPOOL_FULL;
+            }
 
-            LogPrint("sc", "%s():%d - calling scVerifier.BatchVerify()\n", __func__, __LINE__);
-            if (!scVerifier.BatchVerify())
+            if (fProofVerification == MempoolProofVerificationFlag::ASYNC)
             {
-                state.DoS(100, error("%s():%d - cert proof failed to verify",
-                    __func__, __LINE__),  CValidationState::Code::INVALID_PROOF, "bad-sc-cert-proof");
-                return MempoolReturnValue::INVALID;
+                CScAsyncProofVerifier::GetInstance().LoadDataForCertVerification(view, cert, pfrom);
+                return MempoolReturnValue::PARTIALLY_VALIDATED;
+            }
+            else if (fProofVerification == MempoolProofVerificationFlag::SYNC)
+            {
+                CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict, CScProofVerifier::Priority::Low};
+                scVerifier.LoadDataForCertVerification(view, cert);
+
+                LogPrint("sc", "%s():%d - calling scVerifier.BatchVerify()\n", __func__, __LINE__);
+                if (!scVerifier.BatchVerify())
+                {
+                    state.DoS(100, error("%s():%d - cert proof failed to verify",
+                        __func__, __LINE__),  CValidationState::Code::INVALID_PROOF, "bad-sc-cert-proof");
+                    return MempoolReturnValue::INVALID;
+                }
             }
         }
 
@@ -1777,6 +1786,15 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
         // Run the proof verification only if there is at least one CSW input.
         if (tx.GetVcswCcIn().size() > 0)
         {
+            // Check size limitations before proof verification
+            if (fProofVerification != MempoolProofVerificationFlag::DISABLED) {
+                if (!pool.trimToSize(&entry, pool.m_max_size, true)) {
+                    state.DoS(0, false, CValidationState::Code::INSUFFICIENT_FEE, "mempool is full");
+                    LogPrint("mempool", "Not verifying tx %s because mempool might be full!\n", hash.ToString());
+                    return MempoolReturnValue::MEMPOOL_FULL;
+                }
+            }
+
             if (fProofVerification == MempoolProofVerificationFlag::ASYNC)
             {
                 CScAsyncProofVerifier::GetInstance().LoadDataForCswVerification(view, tx, pfrom);
@@ -6903,7 +6921,7 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
             // 3) tx utxos already available: this means the tx is already in the blockchain (conf>0)
             //    hence any other peer would be aligned on this (so relaying is useless) or is already
             //    in mempool (conf=0) hence the logical flow would fall in previous relaying condition
-            if (mempool.exists(inv.hash))
+            if (mempool->exists(inv.hash))
             {
                 LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", txBase.GetHash().ToString(), pfrom->id);
                 txBase.Relay();

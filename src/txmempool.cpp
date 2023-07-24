@@ -162,7 +162,7 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
     // all the appropriate checks.
     LOCK(cs);
 
-    if (!trimToSize(&entry, m_max_size)) {
+    if (!trimToSize(&entry, m_max_size, false)) {
         LogPrint("mempool", "trimToSize: Not accepting new tx into mempool\n");
         // not accepted into mempool
         return false;
@@ -220,7 +220,7 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
 {
     LOCK(cs);
 
-    if (!trimToSize(&entry, m_max_size)) {
+    if (!trimToSize(&entry, m_max_size, false)) {
         LogPrint("mempool", "trimToSize: Not accepting new cert into mempool\n");
         // not accepted into mempool
         return false;
@@ -617,7 +617,7 @@ CRawFeeRate CTxMemPool::avgFeeRateWithDeps(const uint256& rootTx, const bool cer
     std::stack<std::pair<uint256, bool>> to_visit;
     std::unordered_set<uint256> already_visited;
     to_visit.push({rootTx, false});
-    while (!to_visit.empty()) {
+    while (!res.isMax() && !to_visit.empty()) {
         std::pair<uint256, bool>& curr = to_visit.top();
         const uint256& curr_hash = curr.first;
         CRawFeeRate curr_rate;
@@ -2069,35 +2069,37 @@ size_t CTxMemPool::DynamicMemoryUsage() const {
           cachedInnerUsage);
 }
 
-bool CTxMemPool::trimToSize(const CMemPoolEntry* entry, size_t max_size) {
+bool CTxMemPool::trimToSize(const CMemPoolEntry* entry, size_t max_size, bool dryrun) {
     LOCK(cs);
     size_t new_entry_usage = entry ? entry->GetSize() : 0;
-    assert(new_entry_usage < max_size);
+    if (new_entry_usage > max_size) return false;
+
     size_t current_usage = totalTxSize + totalCertificateSize;
     // If the mempool size is within the limits, do nothing and return immediately.
     if (current_usage + new_entry_usage <= max_size) return true;
 
     const CCertificateMemPoolEntry* certificate = dynamic_cast<const CCertificateMemPoolEntry*>(entry);
+    // If entry is a certificate, and transactions occupy more than 1/2 of the mempool, remove transactions only
     if (certificate && totalTxSize > m_max_size / 2) {
         LogPrint("mempool", "%s():%d - Trying to remove transactions to make room for certificate (tot_tx: %zu, max: %zu)\n", __func__, __LINE__, totalTxSize, m_max_size / 2);
-        trimToSize(nullptr, m_max_size - new_entry_usage);
-        current_usage = totalTxSize + totalCertificateSize;
-        if (current_usage + new_entry_usage <= m_max_size) return true;
+        return trimToSize(nullptr, m_max_size - new_entry_usage, dryrun);
     }
 
     // we must either reject incoming tx, or remove something
     int64_t size_to_be_removed = current_usage + new_entry_usage - max_size;
     std::multimap<CRawFeeRate, uint256> raw_fee_rates;
     std::unordered_map<uint256, CRawFeeRate> rates_cache;
-    const bool certificatesAllowed = certificate || totalCertificateSize > m_max_size / 2;
+    const bool certificatesAllowed = totalCertificateSize > m_max_size / 2;
     LogPrint("mempool", "%s():%d - Trying to remove something to make room (certificatesAllowed: %d, size: %d)\n", __func__, __LINE__, certificatesAllowed, size_to_be_removed);
     for (const auto& tx: mapTx) {
         CRawFeeRate feerate = avgFeeRateWithDeps(tx.first, certificatesAllowed, rates_cache);
         raw_fee_rates.insert({feerate, tx.first});
     }
-    for (const auto& cert: mapCertificate) {
-        CRawFeeRate feerate = avgFeeRateWithDeps(cert.first, certificatesAllowed, rates_cache);
-        raw_fee_rates.insert({feerate, cert.first});
+    if (certificatesAllowed) {
+        for (const auto& cert: mapCertificate) {
+            CRawFeeRate feerate = avgFeeRateWithDeps(cert.first, certificatesAllowed, rates_cache);
+            raw_fee_rates.insert({feerate, cert.first});
+        }
     }
 
     // Check what should be removed, and if this selection includes entry...
@@ -2111,20 +2113,22 @@ bool CTxMemPool::trimToSize(const CMemPoolEntry* entry, size_t max_size) {
         size_to_be_removed -= remove_candidate->first.GetBytes();
     }
 
-    // Actually remove things from mempool
-    for (const uint256* r: to_be_removed) {
-        std::list<CTransaction> removed_txs;
-        std::list<CScCertificate> removed_certs;
-        remove(*r, removed_txs, removed_certs, true);
-        // Might even remove nothing at one iteration, if r was removed as a dependency in a previous iteration already.
-        LogPrint("mempool", "%s():%d - Removed %s and its dependants\n", __func__, __LINE__, r->ToString());
-        for(const CTransaction &t: removed_txs) {
-            LogPrint("mempool", "%s():%d - Syncing tx %s\n", __func__, __LINE__, t.GetHash().ToString());
-            SyncWithWallets(t, nullptr);
-        }
-        for(const CScCertificate &c: removed_certs) {
-            LogPrint("mempool", "%s():%d - Syncing cert %s\n", __func__, __LINE__, c.GetHash().ToString());
-            SyncWithWallets(c, nullptr);
+    if (!dryrun) {
+        // Actually remove things from mempool
+        for (const uint256* r: to_be_removed) {
+            std::list<CTransaction> removed_txs;
+            std::list<CScCertificate> removed_certs;
+            remove(*r, removed_txs, removed_certs, true);
+            // Might even remove nothing at one iteration, if r was removed as a dependency in a previous iteration already.
+            LogPrint("mempool", "%s():%d - Removed %s and its dependants\n", __func__, __LINE__, r->ToString());
+            for(const CTransaction &t: removed_txs) {
+                LogPrint("mempool", "%s():%d - Syncing tx %s\n", __func__, __LINE__, t.GetHash().ToString());
+                SyncWithWallets(t, nullptr);
+            }
+            for(const CScCertificate &c: removed_certs) {
+                LogPrint("mempool", "%s():%d - Syncing cert %s\n", __func__, __LINE__, c.GetHash().ToString());
+                SyncWithWallets(c, nullptr);
+            }
         }
     }
     return true;
