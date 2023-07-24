@@ -17,8 +17,8 @@
 #include "validationinterface.h"
 #include <undo.h>
 
-#include <vector>
 #include <stack>
+#include <unordered_set>
 
 CMemPoolEntry::CMemPoolEntry():
     nFee(0), nModSize(0), nUsageSize(0), nTime(0), dPriority(0.0)
@@ -609,13 +609,13 @@ std::vector<uint256> CTxMemPool::mempoolDependenciesOf(const CTransactionBase& o
     return res;
 }
 
-CRawFeeRate CTxMemPool::avgFeeRateWithDeps(const uint256& rootTx, const bool certificatesAllowed, std::map<uint256, CRawFeeRate>& cache) const
+CRawFeeRate CTxMemPool::avgFeeRateWithDeps(const uint256& rootTx, const bool certificatesAllowed, std::unordered_map<uint256, CRawFeeRate>& cache) const
 {
     // depth first graph traversal with cache
 
     CRawFeeRate res;
     std::stack<std::pair<uint256, bool>> to_visit;
-    std::set<uint256> already_visited;
+    std::unordered_set<uint256> already_visited;
     to_visit.push({rootTx, false});
     while (!to_visit.empty()) {
         std::pair<uint256, bool>& curr = to_visit.top();
@@ -2088,7 +2088,7 @@ bool CTxMemPool::trimToSize(const CMemPoolEntry* entry, size_t max_size) {
     // we must either reject incoming tx, or remove something
     int64_t size_to_be_removed = current_usage + new_entry_usage - max_size;
     std::multimap<CRawFeeRate, uint256> raw_fee_rates;
-    std::map<uint256, CRawFeeRate> rates_cache;
+    std::unordered_map<uint256, CRawFeeRate> rates_cache;
     const bool certificatesAllowed = certificate || totalCertificateSize > m_max_size / 2;
     LogPrint("mempool", "%s():%d - Trying to remove something to make room (certificatesAllowed: %d, size: %d)\n", __func__, __LINE__, certificatesAllowed, size_to_be_removed);
     for (const auto& tx: mapTx) {

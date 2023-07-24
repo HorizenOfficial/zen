@@ -7,6 +7,8 @@
 #define BITCOIN_TXMEMPOOL_H
 
 #include <list>
+#include <vector>
+#include <unordered_map>
 
 #if defined(HAVE_CONFIG_H)
 #include "config/bitcoin-config.h"
