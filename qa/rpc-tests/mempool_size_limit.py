@@ -411,6 +411,7 @@ class mempool_size_limit(BitcoinTestFramework):
             tx_sent += last_tx_size
 
         print(f"Mempool almost full: {usage} out of {NODE0_LIMIT_B}")
+        assert_equal(int(self.nodes[0].getmempoolinfo()['bytes-for-cert']), 0)
         self.assert_limits_enforced()
 
         mpool = self.nodes[0].getrawmempool()
@@ -427,6 +428,7 @@ class mempool_size_limit(BitcoinTestFramework):
             assert_equal(mpool, self.nodes[0].getrawmempool())
             print("Ok")
 
+        assert_equal(int(self.nodes[0].getmempoolinfo()['bytes-for-cert']), 0)
         self.assert_limits_enforced()
         mpool = self.nodes[0].getrawmempool()
         assert(txid not in mpool)
@@ -452,6 +454,7 @@ class mempool_size_limit(BitcoinTestFramework):
         for e in evicted:
             assert(tx_fees[e] <= tx['feerate'])
 
+        assert_equal(int(self.nodes[0].getmempoolinfo()['bytes-for-cert']), 0)
         self.assert_limits_enforced()
 
         print("Wait for high fee transaction to be present in node1 mempool")
@@ -593,7 +596,12 @@ class mempool_size_limit(BitcoinTestFramework):
                 else:
                     tx_size += txinfo['size']
 
-            usage = int(self.nodes[n].getmempoolinfo()['bytes'])
+            mpinfo = self.nodes[n].getmempoolinfo()
+            usage = int(mpinfo['bytes'])
+
+            assert_equal(tx_size, int(mpinfo['bytes-for-tx']))
+            assert_equal(cert_size, int(mpinfo['bytes-for-cert']))
+
             node_limit = NODE0_LIMIT_B if n == 0 else NODE1_LIMIT_B
             node_cert_limit = NODE0_CERT_LIMIT_B if n == 0 else NODE1_CERT_LIMIT_B
 

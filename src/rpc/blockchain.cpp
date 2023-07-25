@@ -1414,9 +1414,12 @@ UniValue mempoolInfoToJSON()
     ret.pushKV("size", (int64_t) mempool->size());
     ret.pushKV("bytes", (int64_t) mempool->GetTotalSize());
     ret.pushKV("usage", (int64_t) mempool->DynamicMemoryUsage());
+    ret.pushKV("bytes-for-tx", (int64_t) mempool->GetTotalTxSize());
+    ret.pushKV("bytes-for-cert", (int64_t) mempool->GetTotalCertificateSize());
 
     if (Params().NetworkIDString() == "regtest") {
         ret.pushKV("fullyNotified", mempool->IsFullyNotified());
+        assert(mempool->GetTotalSize() == mempool->GetTotalTxSize() + mempool->GetTotalCertificateSize());
     }
 
     return ret;
