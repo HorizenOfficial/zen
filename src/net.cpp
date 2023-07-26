@@ -551,7 +551,7 @@ void CNode::CloseSocketDisconnect()
             if (ssl)
             {
                 unsigned long err_code = 0;
-                tlsmanager.waitFor(SSL_SHUTDOWN, hSocket, ssl, (DEFAULT_CONNECT_TIMEOUT / 1000), err_code);
+                tlsmanager.waitFor(SSL_SHUTDOWN, addr, ssl, 100 /*double of avg roundtrip on decent connection*/, err_code);
                 SSL_free(ssl);
                 ssl = NULL;
             }
@@ -2440,8 +2440,7 @@ CNode::~CNode()
         if (ssl)
         {
             unsigned long err_code = 0;
-            tlsmanager.waitFor(SSL_SHUTDOWN, hSocket, ssl, (DEFAULT_CONNECT_TIMEOUT / 1000), err_code);
-            
+            tlsmanager.waitFor(SSL_SHUTDOWN, addr, ssl, 0 /*no retries here make no sense on destructor*/, err_code);
             SSL_free(ssl);
             ssl = NULL;
         }

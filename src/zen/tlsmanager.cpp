@@ -186,143 +186,142 @@ int tlsCertVerificationCallback(int preverify_ok, X509_STORE_CTX* chainContext)
  * @param timeoutSec timeout in seconds.
  * @return int returns nError corresponding to the connection event.
  */
-int TLSManager::waitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL* ssl, int timeoutSec, unsigned long& err_code)
+int TLSManager::waitFor(SSLConnectionRoutine eRoutine, const CAddress& peerAddress, SSL* ssl, int timeoutMilliSec, unsigned long& err_code)
 {
-    int retOp = 0;
+    std::string eRoutine_str{};
+    int retOp{0};
+    const SOCKET hSocket = SSL_get_fd(ssl);
+
     err_code = 0;
 
     while (true) {
+
         // clear the current thread's error queue
         ERR_clear_error();
+        retOp = 0;
 
         switch (eRoutine) {
-            case SSL_CONNECT:
-            {
-                retOp = SSL_connect(ssl);
-                if (retOp == 0)
-                {
-                    err_code = ERR_get_error();
-                    const char* error_str = ERR_error_string(err_code, NULL);
-                    LogPrint("tls", "TLS: WARNING: %s: %s():%d - SSL_CONNECT err: %s\n",
-                        __FILE__, __func__, __LINE__, error_str);
-                    return -1;
-                }
-            }
+        case SSL_CONNECT:
+            eRoutine_str = "SSL_CONNECT";
+            LogPrint("tls", "TLS: %s initiated, fd=%d, peer=%s\n", eRoutine_str, hSocket, peerAddress.ToString());
+            retOp = SSL_connect(ssl);
             break;
-         
-            case SSL_ACCEPT:
-            {
-                retOp = SSL_accept(ssl);
-                if (retOp == 0)
-                {
-                    err_code = ERR_get_error();
-                    const char* error_str = ERR_error_string(err_code, NULL);
-                    LogPrint("tls", "TLS: WARNING: %s: %s():%d - SSL_ACCEPT err: %s\n",
-                        __FILE__, __func__, __LINE__, error_str);
-                    return -1;
-                }
-            }
+
+        case SSL_ACCEPT:
+            eRoutine_str = "SSL_ACCEPT";
+            LogPrint("tls", "TLS: %s initiated, fd=%d, peer=%s\n", eRoutine_str, hSocket, peerAddress.ToString());
+            retOp = SSL_accept(ssl);
             break;
-         
-            case SSL_SHUTDOWN:
+
+        case SSL_SHUTDOWN:
+            eRoutine_str = "SSL_SHUTDOWN";
+            LogPrint("tls", "TLS: %s initiated, fd=%d, peer=%s\n", eRoutine_str, hSocket, peerAddress.ToString());
             {
-                if (hSocket != INVALID_SOCKET)
-                {
-                    std::string disconnectedPeer("no info");
-                    struct sockaddr_in addr;
-                    socklen_t serv_len = sizeof(addr);
-                    int ret = getpeername(hSocket, (struct sockaddr *)&addr, &serv_len);
-                    if (ret == 0)
-                    {
-                        disconnectedPeer = std::string(inet_ntoa(addr.sin_addr)) + ":" + std::to_string(ntohs(addr.sin_port));
+                static_assert(SSL_SENT_SHUTDOWN == 1);
+                static_assert(SSL_RECEIVED_SHUTDOWN == 2);
+                int shutDownStatus(SSL_get_shutdown(ssl)); // Bitmask of shutdown state
+                if(shutDownStatus == 3 /* 1 & 2*/) {
+                    retOp = 1;// already shut down
+                } else {
+                    for (int i{1}; i < 3; ++i) {
+                        if (!(shutDownStatus & i)) {
+                            retOp = SSL_shutdown(ssl); // Send/receive close_notify
+                            MilliSleep(5); // Give the peer a chance to send close_notify and be nice on cpu
+                        }
+                        shutDownStatus = SSL_get_shutdown(ssl);
                     }
-                    LogPrint("tls", "TLS: shutting down fd=%d, peer=%s\n", hSocket, disconnectedPeer);
                 }
-                retOp = SSL_shutdown(ssl);
             }
             break;
-         
-            default:
-                return -1;
+
+        default:
+            assert(false); // should never happen
         }
+success:
+        if (retOp == 1 /*success for any of the three operations*/) {
+            err_code = 0;
+            LogPrint("tls", "TLS: %s completed, fd=%d, peer=%s\n", eRoutine_str, hSocket, peerAddress.ToString());
+            break;
+        };
 
-        if (eRoutine == SSL_SHUTDOWN) {
-            if (retOp == 0)
-            {
-                LogPrint("tls", "TLS: WARNING: %s: %s():%d - SSL_SHUTDOWN: The close_notify was sent but the peer did not send it back yet.\n",
-                        __FILE__, __func__, __LINE__);
-                // do not call SSL_get_error() because it may misleadingly indicate an error even though no error occurred.
-                break;
-            }
-            else
-            if (retOp == 1)
-            {
-                LogPrint("tls", "TLS: %s: %s():%d - SSL_SHUTDOWN completed\n", __FILE__, __func__, __LINE__);
-                break;
-            }
-            else
-            {
-                LogPrint("tls", "TLS: %s: %s():%d - SSL_SHUTDOWN failed\n", __FILE__, __func__, __LINE__);
-                // the error will be read afterwards
-            }
-        } else {
-            if (retOp == 1)
-            {
-                LogPrint("tls", "TLS: %s: %s():%d - %s completed\n", __FILE__, __func__, __LINE__,
-                    eRoutine == SSL_CONNECT ? "SSL_CONNECT" : "SSL_ACCEPT");
-                break;
-            }
-        }
-
-        int sslErr = SSL_get_error(ssl, retOp);
-
-        if (sslErr != SSL_ERROR_WANT_READ && sslErr != SSL_ERROR_WANT_WRITE) {
-            err_code = ERR_get_error();
-            const char* error_str = ERR_error_string(err_code, NULL);
-            LogPrint("tls", "TLS: WARNING: %s: %s():%d - routine(%d), sslErr[0x%x], retOp[%d], errno[0x%x], lib[0x%x], func[0x%x], reas[0x%x]-> err: %s\n",
-                __FILE__, __func__, __LINE__,
-                eRoutine, sslErr, retOp, errno, ERR_GET_LIB(err_code), ERR_GET_FUNC(err_code), ERR_GET_REASON(err_code), error_str);
+        if (timeoutMilliSec == 0) {
+            LogPrint("tls", "TLS: %s failed, fd=%d, peer=%s\n", eRoutine_str, hSocket, peerAddress.ToString());
             retOp = -1;
             break;
         }
 
+        // Examine error
+        int sslErr = SSL_get_error(ssl, retOp);
+        std::string ssl_error_str{};
+        int result{0};
+
+        // select() modifies its arguments, so these must be reinitialized on each iteration
         fd_set socketSet;
+        struct timeval timeout {
+            timeoutMilliSec / 1000, (timeoutMilliSec % 1000) * 1000
+        };
+
         FD_ZERO(&socketSet);
         FD_SET(hSocket, &socketSet);
 
-        struct timeval timeout = {timeoutSec, 0};
-
-        if (sslErr == SSL_ERROR_WANT_READ) {
-            int result = select(hSocket + 1, &socketSet, NULL, NULL, &timeout);
-            if (result == 0) {
-                LogPrint("tls", "TLS: ERROR: %s: %s():%d - WANT_READ timeout on %s\n", __FILE__, __func__, __LINE__,
-                    (eRoutine == SSL_CONNECT ? "SSL_CONNECT" : 
-                        (eRoutine == SSL_ACCEPT ? "SSL_ACCEPT" : "SSL_SHUTDOWN" )));
-                err_code = SELECT_TIMEDOUT;
-                retOp = -1;
-                break;
-            } else if (result == -1) {
-                LogPrint("tls", "TLS: ERROR: %s: %s: WANT_READ ssl_err_code: 0x%x; errno: %s\n",
-                    __FILE__, __func__, sslErr, strerror(errno));
-                retOp = -1;
-                break;
+        switch (sslErr) {
+        case SSL_ERROR_SSL:
+            // - case for shutdown sent while the peer still sending data after we've sent close_notify
+            // we should temporarily ignore this error and continue reading until the peer closes the connection
+            // - case for shutdown sent while still in init phase
+            // For other errors we intentionally do fail (no retries)
+            {
+                err_code = ERR_get_error();
+                auto reason{ERR_GET_REASON(err_code)};
+                if (reason == SSL_R_APPLICATION_DATA_AFTER_CLOSE_NOTIFY) {
+                    // Actually do nothing here. Let fall through to the next case
+                    // where we will read more data
+                } else if (reason == SSL_R_SHUTDOWN_WHILE_IN_INIT) {
+                    // We're forcing a shutdown on a not-fully established ssl connection
+                    // i.e. the async handshake has not completed yet.
+                    // We can safely ignore this error
+                    retOp = 1;
+                    goto success;
+                } else {
+                    LogPrint("tls", "TLS: %s: %s: %s peer=%s SSL_ERROR_SSL reason %d\n",
+                             __FILE__, __func__, eRoutine_str, peerAddress.ToString(), reason);
+                    return -1;
+                }
             }
-        } else {
-            int result = select(hSocket + 1, NULL, &socketSet, NULL, &timeout);
-            if (result == 0) {
-                LogPrint("tls", "TLS: ERROR: %s: %s():%d - WANT_WRITE timeout on %s\n", __FILE__, __func__, __LINE__,
-                    (eRoutine == SSL_CONNECT ? "SSL_CONNECT" : 
-                        (eRoutine == SSL_ACCEPT ? "SSL_ACCEPT" : "SSL_SHUTDOWN" )));
-                err_code = SELECT_TIMEDOUT;
-                retOp = -1;
-                break;
-            } else if (result == -1) {
-                LogPrint("tls", "TLS: ERROR: %s: %s: WANT_WRITE ssl_err_code: 0x%x; errno: %s\n",
-                    __FILE__, __func__, sslErr, strerror(errno));
-                retOp = -1;
-                break;
+            [[fallthrough]]; // Need to read more
+        case SSL_ERROR_WANT_READ:
+            ssl_error_str = "SSL_ERROR_WANT_READ";
+            result = select(hSocket + 1, &socketSet, NULL, NULL, &timeout);
+            break;
+        case SSL_ERROR_WANT_WRITE:
+            ssl_error_str = "SSL_ERROR_WANT_WRITE";
+            result = select(hSocket + 1, NULL, &socketSet, NULL, &timeout);
+            break;
+        default:
+            // For all othe errors we intentionally do fail (no retries)
+            err_code = ERR_get_error();
+            {
+                LogPrint("tls", "TLS: %s: %s():%d - routine(%s), sslErr[0x%x], retOp[%d], errno[0x%x], lib[0x%x], func[0x%x], reas[0x%x]-> err: %s\n",
+                         __FILE__, __func__, __LINE__,
+                         eRoutine_str, sslErr, retOp, errno, ERR_GET_LIB(err_code), ERR_GET_FUNC(err_code), ERR_GET_REASON(err_code), "unknown");
             }
+            return -1;
         }
+
+        if (result == 0 /*timeout*/) {
+            LogPrint("tls", "TLS: WARNING %s: %s():%d - %s timeout on %s\n", __FILE__, __func__, __LINE__,
+                     ssl_error_str, eRoutine_str);
+            retOp = -1;
+            break;
+        } else if (result == -1 /*error*/) {
+            LogPrint("tls", "TLS: ERROR %s: %s: %s ssl_err_code: 0x%x; errno: %s\n",
+                     __FILE__, __func__, eRoutine_str, sslErr, strerror(errno));
+            retOp = -1;
+            break;
+        };
+
+        // Something happened on the socket hence we continue the loop
+
     }
 
     return retOp;
@@ -346,7 +345,7 @@ SSL* TLSManager::connect(SOCKET hSocket, const CAddress& addrConnect, unsigned l
 
     if ((ssl = SSL_new(tls_ctx_client))) {
         if (SSL_set_fd(ssl, hSocket)) {
-            int ret = TLSManager::waitFor(SSL_CONNECT, hSocket, ssl, (DEFAULT_CONNECT_TIMEOUT / 1000), err_code);
+            int ret = TLSManager::waitFor(SSL_CONNECT, addrConnect, ssl, DEFAULT_CONNECT_TIMEOUT, err_code);
             if (ret == 1)
             {
                 bConnectedTLS = true;
@@ -537,11 +536,7 @@ SSL* TLSManager::accept(SOCKET hSocket, const CAddress& addr, unsigned long& err
 
     if ((ssl = SSL_new(tls_ctx_server))) {
         if (SSL_set_fd(ssl, hSocket)) {
-            int ret = TLSManager::waitFor(SSL_ACCEPT, hSocket, ssl, (DEFAULT_CONNECT_TIMEOUT / 1000), err_code);
-            if (ret == 1)
-            {
-                bAcceptedTLS = true;
-            }
+            bAcceptedTLS = (TLSManager::waitFor(SSL_ACCEPT, addr, ssl, DEFAULT_CONNECT_TIMEOUT, err_code) == 1);
         }
     }
     else
@@ -617,7 +612,7 @@ void TLSManager::cleanNonTLSPool(std::vector<NODE_ADDR>& vPool, CCriticalSection
 }
 
 /**
- * @brief Handles send and recieve functionality in TLS Sockets.
+ * @brief Handles send and receive functionality in TLS Sockets.
  * 
  * @param pnode reference to the CNode object.
  * @param fdsetRecv 
