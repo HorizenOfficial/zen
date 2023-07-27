@@ -6859,11 +6859,9 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
     mapAlreadyAskedFor.erase(inv);
     mapAlreadyReceived.insert(std::make_pair(inv, GetTimeMicros()));
 
-    MempoolReturnValue res = MempoolReturnValue::INVALID;
-    CValidationState state;
-
     if (!AlreadyHave(inv))
     {
+        CValidationState state;
         BatchVerificationStateFlag flag = BatchVerificationStateFlag::NOT_VERIFIED_YET;
 
         // CODE USED FOR UNIT TEST ONLY [Start]
@@ -6874,6 +6872,11 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
         // CODE USED FOR UNIT TEST ONLY [End]
 
         ProcessTxBaseAcceptToMemoryPool(txBase, pfrom, flag, state);
+
+        if (state.IsInvalid())
+        {
+            RejectMemoryPoolTxBase(state, txBase, pfrom);
+        }
     }
     else
     {
@@ -6882,30 +6885,27 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
 
         if (pfrom->fWhitelisted)
         {
-            // Always relay transactions received from whitelisted peers, even
-            // if they were already in the mempool or rejected from it due
-            // to policy, allowing the node to function as a gateway for
-            // nodes hidden behind it.
-            //
-            // Never relay transactions that we would assign a non-zero DoS
-            // score for, as we expect peers to do the same with us in that
-            // case.
-            if (!state.IsInvalid() || state.GetDoS() == 0)
+            // Relay tx received from whitelisted peers under condition tx is already in mempool,
+            // because this means the tx was already validated.
+            // Following conditions are not included:
+            // 1) tx in recentRejects: COULD lead to our node ban-score penalization (example orphan tx
+            //    being re-processed as INVALID)
+            // 2) tx in mapOrphanTransactions: COULD lead to our node ban-score penalization (example
+            //    orphan tx being re-processed in the future as INVALID)
+            // 3) tx utxos already available: this means the tx is already in the blockchain (conf>0)
+            //    hence any other peer would be aligned on this (so relaying is useless) or is already
+            //    in mempool (conf=0) hence the logical flow would fall in previous relaying condition
+            if (mempool.exists(inv.hash))
             {
                 LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", txBase.GetHash().ToString(), pfrom->id);
                 txBase.Relay();
             }
             else
             {
-                LogPrintf("Not relaying invalid transaction %s from whitelisted peer=%d (%s (code %d))\n",
-                    txBase.GetHash().ToString(), pfrom->id, state.GetRejectReason(), CValidationState::CodeToChar(state.GetRejectCode()));
+                LogPrintf("Not relaying possibly invalid transaction %s from whitelisted peer=%d\n",
+                          txBase.GetHash().ToString(), pfrom->id);
             }
         }
-    }
-
-    if (state.IsInvalid())
-    {
-        RejectMemoryPoolTxBase(state, txBase, pfrom);
     }
 }
 
