@@ -5,16 +5,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, initialize_chain_clean, \
-    start_nodes, start_node, connect_nodes, stop_node, stop_nodes, \
-    sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, p2p_port, check_json_precision, \
-    disconnect_nodes
-import traceback
-import os,sys
-import shutil
-from random import randint
-from decimal import Decimal
-import logging
+from test_framework.util import initialize_chain_clean, start_node, sync_blocks, connect_nodes_bi
 
 import time
 class blockdelay(BitcoinTestFramework):
@@ -27,9 +18,6 @@ class blockdelay(BitcoinTestFramework):
         #Join the (previously split) network halves together.
         assert self.is_network_split
         connect_nodes_bi(self.nodes, 0, 3)
-        connect_nodes_bi(self.nodes, 3, 0)
-        #sync_blocks(self.nodes[0:3],1,True)
-        #sync_mempools(self.nodes[1:3])
         self.sync_all()
         self.is_network_split = False
 
@@ -51,7 +39,6 @@ class blockdelay(BitcoinTestFramework):
             x.dbg_log(msg)
 
     def sync_longest_fork(self, wait=1, limit_loop=0):
-
         '''
            Wait until all the nodes have the same length for the longest fork.
         '''
@@ -99,8 +86,6 @@ class blockdelay(BitcoinTestFramework):
         except JSONRPCException as e:
             errorString = e.error['message']
             print(errorString)
-        '''
-        '''
 
         print("\n\nGenerating initial blockchain 104 blocks")
         blocks.extend(self.nodes[0].generate(101)) # block height 1
@@ -196,7 +181,6 @@ class blockdelay(BitcoinTestFramework):
 
         print("\n\nJoin network")
         self.mark_logs("Joining network")
-#        raw_input("press enter to join the netorks..")
         self.join_network()
         self.sync_longest_fork(1, 10)
 
@@ -267,8 +251,6 @@ class blockdelay(BitcoinTestFramework):
 #                                \
 #                                 +->[105h]...->[116h]
 
-#        raw_input("press enter to generate 64 malicious blocks..")
-
         print("\nGenerating 64 malicious blocks")
         self.mark_logs("Generating 64 malicious blocks")
         self.nodes[3].generate(64)
@@ -334,8 +316,6 @@ class blockdelay(BitcoinTestFramework):
 #                                \
 #                                 +->[105h]...->[116h]
 
-#        raw_input("press enter to generate 65 honest blocks..")
-
         print("\nGenerating 65 more honest blocks")
         self.mark_logs("Generating 65 more honest blocks")
         self.nodes[0].generate(65)
@@ -362,8 +342,6 @@ class blockdelay(BitcoinTestFramework):
             print("Node%d  ---" % i)
             self.dump_ordered_tips(self.nodes[i].getchaintips(True))
             print("---")
-
-#        raw_input("press enter to generate 1 more malicious blocks which will cause the attack to succeed..")
 
         print("\nTesting fork related data from getchaintips")
         print("\nTesting Node 0")
@@ -466,15 +444,12 @@ class blockdelay(BitcoinTestFramework):
         assert self.nodes[1].getbalance() == 0.0
         print("\nNode1 balance has been erased!:", self.nodes[1].getbalance())
 
-#        raw_input("press enter to connect a brand new node..")
-
         # Connect a fifth node from scratch and update
         s = "Connecting a new node"
         print(s)
         self.mark_logs(s)
         self.nodes.append(start_node(4, self.options.tmpdir))
         connect_nodes_bi(self.nodes, 4, 3)
-        connect_nodes_bi(self.nodes, 3, 4)
         sync_blocks(self.nodes, 1, True, 5)
 
         for i in range(0, 5):

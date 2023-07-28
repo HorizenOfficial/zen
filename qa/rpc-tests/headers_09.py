@@ -30,7 +30,6 @@ class headers(BitcoinTestFramework):
         #Join the (previously split) network pieces together: 0-1-2
         assert self.is_network_split
         connect_nodes_bi(self.nodes, 1, 2)
-        connect_nodes_bi(self.nodes, 2, 1)
         self.sync_all()
         self.is_network_split = False
 
