@@ -5,18 +5,9 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, initialize_chain_clean, \
-    start_nodes, start_node, connect_nodes, stop_node, stop_nodes, \
-    sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, p2p_port, check_json_precision, \
-    disconnect_nodes
-import traceback
-import os,sys
-import shutil
-from random import randint
-from decimal import Decimal
-import logging
-
+from test_framework.util import initialize_chain_clean, start_nodes, connect_nodes_bi
 import time
+
 class headers(BitcoinTestFramework):
 
     def setup_chain(self, split=False):
@@ -25,6 +16,13 @@ class headers(BitcoinTestFramework):
 
     def setup_nodes(self):
         self.nodes = start_nodes(3, self.options.tmpdir)
+
+    def join_network(self):
+        #Join the (previously split) network pieces together: 0-1-2
+        assert self.is_network_split
+        connect_nodes_bi(self.nodes, 2, 1)
+        self.sync_all()
+        self.is_network_split = False
 
     def dump_ordered_tips(self, tip_list):
         sorted_x = sorted(tip_list, key=lambda k: k['status'])
@@ -88,14 +86,10 @@ class headers(BitcoinTestFramework):
 #                       
 # Node(2): [0]->[1]->[2m]->..->..->[21m]
 
-#        raw_input("press enter to go on..")
-
         print("\n\nJoin network")
-        # raw_input("press enter to join the netorks..")
         self.mark_logs("Joining network")
         self.join_network()
 
-        time.sleep(2)
         print("\nNetwork joined") 
         self.mark_logs("Network joined")
 
@@ -116,8 +110,6 @@ class headers(BitcoinTestFramework):
 #                 \     
 #                  +->[2h]->..->[8h]
 
-#        raw_input("press enter to go on..")
-
         print("Checking finality of block[", blA, "]")
         print("  Node0 has: %d" % self.nodes[0].getblockfinalityindex(blA))
         print("  Node1 has: %d" % self.nodes[1].getblockfinalityindex(blA))
@@ -127,8 +119,6 @@ class headers(BitcoinTestFramework):
         print("Checking finality of block[", blC, "]")
         print("  Node0 has: %d" % self.nodes[0].getblockfinalityindex(blC))
         print("  Node1 has: %d" % self.nodes[1].getblockfinalityindex(blC))
-
-#        raw_input("press enter to go on..")
 
         for j in range(1, 10):
             print("### block %d ---" % j)
@@ -153,22 +143,10 @@ class headers(BitcoinTestFramework):
                 print(errorString)
                 print("\n ===> Malicious attach succeeded after %d blocks!!\n\n" % j)
                 break
-#            for i in range(0, 3):
-#                print self.nodes[i].getchaintips()[0]
-#            raw_input("press enter to go on..")
-
-
-#        self.sync_all()
-        time.sleep(2)
 
         for i in range(0, 3):
             self.dump_ordered_tips(self.nodes[i].getchaintips())
             print("---")
-
-        time.sleep(1)
-
-#        raw_input("press enter to go on..")
-
 
 if __name__ == '__main__':
     headers().main()

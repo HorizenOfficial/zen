@@ -5,19 +5,10 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, initialize_chain_clean, \
-    start_nodes, start_node, connect_nodes, stop_node, stop_nodes, \
-    sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, p2p_port, check_json_precision, \
-    disconnect_nodes
-import traceback
-import os,sys
-import shutil
-from random import randint
-from decimal import Decimal
-import logging
-import operator
-
+from test_framework.util import initialize_chain_clean, start_nodes, stop_nodes, \
+    sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, disconnect_nodes
 import time
+
 class headers(BitcoinTestFramework):
 
     def setup_chain(self, split=False):
@@ -44,17 +35,11 @@ class headers(BitcoinTestFramework):
         self.sync_all()
 
     def split_network_2(self):
-#        assert not self.is_network_split
         disconnect_nodes(self.nodes[1], 3)
         disconnect_nodes(self.nodes[3], 1)
-        self.is_network_split = True
 
     def join_network_2(self):
-#        assert self.is_network_split
-        connect_nodes_bi(self.nodes, 3, 1)
         connect_nodes_bi(self.nodes, 1, 3)
-        time.sleep(2)
-#        self.sync_all()
         self.is_network_split = False
 
     def mark_logs(self, msg):
@@ -106,14 +91,8 @@ class headers(BitcoinTestFramework):
 # Node(3): [0]->[1]
 
         print("\n\nSplit nodes (1)----x   x---(3)")
-#        self.split_network_2()
-#-------------------------------------------------
-        disconnect_nodes(self.nodes[1], 3)
-        disconnect_nodes(self.nodes[3], 1)
-#        connect_nodes_bi(self.nodes, 1, 2)
-#        connect_nodes_bi(self.nodes, 0, 1)
-#-------------------------------------------------
-        time.sleep(2)
+        self.split_network_2()
+
         print("The network is split")
         self.mark_logs("The network is split 2")
 
@@ -137,15 +116,7 @@ class headers(BitcoinTestFramework):
 # Node(3): [0]->[1]
 
         print("\n\nSplit nodes (1)----x   x---(2)")
-#        self.split_network()
-#-------------------------------------------------
-        stop_nodes(self.nodes)
-        wait_bitcoinds()
-        self.setup_nodes()
-        connect_nodes_bi(self.nodes, 0, 1)
-#-------------------------------------------------
-        self.is_network_split = True
-        time.sleep(2)
+        self.split_network(1)
 
         print("The network is split")
         self.mark_logs("The network is split")
@@ -189,15 +160,8 @@ class headers(BitcoinTestFramework):
         print("\n\nJoin nodes (1)--(2)")
         # raw_input("press enter to join the netorks..")
         self.mark_logs("Joining network")
-#        self.join_network()
-#-------------------------------------------------
-        stop_nodes(self.nodes)
-        wait_bitcoinds()
-        self.setup_nodes()
-        connect_nodes_bi(self.nodes, 0, 1)
         connect_nodes_bi(self.nodes, 1, 2)
 #-------------------------------------------------
-        time.sleep(10)
 
         print("\nNetwork joined") 
         self.mark_logs("Network joined")
@@ -241,13 +205,7 @@ class headers(BitcoinTestFramework):
 
         print("\n\nJoin nodes (1)--(3)")
         self.mark_logs("Joining network 2")
-#        self.join_network_2()
-#-------------------------------------------------
-        connect_nodes_bi(self.nodes, 0, 1)
-        connect_nodes_bi(self.nodes, 1, 2)
-        connect_nodes_bi(self.nodes, 1, 3)
-#-------------------------------------------------
-        time.sleep(10)
+        self.join_network_2()
 
         print("\nNetwork joined") 
         self.mark_logs("Network joined 2")
