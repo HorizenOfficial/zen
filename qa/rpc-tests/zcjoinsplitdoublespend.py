@@ -156,7 +156,7 @@ class JoinSplitTest(BitcoinTestFramework):
 
         # Connect the two nodes
 
-        connect_nodes(self.nodes[1], 2)
+        connect_nodes(self.nodes, 1, 2)
         sync_blocks(self.nodes)
 
         # AB and CD should all be impossible to spend for each node.

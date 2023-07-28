@@ -184,15 +184,15 @@ class EstimateFeeTest(BitcoinTestFramework):
         self.nodes.append(start_node(1, self.options.tmpdir,
                                      ["-blockprioritysize=1500", "-blockmaxsize=18000",
                                       "-maxorphantx=1000", "-relaypriority=0", "-debug=estimatefee"]))
-        connect_nodes(self.nodes[1], 0)
+        connect_nodes(self.nodes, 1, 0)
 
         # Node2 is a stingy miner, that
         # produces too small blocks (room for only 70 or so transactions)
         node2args = ["-blockprioritysize=0", "-blockmaxsize=12000", "-maxorphantx=1000", "-relaypriority=0"]
 
         self.nodes.append(start_node(2, self.options.tmpdir, node2args))
-        connect_nodes(self.nodes[0], 2)
-        connect_nodes(self.nodes[2], 1)
+        connect_nodes(self.nodes, 0, 2)
+        connect_nodes(self.nodes, 2, 1)
 
         self.is_network_split = False
         self.sync_all()

@@ -52,10 +52,10 @@ class AddresMempool(BitcoinTestFramework):
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args)
 
-        connect_nodes(self.nodes[0], 1)
-        connect_nodes(self.nodes[1], 2)
-        connect_nodes(self.nodes[2], 3)
-        connect_nodes(self.nodes[3], 0)
+        connect_nodes(self.nodes, 0, 1)
+        connect_nodes(self.nodes, 1, 2)
+        connect_nodes(self.nodes, 2, 3)
+        connect_nodes(self.nodes, 3, 0)
         self.is_network_split=False
         self.sync_all()
 

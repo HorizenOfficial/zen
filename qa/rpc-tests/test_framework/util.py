@@ -25,6 +25,7 @@ import codecs
 from test_framework.authproxy import AuthServiceProxy, JSONRPCException
 
 COIN = 100000000 # 1 zec in zatoshis
+VERACK_MSG_SIZE = 24
 
 def p2p_port(n):
     return 11000 + n + os.getpid()%999
@@ -318,27 +319,55 @@ def set_node_times(nodes, t):
     for node in nodes:
         node.setmocktime(t)
 
+def wait_until(predicate, attempts=float('inf'), timeout=float('inf')):
+    attempt = 0
+    elapsed = time.time()
+
+    while attempt < attempts and (time.time() - elapsed) < timeout:
+        try:
+            if predicate():
+                return True
+        except Exception as e:
+            print(f'Warning: exception "{e}" occured in {__name__}')
+        attempt += 1
+        time.sleep(0.1)
+
+    return False
+
 def wait_bitcoinds():
     # Wait for all bitcoinds to cleanly exit
     for bitcoind in bitcoind_processes.values():
         bitcoind.wait()
     bitcoind_processes.clear()
 
-def connect_nodes(from_connection, node_num):
-    ip_port = "127.0.0.1:"+str(p2p_port(node_num))
+def connect_nodes(nodes, a, b):
+    from_connection = nodes[a]
+    to_connection   = nodes[b]
+    from_num_peers  = 1 + len(from_connection.getpeerinfo())
+    to_num_peers    = 1 + len(to_connection.getpeerinfo())
+    ip_port = "127.0.0.1:" + str(p2p_port(b))
     from_connection.addnode(ip_port, "onetry")
-    # poll until version handshake complete to avoid race conditions
-    # with transaction relaying
-    while True:
-        time.sleep(0.1)
-        peer_info = from_connection.getpeerinfo()
-        zero_version_peers = [peer for peer in peer_info if peer['version'] == 0]
-        if len(zero_version_peers) == 0:
-            break
+    # poll until version handshake completes to avoid race conditions with transaction relaying
+    # Handshake completes after each peer receives a verack from the other one
+    if a != b:  # connecting to self causes immediate disconnection, so avoid doing the following checks
+        wait_until(lambda: sum(peer['version'] != 0 for peer in from_connection.getpeerinfo()) == from_num_peers)
+        wait_until(lambda: sum(peer['version'] != 0 for peer in to_connection.getpeerinfo()) == to_num_peers)
+        wait_until(lambda: sum(peer['bytesrecv_per_msg'].pop('verack', 0)['bytes'] == VERACK_MSG_SIZE \
+                               for peer in from_connection.getpeerinfo()) == from_num_peers)
+        wait_until(lambda: sum(peer['bytesrecv_per_msg'].pop('verack', 0)['bytes'] == VERACK_MSG_SIZE \
+                               for peer in to_connection.getpeerinfo()) == to_num_peers)
+    else: # This is for handling the self connect test of nodehandling.py
+        while True:
+            time.sleep(0.1)
+            peer_info = from_connection.getpeerinfo()
+            zero_version_peers = [peer for peer in peer_info if peer['version'] == 0]
+            if len(zero_version_peers) == 0:
+                break
     
+
 def connect_nodes_bi(nodes, a, b):
-    connect_nodes(nodes[a], b)
-    connect_nodes(nodes[b], a)
+    connect_nodes(nodes, a, b)
+    connect_nodes(nodes, b, a)
 
 def find_output(node, txid, amount):
     """

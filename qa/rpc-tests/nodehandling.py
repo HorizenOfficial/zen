@@ -76,7 +76,7 @@ class NodeHandlingTest (BitcoinTestFramework):
         start_time = time.time()
         connections_count = 0
         while time.time() - start_time < total_duration:
-            connect_nodes(self.nodes[0], 0)
+            connect_nodes(self.nodes, 0, 0)
             connections_count += 1
             time.sleep(0.1)
             for node in self.nodes[0].getpeerinfo():

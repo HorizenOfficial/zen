@@ -48,10 +48,10 @@ class ForkNotifyTest(BitcoinTestFramework):
         # Node1 mines block.version=211 blocks
         self.nodes.append(start_node(1, self.options.tmpdir,
                                 ["-blockversion=%d" % UP_VERSION]))
-        connect_nodes(self.nodes[1], 0)
+        connect_nodes(self.nodes, 1, 0)
 
         self.nodes.append(start_node(2, self.options.tmpdir, []))
-        connect_nodes(self.nodes[2], 1)
+        connect_nodes(self.nodes, 2, 1)
 
         self.is_network_split = False
         self.sync_all()

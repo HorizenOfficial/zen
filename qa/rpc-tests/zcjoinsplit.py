@@ -20,7 +20,7 @@ class JoinSplitTest(BitcoinTestFramework):
         self.is_network_split = False
         self.nodes.append(start_node(0, self.options.tmpdir))
         self.nodes.append(start_node(1, self.options.tmpdir))
-        connect_nodes(self.nodes[0], 1)
+        connect_nodes(self.nodes, 0, 1)
 
     def run_test(self):
 
@@ -75,7 +75,7 @@ class JoinSplitTest(BitcoinTestFramework):
             if (round == crossing_fork_round):
                 # advance chain on node1 (so that shielded pool deprecation hard fork is active)
                 self.nodes[1].generate(fork_crossing_margin)
-                connect_nodes(self.nodes[0], 1)
+                connect_nodes(self.nodes, 0, 1)
                 sync_blocks(self.nodes)
                 # make sure now deprecated tx is in node0 mempool but not in node1 mempool
                 assert_equal(self.nodes[0].getmempoolinfo()["size"], 1)
