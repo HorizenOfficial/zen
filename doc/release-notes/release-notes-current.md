@@ -11,6 +11,7 @@ zend v4.0.99
 - Implementation of [ZenIP-42204](https://github.com/HorizenOfficial/ZenIPs/blob/master/zenip-42204.md): a hard-fork is introduced which results in shielding txs being deprecated [#526](https://github.com/HorizenOfficial/zen/pull/526)
 - Removal of the p2p alert system [#540](https://github.com/HorizenOfficial/zen/pull/540)
 - Added support for Pay-To-Public-Key (P2PK) scripts [#541](https://github.com/HorizenOfficial/zen/pull/541)
+- Set a maximum limit to the size of the mempool (400 MB by default, configurable through `-maxmempool` startup parameter)[#574](https://github.com/HorizenOfficial/zen/pull/574)
 
 ## Bugfixes and Minor Changes
 - Fix compilation warnings for GCC (v12) and clang (v15), update boost to v1.81 [#513](https://github.com/HorizenOfficial/zen/pull/513)
@@ -23,11 +24,34 @@ zend v4.0.99
 - Fix undefined behavior of a bitshift executed on a signed integer [#552](https://github.com/HorizenOfficial/zen/pull/552)
 - Improve `debug.log` file reopening procedure [#552](https://github.com/HorizenOfficial/zen/pull/552)
 - Introduce a maximum dns look up for one entry [#561](https://github.com/HorizenOfficial/zen/pull/561)
+- Fix `shieldedpooldeprecation_rpc.py` and `wallet_mergetoaddress_2.py` Python tests [#544](https://github.com/HorizenOfficial/zen/pull/544)
+- Make `fReindex` and `fReindexFast` flag variables thread safe [#555](https://github.com/HorizenOfficial/zen/pull/555)
+- Remove `zencash-apple` as a dependency to build Zend on MacOS [#558](https://github.com/HorizenOfficial/zen/pull/558)
+- Remove some unnecessary log lines from the command line interface [#559](https://github.com/HorizenOfficial/zen/pull/559)
+- Update "contributing" documentation and the GitHub issue template [#562](https://github.com/HorizenOfficial/zen/pull/562)
+- Remove the need to manually specify libzendoo dependencies one by one [#565](https://github.com/HorizenOfficial/zen/pull/565)
+- General cleaning of code (static analysis) [#564](https://github.com/HorizenOfficial/zen/pull/564)
+- Minor refactoring of `sc_cert_getblocktemplate.py` [#568](https://github.com/HorizenOfficial/zen/pull/568)
+- Refactoring of the network functions in the Python test framework [#563](https://github.com/HorizenOfficial/zen/pull/563)
+- Update `cargo` version from `1.51` to `1.70` [#569](https://github.com/HorizenOfficial/zen/pull/569)
+- Remove `pyblake2` Python dependency [#570](https://github.com/HorizenOfficial/zen/pull/570)
+- Avoid unnecessary copies when passing parameters to functions (static analysis) [#567](https://github.com/HorizenOfficial/zen/pull/567)
+- Improve syntax of `autogen.sh` (static analysis) [#571](https://github.com/HorizenOfficial/zen/pull/571)
+- Updated MacOS version on Travis CI from `12.3` to `14.2` [#572](https://github.com/HorizenOfficial/zen/pull/572)
+- Minor performance improvement during the processing of `inv` and `getdata` P2P messages [#575](https://github.com/HorizenOfficial/zen/pull/575)
+- Minor change of the P2P inactivity timeout check [#579](https://github.com/HorizenOfficial/zen/pull/579)
+- Improved the management of SSL disconnections [#566](https://github.com/HorizenOfficial/zen/pull/566)
+- Added the possibility to pass parameters to the `run_until_fails.py` helper script [#578](https://github.com/HorizenOfficial/zen/pull/578)
+- Avoid relaying transactions coming from whitelisted peers that would make the local node be banned [#580](https://github.com/HorizenOfficial/zen/pull/580)
 
 ## Contributors
 [@JackPiri](https://github.com/JackPiri)
 [@a-petrini](https://github.com/a-petrini)
 [@drgora](https://github.com/drgora)
 [@dullerino](https://github.com/dullerino)
+[@titusen](https://github.com/titusen)
+[@la10736](https://github.com/la10736)
+[@AndreaLanfranchi](https://github.com/AndreaLanfranchi)
+[@ptagl](https://github.com/ptagl)
 
 Special thanks to [dullerino](https://github.com/dullerino) for the first contribution to Zen!
