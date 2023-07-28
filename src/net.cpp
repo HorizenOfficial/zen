@@ -636,7 +636,9 @@ void CNode::copyStats(CNodeStats &stats)
     X(fInbound);
     X(nStartingHeight);
     X(nSendBytes);
+    X(mapSendBytesPerMsgType);
     X(nRecvBytes);
+    X(mapRecvBytesPerMsgType);
     X(fWhitelisted);
     X(m_addr_rate_limited);
     X(m_addr_processed);

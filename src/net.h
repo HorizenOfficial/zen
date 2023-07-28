@@ -192,6 +192,8 @@ public:
     int nStartingHeight;
     uint64_t nSendBytes;
     uint64_t nRecvBytes;
+    std::map<std::string, std::pair<uint64_t, uint64_t>> mapSendBytesPerMsgType;
+    std::map<std::string, std::pair<uint64_t, uint64_t>> mapRecvBytesPerMsgType;
     bool fWhitelisted;
     double dPingTime;
     double dPingWait;

@@ -101,6 +101,25 @@ UniValue getpeerinfo(const UniValue& params, bool fHelp)
             "    \"lastrecv\": ttt,                      (numeric) the time in seconds since epoch (Jan 1 1970 GMT) of the last receive\n"
             "    \"bytessent\": n,                       (numeric) the total bytes sent\n"
             "    \"bytesrecv\": n,                       (numeric) the total bytes received\n"
+            "    \"bytessent_per_msg\": {                the total bytes sent aggregated by message type.\n"
+            "                                           When a message type is not listed in this json object, the bytes received are 0.\n"
+            "                                           Only known message types can appear as keys in the object.\n"
+            "        \"message\":  {                     (string)  the message type\n"
+            "            \"count\": n,                   (numeric) the total number of this message type that has been sent\n"
+            "            \"bytes\": n                    (numeric) the total amount of bytes sent for this message type\n"
+            "         },\n"
+            "         ...\n"
+            "    },\n"
+            "    \"bytesrecv_per_msg\":  {               the total bytes received aggregated by message type.\n"
+            "                                           When a message type is not listed in this json object, the bytes received are 0.\n"
+            "                                           Only known message types can appear as keys in the object, and all the bytes received\n"
+            "                                           of unknown message types are listed under '*others*'.\n"
+            "        \"message\":  {                     (string)  the message type\n"
+            "            \"count\": n,                   (numeric) the total number of this message type that has been received\n"
+            "            \"bytes\": n                    (numeric) the total amount of bytes received for this message type\n"
+            "         },\n"
+            "         ...\n"
+            "    },\n"
             "    \"conntime\": ttt,                      (numeric) the connection time in seconds since 1 Jan 1970 GMT\n"
             "    \"timeoffset\": ttt,                    (numeric) the time offset in seconds\n"
             "    \"pingtime\": n,                        (numeric) ping time\n"
@@ -148,6 +167,29 @@ UniValue getpeerinfo(const UniValue& params, bool fHelp)
         obj.pushKV("lastrecv", stats.nLastRecv);
         obj.pushKV("bytessent", stats.nSendBytes);
         obj.pushKV("bytesrecv", stats.nRecvBytes);
+
+        UniValue sendPerMsgType(UniValue::VOBJ);
+        for (const auto& i : stats.mapSendBytesPerMsgType) {
+            if (i.second.second > 0) {  // For each message type, we check if bytes > 0
+                UniValue countAndAmount(UniValue::VOBJ);
+                countAndAmount.pushKV("count", i.second.first);
+                countAndAmount.pushKV("bytes", i.second.second);
+                sendPerMsgType.pushKV(i.first, countAndAmount);
+            }
+        }
+        obj.pushKV("bytessent_per_msg", sendPerMsgType);
+
+        UniValue recvPerMsgType(UniValue::VOBJ);
+        for (const auto& i : stats.mapRecvBytesPerMsgType) {
+            if (i.second.second > 0) {  // For each message type, we check if bytes > 0
+                UniValue countAndAmount(UniValue::VOBJ);
+                countAndAmount.pushKV("count", i.second.first);
+                countAndAmount.pushKV("bytes", i.second.second);
+                recvPerMsgType.pushKV(i.first, countAndAmount);
+            }
+        }
+        obj.pushKV("bytesrecv_per_msg", recvPerMsgType);
+
         obj.pushKV("conntime", stats.nTimeConnected);
         obj.pushKV("timeoffset", stats.nTimeOffset);
         obj.pushKV("pingtime", stats.dPingTime);
