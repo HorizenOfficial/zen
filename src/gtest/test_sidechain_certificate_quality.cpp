@@ -546,8 +546,8 @@ TEST_F(SidechainsMultipleCertsTestSuite, CheckAcceptsLowerQualityCertsInDifferen
 }
 
 TEST_F(SidechainsMultipleCertsTestSuite, CheckInMempoolDelegateToBackingView) {
-    CTxMemPool aMempool(::minRelayTxFee);
-    CCoinsViewMemPool viewMempool(sidechainsView, aMempool);
+    std::shared_ptr<CTxMemPool> aMempool(new CTxMemPool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000));
+    CCoinsViewMemPool viewMempool(sidechainsView, *aMempool);
 
     CSidechain initialScState;
     initialScState.balance = CAmount(10);
@@ -584,8 +584,8 @@ TEST_F(SidechainsMultipleCertsTestSuite, CheckInMempoolDelegateToBackingView) {
 }
 
 TEST_F(SidechainsMultipleCertsTestSuite, CertsInMempoolDoNotAffectCheckQuality) {
-    CTxMemPool aMempool(::minRelayTxFee);
-    CCoinsViewMemPool viewMempool(sidechainsView, aMempool);
+    std::shared_ptr<CTxMemPool> aMempool(new CTxMemPool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000));
+    CCoinsViewMemPool viewMempool(sidechainsView, *aMempool);
 
     CSidechain initialScState;
     initialScState.balance = CAmount(10);
@@ -603,7 +603,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, CertsInMempoolDoNotAffectCheckQuality) 
     mempoolCert.quality = initialScState.lastTopQualityCertQuality * 2;
     mempoolCert.epochNumber = initialScState.lastTopQualityCertReferencedEpoch + 1 ;
     CCertificateMemPoolEntry certEntry(mempoolCert, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    ASSERT_TRUE(aMempool.addUnchecked(mempoolCert.GetHash(), certEntry));
+    ASSERT_TRUE(aMempool->addUnchecked(mempoolCert.GetHash(), certEntry));
 
     CMutableScCertificate trialCert;
     trialCert.scId = scId;

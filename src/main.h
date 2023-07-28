@@ -135,6 +135,8 @@ static const bool DEFAULT_ADDRESSINDEX = false;
 static const bool DEFAULT_TIMESTAMPINDEX = false;
 static const bool DEFAULT_SPENTINDEX = false;
 
+static constexpr unsigned int DEFAULT_MAX_MEMPOOL_SIZE_MB = 400;
+
 // Sanity check the magic numbers when we change them
 BOOST_STATIC_ASSERT(DEFAULT_BLOCK_MAX_SIZE <= MAX_BLOCK_SIZE);
 BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_CERT_SIZE);
@@ -149,7 +151,7 @@ BOOST_STATIC_ASSERT(DEFAULT_BLOCK_PRIORITY_SIZE_BEFORE_SC <= DEFAULT_BLOCK_MAX_S
 
 extern CScript COINBASE_FLAGS;
 extern CCriticalSection cs_main;
-extern CTxMemPool mempool;
+extern std::unique_ptr<CTxMemPool> mempool;
 typedef boost::unordered_map<uint256, CBlockIndex*, ObjectHasher> BlockMap;
 extern BlockMap mapBlockIndex;
 typedef boost::unordered_map<uint256, int, ObjectHasher> ScCumTreeRootMap;
@@ -369,7 +371,7 @@ void alertNotify(const std::string& strMessage, bool fThread);
 // Accept Tx/Cert ToMempool parameters types and signature
 enum class LimitFreeFlag       { ON, OFF };
 enum class RejectAbsurdFeeFlag { ON, OFF };
-enum class MempoolReturnValue  { INVALID, MISSING_INPUT, VALID, PARTIALLY_VALIDATED };
+enum class MempoolReturnValue  { INVALID, MISSING_INPUT, MEMPOOL_FULL, VALID, PARTIALLY_VALIDATED };
 
 /**
  * @brief The enumeration of possible states of the sidechain proof verification

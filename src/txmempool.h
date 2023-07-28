@@ -7,6 +7,8 @@
 #define BITCOIN_TXMEMPOOL_H
 
 #include <list>
+#include <vector>
+#include <unordered_map>
 
 #if defined(HAVE_CONFIG_H)
 #include "config/bitcoin-config.h"
@@ -59,6 +61,7 @@ public:
     int64_t GetTime() const { return nTime; }
     unsigned int GetHeight() const { return nHeight; }
     size_t DynamicMemoryUsage() const { return nUsageSize; }
+    virtual size_t GetSize() const = 0;
 };
 
 /**
@@ -79,6 +82,7 @@ public:
     double GetPriority(unsigned int currentHeight) const override;
     size_t GetTxSize() const { return nTxSize; }
     bool WasClearAtEntry() const { return hadNoDependencies; }
+    virtual size_t GetSize() const override { return GetTxSize(); }
 };
 
 class CCertificateMemPoolEntry : public CMemPoolEntry
@@ -95,6 +99,7 @@ public:
     const CScCertificate& GetCertificate() const { return this->cert; }
     double GetPriority(unsigned int currentHeight) const override;
     size_t GetCertificateSize() const { return nCertificateSize; }
+    virtual size_t GetSize() const override { return GetCertificateSize(); }
 };
 
 class CBlockPolicyEstimator;
@@ -160,7 +165,7 @@ private:
     CBlockPolicyEstimator* minerPolicyEstimator;
 
     uint64_t totalTxSize = 0; //! sum of all mempool tx' byte sizes
-    uint64_t totalCertificateSize = 0; //! sum of all mempool tx' byte sizes
+    uint64_t totalCertificateSize = 0; //! sum of all mempool certificates' byte sizes
     uint64_t cachedInnerUsage; //! sum of dynamic memory usage of all the map elements (NOT the maps themselves)
 
     bool checkTxImmatureExpenditures(const CTransaction& tx, const CCoinsViewCache * const pcoins);
@@ -183,6 +188,7 @@ private:
     mapSpentIndexInserted mapSpentInserted;
 
 public:
+    const uint64_t m_max_size;
     mutable CCriticalSection cs;
     std::map<uint256, CTxMemPoolEntry> mapTx;
     std::map<uint256, CCertificateMemPoolEntry> mapCertificate;
@@ -191,7 +197,7 @@ public:
     std::map<uint256, const CTransaction*> mapNullifiers;
     std::map<uint256, std::pair<double, CAmount> > mapDeltas;
 
-    CTxMemPool(const CFeeRate& _minRelayFee);
+    CTxMemPool(const CFeeRate& _minRelayFee, uint64_t max_size);
     ~CTxMemPool();
 
     CTxMemPool(const CTxMemPool& ) = delete;
@@ -235,7 +241,10 @@ public:
     std::vector<uint256> mempoolDependenciesFrom(const CTransactionBase& origTx) const;
     std::vector<uint256> mempoolDependenciesOf(const CTransactionBase& origTx) const;
 
+    CRawFeeRate avgFeeRateWithDeps(const uint256& rootTx, const bool certificatesAllowed, std::unordered_map<uint256, CRawFeeRate>& cache) const;
+
     void remove(const CTransactionBase& origTx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive = false);
+    void remove(const uint256& origTx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive = false);
 
     void removeWithAnchor(const uint256 &invalidRoot);
 
@@ -381,6 +390,7 @@ public:
     bool ReadFeeEstimates(CAutoFile& filein);
 
     size_t DynamicMemoryUsage() const;
+    bool trimToSize(const CMemPoolEntry* entry, size_t max_size, bool dryrun);
 };
 
 /** 
@@ -390,10 +400,10 @@ public:
 class CCoinsViewMemPool : public CCoinsViewBacked
 {
 protected:
-    CTxMemPool &mempool;
+    CTxMemPool& mempool;
 
 public:
-    CCoinsViewMemPool(CCoinsView *baseIn, CTxMemPool &mempoolIn);
+    CCoinsViewMemPool(CCoinsView *baseIn, CTxMemPool& mempoolIn);
 
     bool GetNullifier(const uint256 &txid)                              const override;
     bool GetCoins(const uint256 &txid, CCoins &coins)                   const override;

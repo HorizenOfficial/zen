@@ -1130,7 +1130,7 @@ bool ScRpcCmd::checkFeeRate()
     // This value is anyway not lower than minRelayFee.
 
     // Therefore, using default values, the fee needed is the one corresponding to the minTxFee rate of 1000 Zat / Kbyte
-    _feeNeeded = CWallet::GetMinimumFee(nSize, nTxConfirmTarget, mempool);
+    _feeNeeded = CWallet::GetMinimumFee(nSize, nTxConfirmTarget, *mempool);
 
     if (_fee < _feeNeeded)
     {

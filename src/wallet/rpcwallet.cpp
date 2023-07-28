@@ -1314,8 +1314,8 @@ UniValue sc_send(const UniValue& params, bool fHelp)
         }
 
         {
-            LOCK(mempool.cs);
-            CCoinsViewMemPool scView(pcoinsTip, mempool);
+            LOCK(mempool->cs);
+            CCoinsViewMemPool scView(pcoinsTip, *mempool);
             if (!scView.HaveSidechain(scId))
             {
                 LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
@@ -1518,8 +1518,8 @@ UniValue sc_request_transfer(const UniValue& params, bool fHelp)
         }
 
         {
-            LOCK(mempool.cs);
-            CCoinsViewMemPool scView(pcoinsTip, mempool);
+            LOCK(mempool->cs);
+            CCoinsViewMemPool scView(pcoinsTip, *mempool);
             if (!scView.HaveSidechain(scId))
             {
                 LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
@@ -5513,7 +5513,7 @@ UniValue sc_send_certificate(const UniValue& params, bool fHelp)
     // sanity check of the side chain ID
     CCoinsView dummy;
     CCoinsViewCache scView(&dummy);
-    CCoinsViewMemPool vm(pcoinsTip, mempool);
+    CCoinsViewMemPool vm(pcoinsTip, *mempool);
     scView.SetBackend(vm);
     CSidechain sidechain;
     if (!scView.GetSidechain(scId, sidechain))

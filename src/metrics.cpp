@@ -225,7 +225,7 @@ int printStats(bool mining)
         connections = vNodes.size();
         tlsConnections = std::count_if(vNodes.begin(), vNodes.end(), [](CNode* n) {return n->ssl != NULL;});
     }
-    unsigned long mempool_count = mempool.size();
+    unsigned long mempool_count = mempool->size();
 /*
     // OpenSSL related statistics
     tlsvalidate = GetArg("-tlsvalidate","");

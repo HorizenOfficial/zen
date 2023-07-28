@@ -590,7 +590,7 @@ UniValue getaddressmempool(const UniValue& params, bool fHelp)
     }
 
     std::vector<std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> > indexes;
-    if (!mempool.getAddressIndex(addresses, indexes)) {
+    if (!mempool->getAddressIndex(addresses, indexes)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for address");
     }
 

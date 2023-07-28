@@ -491,13 +491,13 @@ static bool rest_getutxos(HTTPRequest* req, const std::string& strURIPart)
     std::string bitmapStringRepresentation;
     boost::dynamic_bitset<unsigned char> hits(vOutPoints.size());
     {
-        LOCK2(cs_main, mempool.cs);
+        LOCK2(cs_main, mempool->cs);
 
         CCoinsView viewDummy;
         CCoinsViewCache view(&viewDummy);
 
         CCoinsViewCache& viewChain = *pcoinsTip;
-        CCoinsViewMemPool viewMempool(&viewChain, mempool);
+        CCoinsViewMemPool viewMempool(&viewChain, *mempool);
 
         if (fCheckMemPool)
             view.SetBackend(viewMempool); // switch cache backend to db+mempool in case user likes to query mempool
@@ -506,7 +506,7 @@ static bool rest_getutxos(HTTPRequest* req, const std::string& strURIPart)
             CCoins coins;
             uint256 hash = vOutPoints[i].hash;
             if (view.GetCoins(hash, coins)) {
-                mempool.pruneSpent(hash, coins);
+                mempool->pruneSpent(hash, coins);
                 if (coins.IsAvailable(vOutPoints[i].n)) {
                     hits[i] = true;
                     // Safe to index into vout here because IsAvailable checked if it's off the end of the array, or if

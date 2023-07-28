@@ -52,7 +52,7 @@ BOOST_AUTO_TEST_CASE(MempoolRemoveTest)
     }
 
 
-    CTxMemPool testPool(CFeeRate(0));
+    CTxMemPool testPool(CFeeRate(0), DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000);
     std::list<CTransaction>   removedTxs;
     std::list<CScCertificate> removedCerts;
 

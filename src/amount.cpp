@@ -31,3 +31,24 @@ std::string CFeeRate::ToString() const
 {
     return strprintf("%d.%08d %s/kB", nSatoshisPerK / COIN, nSatoshisPerK % COIN, CURRENCY_UNIT);
 }
+
+void CRawFeeRate::operator+=(const CRawFeeRate& rhs) {
+    if (isMax() || rhs.isMax()) {
+        fee   = MAX_FEE;
+        bytes = 1;
+    }
+    else {
+        fee += rhs.fee;
+        bytes += rhs.bytes;
+    }
+    SetSatoshisPerK();
+}
+
+void CRawFeeRate::SetSatoshisPerK() {
+    if (isMax()) {
+        nSatoshisPerK = MAX_FEE;
+    }
+    else {
+        nSatoshisPerK = bytes ? ((1000 * fee) / bytes) : 0;
+    }
+}

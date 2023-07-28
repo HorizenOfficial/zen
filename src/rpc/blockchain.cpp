@@ -380,7 +380,7 @@ UniValue getdifficulty(const UniValue& params, bool fHelp)
 
 static void AddDependancy(const CTransactionBase& root, UniValue& info)
 {
-    std::vector<uint256> sDepHash = mempool.mempoolDirectDependenciesFrom(root);
+    std::vector<uint256> sDepHash = mempool->mempoolDirectDependenciesFrom(root);
     UniValue depends(UniValue::VARR);
     for(const uint256& hash: sDepHash)
     {
@@ -394,9 +394,9 @@ UniValue mempoolToJSON(bool fVerbose = false)
 {
     if (fVerbose)
     {
-        LOCK(mempool.cs);
+        LOCK(mempool->cs);
         UniValue o(UniValue::VOBJ);
-        BOOST_FOREACH(const PAIRTYPE(uint256, CTxMemPoolEntry)& entry, mempool.mapTx)
+        BOOST_FOREACH(const PAIRTYPE(uint256, CTxMemPoolEntry)& entry, mempool->mapTx)
         {
             const uint256& hash = entry.first;
             const CTxMemPoolEntry& e = entry.second;
@@ -413,7 +413,7 @@ UniValue mempoolToJSON(bool fVerbose = false)
             AddDependancy(tx, info);
             o.pushKV(hash.ToString(), info);
         }
-        BOOST_FOREACH(const PAIRTYPE(uint256, CCertificateMemPoolEntry)& entry, mempool.mapCertificate)
+        BOOST_FOREACH(const PAIRTYPE(uint256, CCertificateMemPoolEntry)& entry, mempool->mapCertificate)
         {
             const uint256& hash = entry.first;
             const auto& e = entry.second;
@@ -430,7 +430,7 @@ UniValue mempoolToJSON(bool fVerbose = false)
             AddDependancy(cert, info);
             o.pushKV(hash.ToString(), info);
         }
-        BOOST_FOREACH(const auto& entry, mempool.mapDeltas)
+        BOOST_FOREACH(const auto& entry, mempool->mapDeltas)
         {
             const uint256& hash = entry.first;
             const auto& p = entry.second.first;
@@ -447,7 +447,7 @@ UniValue mempoolToJSON(bool fVerbose = false)
     else
     {
         vector<uint256> vtxid;
-        mempool.queryHashes(vtxid);
+        mempool->queryHashes(vtxid);
 
         UniValue a(UniValue::VARR);
         BOOST_FOREACH(const uint256& hash, vtxid)
@@ -1104,11 +1104,11 @@ UniValue gettxout(const UniValue& params, bool fHelp)
 
     CCoins coins;
     if (fMempool) {
-        LOCK(mempool.cs);
-        CCoinsViewMemPool view(pcoinsTip, mempool);
+        LOCK(mempool->cs);
+        CCoinsViewMemPool view(pcoinsTip, *mempool);
         if (!view.GetCoins(hash, coins))
             return NullUniValue;
-        mempool.pruneSpent(hash, coins); // TODO: this should be done by the CCoinsViewMemPool
+        mempool->pruneSpent(hash, coins); // TODO: this should be done by the CCoinsViewMemPool
     } else {
         if (!pcoinsTip->GetCoins(hash, coins))
             return NullUniValue;
@@ -1411,12 +1411,15 @@ UniValue getchaintips(const UniValue& params, bool fHelp)
 UniValue mempoolInfoToJSON()
 {
     UniValue ret(UniValue::VOBJ);
-    ret.pushKV("size", (int64_t) mempool.size());
-    ret.pushKV("bytes", (int64_t) mempool.GetTotalSize());
-    ret.pushKV("usage", (int64_t) mempool.DynamicMemoryUsage());
+    ret.pushKV("size", (int64_t) mempool->size());
+    ret.pushKV("bytes", (int64_t) mempool->GetTotalSize());
+    ret.pushKV("usage", (int64_t) mempool->DynamicMemoryUsage());
+    ret.pushKV("bytes-for-tx", (int64_t) mempool->GetTotalTxSize());
+    ret.pushKV("bytes-for-cert", (int64_t) mempool->GetTotalCertificateSize());
 
     if (Params().NetworkIDString() == "regtest") {
-        ret.pushKV("fullyNotified", mempool.IsFullyNotified());
+        ret.pushKV("fullyNotified", mempool->IsFullyNotified());
+        assert(mempool->GetTotalSize() == mempool->GetTotalTxSize() + mempool->GetTotalCertificateSize());
     }
 
     return ret;
@@ -1531,14 +1534,14 @@ UniValue reconsiderblock(const UniValue& params, bool fHelp)
 
 static void addScUnconfCcData(const uint256& scId, UniValue& sc)
 {
-    if (mempool.mapSidechains.count(scId) == 0)
+    if (mempool->mapSidechains.count(scId) == 0)
         return;
 
     UniValue ia(UniValue::VARR);
-    if (mempool.hasSidechainCreationTx(scId))
+    if (mempool->hasSidechainCreationTx(scId))
     {
-        const uint256& hash = mempool.mapSidechains.at(scId).scCreationTxHash;
-        const CTransaction & scCrTx = mempool.mapTx.at(hash).GetTx();
+        const uint256& hash = mempool->mapSidechains.at(scId).scCreationTxHash;
+        const CTransaction & scCrTx = mempool->mapTx.at(hash).GetTx();
         for (const auto& scCrAmount : scCrTx.GetVscCcOut())
         {
             if (scId == scCrAmount.GetScId())
@@ -1550,9 +1553,9 @@ static void addScUnconfCcData(const uint256& scId, UniValue& sc)
         }
     }
 
-    for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTxHashes)
+    for (const auto& fwdHash: mempool->mapSidechains.at(scId).fwdTxHashes)
     {
-        const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
+        const CTransaction & fwdTx = mempool->mapTx.at(fwdHash).GetTx();
         for (const auto& fwdAmount : fwdTx.GetVftCcOut())
         {
             if (scId == fwdAmount.scId)
@@ -1564,9 +1567,9 @@ static void addScUnconfCcData(const uint256& scId, UniValue& sc)
         }
     }
 
-    for (const auto& mbtrHash: mempool.mapSidechains.at(scId).mcBtrsTxHashes)
+    for (const auto& mbtrHash: mempool->mapSidechains.at(scId).mcBtrsTxHashes)
     {
-        const CTransaction & mbtrTx = mempool.mapTx.at(mbtrHash).GetTx();
+        const CTransaction & mbtrTx = mempool->mapTx.at(mbtrHash).GetTx();
         for (const auto& mbtrAmount : mbtrTx.GetVBwtRequestOut())
         {
             if (scId == mbtrAmount.scId)
@@ -1692,10 +1695,10 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
         sc.pushKV("scFees", sf);
 
         // get unconfirmed data if any
-        if (mempool.hasSidechainCertificate(scId))
+        if (mempool->hasSidechainCertificate(scId))
         {
-            const uint256& topQualCertHash    = mempool.mapSidechains.at(scId).GetTopQualityCert()->second;
-            const CScCertificate& topQualCert = mempool.mapCertificate.at(topQualCertHash).GetCertificate();
+            const uint256& topQualCertHash    = mempool->mapSidechains.at(scId).GetTopQualityCert()->second;
+            const CScCertificate& topQualCert = mempool->mapCertificate.at(topQualCertHash).GetCertificate();
  
             sc.pushKV("unconfTopQualityCertificateEpoch",    topQualCert.epochNumber);
             sc.pushKV("unconfTopQualityCertificateHash",     topQualCertHash.GetHex());
@@ -1708,10 +1711,10 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
     }
     else
     {
-        if (mempool.hasSidechainCreationTx(scId))
+        if (mempool->hasSidechainCreationTx(scId))
         {
-            const uint256& scCreationHash = mempool.mapSidechains.at(scId).scCreationTxHash;
-            const CTransaction & scCreationTx = mempool.mapTx.at(scCreationHash).GetTx();
+            const uint256& scCreationHash = mempool->mapSidechains.at(scId).scCreationTxHash;
+            const CTransaction & scCreationTx = mempool->mapTx.at(scCreationHash).GetTx();
 
             CSidechain info;
             for (const auto& scCreation : scCreationTx.GetVscCcOut())
@@ -1803,8 +1806,8 @@ int FillScList(UniValue& scItems, bool bOnlyAlive, bool bVerbose, int from=0, in
 {
     std::set<uint256> sScIds;
     {
-        LOCK(mempool.cs);
-        CCoinsViewMemPool scView(pcoinsTip, mempool);
+        LOCK(mempool->cs);
+        CCoinsViewMemPool scView(pcoinsTip, *mempool);
 
         scView.GetScIds(sScIds);
     }
@@ -2597,13 +2600,13 @@ UniValue getcertmaturityinfo(const UniValue& params, bool fHelp)
     CScCertificate certOut;
 
     {
-        LOCK(mempool.cs);
-        if (mempool.lookup(hash, certOut))
+        LOCK(mempool->cs);
+        if (mempool->lookup(hash, certOut))
         {
             ret.pushKV("maturityHeight", -1);
             ret.pushKV("blocksToMaturity", -1);
             std::string s;
-            mempool.CertQualityStatusString(certOut, s);
+            mempool->CertQualityStatusString(certOut, s);
             ret.pushKV("certificateState", s);
             return ret;
         }
@@ -2697,7 +2700,7 @@ UniValue clearmempool(const UniValue& params, bool fHelp)
     }
 
     LOCK(cs_main);
-    mempool.clear();
+    mempool->clear();
 
     return NullUniValue;
 }

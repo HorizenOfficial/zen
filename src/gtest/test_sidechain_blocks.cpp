@@ -20,6 +20,7 @@ public:
         dummyState(), dummyChain(), dummyScEvents(), dummyFeeAmount(), dummyCoinbaseScript(),
         csMainLock(cs_main, "cs_main", __FILE__, __LINE__)
     {
+        mempool.reset(new CTxMemPool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000));
         dummyScriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
     }
 
@@ -682,7 +683,7 @@ protected:
 
 TEST_F(SidechainsBlockFormationTestSuite, EmptyMempoolOrdering)
 {
-    ASSERT_TRUE(mempool.size() == 0);
+    ASSERT_TRUE(mempool->size() == 0);
 
     GetBlockTxPriorityData(*blockchainView, dummyHeight, dummyLockTimeCutoff, vecPriority, orphanList, mapDependers);
     GetBlockCertPriorityData(*blockchainView, dummyHeight, vecPriority, orphanList, mapDependers);
@@ -701,13 +702,13 @@ TEST_F(SidechainsBlockFormationTestSuite, SingleTxes_MempoolOrdering)
     tx_highFee.vin.push_back(CTxIn(inputCoinHash_1, 0, dummyScript));
     tx_highFee.addOut(dummyOut);
     CTxMemPoolEntry tx_highFee_entry(tx_highFee, /*fee*/CAmount(100), /*time*/ 1000, /*priority*/1.0, /*height*/dummyHeight);
-    ASSERT_TRUE(mempool.addUnchecked(tx_highFee.GetHash(), tx_highFee_entry));
+    ASSERT_TRUE(mempool->addUnchecked(tx_highFee.GetHash(), tx_highFee_entry));
 
     CMutableTransaction tx_highPriority;
     tx_highPriority.vin.push_back(CTxIn(inputCoinHash_2, 0, dummyScript));
     tx_highPriority.addOut(dummyOut);
     CTxMemPoolEntry tx_highPriority_entry(tx_highPriority, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/100.0, /*height*/dummyHeight);
-    ASSERT_TRUE(mempool.addUnchecked(tx_highPriority.GetHash(), tx_highPriority_entry));
+    ASSERT_TRUE(mempool->addUnchecked(tx_highPriority.GetHash(), tx_highPriority_entry));
 
     //test
     GetBlockTxPriorityData(*blockchainView, dummyHeight, dummyLockTimeCutoff, vecPriority, orphanList, mapDependers);
@@ -729,7 +730,7 @@ TEST_F(SidechainsBlockFormationTestSuite, SingleTxes_MempoolOrdering)
 
 TEST_F(SidechainsBlockFormationTestSuite, DifferentScIdCerts_FeesAndPriorityOnlyContributeToMempoolOrdering)
 {
-    LOCK(mempool.cs); //needed when compiled with --enable-debug, which activates ASSERT_HELD
+    LOCK(mempool->cs); //needed when compiled with --enable-debug, which activates ASSERT_HELD
     uint256 inputCoinHash_1 = txCreationUtils::CreateSpendableCoinAtHeight(*blockchainView, dummyHeight);
     uint256 inputCoinHash_2 = txCreationUtils::CreateSpendableCoinAtHeight(*blockchainView, dummyHeight-1);
 
@@ -738,14 +739,14 @@ TEST_F(SidechainsBlockFormationTestSuite, DifferentScIdCerts_FeesAndPriorityOnly
     cert_highFee.vin.push_back(CTxIn(inputCoinHash_1, 0, dummyScript));
     cert_highFee.addOut(dummyOut);
     CCertificateMemPoolEntry cert_highFee_entry(cert_highFee, /*fee*/CAmount(100), /*time*/ 1000, /*priority*/1.0, /*height*/dummyHeight);
-    ASSERT_TRUE(mempool.addUnchecked(cert_highFee.GetHash(), cert_highFee_entry));
+    ASSERT_TRUE(mempool->addUnchecked(cert_highFee.GetHash(), cert_highFee_entry));
 
     CMutableScCertificate cert_highPriority;
     cert_highPriority.scId = uint256S("bbb");
     cert_highPriority.vin.push_back(CTxIn(inputCoinHash_2, 0, dummyScript));
     cert_highPriority.addOut(dummyOut);
     CCertificateMemPoolEntry cert_highPriority_entry(cert_highPriority, /*fee*/CAmount(1),   /*time*/ 1000, /*priority*/100.0, /*height*/dummyHeight);
-    ASSERT_TRUE(mempool.addUnchecked(cert_highPriority.GetHash(), cert_highPriority_entry));
+    ASSERT_TRUE(mempool->addUnchecked(cert_highPriority.GetHash(), cert_highPriority_entry));
 
     //test
     GetBlockCertPriorityData(*blockchainView, dummyHeight, vecPriority, orphanList, mapDependers);
@@ -767,7 +768,7 @@ TEST_F(SidechainsBlockFormationTestSuite, DifferentScIdCerts_FeesAndPriorityOnly
 
 TEST_F(SidechainsBlockFormationTestSuite, SameScIdCerts_HighwQualityCertsSpedingLowQualityOnesAreAccepted)
 {
-    LOCK(mempool.cs); //needed when compiled with --enable-debug, which activates ASSERT_HELD
+    LOCK(mempool->cs); //needed when compiled with --enable-debug, which activates ASSERT_HELD
     uint256 inputCoinHash_1 = txCreationUtils::CreateSpendableCoinAtHeight(*blockchainView, dummyHeight);
 
     CMutableScCertificate cert_lowQuality;
@@ -776,7 +777,7 @@ TEST_F(SidechainsBlockFormationTestSuite, SameScIdCerts_HighwQualityCertsSpeding
     cert_lowQuality.vin.push_back(CTxIn(inputCoinHash_1, 0, dummyScript));
     cert_lowQuality.addOut(dummyOut);
     CCertificateMemPoolEntry cert_lowQuality_entry(cert_lowQuality, /*fee*/CAmount(1),   /*time*/ 1000, /*priority*/1.0, /*height*/dummyHeight);
-    ASSERT_TRUE(mempool.addUnchecked(cert_lowQuality.GetHash(), cert_lowQuality_entry));
+    ASSERT_TRUE(mempool->addUnchecked(cert_lowQuality.GetHash(), cert_lowQuality_entry));
 
     CMutableScCertificate cert_highQuality;
     cert_highQuality.scId = cert_lowQuality.scId;
@@ -784,7 +785,7 @@ TEST_F(SidechainsBlockFormationTestSuite, SameScIdCerts_HighwQualityCertsSpeding
     cert_highQuality.vin.push_back(CTxIn(cert_lowQuality.GetHash(), 0, dummyScript));
     cert_highQuality.addOut(dummyOut);
     CCertificateMemPoolEntry cert_highQuality_entry(cert_highQuality, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/dummyHeight);
-    ASSERT_TRUE(mempool.addUnchecked(cert_highQuality.GetHash(), cert_highQuality_entry));
+    ASSERT_TRUE(mempool->addUnchecked(cert_highQuality.GetHash(), cert_highQuality_entry));
 
     //test
     GetBlockCertPriorityData(*blockchainView, dummyHeight, vecPriority, orphanList, mapDependers);
@@ -798,7 +799,7 @@ TEST_F(SidechainsBlockFormationTestSuite, SameScIdCerts_HighwQualityCertsSpeding
 
 TEST_F(SidechainsBlockFormationTestSuite, SameScIdCerts_LowQualityCertsSpedingHighQualityOnesAreRejected)
 {
-    LOCK(mempool.cs); //needed when compiled with --enable-debug, which activates ASSERT_HELD
+    LOCK(mempool->cs); //needed when compiled with --enable-debug, which activates ASSERT_HELD
     uint256 inputCoinHash_1 = txCreationUtils::CreateSpendableCoinAtHeight(*blockchainView, dummyHeight);
 
     CMutableScCertificate cert_highQuality;
@@ -807,7 +808,7 @@ TEST_F(SidechainsBlockFormationTestSuite, SameScIdCerts_LowQualityCertsSpedingHi
     cert_highQuality.vin.push_back(CTxIn(inputCoinHash_1, 0, dummyScript));
     cert_highQuality.addOut(dummyOut);
     CCertificateMemPoolEntry cert_highQuality_entry(cert_highQuality, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/dummyHeight);
-    ASSERT_TRUE(mempool.addUnchecked(cert_highQuality.GetHash(), cert_highQuality_entry));
+    ASSERT_TRUE(mempool->addUnchecked(cert_highQuality.GetHash(), cert_highQuality_entry));
 
     CMutableScCertificate cert_lowQuality;
     cert_lowQuality.scId = cert_highQuality.scId;
@@ -815,7 +816,7 @@ TEST_F(SidechainsBlockFormationTestSuite, SameScIdCerts_LowQualityCertsSpedingHi
     cert_lowQuality.vin.push_back(CTxIn(cert_highQuality.GetHash(), 0, dummyScript));
     cert_lowQuality.addOut(dummyOut);
     CCertificateMemPoolEntry cert_lowQuality_entry(cert_lowQuality, /*fee*/CAmount(1),   /*time*/ 1000, /*priority*/1.0, /*height*/dummyHeight);
-    ASSERT_TRUE(mempool.addUnchecked(cert_lowQuality.GetHash(), cert_lowQuality_entry));
+    ASSERT_TRUE(mempool->addUnchecked(cert_lowQuality.GetHash(), cert_lowQuality_entry));
 
     //test
     GetBlockCertPriorityData(*blockchainView, dummyHeight, vecPriority, orphanList, mapDependers);
@@ -835,7 +836,7 @@ TEST_F(SidechainsBlockFormationTestSuite, Unconfirmed_Mbtr_scCreation_DulyOrdere
     CTransaction scCreation(mutScCreation);
     const uint256& scId = scCreation.GetScIdFromScCcOut(0);
     CTxMemPoolEntry scCreation_entry(scCreation, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/dummyHeight);
-    ASSERT_TRUE(mempool.addUnchecked(scCreation.GetHash(), scCreation_entry));
+    ASSERT_TRUE(mempool->addUnchecked(scCreation.GetHash(), scCreation_entry));
 
     CMutableTransaction mbtrTx;
     CBwtRequestOut mcBwtReq;
@@ -843,7 +844,7 @@ TEST_F(SidechainsBlockFormationTestSuite, Unconfirmed_Mbtr_scCreation_DulyOrdere
     mbtrTx.nVersion = SC_TX_VERSION;
     mbtrTx.vmbtr_out.push_back(mcBwtReq);
     CTxMemPoolEntry mbtr_entry(mbtrTx, /*fee*/CAmount(1000),   /*time*/ 1000, /*priority*/1000.0, /*height*/dummyHeight);
-    ASSERT_TRUE(mempool.addUnchecked(mbtrTx.GetHash(), mbtr_entry, /*fCurrentEstimate*/true));
+    ASSERT_TRUE(mempool->addUnchecked(mbtrTx.GetHash(), mbtr_entry, /*fCurrentEstimate*/true));
 
     //test
     int64_t dummyLockTimeCutoff{0};

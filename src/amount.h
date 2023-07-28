@@ -10,6 +10,7 @@
 
 #include <stdlib.h>
 #include <string>
+#include <limits>
 
 typedef int64_t CAmount;
 
@@ -35,7 +36,7 @@ inline bool MoneyRange(const CAmount& nValue) { return (nValue >= 0 && nValue <=
  */
 class CFeeRate
 {
-private:
+protected:
     CAmount nSatoshisPerK; // unit is satoshis-per-1,000-bytes
 public:
     CFeeRate() : nSatoshisPerK(0) { }
@@ -59,6 +60,32 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(nSatoshisPerK);
     }
+};
+
+/* An extension of CFeeRate that stores raw data, in addition to the aggregated
+ * nSatoshisPerK info.
+ * */
+class CRawFeeRate : public CFeeRate
+{
+private:
+    CAmount fee   = 0;
+    size_t  bytes = 0;
+
+    void SetSatoshisPerK();
+
+public:
+    static constexpr CAmount MAX_FEE = std::numeric_limits<CAmount>::max();
+
+    CRawFeeRate() : fee(0), bytes(0) {
+        nSatoshisPerK = 0;
+    }
+
+    CRawFeeRate(CAmount fee, size_t bytes) : fee(fee), bytes(bytes) {
+        SetSatoshisPerK();
+    }
+    void operator+=(const CRawFeeRate& rhs);
+    size_t GetBytes() const { return bytes; }
+    bool isMax() const { return fee == MAX_FEE && bytes == 1; }
 };
 
 #endif //  BITCOIN_AMOUNT_H

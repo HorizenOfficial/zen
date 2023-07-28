@@ -124,7 +124,8 @@ public:
     uint64_t GetCheapHash() const
     {
         uint64_t result;
-        memcpy((void*)&result, (void*)data, 8);
+        static_assert(WIDTH >= sizeof(result));
+        memcpy((void*)&result, (void*)data, sizeof(result));
         return result;
     }
 
@@ -132,6 +133,12 @@ public:
      * @note This hash is not stable between little and big endian.
      */
     uint64_t GetHash(const uint256& salt) const;
+};
+
+template<> struct std::hash<uint256> {
+    size_t operator()(uint256 const& in) const noexcept {
+        return in.GetCheapHash();
+    }
 };
 
 /* uint256 from const char *.

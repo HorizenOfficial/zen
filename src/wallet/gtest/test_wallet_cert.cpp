@@ -375,7 +375,7 @@ TEST_F(SidechainsCertInWalletTestSuite, IsOutputMature_TransparentTx_InMemoryPoo
     chainSettingUtils::ExtendChainActiveToHeight(txCreationHeight);
 
     CTxMemPoolEntry mempoolEntry(transparentTx, /*fee*/CAmount(0), int64_t(0), double(0.0), int(0), false);
-    mempool.addUnchecked(transparentTx.GetHash(), mempoolEntry , /*fCurrentEstimate*/false);
+    mempool->addUnchecked(transparentTx.GetHash(), mempoolEntry , /*fCurrentEstimate*/false);
 
     CWalletTx walletTx(pWallet, transparentTx);
     walletTx.hashBlock.SetNull();
@@ -401,7 +401,7 @@ TEST_F(SidechainsCertInWalletTestSuite, IsOutputMature_Certificate_InMemoryPool)
     chainSettingUtils::ExtendChainActiveToHeight(txCreationHeight);
 
     CCertificateMemPoolEntry mempoolEntry(cert, /*fee*/CAmount(0), int64_t(0), double(0.0), int(0));
-    mempool.addUnchecked(cert.GetHash(), mempoolEntry , /*fCurrentEstimate*/false);
+    mempool->addUnchecked(cert.GetHash(), mempoolEntry , /*fCurrentEstimate*/false);
 
     CWalletCert walletCert(pWallet, cert);
     walletCert.hashBlock.SetNull();
