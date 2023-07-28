@@ -700,6 +700,7 @@ bool CNode::ReceiveMsgBytes(const char *pch, unsigned int nBytes)
 
         if (msg.complete()) {
             msg.nTime = GetTimeMicros();
+            AccountForRecvBytes(msg.hdr.pchCommand, msg.hdr.nMessageSize + CMessageHeader::HEADER_SIZE);
             messageHandlerCondition.notify_one();
         }
     }
@@ -2356,6 +2357,11 @@ CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNa
     else
         LogPrint("net", "Added connection peer=%d\n", id);
 
+    for (size_t i = 0; i < allNetMessageTypesSize; i++) {
+        mapSendBytesPerMsgType.insert({allNetMessageTypes[i], {0, 0}});
+        mapRecvBytesPerMsgType.insert({allNetMessageTypes[i], {0, 0}});
+    }
+
     // Be shy and don't send version until we hear
     if (hSocket != INVALID_SOCKET && !fInbound)
         PushVersion();
@@ -2487,7 +2493,7 @@ void CNode::AbortMessage() UNLOCK_FUNCTION(cs_vSend)
     LogPrint("net", "(aborted)\n");
 }
 
-void CNode::EndMessage() UNLOCK_FUNCTION(cs_vSend)
+void CNode::EndMessage(const char* pszCommand) UNLOCK_FUNCTION(cs_vSend)
 {
     // The -*messagestest options are intentionally not documented in the help message,
     // since they are only used during development to debug the networking code and are
@@ -2527,5 +2533,10 @@ void CNode::EndMessage() UNLOCK_FUNCTION(cs_vSend)
     if (it == vSendMsg.begin())
         connman->SocketSendData(this);
 
+    // Only now save stats on sent bytes
+    AccountForSentBytes(pszCommand, nSize + CMessageHeader::HEADER_SIZE);
+
     LEAVE_CRITICAL_SECTION(cs_vSend);
+
+    return;
 }
