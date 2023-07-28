@@ -645,6 +645,10 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
         TxPriorityCompare comparer(fSortedByFee);
         std::make_heap(vecPriority.begin(), vecPriority.end(), comparer);
 
+        // Map [SidechainID, TopQuality]
+        // Used to keep track of the top quality seen so far for any Sidechain ID
+        std::unordered_map<uint256, int64_t> topQualityCertMap;
+
         // considering certs having a higher priority than any possible tx.
         // An algorithm for managing tx/cert priorities could be devised
         while (!vecPriority.empty())
@@ -656,6 +660,25 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 
             std::pop_heap(vecPriority.begin(), vecPriority.end(), comparer);
             vecPriority.pop_back();
+
+            // Check consistency in certificates ordering
+            if (tx.IsCertificate()) {
+                const CScCertificate& currentCertificate = dynamic_cast<const CScCertificate&>(tx);
+
+                if (auto it = topQualityCertMap.find(currentCertificate.GetScId()); it != topQualityCertMap.end()) {
+                    int64_t& topQuality = it->second;
+                    
+                    if (topQuality >= currentCertificate.quality) {
+                        // Certificate is out of order, discard
+                        continue;
+                    }
+
+                    topQuality = currentCertificate.quality; 
+
+                } else {
+                    topQualityCertMap.insert({currentCertificate.GetScId(), currentCertificate.quality});
+                }
+            }
 
             // Size limits
             unsigned int nTxBaseSize = tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
