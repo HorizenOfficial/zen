@@ -181,6 +181,8 @@ extern bool fRegtestAllowDustOutput;
 extern size_t nCoinCacheUsage;
 extern CFeeRate minRelayTxFee;
 
+extern std::unique_ptr<CConnman> connman;
+
 /** Comparison function for sorting the getchaintips heads.  */
 struct CompareBlocksByHeight
 {

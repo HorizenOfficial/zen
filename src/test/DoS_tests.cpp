@@ -33,6 +33,8 @@ extern unsigned int LimitOrphanTxSize(unsigned int nMaxOrphans);
 extern std::map<uint256, COrphanTx> mapOrphanTransactions;
 extern std::map<uint256, std::set<uint256> > mapOrphanTransactionsByPrev;
 
+extern std::unique_ptr<CConnman> connman;
+
 CService ip(uint32_t i)
 {
     struct in_addr s;
@@ -44,6 +46,7 @@ BOOST_FIXTURE_TEST_SUITE(DoS_tests, TestingSetup)
 
 BOOST_AUTO_TEST_CASE(DoS_banning)
 {
+    connman.reset(new CConnman());
     CNode::ClearBanned();
     CAddress addr1(ip(0xa0b0c001));
     CNode dummyNode1(INVALID_SOCKET, addr1, "", true);
@@ -67,6 +70,7 @@ BOOST_AUTO_TEST_CASE(DoS_banning)
 
 BOOST_AUTO_TEST_CASE(DoS_banscore)
 {
+    connman.reset(new CConnman());
     CNode::ClearBanned();
     mapArgs["-banscore"] = "111"; // because 11 is my favorite number
     CAddress addr1(ip(0xa0b0c001));
@@ -86,6 +90,7 @@ BOOST_AUTO_TEST_CASE(DoS_banscore)
 
 BOOST_AUTO_TEST_CASE(DoS_bantime)
 {
+    connman.reset(new CConnman());
     CNode::ClearBanned();
     int64_t nStartTime = GetTime();
     SetMockTime(nStartTime); // Overrides future calls to GetTime()

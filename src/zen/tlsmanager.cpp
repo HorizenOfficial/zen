@@ -12,6 +12,8 @@
 #include "tlsmanager.h"
 #include "utiltls.h"
 
+extern std::unique_ptr<CConnman> connman;
+
 using namespace std;
 namespace zen
 {
@@ -673,7 +675,7 @@ int TLSManager::threadSocketHandler(CNode* pnode, fd_set& fdsetRecv, fd_set& fds
                         pnode->CloseSocketDisconnect();
                     pnode->nLastRecv = GetTime();
                     pnode->nRecvBytes += nBytes;
-                    pnode->RecordBytesRecv(nBytes);
+                    connman->RecordBytesRecv(nBytes);
                 } else if (nBytes == 0) {
 
                     if (bIsSSL) {
@@ -727,7 +729,7 @@ int TLSManager::threadSocketHandler(CNode* pnode, fd_set& fdsetRecv, fd_set& fds
     if (sendSet) {
         TRY_LOCK(pnode->cs_vSend, lockSend);
         if (lockSend)
-            SocketSendData(pnode);
+            connman->SocketSendData(pnode);
     }
     return 0;
 }

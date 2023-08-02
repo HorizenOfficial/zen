@@ -96,14 +96,6 @@ static AMQPNotificationInterface* pAMQPNotificationInterface = NULL;
 #define MIN_CORE_FILEDESCRIPTORS 825
 #endif
 
-/** Used to pass flags to the Bind() function */
-enum BindFlags {
-    BF_NONE         = 0,
-    BF_EXPLICIT     = (1U << 0),
-    BF_REPORT_ERROR = (1U << 1),
-    BF_WHITELIST    = (1U << 2),
-};
-
 static const char* FEE_ESTIMATES_FILENAME="fee_estimates.dat";
 CClientUIInterface uiInterface; // Declared but not defined in ui_interface.h
 
@@ -209,7 +201,7 @@ void Shutdown()
     GenerateBitcoins(false, 0);
  #endif
 #endif
-    StopNode();
+    connman->StopNode();
     StopTorControl();
     UnregisterNodeSignals(GetNodeSignals());
 
@@ -275,7 +267,8 @@ void Shutdown()
     pzcashParams = NULL;
     globalVerifyHandle.reset();
     ECC_Stop();
-    CNode::NetCleanup();
+    connman->NetCleanup();
+    connman.reset();
     LogPrintf("%s: done\n", __func__);
 }
 
@@ -292,7 +285,7 @@ void HandleSIGHUP(int)
     fReopenDebugLog = true;
 }
 
-bool static InitError(const std::string &str)
+bool InitError(const std::string &str)
 {
     uiInterface.ThreadSafeMessageBox(str, "", CClientUIInterface::MSG_ERROR);
     return false;
@@ -301,18 +294,6 @@ bool static InitError(const std::string &str)
 bool static InitWarning(const std::string &str)
 {
     uiInterface.ThreadSafeMessageBox(str, "", CClientUIInterface::MSG_WARNING);
-    return true;
-}
-
-bool static Bind(const CService &addr, unsigned int flags) {
-    if (!(flags & BF_EXPLICIT) && IsLimited(addr))
-        return false;
-    std::string strError;
-    if (!BindListenPort(addr, strError, (flags & BF_WHITELIST) != 0)) {
-        if (flags & BF_REPORT_ERROR)
-            return InitError(strError);
-        return false;
-    }
     return true;
 }
 
@@ -871,6 +852,14 @@ bool AppInitServers()
     return true;
 }
 
+// Variables internal to initialization process only
+namespace {
+    uint64_t nLocalServices = NODE_NETWORK;
+    int nMaxConnections = DEFAULT_MAX_PEER_CONNECTIONS;
+    unsigned int nSendBufferMaxSize;
+    unsigned int nReceiveFloodSize;
+} // namespace
+
 /** Initialize bitcoin.
  *  @pre Parameters should be parsed and config file should be read.
  */
@@ -1361,6 +1350,10 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     RegisterNodeSignals(GetNodeSignals());
 
+    assert(!connman);
+    connman = std::make_unique<CConnman>();
+    CConnman::Options connOptions;
+
     if (mapArgs.count("-onlynet")) {
         std::set<enum Network> nets;
         BOOST_FOREACH(const std::string& snet, mapMultiArgs["-onlynet"]) {
@@ -1377,11 +1370,12 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     }
 
     if (mapArgs.count("-whitelist")) {
+        LOCK(connman->cs_vWhitelistedRange);
         BOOST_FOREACH(const std::string& net, mapMultiArgs["-whitelist"]) {
             CSubNet subnet(net);
             if (!subnet.IsValid())
                 return InitError(strprintf(_("Invalid netmask specified in -whitelist: '%s'"), net));
-            CNode::AddWhitelistedRange(subnet);
+            connOptions.vWhitelistedRange.push_back(subnet);
         }
     }
 
@@ -1430,7 +1424,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 CService addrBind;
                 if (!Lookup(strBind.c_str(), addrBind, GetListenPort(), false))
                     return InitError(strprintf(_("Cannot resolve -bind address: '%s'"), strBind));
-                fBound |= Bind(addrBind, (BF_EXPLICIT | BF_REPORT_ERROR));
+                fBound |= connman->Bind(addrBind, (BF_EXPLICIT | BF_REPORT_ERROR));
             }
             BOOST_FOREACH(const std::string& strBind, mapMultiArgs["-whitebind"]) {
                 CService addrBind;
@@ -1438,14 +1432,14 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                     return InitError(strprintf(_("Cannot resolve -whitebind address: '%s'"), strBind));
                 if (addrBind.GetPort() == 0)
                     return InitError(strprintf(_("Need to specify a port with -whitebind: '%s'"), strBind));
-                fBound |= Bind(addrBind, (BF_EXPLICIT | BF_REPORT_ERROR | BF_WHITELIST));
+                fBound |= connman->Bind(addrBind, (BF_EXPLICIT | BF_REPORT_ERROR | BF_WHITELIST));
             }
         }
         else {
             struct in_addr inaddr_any;
             inaddr_any.s_addr = INADDR_ANY;
-            fBound |= Bind(CService(in6addr_any, GetListenPort()), BF_NONE);
-            fBound |= Bind(CService(inaddr_any, GetListenPort()), !fBound ? BF_REPORT_ERROR : BF_NONE);
+            fBound |= connman->Bind(CService(in6addr_any, GetListenPort()), BF_NONE);
+            fBound |= connman->Bind(CService(inaddr_any, GetListenPort()), !fBound ? BF_REPORT_ERROR : BF_NONE);
         }
         if (!fBound)
             return InitError(_("Failed to listen on any port. Use -listen=0 if you want this."));
@@ -1461,7 +1455,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     }
 
     BOOST_FOREACH(const std::string& strDest, mapMultiArgs["-seednode"])
-        AddOneShot(strDest);
+        connman->AddOneShot(strDest);
 
     if (mapArgs.count("-tlskeypath")) {
         boost::filesystem::path pathTLSKey(GetArg("-tlskeypath", ""));
@@ -1980,7 +1974,12 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     if (GetBoolArg("-listenonion", DEFAULT_LISTEN_ONION))
         StartTorControl(threadGroup, scheduler);
 
-    StartNode(threadGroup, scheduler);
+    connOptions.nLocalServices      = nLocalServices;
+    connOptions.nMaxConnections     = nMaxConnections;
+    connOptions.nSendBufferMaxSize  = 1000*GetArg("-maxsendbuffer", 1*1000);
+    connOptions.nReceiveFloodSize   = 1000*GetArg("-maxreceivebuffer", 5*1000);
+
+    connman->StartNode(threadGroup, scheduler, connOptions);
 
     // Monitor the chain, and alert if we get blocks much quicker or slower than expected
     int64_t nPowTargetSpacing = Params().GetConsensus().nPowTargetSpacing;

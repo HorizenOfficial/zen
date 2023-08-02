@@ -1076,8 +1076,8 @@ void static BitcoinMiner()
                 do {
                     bool fvNodesEmpty;
                     {
-                        LOCK(cs_vNodes);
-                        fvNodesEmpty = vNodes.empty();
+                        LOCK(connman->cs_vNodes);
+                        fvNodesEmpty = connman->vNodes.empty();
                     }
                     if (!fvNodesEmpty && !IsInitialBlockDownload())
                         break;
@@ -1238,7 +1238,7 @@ void static BitcoinMiner()
                 // Check for stop or if block needs to be rebuilt
                 boost::this_thread::interruption_point();
                 // Regtest mode doesn't require peers
-                if (vNodes.empty() && chainparams.MiningRequiresPeers())
+                if (connman->vNodes.empty() && chainparams.MiningRequiresPeers())
                     break;
                 if ((UintToArith256(pblock->nNonce) & 0xffff) == 0xffff)
                     break;

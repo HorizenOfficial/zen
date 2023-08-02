@@ -78,22 +78,11 @@ static const size_t MAPRECEIVED_MAX_SZ = 8 * 120 * 100;
 /** The maximum number of peer connections to maintain. */
 static const unsigned int DEFAULT_MAX_PEER_CONNECTIONS = 125;
 
-unsigned int ReceiveFloodSize();
-unsigned int SendBufferSize();
+static const int MAX_OUTBOUND_CONNECTIONS = 8;
 
-void AddOneShot(const std::string& strDest);
 void AddressCurrentlyConnected(const CService& addr);
-CNode* FindNode(const CNetAddr& ip);
-CNode* FindNode(const CSubNet& subNet);
-CNode* FindNode(const std::string& addrName);
-CNode* FindNode(const CService& ip);
-CNode* ConnectNode(CAddress addrConnect, const char *pszDest = NULL);
-bool OpenNetworkConnection(const CAddress& addrConnect, CSemaphoreGrant *grantOutbound = NULL, const char *strDest = NULL, bool fOneShot = false);
 unsigned short GetListenPort();
-bool BindListenPort(const CService &bindAddr, std::string& strError, bool fWhitelisted = false);
-void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler);
-bool StopNode();
-void SocketSendData(CNode *pnode);
+
 SSL_CTX* create_context(bool server_side);
 EVP_PKEY *generate_key();
 X509 *generate_x509(EVP_PKEY *pkey);
@@ -166,25 +155,13 @@ CAddress GetLocalAddress(const CNetAddr *paddrPeer = NULL);
 
 extern bool fDiscover;
 extern bool fListen;
-extern uint64_t nLocalServices;
 extern uint64_t nLocalHostNonce;
 extern CAddrMan addrman;
 /** Maximum number of connections to simultaneously allow (aka connection slots) */
-extern int nMaxConnections;
 
-extern std::vector<CNode*> vNodes;
-extern CCriticalSection cs_vNodes;
 extern std::map<CInv, CDataStream> mapRelay;
 extern std::deque<std::pair<int64_t, CInv> > vRelayExpiration;
 extern CCriticalSection cs_mapRelay;
-extern LimitedMap<CInv, int64_t> mapAlreadyAskedFor;
-extern LimitedMap<CInv, int64_t> mapAlreadyReceived;
-
-extern std::vector<std::string> vAddedNodes;
-extern CCriticalSection cs_vAddedNodes;
-
-extern NodeId nLastNodeId;
-extern CCriticalSection cs_nLastNodeId;
 
 extern SSL_CTX *tls_ctx_server;
 extern SSL_CTX *tls_ctx_client;
@@ -193,7 +170,6 @@ struct LocalServiceInfo {
     int nScore;
     int nPort;
 };
-
 
 extern CCriticalSection cs_mapLocalHost;
 extern std::map<CNetAddr, LocalServiceInfo> mapLocalHost;
@@ -342,11 +318,6 @@ protected:
     static std::map<CSubNet, int64_t> setBanned;
     static CCriticalSection cs_setBanned;
 
-    // Whitelisted ranges. Any node connecting from these is automatically
-    // whitelisted (as well as those connecting to whitelisted binds).
-    static std::vector<CSubNet> vWhitelistedRange;
-    static CCriticalSection cs_vWhitelistedRange;
-
     // Basic fuzz-testing
     void Fuzz(int nChance); // modifies ssSend
 
@@ -391,11 +362,6 @@ public:
     ~CNode();
 
 private:
-    // Network usage totals
-    static CCriticalSection cs_totalBytesRecv;
-    static CCriticalSection cs_totalBytesSent;
-    static uint64_t nTotalBytesRecv;
-    static uint64_t nTotalBytesSent;
 
     CNode(const CNode&);
     void operator=(const CNode&);
@@ -687,19 +653,6 @@ public:
 
     void copyStats(CNodeStats &stats);
 
-    static bool IsWhitelistedRange(const CNetAddr &ip);
-    static void AddWhitelistedRange(const CSubNet &subnet);
-
-    // Network stats
-    static void RecordBytesRecv(uint64_t bytes);
-    static void RecordBytesSent(uint64_t bytes);
-
-    static uint64_t GetTotalBytesRecv();
-    static uint64_t GetTotalBytesSent();
-
-    // resource deallocation on cleanup, called at node shutdown
-    static void NetCleanup();
-
     // returns the value of the tlsfallbacknontls and tlsvalidate flags set at zend startup (see init.cpp)
     static bool GetTlsFallbackNonTls();
     static bool GetTlsValidate();
@@ -722,6 +675,160 @@ public:
     CAddrDB();
     bool Write(const CAddrMan& addr);
     bool Read(CAddrMan& addr);
+};
+
+//// This definition can be moved into CConnman after boost::thread refactoring
+struct ListenSocket {
+    SOCKET socket;
+    bool whitelisted;
+
+    ListenSocket(SOCKET socket, bool whitelisted) : socket(socket), whitelisted(whitelisted) {}
+};
+
+/** Used to pass flags to the Bind() function */
+enum BindFlags {
+    BF_NONE         = 0,
+    BF_EXPLICIT     = (1U << 0),
+    BF_REPORT_ERROR = (1U << 1),
+    BF_WHITELIST    = (1U << 2),
+};
+
+namespace zen {
+typedef struct _NODE_ADDR {
+    std::string ipAddr;
+    int64_t time; // time in msec, of an attempt to connect via TLS
+
+    _NODE_ADDR(std::string _ipAddr, int64_t _time = 0) : ipAddr(_ipAddr), time(_time) {}
+    bool operator==(const _NODE_ADDR b) const
+    {
+        return (ipAddr == b.ipAddr);
+    }
+} NODE_ADDR, *PNODE_ADDR;
+}
+
+class CConnman {
+public:
+    struct Options
+    {
+        uint64_t nLocalServices = 0;
+        int nMaxConnections = 0;
+        unsigned int nSendBufferMaxSize = 0;
+        unsigned int nReceiveFloodSize = 0;
+        
+        std::vector<CSubNet> vWhitelistedRange;
+    };
+
+    void Init(const Options& connOptions)
+    {
+        nLocalServices = connOptions.nLocalServices;
+        nMaxConnections = connOptions.nMaxConnections;
+        nSendBufferMaxSize = connOptions.nSendBufferMaxSize;
+        nReceiveFloodSize = connOptions.nReceiveFloodSize;
+        {
+            LOCK(cs_vWhitelistedRange);
+            vWhitelistedRange = connOptions.vWhitelistedRange;
+        }
+    }
+
+    void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler , const Options& connOptions);
+    bool StopNode();
+    void Stop();
+    void NetCleanup();
+    void Interrupt();
+
+    bool Bind(const CService &addr, unsigned int flags);
+    bool BindListenPort(const CService &bindAddr, std::string& strError, bool fWhitelisted = false);
+
+    void AddOneShot(const std::string& strDest);
+    void ProcessOneShot();
+
+    bool OpenNetworkConnection(const CAddress& addrConnect, CSemaphoreGrant *grantOutbound = NULL, const char *strDest = NULL, bool fOneShot = false);
+    void AcceptConnection(const ListenSocket& hListenSocket);
+    CNode* FindNode(const CNetAddr& ip);
+    CNode* FindNode(const CSubNet& subNet);
+    CNode* FindNode(const std::string& addrName);
+    CNode* FindNode(const CService& ip);
+    CNode* ConnectNode(CAddress addrConnect, const char *pszDest = NULL);
+    bool IsWhitelistedRange(const CNetAddr &ip);
+    bool AttemptToEvictConnection(bool fPreferNewConnection);
+
+    void SocketSendData(CNode *pnode);
+
+    CConnman();
+    ~CConnman();
+
+    std::vector<CNode*> vNodes;
+    CCriticalSection cs_vNodes;
+    std::vector<std::string> vAddedNodes;
+    CCriticalSection cs_vAddedNodes;
+    std::list<CNode*> vNodesDisconnected;
+    std::vector<ListenSocket> vhListenSocket;
+    std::unique_ptr<CSemaphore> semOutbound = nullptr;
+
+    std::atomic<NodeId> nLastNodeId{0};
+    NodeId GetNewNodeId();
+
+    std::vector<zen::NODE_ADDR> vNonTLSNodesInbound;
+    CCriticalSection cs_vNonTLSNodesInbound;
+    std::vector<zen::NODE_ADDR> vNonTLSNodesOutbound;
+    CCriticalSection cs_vNonTLSNodesOutbound;
+
+    std::deque<std::string> vOneShots;
+    CCriticalSection cs_vOneShots;
+
+    // Whitelisted ranges. Any node connecting from these is automatically
+    // whitelisted (as well as those connecting to whitelisted binds).
+    std::vector<CSubNet> vWhitelistedRange;
+    CCriticalSection cs_vWhitelistedRange;
+
+    LimitedMap<CInv, int64_t> mapAlreadyAskedFor{MAX_INV_SZ};
+    LimitedMap<CInv, int64_t> mapAlreadyReceived{MAPRECEIVED_MAX_SZ};
+
+    // Network stats
+    void RecordBytesRecv(uint64_t bytes);
+    void RecordBytesSent(uint64_t bytes);
+    uint64_t GetTotalBytesRecv();
+    uint64_t GetTotalBytesSent();
+    unsigned int GetReceiveFloodSize();
+    unsigned int GetSendBufferSize();
+
+    // Used to convey which local services we are offering peers during node
+    // connection.
+    //
+    // The data returned by this is used in CNode construction,
+    // which is used to advertise which services we are offering
+    // that peer during `net_processing.cpp:PushNodeVersion()`.
+    uint64_t GetLocalServices() const;
+
+private:
+    std::atomic<uint64_t> nTotalBytesRecv = 0;
+    std::atomic<uint64_t> nTotalBytesSent = 0;
+
+    bool fAddressesInitialized {false};
+    std::unique_ptr<CNode> pnodeLocalHost = nullptr;
+
+    uint64_t nLocalServices;
+    int nMaxConnections;
+    unsigned int nSendBufferMaxSize;
+    unsigned int nReceiveFloodSize;
+
+    // // To be moved here in the next PR, when we will get rid of boost::thread!
+    //
+    // CThreadInterrupt interruptNet;
+    //
+    // std::thread threadDNSAddressSeed;
+    // std::thread threadSocketHandler;
+    // std::thread threadOpenAddedConnections;
+    // std::thread threadOpenConnections;
+    // std::thread threadMessageHandler;
+    // std::thread threadNonTLSPoolsCleaner;
+    // void ThreadOpenConnections();
+    // void ThreadOpenAddedConnections();
+    // void ThreadNonTLSPoolsCleaner();
+    // void ThreadSocketHandler();
+    // void ThreadDNSAddressSeed();
+    // void void ThreadMessageHandler();
+
 };
 
 #endif // BITCOIN_NET_H

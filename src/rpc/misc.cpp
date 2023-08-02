@@ -93,7 +93,7 @@ UniValue getinfo(const UniValue& params, bool fHelp)
 #endif
     obj.pushKV("blocks",        (int)chainActive.Height());
     obj.pushKV("timeoffset",    0);
-    obj.pushKV("connections",   (int)vNodes.size());
+    obj.pushKV("connections",   (int)(connman->vNodes.size()));
     obj.pushKV("proxy",         (proxy.IsValid() ? proxy.proxy.ToStringIPPort() : string()));
     obj.pushKV("difficulty",    (double)GetDifficulty());
     obj.pushKV("testnet",       Params().TestnetToBeDeprecatedFieldRPC());
@@ -472,13 +472,13 @@ UniValue setmocktime(const UniValue& params, bool fHelp)
     // atomically with the time change to prevent peers from being
     // disconnected because we think we haven't communicated with them
     // in a long time.
-    LOCK2(cs_main, cs_vNodes);
+    LOCK2(cs_main, connman->cs_vNodes);
 
     RPCTypeCheck(params, boost::assign::list_of(UniValue::VNUM));
     SetMockTime(params[0].get_int64());
 
     uint64_t t = GetTime();
-    BOOST_FOREACH(CNode* pnode, vNodes) {
+    BOOST_FOREACH(CNode* pnode, connman->vNodes) {
         pnode->nLastSend = pnode->nLastRecv = t;
     }
 

@@ -100,10 +100,14 @@ bool fIsStartupSyncing = true;
 size_t nCoinCacheUsage = 5000 * 300;
 uint64_t nPruneTarget = 0;
 
+
+
 /** Fees smaller than this (in satoshi) are considered zero fee (for relaying and mining) */
 CFeeRate minRelayTxFee = CFeeRate(DEFAULT_MIN_RELAY_TX_FEE);
 
 std::unique_ptr<CTxMemPool> mempool;
+
+std::unique_ptr<CConnman> connman;
 
 map<uint256, COrphanTx> mapOrphanTransactions GUARDED_BY(cs_main);;
 map<uint256, set<uint256> > mapOrphanTransactionsByPrev GUARDED_BY(cs_main);;
@@ -4612,9 +4616,9 @@ bool ActivateBestChain(CValidationState &state, CBlock *pblock, bool &postponeRe
                 nBlockEstimate = Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints());
             // Don't relay blocks if pruning -- could cause a peer to try to download, resulting
             // in a stalled download if the block file is pruned before the request.
-            if (nLocalServices & NODE_NETWORK) {
-                LOCK(cs_vNodes);
-                BOOST_FOREACH(CNode* pnode, vNodes)
+            if (connman->GetLocalServices() & NODE_NETWORK) {
+                LOCK(connman->cs_vNodes);
+                BOOST_FOREACH(CNode* pnode, connman->vNodes)
                 {
                     if (chainActive.Height() > (pnode->nStartingHeight != -1 ? pnode->nStartingHeight - 2000 : nBlockEstimate))
                     {
@@ -6538,7 +6542,7 @@ void static ProcessGetData(CNode* pfrom)
 
     while (it != pfrom->vRecvGetData.end()) {
         // Don't bother if send buffer is too full to respond anyway
-        if (pfrom->nSendSize >= SendBufferSize())
+        if (pfrom->nSendSize >= connman->GetSendBufferSize())
             break;
 
         const CInv &inv = *it;
@@ -6882,8 +6886,8 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
     LOCK(cs_main);
 
     pfrom->setAskFor.erase(inv.hash);
-    mapAlreadyAskedFor.erase(inv);
-    mapAlreadyReceived.insert(std::make_pair(inv, GetTimeMicros()));
+    connman->mapAlreadyAskedFor.erase(inv);
+    connman->mapAlreadyReceived.insert(std::make_pair(inv, GetTimeMicros()));
 
     if (!AlreadyHave(inv))
     {
@@ -7155,7 +7159,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             {
                 // Relay to a limited number of other nodes
                 {
-                    LOCK(cs_vNodes);
+                    LOCK(connman->cs_vNodes);
                     // Use deterministic randomness to send to the same nodes for 24 hours
                     // at a time so the addrKnowns of the chosen nodes prevent repeats
                     static uint256 hashSalt;
@@ -7165,7 +7169,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                     uint256 hashRand = ArithToUint256(UintToArith256(hashSalt) ^ (hashAddr<<32) ^ ((GetTime()+hashAddr)/(24*60*60)));
                     hashRand = Hash(BEGIN(hashRand), END(hashRand));
                     multimap<uint256, CNode*> mapMix;
-                    BOOST_FOREACH(CNode* pnode, vNodes)
+                    BOOST_FOREACH(CNode* pnode, connman->vNodes)
                     {
                         if (pnode->nVersion < CADDR_TIME_VERSION)
                             continue;
@@ -7279,7 +7283,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 }
             }
 
-            if (pfrom->nSendSize > (SendBufferSize() * 2)) {
+            if (pfrom->nSendSize > (connman->GetSendBufferSize() * 2)) {
                 Misbehaving(pfrom->GetId(), 50);
                 return error("send buffer size() = %u", pfrom->nSendSize);
             }
@@ -7894,7 +7898,7 @@ bool ProcessMessages(CNode* pfrom)
     std::deque<CNetMessage>::iterator it = pfrom->vRecvMsg.begin();
     while (!pfrom->fDisconnect && it != pfrom->vRecvMsg.end()) {
         // Don't bother if send buffer is too full to respond anyway
-        if (pfrom->nSendSize >= SendBufferSize())
+        if (pfrom->nSendSize >= connman->GetSendBufferSize())
             break;
 
         // get next message
@@ -8035,8 +8039,8 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
         static int64_t nLastRebroadcast;
         if (!IsInitialBlockDownload() && (GetTime() - nLastRebroadcast > 24 * 60 * 60))
         {
-            LOCK(cs_vNodes);
-            BOOST_FOREACH(CNode* pnode, vNodes)
+            LOCK(connman->cs_vNodes);
+            BOOST_FOREACH(CNode* pnode, connman->vNodes)
             {
                 // Periodically clear addrKnown to allow refresh broadcasts
                 if (nLastRebroadcast)
@@ -8045,7 +8049,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
                 // Rebroadcast our address
                 AdvertizeLocal(pnode);
             }
-            if (!vNodes.empty())
+            if (!connman->vNodes.empty())
                 nLastRebroadcast = GetTime();
         }
 
@@ -8255,7 +8259,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
         while (!pto->fDisconnect && !pto->mapAskFor.empty() && (*pto->mapAskFor.begin()).first <= nNow)
         {
             const CInv& inv = (*pto->mapAskFor.begin()).second;
-            if (!AlreadyHave(inv) && mapAlreadyReceived.find(inv) == mapAlreadyReceived.end())
+            if (!AlreadyHave(inv) && connman->mapAlreadyReceived.find(inv) == connman->mapAlreadyReceived.end())
             {
                 if (fDebug)
                     LogPrint("net", "%s():%d - Requesting %s peer=%d\n", __func__, __LINE__, inv.ToString(), pto->id);
@@ -8376,9 +8380,9 @@ bool RelayAlternativeChain(CValidationState &state, CBlock *pblock, BlockSet* sF
         nBlockEstimate = Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints());
 
     int nodeHeight = -1;
-    if (nLocalServices & NODE_NETWORK) {
-        LOCK(cs_vNodes);
-        BOOST_FOREACH(CNode* pnode, vNodes)
+    if (connman->GetLocalServices() & NODE_NETWORK) {
+        LOCK(connman->cs_vNodes);
+        BOOST_FOREACH(CNode* pnode, connman->vNodes)
         {
             if (pnode->nStartingHeight != -1)
             {
