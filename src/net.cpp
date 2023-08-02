@@ -75,9 +75,6 @@ TLSManager tlsmanager = TLSManager();
 std::map<CInv, CDataStream> mapRelay;
 std::deque<std::pair<int64_t, CInv> > vRelayExpiration;
 CCriticalSection cs_mapRelay;
-LimitedMap<CInv, int64_t> mapAlreadyAskedFor(MAX_INV_SZ);           //// Keep global?
-LimitedMap<CInv, int64_t> mapAlreadyReceived(MAPRECEIVED_MAX_SZ);   //// Keep global?
-
 
 boost::condition_variable messageHandlerCondition;
 
@@ -2452,15 +2449,15 @@ void CNode::AskFor(const CInv& inv)
     // If we need to ask for this inv again (after it has already been received)
     // then pretend we never received it before so that the request is actually performed.
     // Otherwise, this request would be blocked in main::SendMessages.
-    if (mapAlreadyReceived.erase(inv)) {
+    if (connman->mapAlreadyReceived.erase(inv)) {
         LogPrint("net", "%s():%d - askfor %s even though it was received already in the past\n", __func__, __LINE__, inv.ToString());
     }
 
     // We're using mapAskFor as a priority queue,
     // the key is the earliest time the request can be sent
     int64_t nRequestTime;
-    LimitedMap<CInv, int64_t>::const_iterator it = mapAlreadyAskedFor.find(inv);
-    if (it != mapAlreadyAskedFor.end())
+    LimitedMap<CInv, int64_t>::const_iterator it = connman->mapAlreadyAskedFor.find(inv);
+    if (it != connman->mapAlreadyAskedFor.end())
         nRequestTime = it->second;
     else
         nRequestTime = 0;
@@ -2475,10 +2472,10 @@ void CNode::AskFor(const CInv& inv)
 
     // Each retry is 2 minutes after the last
     nRequestTime = std::max(nRequestTime + 2 * 60 * 1000000, nNow);
-    if (it != mapAlreadyAskedFor.end())
-        mapAlreadyAskedFor.update(it, nRequestTime);
+    if (it != connman->mapAlreadyAskedFor.end())
+        connman->mapAlreadyAskedFor.update(it, nRequestTime);
     else
-        mapAlreadyAskedFor.insert(std::make_pair(inv, nRequestTime));
+        connman->mapAlreadyAskedFor.insert(std::make_pair(inv, nRequestTime));
     mapAskFor.insert(std::make_pair(nRequestTime, inv));
 }
 

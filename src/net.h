@@ -162,8 +162,6 @@ extern CAddrMan addrman;
 extern std::map<CInv, CDataStream> mapRelay;
 extern std::deque<std::pair<int64_t, CInv> > vRelayExpiration;
 extern CCriticalSection cs_mapRelay;
-extern LimitedMap<CInv, int64_t> mapAlreadyAskedFor;
-extern LimitedMap<CInv, int64_t> mapAlreadyReceived;
 
 extern SSL_CTX *tls_ctx_server;
 extern SSL_CTX *tls_ctx_client;
@@ -791,6 +789,8 @@ public:
     std::vector<CSubNet> vWhitelistedRange;
     CCriticalSection cs_vWhitelistedRange;
 
+    LimitedMap<CInv, int64_t> mapAlreadyAskedFor{MAX_INV_SZ};
+    LimitedMap<CInv, int64_t> mapAlreadyReceived{MAPRECEIVED_MAX_SZ};
 
     // Network stats
     void RecordBytesRecv(uint64_t bytes);
