@@ -118,7 +118,7 @@ class ReplayProtectionAttributes
     static const int UNDEF = std::numeric_limits<int>::min();
 };
 
-bool CheckReplayProtectionAttributes(const CScript& scriptPubKey, std::string reason);
+bool CheckReplayProtectionAttributes(const CScript& scriptPubKey);
 void GetReplayProtectionAttributes(const CScript& scriptPubKey, ReplayProtectionAttributes& rpAttributes);
 
 bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet, ReplayProtectionAttributes& rpAttributes);

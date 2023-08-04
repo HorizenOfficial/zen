@@ -416,7 +416,7 @@ int ScriptSigArgsExpected(txnouttype t, const std::vector<std::vector<unsigned c
     return -1;
 }
 
-bool CheckReplayProtectionAttributes(const CScript& scriptPubKey, std::string reason)
+bool CheckReplayProtectionAttributes(const CScript& scriptPubKey)
 {
 #if !defined(BITCOIN_TX)
     ReplayProtectionAttributes rpAttributes;

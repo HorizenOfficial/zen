@@ -76,7 +76,7 @@ public:
     r1cs_ppzksnark_processed_verification_key<ppzksnark_ppT> vk_precomp;
     std::string pkPath;
 
-    JoinSplitCircuit(const std::string& vkPath, const std::string pkPath) : pkPath(pkPath) {
+    JoinSplitCircuit(const std::string& vkPath, const std::string& pkPath) : pkPath(pkPath) {
         loadFromFile(vkPath, vk);
         vk_precomp = r1cs_ppzksnark_verifier_process_vk(vk);
     }
