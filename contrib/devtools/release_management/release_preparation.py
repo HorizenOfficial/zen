@@ -110,7 +110,7 @@ def initialize():
             sys.exit(-1)
 
     if ("contrib/devtools/release_management/configs" in config_file):
-        if (not rmu.git_commit(config[rmu.k_repository_root], "Initialize release preparation branch", [os.path.join(config[rmu.k_repository_root], "contrib/devtools/release_management/configs")])):
+        if (not rmu.git_commit(config[rmu.k_repository_root], "Initialize release preparation branch", ["contrib/devtools/release_management/configs"])):
             print("Commit failed")
             sys.exit(-1)
 
@@ -330,7 +330,7 @@ def update_release_notes():
     line = line.replace(current_version, f"{config[rmu.k_version]}{rmu.get_build_suffix(int(config[rmu.k_build_number]))}").rstrip()
     rmu.replace_file_line(release_notes_file_path_dst, line_numbers[0], line)
 
-    if (not rmu.git_commit(config[rmu.k_repository_root], "Add release notes", [os.path.join(config[rmu.k_repository_root], "doc/release-notes")])):
+    if (not rmu.git_commit(config[rmu.k_repository_root], "Add release notes", ["doc/release-notes"])):
         print("Commit failed")
         sys.exit(-1)
 

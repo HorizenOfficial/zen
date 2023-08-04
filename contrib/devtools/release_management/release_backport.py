@@ -237,7 +237,7 @@ if (not config[rmu.k_is_official_version]):
     if (not bool(config[rmu.k_script_steps][rmu.k_reset_checkpoints][rmu.k_skip])):
         if (bool(config[rmu.k_script_steps][rmu.k_reset_checkpoints][rmu.k_stop])):
             input("Press a key to proceed")
-        if (not rmu.git_reset_file(config[rmu.k_repository_root], os.path.join(config[rmu.k_repository_root], "src/chainparams.cpp"))):
+        if (not rmu.git_reset_file(config[rmu.k_repository_root], "src/chainparams.cpp")):
             print("Changes discarding failed")
             sys.exit(-1)
         print("Done")
@@ -296,7 +296,7 @@ else:
 print("\n********** commit **********\n")
 directories_for_add = []
 if ("contrib/devtools/release_management/configs" in config_file):
-    directories_for_add.append(os.path.join(config[rmu.k_repository_root], "contrib/devtools/release_management/configs"))
+    directories_for_add.append("contrib/devtools/release_management/configs")
 if (not rmu.git_commit(config[rmu.k_repository_root], f"Release {config[rmu.k_version]}{rmu.get_build_suffix(int(config[rmu.k_build_number]))} backport", directories_for_add)):
     print("Commit failed")
     sys.exit(-1)
