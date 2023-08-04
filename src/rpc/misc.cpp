@@ -599,7 +599,7 @@ UniValue getaddressmempool(const UniValue& params, bool fHelp)
     UniValue result(UniValue::VARR);
 
     for (std::vector<std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> >::iterator it = indexes.begin();
-         it != indexes.end(); it++) {
+         it != indexes.end(); ++it) {
 
         std::string address;
         if (!getAddressFromIndex(it->first.type, it->first.addressBytes, address)) {
@@ -715,7 +715,7 @@ UniValue getaddressutxos(const UniValue& params, bool fHelp)
         currentTipHeight = (int)chainActive.Height();
     }
 
-    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++) {
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); ++it) {
         UniValue output(UniValue::VOBJ);
         std::string address;
         if (!getAddressFromIndex(it->first.type, it->first.hashBytes, address)) {
@@ -880,7 +880,7 @@ UniValue getaddressdeltas(const UniValue& params, bool fHelp)
 
     UniValue deltas(UniValue::VARR);
 
-    for (std::vector<std::pair<CAddressIndexKey, CAddressIndexValue> >::const_iterator it=addressIndex.begin(); it!=addressIndex.end(); it++) {
+    for (std::vector<std::pair<CAddressIndexKey, CAddressIndexValue> >::const_iterator it=addressIndex.begin(); it!=addressIndex.end(); ++it) {
         std::string address;
         if (!getAddressFromIndex(it->first.type, it->first.hashBytes, address)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Unknown address type");
@@ -1112,7 +1112,7 @@ UniValue getaddresstxids(const UniValue& params, bool fHelp)
     }
 
     if (addresses.size() > 1) {
-        for (std::set<std::pair<int, std::string> >::const_iterator it=txids.begin(); it!=txids.end(); it++) {
+        for (std::set<std::pair<int, std::string> >::const_iterator it=txids.begin(); it!=txids.end(); ++it) {
             result.push_back(it->second);
         }
     }

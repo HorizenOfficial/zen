@@ -215,7 +215,7 @@ UniValue addnode(const UniValue& params, bool fHelp)
 
     LOCK(connman->cs_vAddedNodes);
     vector<string>::iterator it = connman->vAddedNodes.begin();
-    for(; it != connman->vAddedNodes.end(); it++)
+    for(; it != connman->vAddedNodes.end(); ++it)
         if (strNode == *it)
             break;
 
@@ -348,7 +348,7 @@ UniValue getaddednodeinfo(const UniValue& params, bool fHelp)
     }
 
     LOCK(connman->cs_vNodes);
-    for (list<pair<string, vector<CService> > >::iterator it = laddedAddreses.begin(); it != laddedAddreses.end(); it++)
+    for (list<pair<string, vector<CService> > >::iterator it = laddedAddreses.begin(); it != laddedAddreses.end(); ++it)
     {
         UniValue obj(UniValue::VOBJ);
         obj.pushKV("addednode", it->first);
@@ -596,7 +596,7 @@ UniValue listbanned(const UniValue& params, bool fHelp)
     CNode::GetBanned(banMap);
 
     UniValue bannedAddresses(UniValue::VARR);
-    for (std::map<CSubNet, int64_t>::iterator it = banMap.begin(); it != banMap.end(); it++)
+    for (std::map<CSubNet, int64_t>::iterator it = banMap.begin(); it != banMap.end(); ++it)
     {
         UniValue rec(UniValue::VOBJ);
         rec.pushKV("address", (*it).first.ToString());

@@ -112,7 +112,7 @@ bool GetLocal(CService& addr, const CNetAddr *paddrPeer)
     int nBestReachability = -1;
     {
         LOCK(cs_mapLocalHost);
-        for (map<CNetAddr, LocalServiceInfo>::iterator it = mapLocalHost.begin(); it != mapLocalHost.end(); it++)
+        for (map<CNetAddr, LocalServiceInfo>::iterator it = mapLocalHost.begin(); it != mapLocalHost.end(); ++it)
         {
             int nScore = (*it).second.nScore;
             int nReachability = (*it).first.GetReachabilityFrom(paddrPeer);
@@ -549,7 +549,7 @@ bool CNode::IsBanned(CNetAddr ip)
     bool fResult = false;
     {
         LOCK(cs_setBanned);
-        for (std::map<CSubNet, int64_t>::iterator it = setBanned.begin(); it != setBanned.end(); it++)
+        for (std::map<CSubNet, int64_t>::iterator it = setBanned.begin(); it != setBanned.end(); ++it)
         {
             CSubNet subNet = (*it).first;
             int64_t t = (*it).second;
@@ -876,7 +876,7 @@ void CConnman::SocketSendData(CNode *pnode)
             {
                 pnode->nSendOffset = 0;
                 pnode->nSendSize -= data.size();
-                it++;
+                ++it;
             }
             else
             {
@@ -1699,12 +1699,12 @@ void ThreadOpenAddedConnections()
         {
             LOCK(connman->cs_vNodes);
             BOOST_FOREACH(CNode* pnode, connman->vNodes)
-                for (list<vector<CService> >::iterator it = lservAddressesToAdd.begin(); it != lservAddressesToAdd.end(); it++)
+                for (list<vector<CService> >::iterator it = lservAddressesToAdd.begin(); it != lservAddressesToAdd.end(); ++it)
                     BOOST_FOREACH(const CService& addrNode, *(it))
                         if (pnode->addr == addrNode)
                         {
                             it = lservAddressesToAdd.erase(it);
-                            it--;
+                            --it;
                             break;
                         }
         }
