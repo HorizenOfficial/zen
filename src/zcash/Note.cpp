@@ -11,10 +11,9 @@
 
 using namespace libzcash;
 
-Note::Note() {
-    a_pk = random_uint256();
-    rho = random_uint256();
-    r = random_uint256();
+Note::Note() :
+    a_pk{random_uint256()}, rho{random_uint256()}, r{random_uint256()}
+{
 }
 
 uint256 Note::cm() const {
@@ -43,10 +42,9 @@ uint256 Note::nullifier(const SpendingKey& a_sk) const {
 
 NotePlaintext::NotePlaintext(
     const Note& note,
-    std::array<unsigned char, ZC_MEMO_SIZE> memo) : BaseNotePlaintext(note, memo)
-{   
-	rho = note.rho;
-    r = note.r;
+    std::array<unsigned char, ZC_MEMO_SIZE> memo) :
+        BaseNotePlaintext(note, memo), rho{note.rho}, r{note.r}
+{
 }
 
 Note NotePlaintext::note(const PaymentAddress& addr) const

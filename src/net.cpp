@@ -2197,9 +2197,9 @@ void CNode::Fuzz(int nChance)
 // CAddrDB
 //
 
-CAddrDB::CAddrDB()
+CAddrDB::CAddrDB() :
+    pathAddr {GetDataDir() / "peers.dat"}
 {
-    pathAddr = GetDataDir() / "peers.dat";
 }
 
 bool CAddrDB::Write(const CAddrMan& addr)
@@ -2308,13 +2308,13 @@ NodeId CConnman::GetNewNodeId()
 }
 
 CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNameIn, bool fInboundIn, SSL *sslIn) :
-    ssSend(SER_NETWORK, INIT_PROTO_VERSION),
-    addrKnown(5000, 0.001),
-    setInventoryKnown(connman->GetSendBufferSize() / 1000)
+    ssSend{SER_NETWORK, INIT_PROTO_VERSION},
+    addrKnown{5000, 0.001},
+    setInventoryKnown{connman->GetSendBufferSize() / 1000},
+    hSocket{hSocketIn}
 {
     ssl = sslIn;
     nServices = 0;
-    hSocket = hSocketIn;
     nRecvVersion = INIT_PROTO_VERSION;
     nLastSend = 0;
     nLastRecv = 0;
