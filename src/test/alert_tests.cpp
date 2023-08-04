@@ -87,11 +87,11 @@ BOOST_AUTO_TEST_CASE(AlertNotifyFunction) {
 
     mapArgs["-alertnotify"] = std::string("echo 'Reporting the following alert: %s' >> ") + temp.string();
 
-    std::cout << "Resetting temporary alert notify file: " << temp.string() << std::endl;
+    BOOST_TEST_MESSAGE(std::string("Resetting temporary alert notify file: ") + temp.string());
     std::ofstream outF(temp.string(), std::ios::out);
     outF.close();
 
-    std::cout << "Reporting alerts to alert notify file through alertNotify() function" << std::endl;
+    BOOST_TEST_MESSAGE(std::string("Reporting alerts to alert notify file through alertNotify() function"));
     for (const auto& errorString : errs) {
         alertNotify(errorString, false);    // Using thread-safe version to preserve ordering
     }
