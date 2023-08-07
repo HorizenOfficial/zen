@@ -220,8 +220,8 @@ UniValue CallRPC(const string& strMethod, const UniValue& params)
     assert(output_buffer);
     evbuffer_add(output_buffer, strRequest.data(), strRequest.size());
 
-    int r = evhttp_make_request(evcon.get(), req.get(), EVHTTP_REQ_POST, "/");
-    req.release(); // ownership moved to evcon in above call
+    int r = evhttp_make_request(evcon.get(), req.release(), EVHTTP_REQ_POST, "/");
+
     if (r != 0) {
         throw CConnectionFailed("send http request failed");
     }

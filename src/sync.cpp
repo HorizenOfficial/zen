@@ -33,10 +33,9 @@ void PrintLockContention(const char* pszName, const char* pszFile, int nLine)
 //
 
 struct CLockLocation {
-    CLockLocation(const char* pszName, const char* pszFile, int nLine, bool fTryIn)
+    CLockLocation(const char* pszName, const char* pszFile, int nLine, bool fTryIn) :
+        mutexName{pszName}, sourceFile{pszFile}
     {
-        mutexName = pszName;
-        sourceFile = pszFile;
         sourceLine = nLine;
         fTry = fTryIn;
     }

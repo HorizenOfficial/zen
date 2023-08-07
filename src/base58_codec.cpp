@@ -36,7 +36,7 @@ bool DecodeBase58(const char* psz, std::vector<unsigned char>& vch)
             return false;
         // Apply "b256 = b256 * 58 + ch".
         int carry = ch - pszBase58;
-        for (std::vector<unsigned char>::reverse_iterator it = b256.rbegin(); it != b256.rend(); it++) {
+        for (std::vector<unsigned char>::reverse_iterator it = b256.rbegin(); it != b256.rend(); ++it) {
             carry += 58 * (*it);
             *it = carry % 256;
             carry /= 256;
@@ -52,7 +52,7 @@ bool DecodeBase58(const char* psz, std::vector<unsigned char>& vch)
     // Skip leading zeroes in b256.
     std::vector<unsigned char>::iterator it = b256.begin();
     while (it != b256.end() && *it == 0)
-        it++;
+        ++it;
     // Copy result into output vector.
     vch.reserve(zeroes + (b256.end() - it));
     vch.assign(zeroes, 0x00);
@@ -75,7 +75,7 @@ std::string EncodeBase58(const unsigned char* pbegin, const unsigned char* pend)
     while (pbegin != pend) {
         int carry = *pbegin;
         // Apply "b58 = b58 * 256 + ch".
-        for (std::vector<unsigned char>::reverse_iterator it = b58.rbegin(); it != b58.rend(); it++) {
+        for (std::vector<unsigned char>::reverse_iterator it = b58.rbegin(); it != b58.rend(); ++it) {
             carry += 256 * (*it);
             *it = carry % 58;
             carry /= 58;

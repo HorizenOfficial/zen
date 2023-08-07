@@ -2570,14 +2570,13 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
             if (rpLevel >= RPLEVEL_FIXED_2)
             {
                 // check for invalid OP_CHECKBLOCKATHEIGHT in order to catch it before signature verifications are performed
-                std::string reason;
                 CScript scriptPubKey(coins->vout[prevout.n].scriptPubKey);
 
-                if (!CheckReplayProtectionAttributes(scriptPubKey, reason) )
+                if (!CheckReplayProtectionAttributes(scriptPubKey) )
                 {
                     return state.Invalid(
-                        error("%s(): input %d has an invalid scriptPubKey %s (reason=%s)",
-                            __func__, i, scriptPubKey.ToString(), reason),
+                        error("%s(): input %d has an invalid scriptPubKey %s",
+                            __func__, i, scriptPubKey.ToString()),
                         CValidationState::Code::INVALID, "bad-txns-output-scriptpubkey");
                 }
             }

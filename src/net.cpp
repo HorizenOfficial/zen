@@ -112,7 +112,7 @@ bool GetLocal(CService& addr, const CNetAddr *paddrPeer)
     int nBestReachability = -1;
     {
         LOCK(cs_mapLocalHost);
-        for (map<CNetAddr, LocalServiceInfo>::iterator it = mapLocalHost.begin(); it != mapLocalHost.end(); it++)
+        for (map<CNetAddr, LocalServiceInfo>::iterator it = mapLocalHost.begin(); it != mapLocalHost.end(); ++it)
         {
             int nScore = (*it).second.nScore;
             int nReachability = (*it).first.GetReachabilityFrom(paddrPeer);
@@ -544,12 +544,12 @@ void CNode::ClearBanned()
     setBanned.clear();
 }
 
-bool CNode::IsBanned(CNetAddr ip)
+bool CNode::IsBanned(const CNetAddr &ip)
 {
     bool fResult = false;
     {
         LOCK(cs_setBanned);
-        for (std::map<CSubNet, int64_t>::iterator it = setBanned.begin(); it != setBanned.end(); it++)
+        for (std::map<CSubNet, int64_t>::iterator it = setBanned.begin(); it != setBanned.end(); ++it)
         {
             CSubNet subNet = (*it).first;
             int64_t t = (*it).second;
@@ -561,7 +561,7 @@ bool CNode::IsBanned(CNetAddr ip)
     return fResult;
 }
 
-bool CNode::IsBanned(CSubNet subnet)
+bool CNode::IsBanned(const CSubNet &subnet)
 {
     bool fResult = false;
     {
@@ -876,7 +876,7 @@ void CConnman::SocketSendData(CNode *pnode)
             {
                 pnode->nSendOffset = 0;
                 pnode->nSendSize -= data.size();
-                it++;
+                ++it;
             }
             else
             {
@@ -1699,12 +1699,12 @@ void ThreadOpenAddedConnections()
         {
             LOCK(connman->cs_vNodes);
             BOOST_FOREACH(CNode* pnode, connman->vNodes)
-                for (list<vector<CService> >::iterator it = lservAddressesToAdd.begin(); it != lservAddressesToAdd.end(); it++)
+                for (list<vector<CService> >::iterator it = lservAddressesToAdd.begin(); it != lservAddressesToAdd.end(); ++it)
                     BOOST_FOREACH(const CService& addrNode, *(it))
                         if (pnode->addr == addrNode)
                         {
                             it = lservAddressesToAdd.erase(it);
-                            it--;
+                            --it;
                             break;
                         }
         }
@@ -2197,9 +2197,9 @@ void CNode::Fuzz(int nChance)
 // CAddrDB
 //
 
-CAddrDB::CAddrDB()
+CAddrDB::CAddrDB() :
+    pathAddr {GetDataDir() / "peers.dat"}
 {
-    pathAddr = GetDataDir() / "peers.dat";
 }
 
 bool CAddrDB::Write(const CAddrMan& addr)
@@ -2308,13 +2308,13 @@ NodeId CConnman::GetNewNodeId()
 }
 
 CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNameIn, bool fInboundIn, SSL *sslIn) :
-    ssSend(SER_NETWORK, INIT_PROTO_VERSION),
-    addrKnown(5000, 0.001),
-    setInventoryKnown(connman->GetSendBufferSize() / 1000)
+    ssSend{SER_NETWORK, INIT_PROTO_VERSION},
+    addrKnown{5000, 0.001},
+    setInventoryKnown{connman->GetSendBufferSize() / 1000},
+    hSocket{hSocketIn}
 {
     ssl = sslIn;
     nServices = 0;
-    hSocket = hSocketIn;
     nRecvVersion = INIT_PROTO_VERSION;
     nLastSend = 0;
     nLastRecv = 0;

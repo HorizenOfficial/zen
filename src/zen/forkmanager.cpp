@@ -248,7 +248,7 @@ const Fork* ForkManager::getForkAtHeight(int height) const {
 
     // Iterate through all the forks until fork height is higher than block height or there are no more forks
     std::list<Fork*>::const_iterator lastIterator = forks.begin();
-    for (std::list<Fork*>::const_iterator iterator = forks.begin();iterator != forks.end();iterator++) {
+    for (std::list<Fork*>::const_iterator iterator = forks.begin(); iterator != forks.end(); ++iterator) {
         if ((*iterator)->getHeight(currentNetwork) > height) {
             break;
         }

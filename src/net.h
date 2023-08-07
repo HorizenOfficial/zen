@@ -643,8 +643,8 @@ public:
     // between nodes running old code and nodes running
     // new code.
     static void ClearBanned(); // needed for unit testing
-    static bool IsBanned(CNetAddr ip);
-    static bool IsBanned(CSubNet subnet);
+    static bool IsBanned(const CNetAddr &ip);
+    static bool IsBanned(const CSubNet &subnet);
     static void Ban(const CNetAddr &ip, int64_t bantimeoffset = 0, bool sinceUnixEpoch = false);
     static void Ban(const CSubNet &subNet, int64_t bantimeoffset = 0, bool sinceUnixEpoch = false);
     static bool Unban(const CNetAddr &ip);

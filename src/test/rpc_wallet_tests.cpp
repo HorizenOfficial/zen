@@ -1422,8 +1422,7 @@ BOOST_AUTO_TEST_CASE(rpc_z_shieldcoinbase_parameters)
 
     // Testnet payment addresses begin with 'zt'.  This test detects an incorrect prefix.
     try {
-        std::vector<ShieldCoinbaseUTXO> inputs = { ShieldCoinbaseUTXO{uint256(),0,0} };
-        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_shieldcoinbase(mtx, inputs, mainnetzaddr, 1) );
+        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_shieldcoinbase(mtx, { ShieldCoinbaseUTXO{uint256(), 0, 0} }, mainnetzaddr, 1) );
     } catch (const UniValue& objError) {
         BOOST_CHECK( find_error(objError, "Invalid to address"));
     }
@@ -1453,8 +1452,7 @@ BOOST_AUTO_TEST_CASE(rpc_z_shieldcoinbase_internals)
 
     // Supply 2 inputs when mempool limit is 1
     {
-        std::vector<ShieldCoinbaseUTXO> inputs = { ShieldCoinbaseUTXO{uint256(),0,0}, ShieldCoinbaseUTXO{uint256(),0,0} };
-        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_shieldcoinbase(mtx, inputs, zaddr) );
+        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_shieldcoinbase(mtx, { ShieldCoinbaseUTXO{uint256(), 0, 0}, ShieldCoinbaseUTXO{uint256(), 0, 0} }, zaddr) );
         operation->main();
         BOOST_CHECK(operation->isFailed());
         std::string msg = operation->getErrorMessage();
@@ -1463,8 +1461,7 @@ BOOST_AUTO_TEST_CASE(rpc_z_shieldcoinbase_internals)
 
     // Insufficient funds
     {
-        std::vector<ShieldCoinbaseUTXO> inputs = { ShieldCoinbaseUTXO{uint256(),0,0} };
-        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_shieldcoinbase(mtx, inputs, zaddr) );
+        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_shieldcoinbase(mtx, { ShieldCoinbaseUTXO{uint256(), 0, 0} }, zaddr) );
         operation->main();
         BOOST_CHECK(operation->isFailed());
         std::string msg = operation->getErrorMessage();
@@ -1474,8 +1471,7 @@ BOOST_AUTO_TEST_CASE(rpc_z_shieldcoinbase_internals)
     // Test the perform_joinsplit methods.
     {
         // Dummy input so the operation object can be instantiated.
-        std::vector<ShieldCoinbaseUTXO> inputs = { ShieldCoinbaseUTXO{uint256(),0,100000} };
-        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_shieldcoinbase(mtx, inputs, zaddr) );
+        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_shieldcoinbase(mtx, { ShieldCoinbaseUTXO{uint256(), 0, 100000} }, zaddr) );
         std::shared_ptr<AsyncRPCOperation_shieldcoinbase> ptr = std::dynamic_pointer_cast<AsyncRPCOperation_shieldcoinbase> (operation);
         TEST_FRIEND_AsyncRPCOperation_shieldcoinbase proxy(ptr);
         static_cast<AsyncRPCOperation_shieldcoinbase *>(operation.get())->testmode = true;

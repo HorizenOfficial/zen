@@ -46,7 +46,7 @@ raii_evhttp_request obtain_evhttp_request(void(*cb)(struct evhttp_request *, voi
     return raii_evhttp_request(evhttp_request_new(cb, arg));
 }
 
-raii_evhttp_connection obtain_evhttp_connection_base(struct event_base* base, std::string host, uint16_t port) {
+raii_evhttp_connection obtain_evhttp_connection_base(struct event_base* base, const std::string& host, uint16_t port) {
     auto result = raii_evhttp_connection(evhttp_connection_base_new(base, NULL, host.c_str(), port));
     if (!result.get())
         throw std::runtime_error("create connection failed");

@@ -52,14 +52,14 @@ static leveldb::Options GetOptions(size_t nCacheSize, int maxOpenFiles)
     return options;
 }
 
-CLevelDBWrapper::CLevelDBWrapper(const boost::filesystem::path& path, size_t nCacheSize, int maxOpenFiles, bool fMemory, bool fWipe)
+CLevelDBWrapper::CLevelDBWrapper(const boost::filesystem::path& path, size_t nCacheSize, int maxOpenFiles, bool fMemory, bool fWipe) :
+    options{GetOptions(nCacheSize, maxOpenFiles)}
 {
-    penv = NULL;
+    penv = nullptr;
     readoptions.verify_checksums = true;
     iteroptions.verify_checksums = true;
     iteroptions.fill_cache = false;
     syncoptions.sync = true;
-    options = GetOptions(nCacheSize, maxOpenFiles);
     options.create_if_missing = true;
     if (fMemory) {
         penv = leveldb::NewMemEnv(leveldb::Env::Default());
@@ -81,13 +81,13 @@ CLevelDBWrapper::CLevelDBWrapper(const boost::filesystem::path& path, size_t nCa
 CLevelDBWrapper::~CLevelDBWrapper()
 {
     delete pdb;
-    pdb = NULL;
+    pdb = nullptr;
     delete options.filter_policy;
-    options.filter_policy = NULL;
+    options.filter_policy = nullptr;
     delete options.block_cache;
-    options.block_cache = NULL;
+    options.block_cache = nullptr;
     delete penv;
-    options.env = NULL;
+    options.env = nullptr;
 }
 
 bool CLevelDBWrapper::WriteBatch(CLevelDBBatch& batch, bool fSync)
