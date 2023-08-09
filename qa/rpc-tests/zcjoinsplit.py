@@ -57,7 +57,7 @@ class JoinSplitTest(BitcoinTestFramework):
 
             # disconnect the nodes so that the chains are not synced
             if (round == crossing_fork_round):
-                disconnect_nodes(self.nodes[0], 1)
+                disconnect_nodes(self.nodes, 0, 1)
 
             try:
                 self.nodes[0].sendrawtransaction(protect_tx["hex"])

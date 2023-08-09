@@ -73,8 +73,8 @@ class BitcoinTestFramework(object):
     def split_network(self, id = 1):
         # Split the network of between adjanced nodes in linear topology ep. nodes 0-1 and 2-3.
         assert not self.is_network_split
-        disconnect_nodes(self.nodes[id], id + 1)
-        disconnect_nodes(self.nodes[id + 1], id)
+        disconnect_nodes(self.nodes, id, id + 1)
+        disconnect_nodes(self.nodes, id + 1, id)
         self.is_network_split = True
 
     def sync_all(self):

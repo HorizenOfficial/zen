@@ -34,8 +34,8 @@ class blockdelay_2(BitcoinTestFramework):
 
     def split_network(self, id = 1):
         # Split the network of between adjanced nodes in linear topology ep. nodes 0-1 and 2-3.
-        disconnect_nodes(self.nodes[id], id + 1)
-        disconnect_nodes(self.nodes[id + 1], id)
+        disconnect_nodes(self.nodes, id, id + 1)
+        disconnect_nodes(self.nodes, id + 1, id)
 
     def dump_ordered_tips(self, tip_list):
         sorted_x = sorted(tip_list, key=lambda k: k['status'])

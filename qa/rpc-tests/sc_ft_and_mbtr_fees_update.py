@@ -7,7 +7,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, assert_greater_than, initialize_chain_clean, \
     start_nodes, stop_nodes, wait_bitcoinds, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs,\
-    get_epoch_data, swap_bytes, disconnect_nodes ##, colorize as cc
+    get_epoch_data, swap_bytes ##, colorize as cc
 from test_framework.test_framework import ForkHeights
 from test_framework.mc_test.mc_test import CertTestUtils, generate_random_field_element_hex
 from decimal import Decimal

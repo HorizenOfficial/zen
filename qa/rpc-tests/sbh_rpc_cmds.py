@@ -8,7 +8,7 @@ from test_framework.test_framework import ForkHeights
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, assert_true, initialize_chain_clean, \
     mark_logs, start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, \
-    get_epoch_data, disconnect_nodes, wait_and_assert_operationid_status, \
+    get_epoch_data, wait_and_assert_operationid_status, \
     swap_bytes
 from test_framework.mc_test.mc_test import *
 import os

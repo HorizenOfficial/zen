@@ -79,10 +79,7 @@ class headers(BitcoinTestFramework):
 #                       
 # Node(2): [0]->[1]->[2m]
 
-#        raw_input("press enter to go on..")
-
         print("\n\nJoin network")
-#        raw_input("press enter to join the netorks..")
         self.mark_logs("Joining network")
         self.join_network()
 
@@ -145,9 +142,6 @@ class headers(BitcoinTestFramework):
 # Node(2): [0]->[1]->[2m]  **Active**
 #                 \     
 #                  +->[2h]    
-
-#        raw_input("press enter to go on..")
-        time.sleep(10)
 
 if __name__ == '__main__':
     headers().main()

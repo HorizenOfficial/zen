@@ -12,7 +12,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, assert_raises, \
     initialize_chain_clean, start_node, connect_nodes, \
     assert_true, assert_false, mark_logs, \
-    disconnect_nodes, advance_epoch, swap_bytes
+    advance_epoch, swap_bytes
 
 from test_framework.test_framework import ForkHeights, MINER_REWARD_POST_H200
 from test_framework.mc_test.mc_test import *

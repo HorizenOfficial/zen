@@ -541,8 +541,10 @@ def wait_and_assert_operationid_status(node, myopid, in_status='success', in_err
     else:
         return txid # otherwise return the txid
 
-def disconnect_nodes(from_connection, node_num):
-    ip_port = "127.0.0.1:" + str(p2p_port(node_num))
+# Disconnect nodes a and b; disconnection is explicitly issued on node a
+def disconnect_nodes(nodes, a, b):
+    from_connection = nodes[a]
+    ip_port = "127.0.0.1:" + str(p2p_port(b))
     from_connection.disconnectnode(ip_port)
     # poll until version handshake complete to avoid race conditions
     # with transaction relaying

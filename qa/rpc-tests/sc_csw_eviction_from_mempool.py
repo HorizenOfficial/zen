@@ -7,7 +7,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, assert_true, assert_false, initialize_chain_clean, \
     stop_nodes, wait_bitcoinds, \
-    start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, disconnect_nodes, mark_logs, \
+    start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
     dump_sc_info_record, swap_bytes, advance_epoch
 from test_framework.mc_test.mc_test import CertTestUtils, CSWTestUtils, generate_random_field_element_hex
 import os

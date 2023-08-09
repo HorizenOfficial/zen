@@ -5,8 +5,8 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import initialize_chain_clean, start_nodes, stop_nodes, \
-    sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, disconnect_nodes
+from test_framework.util import initialize_chain_clean, start_nodes, \
+    sync_blocks, sync_mempools, connect_nodes_bi, disconnect_nodes
 import time
 
 class headers(BitcoinTestFramework):
@@ -35,8 +35,8 @@ class headers(BitcoinTestFramework):
         self.sync_all()
 
     def split_network_2(self):
-        disconnect_nodes(self.nodes[1], 3)
-        disconnect_nodes(self.nodes[3], 1)
+        disconnect_nodes(self.nodes, 1, 3)
+        disconnect_nodes(self.nodes, 3, 1)
 
     def join_network_2(self):
         connect_nodes_bi(self.nodes, 1, 3)

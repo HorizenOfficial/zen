@@ -41,8 +41,8 @@ class headers(BitcoinTestFramework):
         self.sync_all()
 
     def split_network_2(self):
-        disconnect_nodes(self.nodes[1], 3)
-        disconnect_nodes(self.nodes[3], 1)
+        disconnect_nodes(self.nodes, 1, 3)
+        disconnect_nodes(self.nodes, 3, 1)
 
     def join_network_2(self):
         connect_nodes_bi(self.nodes, 1, 3)
