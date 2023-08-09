@@ -4,19 +4,9 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, initialize_chain_clean, \
-    start_nodes, start_node, connect_nodes, stop_node, stop_nodes, \
-    sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, p2p_port, check_json_precision, \
-    disconnect_nodes
-import traceback
-import os,sys
-import shutil
-from random import randint
-from decimal import Decimal
-import logging
-
+from test_framework.util import initialize_chain_clean, start_nodes, sync_blocks
 import time
+
 class headers(BitcoinTestFramework):
 
     def setup_chain(self, split=False):
@@ -89,14 +79,10 @@ class headers(BitcoinTestFramework):
 #                       
 # Node(2): [0]->[1]->[2m]
 
-#        raw_input("press enter to go on..")
-
         print("\n\nJoin network")
-#        raw_input("press enter to join the netorks..")
         self.mark_logs("Joining network")
-        self.join_network_sync()
+        self.join_network()
 
-#        time.sleep(10)
         sync_blocks(self.nodes, 1, True, 15)
 
         for i in range(0, 3):
@@ -156,9 +142,6 @@ class headers(BitcoinTestFramework):
 # Node(2): [0]->[1]->[2m]  **Active**
 #                 \     
 #                  +->[2h]    
-
-#        raw_input("press enter to go on..")
-        time.sleep(10)
 
 if __name__ == '__main__':
     headers().main()

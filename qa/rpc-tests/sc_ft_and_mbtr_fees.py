@@ -390,8 +390,8 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         self.sync_all()
 
         mark_logs("Disconnecting nodes", self.nodes, DEBUG_MODE)
-        disconnect_nodes(self.nodes[1], 0)
-        disconnect_nodes(self.nodes[0], 1)
+        disconnect_nodes(self.nodes, 1, 0)
+        disconnect_nodes(self.nodes, 0, 1)
         self.is_network_split = True
 
         quality = 1
@@ -478,7 +478,6 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
 
         mark_logs("Reconnecting nodes 0 and 1", self.nodes, DEBUG_MODE)
         connect_nodes_bi(self.nodes, 0, 1)
-        connect_nodes_bi(self.nodes, 1, 0)
         self.is_network_split = False
         sync_blocks(self.nodes[:])
 

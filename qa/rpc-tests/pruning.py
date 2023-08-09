@@ -74,9 +74,9 @@ class PruneTest(BitcoinTestFramework):
         # Determine default relay fee
         self.relayfee = self.nodes[0].getnetworkinfo()["relayfee"]
 
-        connect_nodes(self.nodes[0], 1)
-        connect_nodes(self.nodes[1], 2)
-        connect_nodes(self.nodes[2], 0)
+        connect_nodes(self.nodes, 0, 1)
+        connect_nodes(self.nodes, 1, 2)
+        connect_nodes(self.nodes, 2, 0)
         sync_blocks(self.nodes[0:3])
 
     def create_big_chain(self):
@@ -136,8 +136,8 @@ class PruneTest(BitcoinTestFramework):
                 self.mine_full_block(self.nodes[0],self.address[0])
 
             # Create connections in the order so both nodes can see the reorg at the same time
-            connect_nodes(self.nodes[1], 0)
-            connect_nodes(self.nodes[2], 0)
+            connect_nodes(self.nodes, 1, 0)
+            connect_nodes(self.nodes, 2, 0)
             sync_blocks(self.nodes[0:3])
 
         print("Usage can be over target because of high stale rate:", calc_usage(self.prunedir))
@@ -177,8 +177,8 @@ class PruneTest(BitcoinTestFramework):
         self.nodes[1].generate(300)
 
         print("Reconnect nodes")
-        connect_nodes(self.nodes[0], 1)
-        connect_nodes(self.nodes[2], 1)
+        connect_nodes(self.nodes, 0, 1)
+        connect_nodes(self.nodes, 2, 1)
         sync_blocks(self.nodes[0:3])
 
         print("Verify height on node 2:",self.nodes[2].getblockcount())

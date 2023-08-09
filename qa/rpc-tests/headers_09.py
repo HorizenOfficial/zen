@@ -7,8 +7,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, start_node, connect_nodes, stop_node, stop_nodes, \
-    sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, p2p_port, check_json_precision, \
-    disconnect_nodes
+    sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, p2p_port, check_json_precision
 import traceback
 import os,sys
 import shutil
@@ -30,7 +29,6 @@ class headers(BitcoinTestFramework):
         #Join the (previously split) network pieces together: 0-1-2
         assert self.is_network_split
         connect_nodes_bi(self.nodes, 1, 2)
-        connect_nodes_bi(self.nodes, 2, 1)
         self.sync_all()
         self.is_network_split = False
 

@@ -9,7 +9,7 @@
 #
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, start_node, connect_nodes
+from test_framework.util import assert_equal, start_node
 
 
 # Create one-input, one-output, no-fee transaction:
@@ -54,6 +54,7 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
         spend_102_id = self.nodes[0].sendrawtransaction(spend_102_raw)
         spend_103_id = self.nodes[0].sendrawtransaction(spend_103_raw)
         self.nodes[0].generate(1)
+        self.sync_all()
 
         # Create 102_1 and 103_1:
         spend_102_1_raw = self.create_tx(spend_102_id, node1_address, 11)
@@ -63,11 +64,11 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
         spend_103_1_id = self.nodes[0].sendrawtransaction(spend_103_1_raw)
         [spend_103_1_id] # hush pyflakes
         self.nodes[0].generate(1)
+        self.sync_all()
 
         # ... now put spend_101 and spend_102_1 in memory pools:
         spend_101_id = self.nodes[0].sendrawtransaction(spend_101_raw)
         spend_102_1_id = self.nodes[0].sendrawtransaction(spend_102_1_raw)
-
         self.sync_all()
 
         assert_equal(set(self.nodes[0].getrawmempool()), set([ spend_101_id, spend_102_1_id ]))

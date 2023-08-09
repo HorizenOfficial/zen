@@ -31,9 +31,9 @@ class GetBlockTemplatePriorityTest(BitcoinTestFramework):
         self.nodes.append(start_node(2, self.options.tmpdir, args2))
         self.nodes.append(start_node(3, self.options.tmpdir, args3))
 
-        connect_nodes(self.nodes[1], 0)
-        connect_nodes(self.nodes[2], 0)
-        connect_nodes(self.nodes[3], 0)
+        connect_nodes(self.nodes, 1, 0)
+        connect_nodes(self.nodes, 2, 0)
+        connect_nodes(self.nodes, 3, 0)
 
         self.is_network_split = False
         self.sync_all

@@ -46,9 +46,9 @@ class subsidyhalving(BitcoinTestFramework):
                 ['-logtimemicros', '-debug=py', '-debug=net', '-subsidyhalvinginterval=101']
             ])
 
-        connect_nodes(self.nodes[0], 1)
-        connect_nodes(self.nodes[1], 2)
-        connect_nodes(self.nodes[2], 0)
+        connect_nodes(self.nodes, 0, 1)
+        connect_nodes(self.nodes, 1, 2)
+        connect_nodes(self.nodes, 2, 0)
         sync_blocks(self.nodes, 1, False, 5)
         sync_mempools(self.nodes[0:NUMB_OF_NODES])
         self.is_network_split = split

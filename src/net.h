@@ -192,6 +192,8 @@ public:
     int nStartingHeight;
     uint64_t nSendBytes;
     uint64_t nRecvBytes;
+    std::map<std::string, std::pair<uint64_t, uint64_t>> mapSendBytesPerMsgType;
+    std::map<std::string, std::pair<uint64_t, uint64_t>> mapRecvBytesPerMsgType;
     bool fWhitelisted;
     double dPingTime;
     double dPingWait;
@@ -362,6 +364,9 @@ public:
     ~CNode();
 
 private:
+    // messageType : {numberOfMessages, totalAmountOfBytes}
+    std::map<std::string, std::pair<uint64_t, uint64_t>> mapSendBytesPerMsgType;
+    std::map<std::string, std::pair<uint64_t, uint64_t>> mapRecvBytesPerMsgType;
 
     CNode(const CNode&);
     void operator=(const CNode&);
@@ -457,7 +462,7 @@ public:
     void AbortMessage() UNLOCK_FUNCTION(cs_vSend);
 
     // TODO: Document the precondition of this function.  Is cs_vSend locked?
-    void EndMessage() UNLOCK_FUNCTION(cs_vSend);
+    void EndMessage(const char* pszCommand) UNLOCK_FUNCTION(cs_vSend);
 
     void PushVersion();
 
@@ -467,7 +472,7 @@ public:
         try
         {
             BeginMessage(pszCommand);
-            EndMessage();
+            EndMessage(pszCommand);
         }
         catch (...)
         {
@@ -489,7 +494,7 @@ public:
         {
             BeginMessage(pszCommand);
             ssSend << a1;
-            EndMessage();
+            EndMessage(pszCommand);
         }
         catch (...)
         {
@@ -505,7 +510,7 @@ public:
         {
             BeginMessage(pszCommand);
             ssSend << a1 << a2;
-            EndMessage();
+            EndMessage(pszCommand);
         }
         catch (...)
         {
@@ -521,7 +526,7 @@ public:
         {
             BeginMessage(pszCommand);
             ssSend << a1 << a2 << a3;
-            EndMessage();
+            EndMessage(pszCommand);
         }
         catch (...)
         {
@@ -537,7 +542,7 @@ public:
         {
             BeginMessage(pszCommand);
             ssSend << a1 << a2 << a3 << a4;
-            EndMessage();
+            EndMessage(pszCommand);
         }
         catch (...)
         {
@@ -553,7 +558,7 @@ public:
         {
             BeginMessage(pszCommand);
             ssSend << a1 << a2 << a3 << a4 << a5;
-            EndMessage();
+            EndMessage(pszCommand);
         }
         catch (...)
         {
@@ -569,7 +574,7 @@ public:
         {
             BeginMessage(pszCommand);
             ssSend << a1 << a2 << a3 << a4 << a5 << a6;
-            EndMessage();
+            EndMessage(pszCommand);
         }
         catch (...)
         {
@@ -585,7 +590,7 @@ public:
         {
             BeginMessage(pszCommand);
             ssSend << a1 << a2 << a3 << a4 << a5 << a6 << a7;
-            EndMessage();
+            EndMessage(pszCommand);
         }
         catch (...)
         {
@@ -601,7 +606,7 @@ public:
         {
             BeginMessage(pszCommand);
             ssSend << a1 << a2 << a3 << a4 << a5 << a6 << a7 << a8;
-            EndMessage();
+            EndMessage(pszCommand);
         }
         catch (...)
         {
@@ -617,7 +622,7 @@ public:
         {
             BeginMessage(pszCommand);
             ssSend << a1 << a2 << a3 << a4 << a5 << a6 << a7 << a8 << a9;
-            EndMessage();
+            EndMessage(pszCommand);
         }
         catch (...)
         {
@@ -652,6 +657,24 @@ public:
     static void GetBanned(std::map<CSubNet, int64_t> &banmap);
 
     void copyStats(CNodeStats &stats);
+    void AccountForSentBytes(const std::string& msg_type, size_t sent_bytes)
+        EXCLUSIVE_LOCKS_REQUIRED(cs_vSend)
+    {
+        std::pair<uint64_t, uint64_t>& messageType = mapSendBytesPerMsgType[msg_type];
+        messageType.first  += 1;            // number of messages
+        messageType.second += sent_bytes;   // amount of data for message type
+    }
+
+    void AccountForRecvBytes(const std::string& msg_type, size_t recv_bytes)
+        EXCLUSIVE_LOCKS_REQUIRED(cs_vRecvMsg)
+    {
+        auto msgTypeInMap = mapRecvBytesPerMsgType.find(msg_type);
+        if (msgTypeInMap == mapRecvBytesPerMsgType.end())
+            msgTypeInMap = mapRecvBytesPerMsgType.find(NetMsgType::OTHER);
+        assert(msgTypeInMap != mapRecvBytesPerMsgType.end());
+        msgTypeInMap->second.first  += 1;           // number of messages
+        msgTypeInMap->second.second += recv_bytes;  // amount of data for message type
+    }
 
     // returns the value of the tlsfallbacknontls and tlsvalidate flags set at zend startup (see init.cpp)
     static bool GetTlsFallbackNonTls();

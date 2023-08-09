@@ -8,7 +8,7 @@ from test_framework.test_framework import ForkHeights, MINER_REWARD_POST_H200
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs,\
-    get_epoch_data, disconnect_nodes, assert_false, assert_true, swap_bytes
+    get_epoch_data, assert_false, assert_true, swap_bytes
 from test_framework.mc_test.mc_test import *
 import os
 from decimal import Decimal

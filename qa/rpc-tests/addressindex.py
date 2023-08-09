@@ -30,9 +30,9 @@ class AddressIndexTest(BitcoinTestFramework):
         # Nodes 2/3 are used for testing
         self.nodes.append(start_node(2, self.options.tmpdir, ["-debug", "-addressindex", "-txindex", "-relaypriority=0"]))
         self.nodes.append(start_node(3, self.options.tmpdir, ["-debug", "-addressindex", "-txindex"]))
-        connect_nodes(self.nodes[0], 1)
-        connect_nodes(self.nodes[0], 2)
-        connect_nodes(self.nodes[0], 3)
+        connect_nodes(self.nodes, 0, 1)
+        connect_nodes(self.nodes, 0, 2)
+        connect_nodes(self.nodes, 0, 3)
 
         self.is_network_split = False
         self.sync_all()

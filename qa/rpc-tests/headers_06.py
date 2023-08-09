@@ -41,18 +41,11 @@ class headers(BitcoinTestFramework):
         self.sync_all()
 
     def split_network_2(self):
-#        assert not self.is_network_split
-        disconnect_nodes(self.nodes[1], 3)
-        disconnect_nodes(self.nodes[3], 1)
-#        self.is_network_split = True
+        disconnect_nodes(self.nodes, 1, 3)
+        disconnect_nodes(self.nodes, 3, 1)
 
     def join_network_2(self):
-#        assert self.is_network_split
         connect_nodes_bi(self.nodes, 1, 3)
-        connect_nodes_bi(self.nodes, 3, 1)
-        time.sleep(2)
-#        self.sync_all()
-#        self.is_network_split = False
 
     def mark_logs(self, msg):
         self.nodes[0].dbg_log(msg)

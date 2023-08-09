@@ -5,24 +5,14 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.script import OP_DUP, OP_EQUALVERIFY, OP_HASH160, OP_EQUAL, hash160, OP_CHECKSIG, OP_CHECKBLOCKATHEIGHT
+from test_framework.script import CScript, OP_DUP, OP_EQUALVERIFY, OP_HASH160, OP_CHECKSIG, OP_CHECKBLOCKATHEIGHT
 from test_framework.util import assert_equal, assert_greater_than, bytes_to_hex_str, initialize_chain_clean, \
-    start_nodes, start_node, connect_nodes, stop_node, stop_nodes, \
-    sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, p2p_port, check_json_precision, disconnect_nodes
-from test_framework.script import CScript
+    start_nodes, stop_nodes, sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, \
+    hex_str_to_bytes, swap_bytes
 from test_framework.mininode import CTransaction, ToHex
-from test_framework.util import hex_str_to_bytes, swap_bytes
-import traceback
 from binascii import unhexlify
 from io import BytesIO
-import os,sys
-import shutil
 from decimal import Decimal
-import binascii
-import codecs
-import pprint
-
-import time
 
 NUMB_OF_NODES = 4
 
@@ -55,14 +45,11 @@ class checkblockatheight(BitcoinTestFramework):
         if not split:
             # 2 and 3 are joint only if split==false
             connect_nodes_bi(self.nodes, 2, 3)
-            connect_nodes_bi(self.nodes, 3, 2)
             sync_blocks(self.nodes[2:NUMB_OF_NODES])
             sync_mempools(self.nodes[2:NUMB_OF_NODES])
 
         connect_nodes_bi(self.nodes, 0, 1)
-        connect_nodes_bi(self.nodes, 1, 0)
         connect_nodes_bi(self.nodes, 1, 2)
-        connect_nodes_bi(self.nodes, 2, 1)
         self.is_network_split = split
         self.sync_all()
 
@@ -70,7 +57,6 @@ class checkblockatheight(BitcoinTestFramework):
         #Join the (previously split) network pieces together: 0-1-2-3
         assert self.is_network_split
         connect_nodes_bi(self.nodes, 2, 3)
-        connect_nodes_bi(self.nodes, 3, 2)
         sync_blocks(self.nodes, 1, False, 5)
         self.is_network_split = False
 

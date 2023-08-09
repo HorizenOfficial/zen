@@ -9,10 +9,8 @@
 
 from test_framework.authproxy import JSONRPCException
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, connect_nodes, \
-    sync_blocks, gather_inputs, start_nodes, sync_mempools, \
-    connect_nodes_bi, initialize_chain_clean, mark_logs, \
-    disconnect_nodes
+from test_framework.util import assert_equal, start_nodes, sync_mempools, \
+    connect_nodes_bi, initialize_chain_clean, mark_logs
 from decimal import Decimal
 
 DEBUG_MODE = 1
@@ -30,21 +28,12 @@ class TxnMallTest(BitcoinTestFramework):
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args= [['-blockprioritysize=0',
             '-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-debug=zendoo_mc_cryptolib',
             '-scproofqueuesize=0', '-logtimemicros=1', '-sccoinsmaturity=%d' % SC_COINS_MAT]] * NUMB_OF_NODES )
-
-        if not split:
-            self.join_network()
-        else:
-            self.split_network()
-        
-        self.sync_all()
-
-    def join_network(self):
         for idx in range(NUMB_OF_NODES - 1):
             connect_nodes_bi(self.nodes, idx, idx+1)
         self.is_network_split = False
+        self.sync_all()
 
     def run_test(self):
-
         node0_address = self.nodes[0].getnewaddress()
         iterations = 100
 
@@ -154,7 +143,7 @@ class TxnMallTest(BitcoinTestFramework):
 
         mark_logs(("Join the network and sync; all the nodes should remove the pending transactions from mempool"
                    "(conflicting with the transaction that has just been mined)"), self.nodes, DEBUG_MODE)
-        self.join_network()
+        self.join_network(DOUBLE_SPEND_NODE_INDEX - 1)
         self.sync_all()
 
         mark_logs("Check that the mempool of every node is empty", self.nodes, DEBUG_MODE)

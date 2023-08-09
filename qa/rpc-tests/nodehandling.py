@@ -8,7 +8,7 @@
 #
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, connect_nodes_bi, p2p_port,connect_nodes
+from test_framework.util import assert_equal, p2p_port,connect_nodes
 
 import time
 
@@ -55,7 +55,7 @@ class NodeHandlingTest (BitcoinTestFramework):
         for node in self.nodes[0].getpeerinfo():
             assert(node['addr'] != url.hostname+":"+str(p2p_port(1)))
 
-        connect_nodes_bi(self.nodes,0,1) #reconnect the node
+        connect_nodes(self.nodes, 0, 1) #reconnect the node
         found = False
         for node in self.nodes[0].getpeerinfo():
             if node['addr'] == url.hostname+":"+str(p2p_port(1)):
@@ -76,7 +76,7 @@ class NodeHandlingTest (BitcoinTestFramework):
         start_time = time.time()
         connections_count = 0
         while time.time() - start_time < total_duration:
-            connect_nodes(self.nodes[0], 0)
+            connect_nodes(self.nodes, 0, 0)
             connections_count += 1
             time.sleep(0.1)
             for node in self.nodes[0].getpeerinfo():
@@ -88,4 +88,4 @@ class NodeHandlingTest (BitcoinTestFramework):
 
 
 if __name__ == '__main__':
-    NodeHandlingTest ().main ()
+    NodeHandlingTest().main()

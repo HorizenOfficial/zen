@@ -81,10 +81,10 @@ class WalletBackupTest(BitcoinTestFramework):
            ['-debug=zrpc', "-keypool=100", ed2],
            []]
         self.nodes = start_nodes(4, self.options.tmpdir, extra_args)
-        connect_nodes(self.nodes[0], 3)
-        connect_nodes(self.nodes[1], 3)
-        connect_nodes(self.nodes[2], 3)
-        connect_nodes(self.nodes[2], 0)
+        connect_nodes(self.nodes, 0, 3)
+        connect_nodes(self.nodes, 1, 3)
+        connect_nodes(self.nodes, 2, 3)
+        connect_nodes(self.nodes, 2, 0)
         self.is_network_split=False
         self.sync_all()
 
@@ -121,10 +121,10 @@ class WalletBackupTest(BitcoinTestFramework):
         self.nodes[1] = start_node(1, self.options.tmpdir, ['-debug=zrpc', ed1])
         self.nodes[2] = start_node(2, self.options.tmpdir, ['-debug=zrpc', ed2])
 
-        connect_nodes(self.nodes[0], 3)
-        connect_nodes(self.nodes[1], 3)
-        connect_nodes(self.nodes[2], 3)
-        connect_nodes(self.nodes[2], 0)
+        connect_nodes(self.nodes, 0, 3)
+        connect_nodes(self.nodes, 1, 3)
+        connect_nodes(self.nodes, 2, 3)
+        connect_nodes(self.nodes, 2, 0)
 
     def stop_three(self):
         stop_node(self.nodes[0], 0)

@@ -32,13 +32,13 @@ class GetBlockTemplateBlockMaxComplexityTest(BitcoinTestFramework):
         self.nodes.append(start_node(5, self.options.tmpdir, args5))
         self.nodes.append(start_node(6, self.options.tmpdir, args6))
         self.nodes.append(start_node(7, self.options.tmpdir, args7))
-        connect_nodes(self.nodes[1], 0)
-        connect_nodes(self.nodes[2], 0)
-        connect_nodes(self.nodes[3], 0)
-        connect_nodes(self.nodes[4], 0)
-        connect_nodes(self.nodes[5], 0)
-        connect_nodes(self.nodes[6], 0)
-        connect_nodes(self.nodes[7], 0)
+        connect_nodes(self.nodes, 1, 0)
+        connect_nodes(self.nodes, 2, 0)
+        connect_nodes(self.nodes, 3, 0)
+        connect_nodes(self.nodes, 4, 0)
+        connect_nodes(self.nodes, 5, 0)
+        connect_nodes(self.nodes, 6, 0)
+        connect_nodes(self.nodes, 7, 0)
         self.is_network_split = False
         self.sync_all
 

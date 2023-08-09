@@ -23,7 +23,7 @@ class PrioritiseTransactionTest (BitcoinTestFramework):
         # Start nodes with tiny block size of 11kb
         self.nodes.append(start_node(0, self.options.tmpdir, [f"-blockprioritysize={self.blockprioritysize}", "-blockmaxsize=11000", "-maxorphantx=1000", "-relaypriority=true", "-printpriority=1"]))
         self.nodes.append(start_node(1, self.options.tmpdir, [f"-blockprioritysize={self.blockprioritysize}", "-blockmaxsize=11000", "-maxorphantx=1000", "-relaypriority=true", "-printpriority=1"]))
-        connect_nodes(self.nodes[1], 0)
+        connect_nodes(self.nodes, 1, 0)
         self.is_network_split=False
         self.sync_all()
 
