@@ -4,18 +4,12 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, initialize_chain_clean, \
-    start_nodes, start_node, connect_nodes, stop_node, stop_nodes, \
-    sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, p2p_port, check_json_precision
-import traceback
-import os,sys
-import shutil
-from random import randint
-from decimal import Decimal
-import logging
+from test_framework.util import initialize_chain_clean, start_nodes, mark_logs, \
+    assert_equal, colorize as cc
+from headers_common import print_ordered_tips
 
-import time
+DEBUG_MODE = 1
+
 class headers(BitcoinTestFramework):
 
     def setup_chain(self, split=False):
@@ -29,48 +23,31 @@ class headers(BitcoinTestFramework):
                 ["-debug=1", "-logtimemicros=1"]
             ])
 
-    def dump_ordered_tips(self, tip_list):
-        sorted_x = sorted(tip_list, key=lambda k: k['status'])
-        c = 0
-        for y in sorted_x:
-            if (c == 0):
-                print(y)
-            else:
-                print(" ",y)
-            c = 1
-
     def run_test(self):
         blocks = []
-        self.bl_count = 0
 
         blocks.append(self.nodes[0].getblockhash(0))
-        print("\n\nGenesis block is:\n" + blocks[0] + "\n")
-        # raw_input("press enter to go on..")
-
-        s = "Node 0 generates a block"
-        print("\n" + s) 
-        self.nodes[0].dbg_log(s)
-        self.nodes[1].dbg_log(s)
+        mark_logs(cc('e', "Genesis block is:         ") + blocks[0], self.nodes, DEBUG_MODE, color='n')
 
         blocks.extend(self.nodes[0].generate(1)) # block height 1
-        print(blocks[len(blocks)-1])
+        mark_logs(cc('c', "Node 0 generated a block: ") + blocks[len(blocks)-1], self.nodes, DEBUG_MODE, color='n')
 
-        self.nodes[0].dbg_log("Before sync")
-        self.nodes[1].dbg_log("Before sync")
-
+        mark_logs("Before sync", self.nodes, DEBUG_MODE, color='e')
         self.sync_all()
+        mark_logs("After sync", self.nodes, DEBUG_MODE, color='e')
 
-        self.nodes[0].dbg_log("After sync")
-        self.nodes[1].dbg_log("After sync")
+        mark_logs("Check that nodes are sync'ed - same height", self.nodes, DEBUG_MODE, color='g')
+        assert_equal(self.nodes[0].getblockcount(), 1)
+        assert_equal(self.nodes[1].getblockcount(), 1)
+        mark_logs("Check that nodes are sync'ed - tip pointing to the same block", self.nodes, DEBUG_MODE, color='g')
+        node0ActiveTip = [tip for tip in self.nodes[0].getchaintips() if tip['status'] == 'active'][0]
+        node1ActiveTip = [tip for tip in self.nodes[1].getchaintips() if tip['status'] == 'active'][0]
+        assert(node0ActiveTip == node1ActiveTip)
 
-#        raw_input("press enter to go on..")
-        print
-
-        for i in range(0, 2):
-            self.dump_ordered_tips(self.nodes[i].getchaintips())
-            print("---")
-
-#        raw_input("press enter to go on..")
+        print_ordered_tips(self.nodes)
+# Node(0): [0]->[1]
+#   |
+# Node(1): [0]->[1]
 
 if __name__ == '__main__':
     headers().main()

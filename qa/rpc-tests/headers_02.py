@@ -4,18 +4,13 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, initialize_chain_clean, \
-    start_nodes, start_node, connect_nodes, stop_node, stop_nodes, \
-    sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, p2p_port, check_json_precision
-import traceback
-import os,sys
-import shutil
-from random import randint
-from decimal import Decimal
-import logging
+from test_framework.util import initialize_chain_clean, start_nodes, mark_logs, \
+    assert_equal, colorize as cc
+from headers_common import print_ordered_tips
 
-import time
+
+DEBUG_MODE = 1
+
 class headers(BitcoinTestFramework):
 
     def setup_chain(self, split=False):
@@ -25,91 +20,80 @@ class headers(BitcoinTestFramework):
     def setup_nodes(self):
         self.nodes = start_nodes(3, self.options.tmpdir)
 
-    def mark_logs(self, msg):
-        self.nodes[0].dbg_log(msg)
-        self.nodes[1].dbg_log(msg)
-        self.nodes[2].dbg_log(msg)
-
-    def dump_ordered_tips(self, tip_list):
-        sorted_x = sorted(tip_list, key=lambda k: k['status'])
-        c = 0
-        for y in sorted_x:
-            if (c == 0):
-                print(y)
-            else:
-                print(" ",y)
-            c = 1
-
     def run_test(self):
         blocks = []
-        self.bl_count = 0
 
         blocks.append(self.nodes[0].getblockhash(0))
-        print("\n\nGenesis block is:\n" + blocks[0])
-
-        s = "Node 1 generates a block"
-        print("\n\n" + s + "\n")
-        self.mark_logs(s)
+        mark_logs(cc('e', "Genesis block is:         ") + blocks[0], self.nodes, DEBUG_MODE, color='n')
 
         blocks.extend(self.nodes[1].generate(1)) # block height 1
-        print(blocks[1])
+        mark_logs(cc('c', "Node 1 generated a block: ") + blocks[len(blocks)-1], self.nodes, DEBUG_MODE, color='n')
         self.sync_all()
 
+        print_ordered_tips(self.nodes)
 # Node(0): [0]->[1]
 #   |
 # Node(1): [0]->[1]
 #   |
 # Node(2): [0]->[1]
 
-        print("\n\nSplit network")
+        mark_logs("Split network", self.nodes, DEBUG_MODE, color='b')
         self.split_network(1)
-        print("The network is split")
-        self.mark_logs("The network is split")
+        mark_logs("The network is split", self.nodes, DEBUG_MODE, color='e')
 
-        print("\nNode1 generating 1 honest block")
         blocks.extend(self.nodes[1].generate(1)) # block height 2
-        print(blocks[2])
+        mark_logs(cc('c', "Node 1 generated 1 honest block: ") + blocks[2], self.nodes, DEBUG_MODE, color='n')
         self.sync_all()
 
-        print("\nNode2 generating 1 mal block")
         blocks.extend(self.nodes[2].generate(1)) # block height 2
-        print(blocks[3])
+        mark_logs(cc('c', "Node 2 generated 1 mal block:    ") + blocks[3], self.nodes, DEBUG_MODE, color='n')
         self.sync_all()
 
+        print_ordered_tips(self.nodes)
 # Node(0): [0]->[1]->[2h]
-#   |                   
+#   |
 # Node(1): [0]->[1]->[2h]
-#                       
+#
 # Node(2): [0]->[1]->[2m]
 
-#        raw_input("press enter to go on..")
-
-        print("\n\nJoin network")
-#        raw_input("press enter to join the netorks..")
-        self.mark_logs("Joining network")
+        mark_logs("Join network", self.nodes, DEBUG_MODE, color='b')
         self.join_network()
+        mark_logs("The network has joined", self.nodes, DEBUG_MODE, color='e')
 
-        print("\nNetwork joined") 
-        self.mark_logs("Network joined")
-
-        for i in range(0, 3):
-            self.dump_ordered_tips(self.nodes[i].getchaintips())
-            print("---")
-
+        print_ordered_tips(self.nodes)
 # Node(0): [0]->[1]->[2h]  **Active**
 #   |             \     
-#   |              +->[2m]    
+#   |              +->[2m]
 #   |                   
 # Node(1): [0]->[1]->[2h]  **Active**
 #   |             \     
-#   |              +->[2m]    
-#   |                   
+#   |              +->[2m]
 #   |                   
 # Node(2): [0]->[1]->[2m]  **Active**
 #                 \     
-#                  +->[2h]    
+#                  +->[2h]
 
-#        raw_input("press enter to go on..")
+        mark_logs("Check that nodes are sync'ed - same height", self.nodes, DEBUG_MODE, color='g')
+        assert_equal(self.nodes[0].getblockcount(), 2)
+        assert_equal(self.nodes[1].getblockcount(), 2)
+        assert_equal(self.nodes[2].getblockcount(), 2)
+
+        mark_logs("Check that nodes 0 and 1 have the same active tip, different than node 2", self.nodes, DEBUG_MODE, color='g')
+        node0ActiveTip = [tip for tip in self.nodes[0].getchaintips() if tip['status'] == 'active'][0]
+        node1ActiveTip = [tip for tip in self.nodes[1].getchaintips() if tip['status'] == 'active'][0]
+        node2ActiveTip = [tip for tip in self.nodes[2].getchaintips() if tip['status'] == 'active'][0]
+        assert_equal(node0ActiveTip['hash'], blocks[2])
+        assert_equal(node1ActiveTip['hash'], blocks[2])
+        assert_equal(node2ActiveTip['hash'], blocks[3])
+
+        mark_logs("Check that node 1 has node 2's tip as 'valid-headers'", self.nodes, DEBUG_MODE, color='g')
+        node1OtherTip = [tip for tip in self.nodes[1].getchaintips() if tip['status'] == 'valid-headers'][0]
+        assert_equal(node1OtherTip['hash'], blocks[3])
+
+        mark_logs("Check that node 2 has node 1's tip as 'valid-headers'", self.nodes, DEBUG_MODE, color='g')
+        node2OtherTip = [tip for tip in self.nodes[2].getchaintips() if tip['status'] == 'valid-headers'][0]
+        assert_equal(node2OtherTip['hash'], blocks[2])
+
 
 if __name__ == '__main__':
     headers().main()
