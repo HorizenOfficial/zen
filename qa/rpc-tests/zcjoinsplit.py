@@ -4,13 +4,11 @@
 # Test joinsplit semantics
 #
 
-from test_framework.test_framework import BitcoinTestFramework, ForkHeights, sync_blocks
+from test_framework.test_framework import BitcoinTestFramework, ForkHeights
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, start_node, assert_greater_than, \
     assert_greater_or_equal_than, gather_inputs, connect_nodes, disconnect_nodes
 from decimal import Decimal
-
-import sys
 
 RPC_VERIFY_REJECTED = -26
 
@@ -75,22 +73,16 @@ class JoinSplitTest(BitcoinTestFramework):
             if (round == crossing_fork_round):
                 # advance chain on node1 (so that shielded pool deprecation hard fork is active)
                 self.nodes[1].generate(fork_crossing_margin)
-                connect_nodes(self.nodes[0], 1)
-                sync_blocks(self.nodes)
-                # make sure now deprecated tx is in node0 mempool but not in node1 mempool
-                assert_equal(self.nodes[0].getmempoolinfo()["size"], 1)
+                connect_nodes(self.nodes, 0, 1)
+                self.sync_all()
+
+                # The deprecated transaction is not in the mempool anymore:
+                # - Node 0 removed the transaction as "stale"
+                # - Node 1 never received the transaction
+                assert_equal(self.nodes[0].getmempoolinfo()["size"], 0)
                 assert_equal(self.nodes[1].getmempoolinfo()["size"], 0)
-                # mine a block including now deprecated tx
-                try:
-                    self.nodes[0].generate(1)
-                    assert(False)
-                except JSONRPCException as e:
-                    # failing at CreateNewBlock->TestBlockValidity
-                    # (very close to block validation failure a node receiving this block would incur into)
-                    print("Expected exception caught during testing due to deprecation (error=" + str(e.error["code"]) + ")")
-                    self.nodes[0].clearmempool()
-                    self.sync_all()
-                    continue # other steps of this round are skipped
+
+                continue # other steps of this round are skipped
 
             self.nodes[0].generate(1)
 
@@ -100,9 +92,9 @@ class JoinSplitTest(BitcoinTestFramework):
             # The pure joinsplit we create should be mined in the next block
             # despite other transactions being in the mempool.
             addrtest = self.nodes[0].getnewaddress()
-            for xx in range(0,10):
+            for _ in range(0,10):
                 self.nodes[0].generate(1)
-                for x in range(0,50):
+                for _ in range(0,50):
                     self.nodes[0].sendtoaddress(addrtest, 0.01)
 
             joinsplit_tx = self.nodes[0].createrawtransaction([], {})
