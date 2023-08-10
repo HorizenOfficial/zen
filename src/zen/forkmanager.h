@@ -41,6 +41,13 @@ public:
     void selectNetwork(CBaseChainParams::Network network);
     
     /**
+     * @brief determine if between two heights at least one hard-fork gets crossed
+     */
+    bool isCrossHardFork(int fromHeight, int toHeight);
+
+    // ---------- forks redefined methods ----------
+
+    /**
      * @brief getCommunityFundAddress returns the community fund address based on the passed in height and maxHeight
      */
     const std::string& getCommunityFundAddress(int height, int maxHeight, Fork::CommunityFundType cfType) const;
@@ -134,6 +141,8 @@ public:
      * @brief returns true if the shielding (t->z) transactions are forbidden
      */
     bool isShieldingForbidden(int height) const;
+
+    // ---------- forks redefined methods ----------
 
 private:
     

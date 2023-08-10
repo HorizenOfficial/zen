@@ -1162,6 +1162,14 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
                 continue;
             }
         }
+
+        if (ForkManager::getInstance().isCrossHardFork(pcoinsTip->GetHeight(), pcoinsTip->GetHeight() + 1))
+        {
+            CValidationState dummyState;
+            if(!tx.ContextualCheck(dummyState, pcoinsTip->GetHeight() + 1, 0)) {
+                txesToRemove.insert(tx.GetHash());
+            }
+        }
     }
 
     for(const auto& hash: txesToRemove)
