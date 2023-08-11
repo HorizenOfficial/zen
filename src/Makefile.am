@@ -358,7 +358,9 @@ if ENABLE_MINING
 EQUIHASH_TROMP_SOURCES = \
   pow/tromp/equi_miner.h \
   pow/tromp/equi.h \
-  pow/tromp/osx_barrier.h
+  pow/tromp/osx_barrier.h \
+  pow/tromp/equi.cpp \
+  pow/tromp/equi_miner.cpp
 
 crypto_libbitcoin_crypto_a_CPPFLAGS += \
   -DEQUIHASH_TROMP_ATOMIC

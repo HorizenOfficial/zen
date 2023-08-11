@@ -10,6 +10,7 @@ zen_gtest_SOURCES = \
 	gtest/tx_creation_utils.cpp \
 	gtest/test_checktransaction.cpp \
 	gtest/test_consensus.cpp \
+	gtest/test_createnewblock.cpp \
 	gtest/json_test_vectors.cpp \
 	gtest/json_test_vectors.h \
 	gtest/libzendoo_test_files.h \

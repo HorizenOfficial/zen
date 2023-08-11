@@ -868,6 +868,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
                                 __func__, __LINE__, porphan->ptx->GetHash().ToString(), porphan->dPriority, porphan->feeRate.ToString());
                             
                             vecPriority.push_back(TxPriority(porphan->dPriority, porphan->feeRate, porphan->ptx));
+                            TxPriorityCompare comparer(fSortedByFee);
                             std::push_heap(vecPriority.begin(), vecPriority.end(), comparer);
                         }
                     }

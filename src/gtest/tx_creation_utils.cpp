@@ -764,6 +764,21 @@ void BlockchainTestManager::GenerateSidechainTestParameters(ProvingSystem provin
                                    );
 }
 
+CSidechain BlockchainTestManager::GenerateSidechain() {
+    CSidechain sidechain;
+    sidechain.creationBlockHeight = 100;
+    sidechain.fixedParams.withdrawalEpochLength = 20;
+    sidechain.fixedParams.constant = CFieldElement{SAMPLE_FIELD};
+    sidechain.fixedParams.version = 0;
+    sidechain.lastTopQualityCertHash = uint256S("c22c");
+    sidechain.lastTopQualityCertQuality = 100;
+    sidechain.lastTopQualityCertReferencedEpoch = -1;
+    sidechain.lastTopQualityCertBwtAmount = 50;
+    sidechain.balance = CAmount(100);
+
+    return sidechain;
+}
+
 /**
  * @brief Generate a certificate proof based on the certificate parameters
  * and the proving key provided.
