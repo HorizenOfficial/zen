@@ -20,7 +20,7 @@ from test_framework.util import assert_equal, check_json_precision, \
     initialize_chain, initialize_chain_clean, \
     start_nodes, connect_nodes_bi, stop_nodes, \
     sync_blocks, sync_mempools, wait_bitcoinds, \
-    disconnect_nodes, assert_false
+    disconnect_nodes
 
 MINER_REWARD_POST_H200 = 7.50
 
@@ -41,6 +41,8 @@ class BitcoinTestFramework(object):
     def __init__(self):
         self.nodes = []
         self.is_network_split = False
+        self.numb_of_nodes = 0
+        self.current_mock_time = 0
 
     # These may be over-ridden by subclasses:
     def run_test(self):
@@ -96,6 +98,28 @@ class BitcoinTestFramework(object):
         if sync_type == syncType.SYNC_MEMPOOLS or sync_type == syncType.SYNC_ALL:
             sync_mempools([self.nodes[id], self.nodes[id + 1]])
         self.is_network_split = False
+
+    def set_mock_time(self, time: int):
+        '''
+        Sets the mock time for all the nodes in the test.
+
+        Args:
+            time (int): absolute mock time to set (seconds)
+        '''
+        self.current_mock_time = time
+
+        for node in self.nodes:
+            node.setmocktime(time)
+
+    def increase_mock_time(self, increment: int):
+        '''
+        Increase the current mock time by "increment" seconds.
+
+        Args:
+            increment (int): relative mock time to set as increment (seconds)
+        '''
+        self.set_mock_time(self.current_mock_time + increment)
+
 
     def main(self):
         import optparse

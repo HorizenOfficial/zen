@@ -618,10 +618,10 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
 
     // Update block
     static CBlockIndex* pindexPrev;
-    static int64_t nStart;
+    static int64_t lastExecution;
     static CBlockTemplate* pblocktemplate;
     if (pindexPrev != chainActive.Tip() ||
-        (mempool->GetTransactionsUpdated() != nTransactionsUpdatedLast && GetTime() - nStart > 5))
+        (mempool->GetTransactionsUpdated() != nTransactionsUpdatedLast && GetTime() - lastExecution > 5))
     {
         // Clear pindexPrev so future calls make a new block, despite any failures from here on
         pindexPrev = NULL;
@@ -629,7 +629,7 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
         // Store the pindexBest used before CreateNewBlockWithKey, to avoid races
         nTransactionsUpdatedLast = mempool->GetTransactionsUpdated();
         CBlockIndex* pindexPrevNew = chainActive.Tip();
-        nStart = GetTime();
+        lastExecution = GetTime();
 
         // Create new block
         if(pblocktemplate)
