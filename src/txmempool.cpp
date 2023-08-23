@@ -1110,8 +1110,8 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>
     removeOutOfScBalanceCsw(pcoinsTip, removedTxs, removedCerts);
 }
 
-void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsView,
-                                         std::list<CTransaction>& outdatedTxs, std::list<CScCertificate>& outdatedCerts)
+void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsView, std::list<CTransaction>& outdatedTxs,
+                                         std::list<CScCertificate>& outdatedCerts, bool fHardForkCheckEnabled)
 {
     LOCK(cs);
     std::set<uint256> txesToRemove;
@@ -1163,7 +1163,7 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
             }
         }
 
-        if (ForkManager::getInstance().isCrossHardFork(pcoinsTip->GetHeight(), pcoinsTip->GetHeight() + 1))
+        if (fHardForkCheckEnabled)
         {
             CValidationState dummyState;
             if(!tx.ContextualCheck(dummyState, pcoinsTip->GetHeight() + 1, 0)) {
