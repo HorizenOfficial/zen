@@ -7,7 +7,7 @@
 from test_framework.blockchainhelper import EXPECT_SUCCESS, BlockchainHelper, SidechainParameters
 from test_framework.test_framework import BitcoinTestFramework, ForkHeights
 from test_framework.util import assert_equal, assert_greater_than, initialize_chain_clean, mark_logs, \
-                                start_nodes, sync_blocks, connect_nodes_bi, wait_and_assert_operationid_status
+                                start_nodes, sync_blocks, wait_and_assert_operationid_status, wait_until
 
 DEBUG_MODE = 1
 NUMB_OF_NODES = 2
@@ -19,16 +19,8 @@ class Test (BitcoinTestFramework):
         print("Initializing test directory "+self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
 
-    def setup_network(self):
-        self.nodes = start_nodes(2, self.options.tmpdir, [['-experimentalfeatures', '-zmergetoaddress']] * 2)
-        connect_nodes_bi(self.nodes, 0, 1)
-        self.is_network_split=False
-        self.sync_all()
-
-    def make_all_mature(self):
-        self.sync_all()
-        self.nodes[0].generate(1)
-        self.sync_all()
+    def setup_nodes(self):
+        self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, [['-experimentalfeatures', '-zmergetoaddress', '-limitdebuglogsize=false']] * NUMB_OF_NODES)
 
     def run_test (self):
 
@@ -85,6 +77,9 @@ class Test (BitcoinTestFramework):
         total_funds_before_shielding = sum(x['amount'] for x in self.nodes[0].listunspent(0))
         opid = self.nodes[0].z_mergetoaddress(["ANY_TADDR"], self.nodes[0].z_getnewaddress(), Z_FEE, 2, 2)["opid"]
         wait_and_assert_operationid_status(self.nodes[0], opid)
+
+        # Give time to the wallet to be notified and updated the balance (listunspent would otherwise return an outdated value)
+        wait_until(lambda: self.nodes[0].getmempoolinfo()['fullyNotified'] == True, 20)
         assert_greater_than(total_funds_before_shielding, sum(x['amount'] for x in self.nodes[0].listunspent(0))) # Some less funds available
 
         mark_logs("Join the network", self.nodes, DEBUG_MODE)
