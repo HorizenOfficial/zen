@@ -196,9 +196,9 @@ TEST(ForkManager, GetCommunityFundAddressMainnet) {
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(1127000 + 1, 0, Fork::CommunityFundType::FOUNDATION),"zshX5BAgUvNgM1VoBVKZyFVVozTDjjJvRxJ");
 
     // Test the new addresses introduced in the hard fork 11 (shielded pool deprecation)
-    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2500001 - 1, 0, Fork::CommunityFundType::FOUNDATION),"zshX5BAgUvNgM1VoBVKZyFVVozTDjjJvRxJ");
-    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2500001, 0, Fork::CommunityFundType::FOUNDATION),"zsq5TpKdHRTXTaeKeToTiPTE4Re4279nUj3");
-    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2500001 + 1, 0, Fork::CommunityFundType::FOUNDATION),"zsq5TpKdHRTXTaeKeToTiPTE4Re4279nUj3");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(1426200 - 1, 0, Fork::CommunityFundType::FOUNDATION),"zshX5BAgUvNgM1VoBVKZyFVVozTDjjJvRxJ");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(1426200, 0, Fork::CommunityFundType::FOUNDATION),"zsq5TpKdHRTXTaeKeToTiPTE4Re4279nUj3");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(1426200 + 1, 0, Fork::CommunityFundType::FOUNDATION),"zsq5TpKdHRTXTaeKeToTiPTE4Re4279nUj3");
 
     // Test the highest possible block (for spotting potential regressions)
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(INT_MAX, 0, Fork::CommunityFundType::FOUNDATION),"zsq5TpKdHRTXTaeKeToTiPTE4Re4279nUj3");
@@ -265,9 +265,9 @@ TEST(ForkManager, GetSecureNodeFundAddressMainnet) {
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(1127000 + 1, 0, Fork::CommunityFundType::SECURENODE),"zsx68qSKMNoc1ZPQpGwNFZXVzgf27KN6a9u");
 
     // Test the new addresses introduced in the hard fork 11 (shielded pool deprecation)
-    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2500001 - 1, 0, Fork::CommunityFundType::SECURENODE),"zsx68qSKMNoc1ZPQpGwNFZXVzgf27KN6a9u");
-    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2500001, 0, Fork::CommunityFundType::SECURENODE),"zstp5e9WBs5wUQcrNHx2S1UmkaN4koPVBBf");
-    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2500001 + 1, 0, Fork::CommunityFundType::SECURENODE),"zstp5e9WBs5wUQcrNHx2S1UmkaN4koPVBBf");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(1426200 - 1, 0, Fork::CommunityFundType::SECURENODE),"zsx68qSKMNoc1ZPQpGwNFZXVzgf27KN6a9u");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(1426200, 0, Fork::CommunityFundType::SECURENODE),"zstp5e9WBs5wUQcrNHx2S1UmkaN4koPVBBf");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(1426200 + 1, 0, Fork::CommunityFundType::SECURENODE),"zstp5e9WBs5wUQcrNHx2S1UmkaN4koPVBBf");
 
     // Test the highest possible block (for spotting potential regressions)
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(INT_MAX, 0, Fork::CommunityFundType::SECURENODE),"zstp5e9WBs5wUQcrNHx2S1UmkaN4koPVBBf");
@@ -334,9 +334,9 @@ TEST(ForkManager, GetSuperNodeFundAddressMainnet) {
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(1127000 + 1, 0, Fork::CommunityFundType::SUPERNODE),"zszMgcogAqz49sLHGV22YCDFSvwzwkfog4k");
 
     // Test the new addresses introduced in the hard fork 11 (shielded pool deprecation)
-    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2500001 - 1, 0, Fork::CommunityFundType::SUPERNODE),"zszMgcogAqz49sLHGV22YCDFSvwzwkfog4k");
-    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2500001, 0, Fork::CommunityFundType::SUPERNODE),"zsvR2ihXmtjGrmAyFWytLdj76VvdFxVUJpP");
-    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2500001 + 1, 0, Fork::CommunityFundType::SUPERNODE),"zsvR2ihXmtjGrmAyFWytLdj76VvdFxVUJpP");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(1426200 - 1, 0, Fork::CommunityFundType::SUPERNODE),"zszMgcogAqz49sLHGV22YCDFSvwzwkfog4k");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(1426200, 0, Fork::CommunityFundType::SUPERNODE),"zsvR2ihXmtjGrmAyFWytLdj76VvdFxVUJpP");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(1426200 + 1, 0, Fork::CommunityFundType::SUPERNODE),"zsvR2ihXmtjGrmAyFWytLdj76VvdFxVUJpP");
 
     // Test the highest possible block (for spotting potential regressions)
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(INT_MAX, 0, Fork::CommunityFundType::SUPERNODE),"zsvR2ihXmtjGrmAyFWytLdj76VvdFxVUJpP");
@@ -525,7 +525,7 @@ TEST(ForkManager, NonCeasingSCVersionForkRegtest) {
 TEST(ForkManager, ShieldedPoolDeprecationForkMainnet) {
     SelectParams(CBaseChainParams::MAIN);
 
-    int shieldedPoolDeprecationForkHeight = 2500001;    // // TODO: MODIFY PLACEHOLDER!
+    int shieldedPoolDeprecationForkHeight = 1426200;
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight - 1), true);
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight), false);
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight + 1), false);
