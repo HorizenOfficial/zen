@@ -46,6 +46,14 @@ void ForkManager::selectNetwork(const CBaseChainParams::Network network) {
 }
 
 /**
+ * @brief determine if between two heights at least one hard-fork gets crossed
+ */
+bool ForkManager::isCrossHardFork(int fromHeight, int toHeight)
+{
+    return getForkAtHeight(fromHeight)->getHeight(currentNetwork) != getForkAtHeight(toHeight)->getHeight(currentNetwork);
+}
+
+/**
  * @brief getCommunityFundAddress returns the community fund address based on the passed in height and maxHeight
  * @param height the height
  * @param maxHeight the maximum height sometimes used in the computation of the proper address
