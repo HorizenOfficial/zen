@@ -668,7 +668,7 @@ MempoolReturnValue BlockchainTestManager::TestAcceptTxToMemoryPool(CValidationSt
 {
     CCoinsViewCache* saved_pcoinsTip = pcoinsTip;
 
-    std::unique_ptr<CTxMemPool> pool(new CTxMemPool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000));
+    mempool.reset(new CTxMemPool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000));
     pcoinsTip = viewCache.get();
     pcoinsTip->SetBestBlock(chainActive.Tip()->GetBlockHash());
     pindexBestHeader = chainActive.Tip();
@@ -676,7 +676,7 @@ MempoolReturnValue BlockchainTestManager::TestAcceptTxToMemoryPool(CValidationSt
     CCoinsViewCache view(pcoinsTip);
 
     LOCK(cs_main);
-    MempoolReturnValue val = AcceptTxToMemoryPool(*pool, state, tx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, MempoolProofVerificationFlag::SYNC);
+    MempoolReturnValue val = AcceptTxToMemoryPool(*mempool, state, tx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, MempoolProofVerificationFlag::SYNC);
 
     pcoinsTip = saved_pcoinsTip;
 
