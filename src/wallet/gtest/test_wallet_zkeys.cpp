@@ -35,6 +35,7 @@ protected:
  * LoadZKeyMetadata()
  */
 TEST_F(WalletZkeysTest, store_and_load_zkeys) {
+    // GTEST_SKIP << "Test failing ";
     SelectParams(CBaseChainParams::MAIN);
 
     MockCWallet wallet;
@@ -219,7 +220,7 @@ TEST_F(WalletZkeysTest, WriteViewingKeyDirectToDB) {
     mapArgs["-datadir"] = pathTemp.string();
 
     bool fFirstRun;
-    MockCWallet wallet("wallet-vkey.dat");
+    MockCWallet wallet("wallet-vkey1.dat");
     ASSERT_EQ(DB_LOAD_OK, wallet.LoadWallet(fFirstRun));
 
     // No default CPubKey set
@@ -231,7 +232,7 @@ TEST_F(WalletZkeysTest, WriteViewingKeyDirectToDB) {
     auto addr = sk.address();
     int64_t now = GetTime();
     CKeyMetadata meta(now);
-    CWalletDB db("wallet-vkey.dat");
+    CWalletDB db("wallet-vkey1.dat");
     db.WriteViewingKey(vk);
 
     // wallet should not be aware of viewing key

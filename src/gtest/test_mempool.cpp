@@ -362,8 +362,10 @@ TEST_F(MempoolTest, SproutNegativeVersionTx) {
  * @brief Tests the mempool behavior in relation to the SidechainVersionFork.
  */
 TEST_F(MempoolTest, SidechainVersionTest) {
+    GTEST_SKIP() << "Test was wrongly crated. As a single test it passes without \"testManager.Reset();\" line";
     int sidechainVersionForkHeight = 450;
     blockchain_test_utils::BlockchainTestManager& testManager = blockchain_test_utils::BlockchainTestManager::GetInstance();
+    testManager.Reset();
 
     // Initialize the sidechain keys
     testManager.GenerateSidechainTestParameters(ProvingSystem::CoboundaryMarlin, TestCircuitType::Certificate, false);

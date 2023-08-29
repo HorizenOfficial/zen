@@ -163,7 +163,6 @@ public:
 class CreateNewBlockSuite : public ::testing::Test {
     public:
     std::unique_ptr<TestCCoinsViewDB> dbCoins;
-    std::unique_ptr<txCreationUtils::CNakedCCoinsViewCache> nakedView;
     CBlockIndex blockIndex;
     uint256 hash; 
     ZCIncrementalMerkleTree tree;
@@ -243,8 +242,10 @@ const std::vector<unsigned char> SAMPLE_FIELD = {
 TEST_F(CreateNewBlockSuite, CreateNewBlock_1cert)
 {
     blockchain_test_utils::BlockchainTestManager &blockchain = blockchain_test_utils::BlockchainTestManager::GetInstance();
-    nakedView.reset( new txCreationUtils::CNakedCCoinsViewCache(dbCoins.get()));
-    delete pcoinsTip;
+    std::shared_ptr<txCreationUtils::CNakedCCoinsViewCache> nakedView = blockchain.CoinsViewCache();
+    if (pcoinsTip != nullptr) {
+        delete pcoinsTip;
+    }
     pcoinsTip = nakedView.get();
 
     blockchain.Reset();
@@ -286,8 +287,10 @@ TEST_F(CreateNewBlockSuite, CreateNewBlock_1cert)
 TEST_F(CreateNewBlockSuite, CreateNewBlock_sorting_certs)
 {
     blockchain_test_utils::BlockchainTestManager &blockchain = blockchain_test_utils::BlockchainTestManager::GetInstance();
-    nakedView.reset( new txCreationUtils::CNakedCCoinsViewCache(dbCoins.get()));
-    delete pcoinsTip;
+    std::shared_ptr<txCreationUtils::CNakedCCoinsViewCache> nakedView = blockchain.CoinsViewCache();
+    if (pcoinsTip != nullptr) {
+        delete pcoinsTip;
+    }
     pcoinsTip = nakedView.get();
 
 
@@ -339,7 +342,7 @@ TEST_F(CreateNewBlockSuite, CreateNewBlock_sorting_certs)
 // NOTE: These tests rely on CreateNewBlock doing its own self-validation!
 TEST_F(CreateNewBlockSuite, CreateNewBlock_validity)
 {
-    GTEST_SKIP() << "Skipping single test";
+    GTEST_SKIP() << "Test takes too long time due to mining";
     CScript scriptPubKey = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
     CBlockTemplate *pblocktemplate;
     CMutableTransaction tx,tx2;
