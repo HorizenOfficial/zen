@@ -1,5 +1,9 @@
-zend v4.0.99
+zend v4.1.0
 =========
+
+This version is expected to deprecate on Mainnet at block **#1466716**, which will occur on **December 6th 2023 at approximately 02:00 PM UTC**. Please, update to a newer version before December 6th.
+
+A **hard fork** is going to activate on Mainnet at block **#1426200**, on **September 26th 2023 at approximately 10:00 AM UTC**.
 
 ## Important Notes
 - PR [#526](https://github.com/HorizenOfficial/zen/pull/526) implements [ZenIP-42204](https://github.com/HorizenOfficial/ZenIPs/blob/master/zenip-42204.md), which introduces a hard fork disabling the possibility to move transparent funds to shield addresses. After the hard fork, only shielded-to-shielded and shielded-to-transparent transactions will be allowed. For this reason, the following RPC commands have been (partially or fully) deprecated: `z_sendmany`, `z_shieldcoinbase` and `z_mergetoaddress` (check inline documentation for additional details).
@@ -43,6 +47,8 @@ zend v4.0.99
 - Improved the management of SSL disconnections [#566](https://github.com/HorizenOfficial/zen/pull/566)
 - Added the possibility to pass parameters to the `run_until_fails.py` helper script [#578](https://github.com/HorizenOfficial/zen/pull/578)
 - Avoid relaying transactions coming from whitelisted peers that would make the local node be banned [#580](https://github.com/HorizenOfficial/zen/pull/580)
+- Remove stale transactions when a hard fork activates [#594](https://github.com/HorizenOfficial/zen/pull/594)
+- Fix for GUI when reindexing procedure is interrupted [#597](https://github.com/HorizenOfficial/zen/pull/597)
 
 ## Contributors
 [@JackPiri](https://github.com/JackPiri)
