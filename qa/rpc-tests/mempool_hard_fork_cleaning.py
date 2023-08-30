@@ -7,11 +7,27 @@
 from test_framework.blockchainhelper import EXPECT_SUCCESS, BlockchainHelper, SidechainParameters
 from test_framework.test_framework import BitcoinTestFramework, ForkHeights
 from test_framework.util import assert_equal, assert_greater_than, initialize_chain_clean, mark_logs, \
-                                start_nodes, sync_blocks, wait_and_assert_operationid_status, wait_until
+                                start_nodes, sync_blocks, wait_and_assert_operationid_status
+import time
 
 DEBUG_MODE = 1
 NUMB_OF_NODES = 2
 Z_FEE = 0.0001
+
+def wait_until(predicate, attempts=float('inf'), timeout=float('inf')):
+    attempt = 0
+    elapsed = time.time()
+
+    while attempt < attempts and (time.time() - elapsed) < timeout:
+        try:
+            if predicate():
+                return True
+        except Exception as e:
+            print(f'Warning: exception "{e}" occured in {__name__}')
+        attempt += 1
+        time.sleep(0.1)
+
+    return False
 
 class Test (BitcoinTestFramework):
 

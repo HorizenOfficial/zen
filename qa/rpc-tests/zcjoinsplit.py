@@ -73,7 +73,7 @@ class JoinSplitTest(BitcoinTestFramework):
             if (round == crossing_fork_round):
                 # advance chain on node1 (so that shielded pool deprecation hard fork is active)
                 self.nodes[1].generate(fork_crossing_margin)
-                connect_nodes(self.nodes, 0, 1)
+                connect_nodes(self.nodes[0], 1)
                 self.sync_all()
 
                 # The deprecated transaction is not in the mempool anymore:
