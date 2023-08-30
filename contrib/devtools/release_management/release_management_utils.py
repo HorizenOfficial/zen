@@ -60,8 +60,12 @@ def git_create_branch(cwd: str, branch_name: str):
 def git_commit(cwd: str, commit_title: str, directories_for_add: list[str] = []):
     for directory_for_add in directories_for_add:
         subprocess.run(["git", "add", directory_for_add], cwd=cwd) # Add changes to the index
-    result = subprocess.run(["git", "commit", "-a", "-S", "-m", commit_title], capture_output=True, text=True, cwd=cwd) # Commit changes with the given message
-    return result.returncode == 0 and not git_check_pending_changes(cwd)
+    resultdiff = subprocess.run(["git", "diff-index", "--quiet", "HEAD"], capture_output=True, text=True, cwd=cwd)
+    if (resultdiff.returncode == 1):
+        resultcommit = subprocess.run(["git", "commit", "-a", "-S", "-m", commit_title], capture_output=True, text=True, cwd=cwd) # Commit changes with the given message
+        return resultcommit.returncode == 0 and not git_check_pending_changes(cwd)
+    else:
+        return True
 
 def git_reset_file(cwd: str, file_to_reset: str):
     result_reset = subprocess.run(["git", "checkout", file_to_reset], capture_output=True, text=True, cwd=cwd)
