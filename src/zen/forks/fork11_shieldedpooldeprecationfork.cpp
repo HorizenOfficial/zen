@@ -4,7 +4,7 @@ namespace zen {
 
 ShieldedPoolDeprecationFork::ShieldedPoolDeprecationFork()
 {
-    setHeightMap({{CBaseChainParams::Network::MAIN,2500001},            // TODO: MODIFY PLACEHOLDER!
+    setHeightMap({{CBaseChainParams::Network::MAIN,1426200},
                   {CBaseChainParams::Network::REGTEST,990},
                   {CBaseChainParams::Network::TESTNET,1313400}});
 

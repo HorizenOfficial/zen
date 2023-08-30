@@ -255,8 +255,8 @@ public:
                          std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
     void removeOutOfScBalanceCsw(const CCoinsViewCache * const pCoinsView,
                                  std::list<CTransaction> &removedTxs, std::list<CScCertificate> &removedCerts);
-    void removeStaleTransactions(const CCoinsViewCache * const pCoinsView,
-                                 std::list<CTransaction>& outdatedTxs, std::list<CScCertificate>& outdatedCerts);
+    void removeStaleTransactions(const CCoinsViewCache * const pCoinsView, std::list<CTransaction>& outdatedTxs,
+                                 std::list<CScCertificate>& outdatedCerts, bool fHardForkCheckEnabled = false);
     // END OF UNCONFIRMED TRANSACTIONS CLEANUP METHODS
 
     // UNCONFIRMED CERTIFICATES CLEANUP METHODS

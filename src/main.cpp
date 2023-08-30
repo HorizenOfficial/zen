@@ -4285,7 +4285,8 @@ bool static DisconnectTip(CValidationState &state) {
         mempool->removeWithAnchor(anchorBeforeDisconnect);
     }
 
-    mempool->removeStaleTransactions(pcoinsTip, dummyTxs, dummyCerts);
+    bool fHardForkCheckEnabled = ForkManager::getInstance().isCrossHardFork(pcoinsTip->GetHeight() + 1, pcoinsTip->GetHeight() + 2);
+    mempool->removeStaleTransactions(pcoinsTip, dummyTxs, dummyCerts, fHardForkCheckEnabled);
     mempool->removeStaleCertificates(pcoinsTip, dummyCerts);
 
     mempool->check(pcoinsTip);
@@ -4375,7 +4376,8 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     mempool->removeForBlock(pblock->vtx, pindexNew->nHeight, removedTxs,  removedCerts, !IsInitialBlockDownload());
     mempool->removeForBlock(pblock->vcert, pindexNew->nHeight, removedTxs, removedCerts);
 
-    mempool->removeStaleTransactions(pcoinsTip, removedTxs, removedCerts);
+    bool fHardForkCheckEnabled = ForkManager::getInstance().isCrossHardFork(pcoinsTip->GetHeight(), pcoinsTip->GetHeight() + 1);
+    mempool->removeStaleTransactions(pcoinsTip, removedTxs, removedCerts, fHardForkCheckEnabled);
     mempool->removeStaleCertificates(pcoinsTip, removedCerts);
 
     mempool->check(pcoinsTip);
