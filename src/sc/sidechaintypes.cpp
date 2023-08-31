@@ -665,7 +665,7 @@ BitVectorCertificateField::BitVectorCertificateField(const std::vector<unsigned 
     :CustomCertificateField(rawBytes), pReferenceCfg{nullptr} {}
 
 BitVectorCertificateField::BitVectorCertificateField(const BitVectorCertificateField& rhs)
-    :CustomCertificateField(), pReferenceCfg{nullptr}
+    :CustomCertificateField(rhs), pReferenceCfg{nullptr}
 {
     *this = rhs;
 }
@@ -873,7 +873,7 @@ void dumpFe(field_t* fe, const std::string& name)
         return;
     }
 
-    unsigned char* ptr = (unsigned char*)fe;
+    unsigned char* ptr = reinterpret_cast<unsigned char*>(fe);
     printf("     contents: [");
     for (int i = 0; i < CFieldElement::ByteSize(); i++)
     {

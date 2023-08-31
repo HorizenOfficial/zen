@@ -1,6 +1,7 @@
 #include "zcash/util.h"
 #include <algorithm>
 #include <stdexcept>
+#include <climits>
 
 std::vector<unsigned char> convertIntToVectorLE(const uint64_t val_int) {
     std::vector<unsigned char> bytes;
@@ -15,13 +16,12 @@ std::vector<unsigned char> convertIntToVectorLE(const uint64_t val_int) {
 // Convert bytes into boolean vector. (MSB to LSB)
 std::vector<bool> convertBytesVectorToVector(const std::vector<unsigned char>& bytes) {
     std::vector<bool> ret;
-    ret.resize(bytes.size() * 8);
+    ret.resize(bytes.size() * CHAR_BIT);
 
-    unsigned char c;
     for (size_t i = 0; i < bytes.size(); i++) {
-        c = bytes.at(i);
-        for (size_t j = 0; j < 8; j++) {
-            ret.at((i*8)+j) = (c >> (7-j)) & 1;
+        unsigned char c = bytes.at(i);
+        for (size_t j = 0; j < CHAR_BIT; j++) {
+            ret.at((i*CHAR_BIT)+j) = (c >> (7-j)) & 1;
         }
     }
 

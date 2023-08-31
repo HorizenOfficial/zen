@@ -148,7 +148,7 @@ void CZMQNotificationInterface::SyncTransaction(const CTransaction &tx, const CB
         CZMQAbstractNotifier *notifier = *i;
         if (notifier->NotifyTransaction(tx))
         {
-            i++;
+            ++i;
         }
         else
         {
