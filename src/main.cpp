@@ -1150,14 +1150,14 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
     return true;
 }
 
-CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAllowFree, unsigned int block_priority_size)
+CAmount GetMinRelayFee(CTxMemPool& pool, const CTransactionBase& tx, unsigned int nBytes, bool fAllowFree, unsigned int block_priority_size)
 {
     {
-        LOCK(mempool->cs);
+        LOCK(pool.cs);
         uint256 hash = tx.GetHash();
         double dPriorityDelta = 0;
         CAmount nFeeDelta = 0;
-        mempool->ApplyDeltas(hash, dPriorityDelta, nFeeDelta);
+        pool.ApplyDeltas(hash, dPriorityDelta, nFeeDelta);
         if (dPriorityDelta > 0 || nFeeDelta > 0)
             return 0;
     }
@@ -1366,7 +1366,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
         unsigned int nSize = entry.GetCertificateSize();
 
         // Don't accept it if it can't get into a block
-        CAmount txMinFee = GetMinRelayFee(cert, nSize, true, DEFAULT_BLOCK_PRIORITY_SIZE);
+        CAmount txMinFee = GetMinRelayFee(pool, cert, nSize, true, DEFAULT_BLOCK_PRIORITY_SIZE);
 
         LogPrintf("nFees=%d, txMinFee=%d\n", nFees, txMinFee);
         if (fLimitFree == LimitFreeFlag::ON && nFees < txMinFee)
@@ -1697,7 +1697,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
         double dPriority = view.GetPriority(tx, chainActive.Height());
         LogPrint("mempool", "%s():%d - tx[%s], Computed fee=%lld, prio[%22.8f]\n", __func__, __LINE__, hash.ToString(), nFees, dPriority);
 
-        CTxMemPoolEntry entry(tx, nFees, GetTime(), dPriority, chainActive.Height(), mempool->HasNoInputsOf(tx));
+        CTxMemPoolEntry entry(tx, nFees, GetTime(), dPriority, chainActive.Height(), pool.HasNoInputsOf(tx));
         unsigned int nSize = entry.GetTxSize();
 
         // Accept a tx if it contains joinsplits and has at least the default fee specified by z_sendmany.
@@ -1709,7 +1709,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
                 block_priority_size = DEFAULT_BLOCK_PRIORITY_SIZE_BEFORE_SC;
 
             // Don't accept it if it can't get into a block
-            CAmount txMinFee = GetMinRelayFee(tx, nSize, true, block_priority_size);
+            CAmount txMinFee = GetMinRelayFee(pool, tx, nSize, true, block_priority_size);
 
             LogPrintf("nFees=%d, txMinFee=%d\n", nFees, txMinFee);
             if (fLimitFree == LimitFreeFlag::ON && nFees < txMinFee)
