@@ -219,8 +219,9 @@ TEST_F(CreateNewBlockSuite, CreateNewBlock_1tx)
     tx.vin[0].scriptSig = CScript() << OP_0 << OP_0 << OP_0 << OP_NOP << OP_CHECKMULTISIG << OP_1;
     tx.vin[0].prevout.hash = uint256S("0007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
     tx.vin[0].prevout.n = 0;
-    tx.vout.resize(1);
-    tx.vout[0].nValue = 50000LL;
+    tx.resizeOut(1);
+    CTxOut out(50000LL, CScript() << OP_1);
+    tx.addOut(out);
 
     uint256 hash1 = tx.GetHash();
     mempool->addUnchecked(hash1, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
@@ -372,7 +373,7 @@ TEST_F(CreateNewBlockSuite, CreateNewBlock_validity)
         CMutableTransaction txCoinbase(pblock->vtx[0]);
         txCoinbase.nVersion = 1;
         txCoinbase.vin[0].scriptSig = CScript() << (chainActive.Height()+1) << OP_0;
-        txCoinbase.vout[0].scriptPubKey = CScript();
+        // txCoinbase.vout[0].scriptPubKey = CScript();
         pblock->vtx[0] = CTransaction(txCoinbase);
         if (txFirst.size() < 2)
             txFirst.push_back(new CTransaction(pblock->vtx[0]));
@@ -479,11 +480,11 @@ TEST_F(CreateNewBlockSuite, CreateNewBlock_validity)
     tx.vin[0].scriptSig = CScript() << OP_0 << OP_0 << OP_0 << OP_NOP << OP_CHECKMULTISIG << OP_1;
     tx.vin[0].prevout.hash = txFirst[0]->GetHash();
     tx.vin[0].prevout.n = 0;
-    tx.vout.resize(1);
-    tx.vout[0].nValue = 50000LL;
+    // tx.vout.resize(1);
+    // tx.vout[0].nValue = 50000LL;
     for (unsigned int i = 0; i < 1001; ++i)
     {
-        tx.vout[0].nValue -= 10;
+        // tx.vout[0].nValue -= 10;
         hash = tx.GetHash();
         mempool->addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
         tx.vin[0].prevout.hash = hash;
@@ -500,10 +501,10 @@ TEST_F(CreateNewBlockSuite, CreateNewBlock_validity)
         tx.vin[0].scriptSig << vchData << OP_DROP;
     tx.vin[0].scriptSig << OP_1;
     tx.vin[0].prevout.hash = txFirst[0]->GetHash();
-    tx.vout[0].nValue = 50000LL;
+    // tx.vout[0].nValue = 50000LL;
     for (unsigned int i = 0; i < 128; ++i)
     {
-        tx.vout[0].nValue -= 350;
+        // tx.vout[0].nValue -= 350;
         hash = tx.GetHash();
         mempool->addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
         tx.vin[0].prevout.hash = hash;
@@ -522,7 +523,7 @@ TEST_F(CreateNewBlockSuite, CreateNewBlock_validity)
     // child with higher priority than parent
     tx.vin[0].scriptSig = CScript() << OP_1;
     tx.vin[0].prevout.hash = txFirst[1]->GetHash();
-    tx.vout[0].nValue = 39000LL;
+    // tx.vout[0].nValue = 39000LL;
     hash = tx.GetHash();
     mempool->addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
     tx.vin[0].prevout.hash = hash;
@@ -530,7 +531,7 @@ TEST_F(CreateNewBlockSuite, CreateNewBlock_validity)
     tx.vin[1].scriptSig = CScript() << OP_1;
     tx.vin[1].prevout.hash = txFirst[0]->GetHash();
     tx.vin[1].prevout.n = 0;
-    tx.vout[0].nValue = 49000LL;
+    // tx.vout[0].nValue = 49000LL;
     hash = tx.GetHash();
     mempool->addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
     assert(pblocktemplate = CreateNewBlock(scriptPubKey));
@@ -541,7 +542,7 @@ TEST_F(CreateNewBlockSuite, CreateNewBlock_validity)
     tx.vin.resize(1);
     tx.vin[0].prevout.SetNull();
     tx.vin[0].scriptSig = CScript() << OP_0 << OP_1;
-    tx.vout[0].nValue = 0;
+    // tx.vout[0].nValue = 0;
     hash = tx.GetHash();
     mempool->addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
     assert(pblocktemplate = CreateNewBlock(scriptPubKey));
@@ -552,14 +553,14 @@ TEST_F(CreateNewBlockSuite, CreateNewBlock_validity)
     tx.vin[0].prevout.hash = txFirst[0]->GetHash();
     tx.vin[0].prevout.n = 0;
     tx.vin[0].scriptSig = CScript() << OP_1;
-    tx.vout[0].nValue = 49000LL;
+    // tx.vout[0].nValue = 49000LL;
     script = CScript() << OP_0;
-    tx.vout[0].scriptPubKey = GetScriptForDestination(CScriptID(script));
+    // tx.vout[0].scriptPubKey = GetScriptForDestination(CScriptID(script));
     hash = tx.GetHash();
     mempool->addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
     tx.vin[0].prevout.hash = hash;
     tx.vin[0].scriptSig = CScript() << (std::vector<unsigned char>)script;
-    tx.vout[0].nValue -= 10000;
+    // tx.vout[0].nValue -= 10000;
     hash = tx.GetHash();
     mempool->addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
     assert(pblocktemplate = CreateNewBlock(scriptPubKey));
@@ -569,11 +570,11 @@ TEST_F(CreateNewBlockSuite, CreateNewBlock_validity)
     // double spend txn pair in mempool
     tx.vin[0].prevout.hash = txFirst[0]->GetHash();
     tx.vin[0].scriptSig = CScript() << OP_1;
-    tx.vout[0].nValue = 49000LL;
-    tx.vout[0].scriptPubKey = CScript() << OP_1;
+    // tx.vout[0].nValue = 49000LL;
+    // tx.vout[0].scriptPubKey = CScript() << OP_1;
     hash = tx.GetHash();
     mempool->addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
-    tx.vout[0].scriptPubKey = CScript() << OP_2;
+    // tx.vout[0].scriptPubKey = CScript() << OP_2;
     hash = tx.GetHash();
     mempool->addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
     assert(pblocktemplate = CreateNewBlock(scriptPubKey));
@@ -624,8 +625,9 @@ TEST_F(CreateNewBlockSuite, CreateNewBlock_validity)
     tx.vin[0].prevout.hash = txFirst[0]->GetHash();
     tx.vin[0].scriptSig = CScript() << OP_1;
     tx.vin[0].nSequence = 0;
-    tx.vout[0].nValue = 49000LL;
-    tx.vout[0].scriptPubKey = CScript() << OP_1;
+    tx.resizeOut(1);
+    CTxOut out(49000LL, CScript() << OP_1);
+    tx.addOut(out);
     tx.nLockTime = chainActive.Tip()->nHeight+1;
     hash = tx.GetHash();
     mempool->addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
@@ -637,9 +639,9 @@ TEST_F(CreateNewBlockSuite, CreateNewBlock_validity)
     tx2.vin[0].prevout.n = 0;
     tx2.vin[0].scriptSig = CScript() << OP_1;
     tx2.vin[0].nSequence = 0;
-    tx2.vout.resize(1);
-    tx2.vout[0].nValue = 79000LL;
-    tx2.vout[0].scriptPubKey = CScript() << OP_1;
+    tx2.resizeOut(1);
+    CTxOut out2(79000LL, CScript() << OP_1);
+    tx2.addOut(out2);
     tx2.nLockTime = chainActive.Tip()->GetMedianTimePast()+1;
     hash = tx2.GetHash();
     mempool->addUnchecked(hash, CTxMemPoolEntry(tx2, 11, GetTime(), 111.0, 11));

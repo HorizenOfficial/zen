@@ -1056,9 +1056,9 @@ struct CMutableTransactionBase
     int32_t nVersion;
     std::vector<CTxIn> vin;
 
-// protected:
-public:
+protected:
     std::vector<CTxOut> vout;
+public:
     CMutableTransactionBase();
     virtual ~CMutableTransactionBase() = default;
 
