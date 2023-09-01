@@ -18,6 +18,7 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <regex>
 
 #if (defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__))
 #include <pthread.h>
@@ -991,4 +992,16 @@ int getBytesFromBits(int nbits, int& reminder)
         bytes++;
 
     return bytes;
+}
+
+void appendUniqueSuffixToFileName(std::string& fileName) {
+    std::regex fileFormat("(\\w*).(\\w*)");
+    std::smatch base_match;
+    if (std::regex_match(fileName, base_match, fileFormat)) {
+        auto t = std::time(nullptr);
+        auto tm = *std::localtime(&t);
+        std::stringstream walletFileNameStream;
+        walletFileNameStream << base_match[1] << "_" << std::put_time(&tm, "%d-%m-%Y_%H-%M-%S") << "_" << rand() % 10000 << "." << base_match[2];
+        fileName = walletFileNameStream.str();
+    }
 }

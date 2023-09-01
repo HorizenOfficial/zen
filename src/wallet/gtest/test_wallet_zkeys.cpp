@@ -6,6 +6,7 @@
 #include "util.h"
 
 #include <boost/filesystem.hpp>
+#include <iomanip>
 
 
 class MockCWallet : public CWallet {
@@ -148,7 +149,9 @@ TEST_F(WalletZkeysTest, write_zkey_direct_to_db) {
     mapArgs["-datadir"] = pathTemp.string();
 
     bool fFirstRun;
-    MockCWallet wallet("wallet.dat");
+    std::string walletFileName("wallet.dat");
+    appendUniqueSuffixToFileName(walletFileName);
+    MockCWallet wallet(walletFileName);
     ASSERT_EQ(DB_LOAD_OK, wallet.LoadWallet(fFirstRun));
 
     // No default CPubKey set
@@ -171,7 +174,7 @@ TEST_F(WalletZkeysTest, write_zkey_direct_to_db) {
     auto addr = sk.address();
     int64_t now = GetTime();
     CKeyMetadata meta(now);
-    CWalletDB db("wallet.dat");
+    CWalletDB db(walletFileName);
     db.WriteZKey(addr, sk, meta);
 
     // wallet should not be aware of key
@@ -265,7 +268,9 @@ TEST_F(WalletZkeysTest, write_cryptedzkey_direct_to_db) {
     mapArgs["-datadir"] = pathTemp.string();
 
     bool fFirstRun;
-    MockCWallet wallet("wallet_crypted.dat");
+    std::string walletFileName("wallet_crypted.dat");
+    appendUniqueSuffixToFileName(walletFileName);
+    MockCWallet wallet(walletFileName);
     ASSERT_EQ(DB_LOAD_OK, wallet.LoadWallet(fFirstRun));
 
     // No default CPubKey set
@@ -297,7 +302,7 @@ TEST_F(WalletZkeysTest, write_cryptedzkey_direct_to_db) {
     auto paymentAddress2 = wallet.GenerateNewZKey();
 
     // Create a new wallet from the existing wallet path
-    CWallet wallet2("wallet_crypted.dat");
+    CWallet wallet2(walletFileName);
     ASSERT_EQ(DB_LOAD_OK, wallet2.LoadWallet(fFirstRun));
 
     // Confirm it's not the same as the other wallet

@@ -45,7 +45,9 @@ TEST(deadlock_test, deadlock) {
     //create wallet
     SelectParams(CBaseChainParams::TESTNET);
     bool fFirstRun = true;
-    CWallet walletMain("deadlock_ut_wallet1.dat");
+    std::string walletFileName("deadlock_ut_wallet.dat");
+    appendUniqueSuffixToFileName(walletFileName);
+    CWallet walletMain(walletFileName);
     walletMain.LoadWallet(fFirstRun);
 
     auto sk = libzcash::SpendingKey::random();
