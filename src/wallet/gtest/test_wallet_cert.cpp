@@ -35,6 +35,8 @@ public:
 
         pCsWalletLock = new CCriticalBlock(pWallet->cs_wallet, "cs_wallet", __FILE__, __LINE__);
 
+        mempool.reset(new CTxMemPool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000));
+
         UnloadBlockIndex(); // clear globals
     };
 

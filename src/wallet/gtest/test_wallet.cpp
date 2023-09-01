@@ -124,6 +124,10 @@ protected:
 
     WalletTest() : csMainLock(cs_main, "cs_main", __FILE__, __LINE__) {}
 
+    void SetUp() override {
+        mempool.reset(new CTxMemPool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000));
+    }
+
     CCriticalBlock csMainLock;
 };
 

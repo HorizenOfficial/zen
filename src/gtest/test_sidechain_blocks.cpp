@@ -649,6 +649,8 @@ public:
     void SetUp() override {
         SelectParams(CBaseChainParams::REGTEST);
 
+        mempool.reset(new CTxMemPool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000));
+
         UnloadBlockIndex();
 
         fakeChainStateDb   = new blockchain_test_utils::CInMemorySidechainDb();

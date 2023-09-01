@@ -22,10 +22,13 @@ class AsyncProofVerifierTestSuite : public ::testing::Test
 {
 public:
     AsyncProofVerifierTestSuite() :
-        dummyNode(INVALID_SOCKET, CAddress(), "", true),
         sidechainId(uint256S("aaaa"))
     {
-        dummyNode.id = 7;
+        mempool.reset(new CTxMemPool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000));
+        connman.reset(new CConnman());
+
+        dummyNode.reset(new CNode(INVALID_SOCKET, CAddress(), "", true));
+        dummyNode->id = 7;
 
         sidechain.creationBlockHeight = 100;
         sidechain.fixedParams.withdrawalEpochLength = 20;
@@ -65,7 +68,7 @@ protected:
 
     static const CAmount kDummyAmount = 1;
 
-    CNode dummyNode;
+    std::unique_ptr<CNode> dummyNode;
     CSidechain sidechain;
     uint256 sidechainId;
 
@@ -151,7 +154,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Valid_Certificate_Proof_Processing)
     ASSERT_EQ(stats.okCswCounter, 0);
 
     // Add the certificate proof to the async queue.
-    CScAsyncProofVerifier::GetInstance().LoadDataForCertVerification(*blockchain.CoinsViewCache(), cert, &dummyNode);
+    CScAsyncProofVerifier::GetInstance().LoadDataForCertVerification(*blockchain.CoinsViewCache(), cert, dummyNode.get());
 
     // Check that the async proof verifier queue is not empty anymore.
     ASSERT_EQ(blockchain.PendingAsyncCertProofs(), 1);
@@ -195,7 +198,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_CZendooLowPrioThreadGuard)
     ASSERT_EQ(stats.okCswCounter, 0);
 
     // Add the certificate proof to the async queue.
-    CScAsyncProofVerifier::GetInstance().LoadDataForCertVerification(*blockchain.CoinsViewCache(), cert, &dummyNode);
+    CScAsyncProofVerifier::GetInstance().LoadDataForCertVerification(*blockchain.CoinsViewCache(), cert, dummyNode.get());
 
     // Check that the async proof verifier queue is not empty anymore.
     ASSERT_EQ(blockchain.PendingAsyncCertProofs(), 1);
@@ -268,7 +271,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Invalid_Certificate_Proof_Processing)
     ASSERT_EQ(stats.okCswCounter, 0);
 
     // Add the certificate proof to the async queue.
-    CScAsyncProofVerifier::GetInstance().LoadDataForCertVerification(*blockchain.CoinsViewCache(), cert, &dummyNode);
+    CScAsyncProofVerifier::GetInstance().LoadDataForCertVerification(*blockchain.CoinsViewCache(), cert, dummyNode.get());
 
     // Check that the async proof verifier queue is not empty anymore.
     ASSERT_EQ(blockchain.PendingAsyncCertProofs(), 1);
@@ -319,7 +322,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Valid_CSW_Proof_Processing)
     ASSERT_EQ(stats.okCswCounter, 0);
 
     // Add the CSW proof to the async queue.
-    CScAsyncProofVerifier::GetInstance().LoadDataForCswVerification(*blockchain.CoinsViewCache(), tx, &dummyNode);
+    CScAsyncProofVerifier::GetInstance().LoadDataForCswVerification(*blockchain.CoinsViewCache(), tx, dummyNode.get());
 
     waitForAsyncProcessing(blockchain, stats, 1);
 
@@ -369,7 +372,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Invalid_CSW_Proof_Processing)
     ASSERT_EQ(stats.okCswCounter, 0);
 
     // Add the CSW proof to the async queue.
-    CScAsyncProofVerifier::GetInstance().LoadDataForCswVerification(*blockchain.CoinsViewCache(), tx, &dummyNode);
+    CScAsyncProofVerifier::GetInstance().LoadDataForCswVerification(*blockchain.CoinsViewCache(), tx, dummyNode.get());
 
     waitForAsyncProcessing(blockchain, stats, 1);
 
@@ -422,7 +425,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Tx_With_Several_Csw_Inputs)
     ASSERT_EQ(stats.okCswCounter, 0);
 
     // Add the CSW proof to the async queue.
-    CScAsyncProofVerifier::GetInstance().LoadDataForCswVerification(*blockchain.CoinsViewCache(), tx, &dummyNode);
+    CScAsyncProofVerifier::GetInstance().LoadDataForCswVerification(*blockchain.CoinsViewCache(), tx, dummyNode.get());
 
     waitForAsyncProcessing(blockchain, stats, 1);
 
@@ -493,7 +496,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_One_By_One_Verification)
     for (CTransaction tx : transactions)
     {
         std::string hash = tx.GetHash().ToString();
-        CScAsyncProofVerifier::GetInstance().LoadDataForCswVerification(*blockchain.CoinsViewCache(), tx, &dummyNode);
+        CScAsyncProofVerifier::GetInstance().LoadDataForCswVerification(*blockchain.CoinsViewCache(), tx, dummyNode.get());
     }
 
     // Check that the async proof verifier queue contains all the pushed transactions.

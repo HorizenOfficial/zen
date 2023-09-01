@@ -43,7 +43,12 @@ public:
         pcoinsTip     = new CCoinsViewCache(pChainStateDb);
     };
 
-    void SetUp() override { UnloadBlockIndex(); };
+    void SetUp() override {
+        mempool.reset(new CTxMemPool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000));
+        connman.reset(new CConnman());
+
+        UnloadBlockIndex();
+    };
 
     void TearDown() override { UnloadBlockIndex(); };
 
