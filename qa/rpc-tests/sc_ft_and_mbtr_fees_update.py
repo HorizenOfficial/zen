@@ -30,7 +30,7 @@ def mark_logs_temp(msg, nodes, debug = 0, color = 'n'):
     return mark_logs(msg, nodes, debug)
 ####
 
-class provaFee(BitcoinTestFramework):
+class updateFee(BitcoinTestFramework):
 
     def setup_chain(self, split=False):
         print("Initializing test directory " + self.options.tmpdir)
@@ -607,4 +607,4 @@ class provaFee(BitcoinTestFramework):
         self.run_test_non_ceasable(2, False, False)
 
 if __name__ == '__main__':
-    provaFee().main()
+    updateFee().main()

@@ -5,6 +5,7 @@ import re
 import urllib.request
 import json
 
+config = {}
 
 # dictionary keys
 k_repository_root = "repository_root"
@@ -183,7 +184,7 @@ def insert_line_into_file(file_path: str, line_number: int, line_content: str):
     with open(file_path, "w") as file:
         file.writelines(lines)
 
-def ask_for_step_skip(script_step: str, config: dict, step_details: str = ""):
+def ask_for_step_skip(script_step: str, step_details: str = ""):
     if (not k_script_steps in config):
         config[k_script_steps] = {}
     if (not script_step in config[k_script_steps]):

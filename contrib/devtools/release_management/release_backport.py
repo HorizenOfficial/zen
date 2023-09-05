@@ -23,18 +23,19 @@ def initialize():
     if (os.path.exists(config_file)):
         with open(config_file, "r") as stream:
             try:
-                config = yaml.safe_load(stream)
+                rmu.config = yaml.safe_load(stream)
                 interactive = False
             except yaml.YAMLError as exc:
                 print(exc)
     else:
         print("Config file not available, proceeding with interactive session...")
+    config = rmu.config
 
     if (interactive):
         config[rmu.k_repository_root] = input("Enter the repository root path: ")
     
     if (interactive):
-        rmu.ask_for_step_skip(rmu.k_initialize_check_main_checked_out, config)
+        rmu.ask_for_step_skip(rmu.k_initialize_check_main_checked_out)
     if (not bool(config[rmu.k_script_steps][rmu.k_initialize_check_main_checked_out][rmu.k_skip])):
         if (bool(config[rmu.k_script_steps][rmu.k_initialize_check_main_checked_out][rmu.k_stop])):
             input("Press a key to proceed")
@@ -43,7 +44,7 @@ def initialize():
             sys.exit(-1)
 
     if (interactive):
-        rmu.ask_for_step_skip(rmu.k_initialize_check_no_pending_changes, config)
+        rmu.ask_for_step_skip(rmu.k_initialize_check_no_pending_changes)
     if (not bool(config[rmu.k_script_steps][rmu.k_initialize_check_no_pending_changes][rmu.k_skip])):
         if (bool(config[rmu.k_script_steps][rmu.k_initialize_check_no_pending_changes][rmu.k_stop])):
             input("Press a key to proceed")
@@ -68,7 +69,7 @@ def initialize():
         sys.exit(-1)
 
     if (interactive):
-        rmu.ask_for_step_skip(rmu.k_initialize_create_branch, config)
+        rmu.ask_for_step_skip(rmu.k_initialize_create_branch)
     if (not bool(config[rmu.k_script_steps][rmu.k_initialize_create_branch][rmu.k_skip])):
         if (bool(config[rmu.k_script_steps][rmu.k_initialize_create_branch][rmu.k_stop])):
             input("Press a key to proceed")
@@ -81,7 +82,7 @@ def initialize():
             sys.exit(-1)
 
     if (interactive):
-        rmu.ask_for_step_skip(rmu.k_initialize_merge_branch, config)
+        rmu.ask_for_step_skip(rmu.k_initialize_merge_branch)
     if (not bool(config[rmu.k_script_steps][rmu.k_initialize_merge_branch][rmu.k_skip])):
         if (bool(config[rmu.k_script_steps][rmu.k_initialize_merge_branch][rmu.k_stop])):
             input("Press a key to proceed")
@@ -90,8 +91,6 @@ def initialize():
     if (not result_merge):
         print(f"Merge failed (details:\n{details_merge_stdout}\n{details_merge_stderr})")
         input("Press a key to proceed")
-
-    return config
 
 def reset_client_version():
     version_digits = rmu.get_version_string_details(config[rmu.k_version])
@@ -211,17 +210,20 @@ def build_zend():
         sys.exit(-1)
 
 
-config = {}
+# ---------- SCRIPT MAIN ---------- #
+
 config_file = ""
+config = {}
 interactive = True
 
 print("\n********** Step 0: setup config **********\n")
 initialize()
+print("Done")
 
 print("\n********** Step 1: reset the backported client version **********\n")
 if (interactive):
     config[rmu.k_script_steps] = {}
-    rmu.ask_for_step_skip(rmu.k_reset_client_version, config)
+    rmu.ask_for_step_skip(rmu.k_reset_client_version)
 if (not bool(config[rmu.k_script_steps][rmu.k_reset_client_version][rmu.k_skip])):
     if (bool(config[rmu.k_script_steps][rmu.k_reset_client_version][rmu.k_stop])):
         input("Press a key to proceed")
@@ -233,7 +235,7 @@ else:
 print("\n********** Step 2: reset the mainnet and testnet checkpoints **********\n")
 if (not config[rmu.k_is_official_version]):
     if (interactive):
-        rmu.ask_for_step_skip(rmu.k_reset_checkpoints, config)
+        rmu.ask_for_step_skip(rmu.k_reset_checkpoints)
     if (not bool(config[rmu.k_script_steps][rmu.k_reset_checkpoints][rmu.k_skip])):
         if (bool(config[rmu.k_script_steps][rmu.k_reset_checkpoints][rmu.k_stop])):
             input("Press a key to proceed")
@@ -248,7 +250,7 @@ else:
 
 print("\n********** Step 3: reset changelog **********\n")
 if (interactive):
-    rmu.ask_for_step_skip(rmu.k_reset_changelog, config)
+    rmu.ask_for_step_skip(rmu.k_reset_changelog)
 if (not bool(config[rmu.k_script_steps][rmu.k_reset_changelog][rmu.k_skip])):
     if (bool(config[rmu.k_script_steps][rmu.k_reset_changelog][rmu.k_stop])):
         input("Press a key to proceed")
@@ -259,7 +261,7 @@ else:
 
 print("\n********** Step 4: build Zend **********\n")
 if (interactive):
-    rmu.ask_for_step_skip(rmu.k_build_zend, config)
+    rmu.ask_for_step_skip(rmu.k_build_zend)
 if (not bool(config[rmu.k_script_steps][rmu.k_build_zend][rmu.k_skip])):
     if (bool(config[rmu.k_script_steps][rmu.k_build_zend][rmu.k_stop])):
         input("Press a key to proceed")
@@ -270,7 +272,7 @@ else:
 
 print("\n********** Step 5: reset man pages **********\n")
 if (interactive):
-    rmu.ask_for_step_skip(rmu.k_reset_man_pages, config)
+    rmu.ask_for_step_skip(rmu.k_reset_man_pages)
 if (not bool(config[rmu.k_script_steps][rmu.k_reset_man_pages][rmu.k_skip])):
     if (bool(config[rmu.k_script_steps][rmu.k_reset_man_pages][rmu.k_stop])):
         input("Press a key to proceed")
@@ -282,7 +284,7 @@ else:
 print("\n********** Step 6: reset release_notes **********\n")
 if (config[rmu.k_is_official_version]):
     if (interactive):
-        rmu.ask_for_step_skip(rmu.k_reset_release_notes, config)
+        rmu.ask_for_step_skip(rmu.k_reset_release_notes)
     if (not bool(config[rmu.k_script_steps][rmu.k_reset_release_notes][rmu.k_skip])):
         if (bool(config[rmu.k_script_steps][rmu.k_reset_release_notes][rmu.k_stop])):
             input("Press a key to proceed")
