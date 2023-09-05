@@ -701,6 +701,7 @@ bool CNode::ReceiveMsgBytes(const char *pch, unsigned int nBytes)
         nBytes -= handled;
 
         if (msg.complete()) {
+            LogPrint("net", "Got full message");
             msg.nTime = GetTimeMicros();
             AccountForRecvBytes(msg.hdr.pchCommand, msg.hdr.nMessageSize + CMessageHeader::HEADER_SIZE);
             messageHandlerCondition.notify_one();
@@ -793,6 +794,7 @@ void DumpAddresses();
 bool CConnman::StopNode()
 {
     LogPrintf("StopNode()\n");
+    tlsmanager.stop();
     if (semOutbound)
         for (int i=0; i<MAX_OUTBOUND_CONNECTIONS; i++)
             semOutbound->post();

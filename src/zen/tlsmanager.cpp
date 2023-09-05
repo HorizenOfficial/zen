@@ -641,86 +641,7 @@ int TLSManager::threadSocketHandler(CNode* pnode, fd_set& fdsetRecv, fd_set& fds
     }
 
     if (recvSet || errorSet) {
-        TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
-        if (lockRecv) {
-            {
-                // typical socket buffer is 8K-64K
-                // maximum record size is 16kB for SSL/TLS (still valid as of 1.1.1 version)
-                char pchBuf[0x10000];
-                bool bIsSSL = false;
-                int nBytes = 0, nRet = 0;
-
-                {
-                    LOCK(pnode->cs_hSocket);
-
-                    if (pnode->hSocket == INVALID_SOCKET) {
-                        LogPrint("tls", "Receive: connection with %s is already closed\n", pnode->addr.ToString());
-                        return -1;
-                    }
-
-                    bIsSSL = (pnode->ssl != NULL);
-
-                    if (bIsSSL) {
-                        ERR_clear_error(); // clear the error queue, otherwise we may be reading an old error that occurred previously in the current thread
-                        nBytes = SSL_read(pnode->ssl, pchBuf, sizeof(pchBuf));
-                        nRet = SSL_get_error(pnode->ssl, nBytes);
-                    } else {
-                        nBytes = recv(pnode->hSocket, pchBuf, sizeof(pchBuf), MSG_DONTWAIT);
-                        nRet = WSAGetLastError();
-                    }
-                }
-
-                if (nBytes > 0) {
-                    if (!pnode->ReceiveMsgBytes(pchBuf, nBytes))
-                        pnode->CloseSocketDisconnect();
-                    pnode->nLastRecv = GetTime();
-                    pnode->nRecvBytes += nBytes;
-                    connman->RecordBytesRecv(nBytes);
-                } else if (nBytes == 0) {
-
-                    if (bIsSSL) {
-                        unsigned long error = ERR_get_error();
-                        const char* error_str = ERR_error_string(error, NULL);
-                        LogPrint("tls", "TLS: WARNING: %s: %s():%d - SSL_read err: %s\n",
-                            __FILE__, __func__, __LINE__, error_str);
-                    }
-                    // socket closed gracefully (peer disconnected)
-                    //
-                    if (!pnode->fDisconnect)
-                        LogPrint("tls", "socket closed (%s)\n", pnode->addr.ToString());
-                    pnode->CloseSocketDisconnect();
-
-
-                } else if (nBytes < 0) {
-                    // error
-                    //
-                    if (bIsSSL) {
-                        if (nRet != SSL_ERROR_WANT_READ && nRet != SSL_ERROR_WANT_WRITE) // SSL_read() operation has to be repeated because of SSL_ERROR_WANT_READ or SSL_ERROR_WANT_WRITE (https://wiki.openssl.org/index.php/Manual:SSL_read(3)#NOTES)
-                        {
-                            if (!pnode->fDisconnect)
-                                LogPrintf("TLS: ERROR: SSL_read %s\n", ERR_error_string(nRet, NULL));
-                            pnode->CloseSocketDisconnect();
-
-                            unsigned long error = ERR_get_error();
-                            const char* error_str = ERR_error_string(error, NULL);
-                            LogPrint("tls", "TLS: WARNING: %s: %s():%d - SSL_read - code[0x%x], err: %s\n",
-                                __FILE__, __func__, __LINE__, nRet, error_str);
-
-                        } else {
-                            // preventive measure from exhausting CPU usage
-                            //
-                            MilliSleep(1); // 1 msec
-                        }
-                    } else {
-                        if (nRet != WSAEWOULDBLOCK && nRet != WSAEMSGSIZE && nRet != WSAEINTR && nRet != WSAEINPROGRESS) {
-                            if (!pnode->fDisconnect)
-                                LogPrintf("TLS: ERROR: socket recv %s\n", NetworkErrorString(nRet));
-                            pnode->CloseSocketDisconnect();
-                        }
-                    }
-                }
-            }
-        }
+        queue.push(pnode);
     }
 
     //
@@ -788,6 +709,111 @@ bool TLSManager::initialize()
     else
         LogPrintf("TLS: ERROR: %s: %s: failed to initialize TLS server context\n", __FILE__, __func__);
 
+    isRunning.store(true);
+    for (int i = 0;i < 8; ++i){
+            threadGroup.create_thread( [this](){recvMessageFunction();});
+    }
+
     return bInitializationStatus;
+}
+
+void TLSManager::recvMessageFunction() {
+    LogPrintf("RECVMESSAGEFUNCTION THREAD STARTED-------------\n");
+    try {
+        while (isRunning.load()) {
+            CNode* pnode = queue.pop();
+            TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
+            if (lockRecv) {
+                {
+                    // typical socket buffer is 8K-64K
+                    // maximum record size is 16kB for SSL/TLS (still valid as of 1.1.1 version)
+                    char pchBuf[0x10000];
+                    bool bIsSSL = false;
+                    int nBytes = 0, nRet = 0;
+
+                    {
+                        LOCK(pnode->cs_hSocket);
+
+                        if (pnode->hSocket == INVALID_SOCKET) {
+                            LogPrint("tls", "Receive: connection with %s is already closed\n", pnode->addr.ToString());
+                            continue;
+                        }
+
+                        bIsSSL = (pnode->ssl != NULL);
+
+                        if (bIsSSL) {
+                            ERR_clear_error(); // clear the error queue, otherwise we may be reading an old error that occurred previously in the current thread
+                            nBytes = SSL_read(pnode->ssl, pchBuf, sizeof(pchBuf));
+                            nRet = SSL_get_error(pnode->ssl, nBytes);
+                        } else {
+                            nBytes = recv(pnode->hSocket, pchBuf, sizeof(pchBuf), MSG_DONTWAIT);
+                            nRet = WSAGetLastError();
+                        }
+                    }
+
+                    if (nBytes > 0) {
+                        if (!pnode->ReceiveMsgBytes(pchBuf, nBytes))
+                            pnode->CloseSocketDisconnect();
+                        pnode->nLastRecv = GetTime();
+                        pnode->nRecvBytes += nBytes;
+                        connman->RecordBytesRecv(nBytes);
+                    } else if (nBytes == 0) {
+
+                        if (bIsSSL) {
+                            unsigned long error = ERR_get_error();
+                            const char* error_str = ERR_error_string(error, NULL);
+                            LogPrint("tls", "TLS: WARNING: %s: %s():%d - SSL_read err: %s\n",
+                                __FILE__, __func__, __LINE__, error_str);
+                        }
+                        // socket closed gracefully (peer disconnected)
+                        //
+                        if (!pnode->fDisconnect)
+                            LogPrint("tls", "socket closed (%s)\n", pnode->addr.ToString());
+                        pnode->CloseSocketDisconnect();
+
+
+                    } else if (nBytes < 0) {
+                        // error
+                        //
+                        if (bIsSSL) {
+                            if (nRet != SSL_ERROR_WANT_READ && nRet != SSL_ERROR_WANT_WRITE) // SSL_read() operation has to be repeated because of SSL_ERROR_WANT_READ or SSL_ERROR_WANT_WRITE (https://wiki.openssl.org/index.php/Manual:SSL_read(3)#NOTES)
+                            {
+                                if (!pnode->fDisconnect)
+                                    LogPrintf("TLS: ERROR: SSL_read %s\n", ERR_error_string(nRet, NULL));
+                                pnode->CloseSocketDisconnect();
+
+                                unsigned long error = ERR_get_error();
+                                const char* error_str = ERR_error_string(error, NULL);
+                                LogPrint("tls", "TLS: WARNING: %s: %s():%d - SSL_read - code[0x%x], err: %s\n",
+                                    __FILE__, __func__, __LINE__, nRet, error_str);
+
+                            } else {
+                                // preventive measure from exhausting CPU usage
+                                //
+                                MilliSleep(1); // 1 msec
+                            }
+                        } else {
+                            if (nRet != WSAEWOULDBLOCK && nRet != WSAEMSGSIZE && nRet != WSAEINTR && nRet != WSAEINPROGRESS) {
+                                if (!pnode->fDisconnect)
+                                    LogPrintf("TLS: ERROR: socket recv %s\n", NetworkErrorString(nRet));
+                                pnode->CloseSocketDisconnect();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    catch (ThreadSafeQueueStopException&){
+
+    }
+    LogPrintf("RECVMESSAGEFUNCTION THREAD FINISHED-------------\n");
+}
+
+void TLSManager::stop() {
+    if (isRunning.exchange(false)) {
+        queue.stop();
+        threadGroup.join_all();
+    }
 }
 }
