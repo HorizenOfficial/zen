@@ -332,6 +332,7 @@ int LogPrintStr(const std::string &str)
 static void InterpretNegativeSetting(string name, map<string, string>& mapSettingsRet)
 {
     // interpret -nofoo as -foo=0 (and -nofoo=0 as -foo=1) as long as -foo not set
+    // change to start_with when advance to C++20
     if (name.find("-no") == 0)
     {
         std::string positive("-");
@@ -357,7 +358,7 @@ void ParseParameters(int argc, const char* const argv[])
         if (is_index != std::string::npos)
         {
             strValue = str.substr(is_index+1);
-            str = str.substr(0, is_index);
+            str.resize(is_index);
         }
 #ifdef WIN32
         boost::to_lower(str);

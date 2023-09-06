@@ -13,6 +13,7 @@
 
 #include <math.h>
 #include <stdlib.h>
+#include <climits>
 
 #include <boost/foreach.hpp>
 
@@ -27,7 +28,7 @@ CBloomFilter::CBloomFilter(unsigned int nElements, double nFPRate, unsigned int 
      * - nElements * log(fp rate) / ln(2)^2
      * We ignore filter parameters which will create a bloom filter larger than the protocol limits
      */
-    vData(min((unsigned int)(-1  / LN2SQUARED * nElements * log(nFPRate)), MAX_BLOOM_FILTER_SIZE * 8) / 8),
+    vData(min((unsigned int)(-1  / LN2SQUARED * nElements * log(nFPRate)), MAX_BLOOM_FILTER_SIZE * CHAR_BIT) / CHAR_BIT),
     /**
      * The ideal number of hash functions is filter size * ln(2) / number of elements
      * Again, we ignore filter parameters which will create a bloom filter with more hash functions than the protocol limits
@@ -35,7 +36,7 @@ CBloomFilter::CBloomFilter(unsigned int nElements, double nFPRate, unsigned int 
      */
     isFull(false),
     isEmpty(false),
-    nHashFuncs(min((unsigned int)(vData.size() * 8 / nElements * LN2), MAX_HASH_FUNCS)),
+    nHashFuncs(min((unsigned int)(vData.size() * CHAR_BIT / nElements * LN2), MAX_HASH_FUNCS)),
     nTweak(nTweakIn),
     nFlags(nFlagsIn)
 {

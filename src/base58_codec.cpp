@@ -86,7 +86,7 @@ std::string EncodeBase58(const unsigned char* pbegin, const unsigned char* pend)
     // Skip leading zeroes in base58 result.
     std::vector<unsigned char>::iterator it = b58.begin();
     while (it != b58.end() && *it == 0)
-        it++;
+        ++it;
     // Translate the result into a string.
     std::string str;
     str.reserve(zeroes + (b58.end() - it));

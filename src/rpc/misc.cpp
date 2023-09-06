@@ -991,7 +991,7 @@ UniValue getaddressbalance(const UniValue& params, bool fHelp)
 
     int currentTipHeight = chainActive.Tip()->nHeight;
 
-    for (std::vector<std::pair<CAddressIndexKey, CAddressIndexValue> >::const_iterator it=addressIndex.begin(); it!=addressIndex.end(); it++) {
+    for (std::vector<std::pair<CAddressIndexKey, CAddressIndexValue> >::const_iterator it=addressIndex.begin(); it!=addressIndex.end(); ++it) {
         //If maturityHeight is negative it's superseded and we skip it
         if (it->second.maturityHeight < 0)
             continue;

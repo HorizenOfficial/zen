@@ -209,8 +209,9 @@ std::string CRPCTable::help(const std::string& strCommand) const
             string strHelp = string(e.what());
             if (strCommand == "")
             {
-                if (strHelp.find('\n') != string::npos)
-                    strHelp = strHelp.substr(0, strHelp.find('\n'));
+                auto pos = strHelp.find('\n');
+                if (pos != string::npos)
+                    strHelp.resize(pos);
 
                 if (category != pcmd->category)
                 {
@@ -227,7 +228,7 @@ std::string CRPCTable::help(const std::string& strCommand) const
     }
     if (strRet == "")
         strRet = strprintf("help: unknown command: %s\n", strCommand);
-    strRet = strRet.substr(0,strRet.size()-1);
+    strRet.pop_back();
     return strRet;
 }
 

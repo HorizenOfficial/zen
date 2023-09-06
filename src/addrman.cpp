@@ -285,7 +285,7 @@ bool CAddrMan::Add_(const CAddress& addr, const CNetAddr& source, int64_t nTimeP
     if (vvNew[nUBucket][nUBucketPos] != nId) {
         bool fInsert = vvNew[nUBucket][nUBucketPos] == -1;
         if (!fInsert) {
-            CAddrInfo& infoExisting = mapInfo[vvNew[nUBucket][nUBucketPos]];
+            const CAddrInfo& infoExisting = mapInfo[vvNew[nUBucket][nUBucketPos]];
             if (infoExisting.IsTerrible() || (infoExisting.nRefCount > 1 && pinfo->nRefCount == 0)) {
                 // Overwrite the existing new table entry.
                 fInsert = true;
@@ -355,7 +355,7 @@ CAddrInfo CAddrMan::Select_(bool newOnly)
             }
             int nId = vvTried[nKBucket][nKBucketPos];
             assert(mapInfo.count(nId) == 1);
-            CAddrInfo& info = mapInfo[nId];
+            const CAddrInfo& info = mapInfo[nId];
             if (RandomInt(1 << 30) < fChanceFactor * info.GetChance() * (1 << 30))
                 return info;
             fChanceFactor *= 1.2;
@@ -398,7 +398,7 @@ int CAddrMan::Check_()
 
     for (std::map<int, CAddrInfo>::iterator it = mapInfo.begin(); it != mapInfo.end(); ++it) {
         int n = (*it).first;
-        CAddrInfo& info = (*it).second;
+        const CAddrInfo& info = (*it).second;
         if (info.fInTried) {
             if (!info.nLastSuccess)
                 return -1;
