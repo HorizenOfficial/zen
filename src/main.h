@@ -420,7 +420,7 @@ struct COrphanTx {
     NodeId fromPeer;
 };
 
-CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAllowFree, unsigned int block_priority_size);
+CAmount GetMinRelayFee(CTxMemPool& pool, const CTransactionBase& tx, unsigned int nBytes, bool fAllowFree, unsigned int block_priority_size);
 
 /**
  * Check transaction inputs, and make sure any
