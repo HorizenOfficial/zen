@@ -23,12 +23,13 @@ def initialize():
     if (os.path.exists(config_file)):
         with open(config_file, "r") as stream:
             try:
-                config = yaml.safe_load(stream)
+                rmu.config = yaml.safe_load(stream)
                 interactive = False
             except yaml.YAMLError as exc:
                 print(exc)
     else:
         print("Config file not available, proceeding with interactive session...")
+    config = rmu.config
 
     if (interactive):
         config[rmu.k_repository_root] = input("Enter the repository root path: ")
@@ -90,8 +91,6 @@ def initialize():
     if (not result_merge):
         print(f"Merge failed (details:\n{details_merge_stdout}\n{details_merge_stderr})")
         input("Press a key to proceed")
-
-    return config
 
 def reset_client_version():
     version_digits = rmu.get_version_string_details(config[rmu.k_version])
@@ -211,12 +210,15 @@ def build_zend():
         sys.exit(-1)
 
 
-config = {}
+# ---------- SCRIPT MAIN ---------- #
+
 config_file = ""
+config = {}
 interactive = True
 
 print("\n********** Step 0: setup config **********\n")
 initialize()
+print("Done")
 
 print("\n********** Step 1: reset the backported client version **********\n")
 if (interactive):
@@ -237,7 +239,7 @@ if (not config[rmu.k_is_official_version]):
     if (not bool(config[rmu.k_script_steps][rmu.k_reset_checkpoints][rmu.k_skip])):
         if (bool(config[rmu.k_script_steps][rmu.k_reset_checkpoints][rmu.k_stop])):
             input("Press a key to proceed")
-        if (not rmu.git_reset_file(config[rmu.k_repository_root], os.path.join(config[rmu.k_repository_root], "src/chainparams.cpp"))):
+        if (not rmu.git_reset_file(config[rmu.k_repository_root], "src/chainparams.cpp")):
             print("Changes discarding failed")
             sys.exit(-1)
         print("Done")
@@ -296,7 +298,7 @@ else:
 print("\n********** commit **********\n")
 directories_for_add = []
 if ("contrib/devtools/release_management/configs" in config_file):
-    directories_for_add.append(os.path.join(config[rmu.k_repository_root], "contrib/devtools/release_management/configs"))
+    directories_for_add.append("contrib/devtools/release_management/configs")
 if (not rmu.git_commit(config[rmu.k_repository_root], f"Release {config[rmu.k_version]}{rmu.get_build_suffix(int(config[rmu.k_build_number]))} backport", directories_for_add)):
     print("Commit failed")
     sys.exit(-1)

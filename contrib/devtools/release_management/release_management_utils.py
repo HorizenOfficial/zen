@@ -5,6 +5,7 @@ import re
 import urllib.request
 import json
 
+config = {}
 
 # dictionary keys
 k_repository_root = "repository_root"
@@ -60,8 +61,12 @@ def git_create_branch(cwd: str, branch_name: str):
 def git_commit(cwd: str, commit_title: str, directories_for_add: list[str] = []):
     for directory_for_add in directories_for_add:
         subprocess.run(["git", "add", directory_for_add], cwd=cwd) # Add changes to the index
-    result = subprocess.run(["git", "commit", "-a", "-S", "-m", commit_title], capture_output=True, text=True, cwd=cwd) # Commit changes with the given message
-    return result.returncode == 0 and not git_check_pending_changes(cwd)
+    resultdiff = subprocess.run(["git", "diff-index", "--quiet", "HEAD"], capture_output=True, text=True, cwd=cwd)
+    if (resultdiff.returncode == 1):
+        resultcommit = subprocess.run(["git", "commit", "-a", "-S", "-m", commit_title], capture_output=True, text=True, cwd=cwd) # Commit changes with the given message
+        return resultcommit.returncode == 0 and not git_check_pending_changes(cwd)
+    else:
+        return True
 
 def git_reset_file(cwd: str, file_to_reset: str):
     result_reset = subprocess.run(["git", "checkout", file_to_reset], capture_output=True, text=True, cwd=cwd)
@@ -179,10 +184,17 @@ def insert_line_into_file(file_path: str, line_number: int, line_content: str):
     with open(file_path, "w") as file:
         file.writelines(lines)
 
-def ask_for_step_skip(script_step: str, config: dict):
-    config[k_script_steps][script_step] = {}
-    config[k_script_steps][script_step][k_stop] = False
-    if (input("Do you want to skip this step? (Y/N)").upper() == "Y"):
+def ask_for_step_skip(script_step: str, step_details: str = ""):
+    if (not k_script_steps in config):
+        config[k_script_steps] = {}
+    if (not script_step in config[k_script_steps]):
+        config[k_script_steps][script_step] = {}
+        config[k_script_steps][script_step][k_stop] = False
+    if (step_details != "" and not step_details.startswith("(")):
+        step_details = " (" + step_details
+    if (step_details != "" and not step_details.endswith(")")):
+        step_details = step_details + ")"
+    if (input(f"Do you want to skip this step{step_details}? (Y/N)").upper() == "Y"):
         config[k_script_steps][script_step][k_skip] = True
     else:
         config[k_script_steps][script_step][k_skip] = False
