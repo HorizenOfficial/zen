@@ -1577,7 +1577,9 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
 
     if (!pool.checkIncomingTxConflicts(tx))
     {
-        LogPrintf("%s():%d: tx[%s] has conflicts in mempool\n", __func__, __LINE__, tx.GetHash().ToString());
+        state.Invalid(error("%s():%d: tx[%s] has conflicts in mempool\n",
+            __func__, __LINE__, tx.GetHash().ToString()),
+            CValidationState::Code::HAS_CONFLICTS, "bad-txns-has-conflict-in-mempool");
         return MempoolReturnValue::INVALID;
     }
 
