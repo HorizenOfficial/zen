@@ -264,7 +264,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                         break;
                     }
 
-                    const int32_t nHeight = CScriptNum(vchBlockHeight, false, sizeof(int32_t)).getint();
+                    const int32_t nHeight = CScriptNum(vchBlockHeight, false, sizeof(int32_t)).getint(); // check this! https://github.com/z-classic/zclassic/issues/97
 
                     if ((nHeight < 0 || nHeight > nChActHeight ) && rpLevel == RPLEVEL_FIXED_1)
                     {
