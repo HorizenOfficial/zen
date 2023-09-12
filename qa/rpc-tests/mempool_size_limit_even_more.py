@@ -6,8 +6,8 @@
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.test_framework import ForkHeights
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import initialize_chain_clean, start_nodes, connect_nodes_bi, mark_logs,\
-    get_epoch_data, swap_bytes, assert_greater_than, colorize as cc
+from test_framework.util import initialize_chain_clean, start_nodes, mark_logs,\
+    get_epoch_data, swap_bytes, assert_greater_than, download_snapshot, colorize as cc
 from mempool_size_limit import load_from_storage, create_big_transactions, create_sidechains, \
     write_to_file
 from test_framework.mc_test.mc_test import *
@@ -63,8 +63,8 @@ class mempool_size_limit_even_more(BitcoinTestFramework):
     def import_data_to_data_dir(self):
         # importing datadir resource
         # Tests checkpoint creation (during startup rescan) and usage, checks everything ok with old wallet
-        # resource_file = os.sep.join([os.path.dirname(__file__), 'resources', 'mempool_size_limit_more', 'test_setup_.zip'])
-        resource_file = os.sep.join(['/', 'temporary', 'absolute', 'path', 'to', 'snapshot.zip'])
+        snapshot_filename = 'mempool_size_limit_even_more_snapshot.zip'
+        resource_file = download_snapshot(snapshot_filename, self.options.tmpdir)
         with zipfile.ZipFile(resource_file, 'r') as zip_ref:
             zip_ref.extractall(self.options.tmpdir)
 
