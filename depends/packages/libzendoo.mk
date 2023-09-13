@@ -6,7 +6,7 @@ $(package)_download_file=$($(package)_git_commit).tar.gz
 $(package)_sha256_hash=e6941f27a1d8612b5a5c61f9d9f3fe0c6c977bb67726819440dc4c4f19f2c733
 $(package)_git_commit=7a1496312b1bcef259aa336e8477e3724a5e0df3
 $(package)_dependencies=rust
-$(package)_patches=cargo.config
+$(package)_patches=cargo.config mcTest-compiler-flag.patch
 
 ifeq ($(host_os),mingw32)
 $(package)_library_file=target/x86_64-pc-windows-gnu/release/libzendoo_mc.a
@@ -35,6 +35,7 @@ $(package)_build_opts_mingw32=--target=x86_64-pc-windows-gnu
 endef
 
 define $(package)_preprocess_cmds
+  patch -p1 < $($(package)_patch_dir)/mcTest-compiler-flag.patch && \
   mkdir -p .cargo && \
   cat $($(package)_patch_dir)/cargo.config | sed 's|CRATE_REGISTRY|$(host_prefix)/$(CRATE_REGISTRY)|' | sed 's|DUMMY_LINKER|$(default_build_CC)|g' > .cargo/config
 endef
