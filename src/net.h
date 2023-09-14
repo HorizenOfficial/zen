@@ -255,12 +255,10 @@ public:
 class CNode
 {
 public:
-    // OpenSSL
-    SSL *ssl;
 
     // socket
+    std::unique_ptr<Sock> hSocket;
     uint64_t nServices;
-    SOCKET hSocket;
     CCriticalSection cs_hSocket;
     CDataStream ssSend;
     size_t nSendSize; // total size of all vSendMsg entries
@@ -364,7 +362,7 @@ public:
     // Whether a ping is requested.
     bool fPingQueued;
 
-    CNode(SOCKET hSocketIn, const CAddress &addrIn, const std::string &addrNameIn = "", bool fInboundIn = false, SSL *sslIn = NULL);
+    CNode(std::unique_ptr<Sock> &&sock, const CAddress &addrIn, const std::string &addrNameIn = "", bool fInboundIn = false);
     ~CNode();
     CNode(CNode&&) = delete;
 
@@ -377,6 +375,13 @@ private:
     void operator=(const CNode&);
 
 public:
+
+    SOCKET GetSocketFd() const {
+        return hSocket->Get();
+    }
+    SSL* GetSSL() const {
+        return hSocket->GetSSL();
+    }
 
     NodeId GetId() const {
       return id;
@@ -707,10 +712,10 @@ public:
 
 //// This definition can be moved into CConnman after boost::thread refactoring
 struct ListenSocket {
-    SOCKET socket;
+    std::shared_ptr<Sock> sock;
     bool whitelisted;
 
-    ListenSocket(SOCKET socket, bool whitelisted) : socket(socket), whitelisted(whitelisted) {}
+    ListenSocket(std::shared_ptr<Sock> sock, bool whitelisted) : sock(sock), whitelisted(whitelisted) {}
 };
 
 /** Used to pass flags to the Bind() function */
@@ -770,7 +775,7 @@ public:
     void ProcessOneShot();
 
     bool OpenNetworkConnection(const CAddress& addrConnect, CSemaphoreGrant *grantOutbound = NULL, const char *strDest = NULL, bool fOneShot = false);
-    void AcceptConnection(const ListenSocket& hListenSocket);
+    void AcceptConnection(ListenSocket& hListenSocket);
     CNode* FindNode(const CNetAddr& ip);
     CNode* FindNode(const CSubNet& subNet);
     CNode* FindNode(const std::string& addrName);

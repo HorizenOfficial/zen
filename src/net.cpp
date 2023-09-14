@@ -55,6 +55,7 @@
     #error "ERROR: Your OpenSSL version does not support TLS v1.2"
 #endif
 
+using namespace std;
 //
 // Global state variables
 //
@@ -65,7 +66,6 @@ map<CNetAddr, LocalServiceInfo> mapLocalHost;
 static bool vfLimited[NET_MAX] = {};
 uint64_t nLocalHostNonce = 0;  //// This is part of CNode
 CAddrMan addrman;
-TLSManager tlsmanager = TLSManager();
 std::map<CInv, CDataStream> mapRelay;
 std::deque<std::pair<int64_t, CInv> > vRelayExpiration;
 CCriticalSection cs_mapRelay;
@@ -354,20 +354,23 @@ CNode* CConnman::ConnectNode(CAddress addrConnect, const char *pszDest)
         pszDest ? 0.0 : (double)(GetTime() - addrConnect.nTime)/3600.0);
 
     // Connect
-    SOCKET hSocket;
+    std::unique_ptr<Sock> sock = CreateSock(addrConnect);
+    if (!sock) {
+        return nullptr;
+    }
     bool proxyConnectionFailed = false;
-    if (pszDest ? ConnectSocketByName(addrConnect, hSocket, pszDest, Params().GetDefaultPort(), nConnectTimeout, &proxyConnectionFailed) :
-                  ConnectSocket(addrConnect, hSocket, nConnectTimeout, &proxyConnectionFailed))
+    if (
+        pszDest ? ConnectSocketByName(addrConnect, *sock, pszDest, Params().GetDefaultPort(), nConnectTimeout, &proxyConnectionFailed) :
+                  ConnectSocket(addrConnect, *sock, nConnectTimeout, &proxyConnectionFailed))
     {
-        if (!IsSelectableSocket(hSocket)) {
+        if (!sock->IsSelectable()) {
             LogPrintf("Cannot create connection: non-selectable socket created (fd >= FD_SETSIZE ?)\n");
-            CloseSocket(hSocket);
             return NULL;
         }
 
         addrman.Attempt(addrConnect);
 
-        SSL *ssl = NULL;
+        SSL *ssl = nullptr;
         
 #ifdef USE_TLS
         /* TCP connection is ready. Do client side SSL. */
@@ -386,7 +389,8 @@ CNode* CConnman::ConnectNode(CAddress addrConnect, const char *pszDest)
                 unsigned long err_code = 0;
                 if (bUseTLS)
                 {
-                    ssl = tlsmanager.connect(hSocket, addrConnect, err_code);
+                    ssl = TLSManager::connect(*sock, addrConnect, err_code);
+                    assert(ssl == sock->GetSSL());
                     if (!ssl)
                     {
                         if (err_code == TLSManager::SELECT_TIMEDOUT)
@@ -403,7 +407,6 @@ CNode* CConnman::ConnectNode(CAddress addrConnect, const char *pszDest)
                             LogPrint("tls", "%s():%d - err_code %x, adding connection to %s vNonTLSNodesOutbound list (sz=%d)\n",
                                 __func__, __LINE__, err_code, addrConnect.ToStringIP(), vNonTLSNodesOutbound.size());
                         }
-                        CloseSocket(hSocket);
                         return NULL;
                     }
                 }
@@ -423,12 +426,11 @@ CNode* CConnman::ConnectNode(CAddress addrConnect, const char *pszDest)
         else
         {
             unsigned long err_code = 0;
-            ssl = tlsmanager.connect(hSocket, addrConnect, err_code);
-            if(!ssl)
+            ssl = TLSManager::connect(*sock, addrConnect, err_code);
+            if (!ssl)
             {
                 LogPrint("tls", "%s():%d - err_code %x, connection to %s failed)\n",
                     __func__, __LINE__, err_code, addrConnect.ToStringIP());
-                CloseSocket(hSocket);
                 return NULL;
             }
         }
@@ -440,16 +442,15 @@ CNode* CConnman::ConnectNode(CAddress addrConnect, const char *pszDest)
             {
                 LogPrintf ("TLS: ERROR: Wrong server certificate from %s. Connection will be closed.\n", addrConnect.ToString());
         
-                SSL_shutdown(ssl);
-                CloseSocket(hSocket);
-                SSL_free(ssl);
+                //SSL_shutdown(ssl);
+                //SSL_free(ssl);
                 return NULL;
             }
         }
 #endif  // USE_TLS
 
         // Add node
-        CNode* pnode = new CNode(hSocket, addrConnect, pszDest ? pszDest : "", false, ssl);
+        CNode* pnode = new CNode(std::move(sock), addrConnect, pszDest ? pszDest : "", false);
         pnode->AddRef();
 
         {
@@ -466,7 +467,7 @@ CNode* CConnman::ConnectNode(CAddress addrConnect, const char *pszDest)
         addrman.Attempt(addrConnect);
     }
 
-    return NULL;
+    return nullptr;
 }
 
 void CNode::CloseSocketDisconnect()
@@ -476,7 +477,7 @@ void CNode::CloseSocketDisconnect()
     {
         LOCK(cs_hSocket);
         
-        if (hSocket != INVALID_SOCKET)
+        if (hSocket)
         {
             try
             {
@@ -489,14 +490,13 @@ void CNode::CloseSocketDisconnect()
                 LogPrintf("(node is probably shutting down) disconnecting peer=%d\n", id);
             }
 
-            if (ssl)
+            if (hSocket->GetSSL())
             {
                 unsigned long err_code = 0;
-                tlsmanager.waitFor(SSL_SHUTDOWN, addr, ssl, 100 /*double of avg roundtrip on decent connection*/, err_code);
-                SSL_free(ssl);
-                ssl = NULL;
+                TLSManager::waitFor(SSL_SHUTDOWN, addr, *hSocket, 100 /*double of avg roundtrip on decent connection*/, err_code);
             }
-            CloseSocket(hSocket);
+
+            hSocket.reset();
         }
     }
 
@@ -656,8 +656,9 @@ void CNode::copyStats(CNodeStats &stats)
     // If ssl != NULL it means TLS connection was established successfully
     {
         LOCK(cs_hSocket);
-        stats.fTLSEstablished = (ssl != NULL) && (SSL_get_state(ssl) == TLS_ST_OK);
-        stats.fTLSVerified = (ssl != NULL) && ValidatePeerCertificate(ssl);
+        SSL* ssl = hSocket->GetSSL();
+        stats.fTLSEstablished = (ssl != nullptr) && (SSL_get_state(ssl) == TLS_ST_OK);
+        stats.fTLSVerified = (ssl != nullptr) && ValidatePeerCertificate(ssl);
     }
 }
 #undef X
@@ -825,18 +826,23 @@ bool CConnman::StopNode()
 void CConnman::NetCleanup()
 {
     // Close sockets
-    BOOST_FOREACH(CNode* pnode, vNodes)
+    for (CNode* pnode: vNodes) {
         pnode->CloseSocketDisconnect();
-    BOOST_FOREACH(ListenSocket& hListenSocket, vhListenSocket)
-        if (hListenSocket.socket != INVALID_SOCKET)
-            if (!CloseSocket(hListenSocket.socket))
-                LogPrintf("CloseSocket(hListenSocket) failed with error %s\n", NetworkErrorString(WSAGetLastError()));
+    }
+
+    for (ListenSocket& hListenSocket: vhListenSocket) {
+        if (!hListenSocket.sock->Reset()) {
+            LogPrintf("CloseSocket(hListenSocket) failed with error %s\n", NetworkErrorString(WSAGetLastError()));
+        }
+    }
 
     // clean up some globals (to help leak detection)
-    BOOST_FOREACH(CNode *pnode, vNodes)
+    for (CNode *pnode: vNodes) {
         delete pnode;
-    BOOST_FOREACH(CNode *pnode, vNodesDisconnected)
+    }
+    for (CNode *pnode: vNodesDisconnected) {
         delete pnode;
+    }
     vNodes.clear();
     vNodesDisconnected.clear();
     vhListenSocket.clear();
@@ -859,30 +865,17 @@ void CConnman::SocketSendData(CNode *pnode)
         const CSerializeData &data = *it;
         assert(data.size() > pnode->nSendOffset);
 
-        bool bIsSSL = false;
-        int nBytes = 0, nRet = 0;
+        int nBytes = 0;
         {
             LOCK(pnode->cs_hSocket);
             
-            if (pnode->hSocket == INVALID_SOCKET)
+            if (!pnode->hSocket)
             {
                 LogPrint("net", "Send: connection with %s is already closed\n", pnode->addr.ToString());
                 break;
             }
     
-            bIsSSL = (pnode->ssl != NULL);
-            
-            if (bIsSSL)
-            {
-                ERR_clear_error(); // clear the error queue, otherwise we may be reading an old error that occurred previously in the current thread
-                nBytes = SSL_write(pnode->ssl, &data[pnode->nSendOffset], data.size() - pnode->nSendOffset);
-                nRet = SSL_get_error(pnode->ssl, nBytes);
-            }
-            else
-            {
-                nBytes = send(pnode->hSocket, &data[pnode->nSendOffset], data.size() - pnode->nSendOffset, MSG_NOSIGNAL | MSG_DONTWAIT);
-                nRet = WSAGetLastError();
-            }
+            nBytes = pnode->hSocket->Send(&data[pnode->nSendOffset], data.size() - pnode->nSendOffset, MSG_NOSIGNAL | MSG_DONTWAIT);
         }
         if (nBytes > 0)
         {
@@ -909,8 +902,9 @@ void CConnman::SocketSendData(CNode *pnode)
             {
                 // error
                 //
-                if (bIsSSL)
+                if (pnode->GetSSL() != nullptr)
                 {
+                    const int nRet = SSL_get_error(pnode->GetSSL(), nBytes);
                     if (nRet != SSL_ERROR_WANT_READ && nRet != SSL_ERROR_WANT_WRITE)
                     {
                         LogPrintf("ERROR: SSL_write %s; closing connection\n", ERR_error_string(nRet, NULL));
@@ -925,6 +919,7 @@ void CConnman::SocketSendData(CNode *pnode)
                 }
                 else
                 {
+                    const int nRet = WSAGetLastError();
                     if (nRet != WSAEWOULDBLOCK && nRet != WSAEMSGSIZE && nRet != WSAEINTR && nRet != WSAEINPROGRESS)
                     {
                         LogPrintf("ERROR: send %s; closing connection\n", NetworkErrorString(nRet));
@@ -1101,27 +1096,17 @@ bool CConnman::AttemptToEvictConnection(bool fPreferNewConnection) {
 }
 
 
-void CConnman::AcceptConnection(const ListenSocket& hListenSocket) {
+void CConnman::AcceptConnection(ListenSocket& hListenSocket) {
     struct sockaddr_storage sockaddr;
     socklen_t len = sizeof(sockaddr);
-    SOCKET hSocket = accept(hListenSocket.socket, (struct sockaddr*)&sockaddr, &len);
+    //SOCKET hSocket = accept(hListenSocket.sock->Get(), (struct sockaddr*)&sockaddr, &len);
+    //hListenSocket.sock.reset(new Sock(accept(hListenSocket.sock->Get(), (struct sockaddr*)&sockaddr, &len)));
+    std::unique_ptr<Sock> sock = hListenSocket.sock->Accept((struct sockaddr*)&sockaddr, &len);
     CAddress addr;
     int nInbound = 0;
     int nMaxInbound = nMaxConnections - MAX_OUTBOUND_CONNECTIONS;
 
-    if (hSocket != INVALID_SOCKET)
-        if (!addr.SetSockAddr((const struct sockaddr*)&sockaddr))
-            LogPrintf("Warning: Unknown socket family\n");
-
-    bool whitelisted = hListenSocket.whitelisted || CConnman::IsWhitelistedRange(addr);
-    {
-        LOCK(cs_vNodes);
-        BOOST_FOREACH(CNode* pnode, vNodes)
-            if (pnode->fInbound)
-                nInbound++;
-    }
-
-    if (hSocket == INVALID_SOCKET)
+    if (!sock)
     {
         int nErr = WSAGetLastError();
         if (nErr != WSAEWOULDBLOCK)
@@ -1129,17 +1114,27 @@ void CConnman::AcceptConnection(const ListenSocket& hListenSocket) {
         return;
     }
 
-    if (!IsSelectableSocket(hSocket))
+    if (sock)
+        if (!addr.SetSockAddr((const struct sockaddr*)&sockaddr))
+            LogPrintf("Warning: Unknown socket family\n");
+
+    {
+        LOCK(cs_vNodes);
+        BOOST_FOREACH(CNode* pnode, vNodes)
+            if (pnode->fInbound)
+                nInbound++;
+    }
+
+    if (!sock->IsSelectable())
     {
         LogPrintf("connection from %s dropped: non-selectable socket\n", addr.ToString());
-        CloseSocket(hSocket);
         return;
     }
 
+    bool whitelisted = hListenSocket.whitelisted || CConnman::IsWhitelistedRange(addr);
     if (CNode::IsBanned(addr) && !whitelisted)
     {
         LogPrintf("connection from %s dropped (banned)\n", addr.ToString());
-        CloseSocket(hSocket);
         return;
     }
 
@@ -1148,7 +1143,6 @@ void CConnman::AcceptConnection(const ListenSocket& hListenSocket) {
         if (!AttemptToEvictConnection(whitelisted)) {
             // No connection to evict, disconnect the new connection
             LogPrint("net", "failed to find an eviction candidate - connection dropped (full)\n");
-            CloseSocket(hSocket);
             return;
         }
     }
@@ -1157,15 +1151,15 @@ void CConnman::AcceptConnection(const ListenSocket& hListenSocket) {
     // on all platforms.  Set it again here just to be sure.
     int set = 1;
 #ifdef WIN32
-    setsockopt(hSocket, IPPROTO_TCP, TCP_NODELAY, (const char*)&set, sizeof(int));
+    sock->SetSockOpt(IPPROTO_TCP, TCP_NODELAY, (const char*)&set, sizeof(int));
 #else
-    setsockopt(hSocket, IPPROTO_TCP, TCP_NODELAY, (void*)&set, sizeof(int));
+    sock->SetSockOpt(IPPROTO_TCP, TCP_NODELAY, (void*)&set, sizeof(int));
 #endif
 
 
-    SSL *ssl = NULL;
+    SSL *ssl = nullptr;
     
-    SetSocketNonBlocking(hSocket, true);
+    sock->SetNonBlocking();
     
 #ifdef USE_TLS
     /* TCP connection is ready. Do server side SSL. */
@@ -1183,7 +1177,7 @@ void CConnman::AcceptConnection(const ListenSocket& hListenSocket) {
         unsigned long err_code = 0;
         if (bUseTLS)
         {
-            ssl = tlsmanager.accept( hSocket, addr, err_code);
+            ssl = TLSManager::accept(*sock, addr, err_code);
             if(!ssl)
             {
                 if (err_code == TLSManager::SELECT_TIMEDOUT)
@@ -1199,7 +1193,6 @@ void CConnman::AcceptConnection(const ListenSocket& hListenSocket) {
                     LogPrint("tls", "%s():%d - err_code %x, adding connection from %s vNonTLSNodesInbound list (sz=%d)\n",
                         __func__, __LINE__, err_code, addr.ToStringIP(), vNonTLSNodesInbound.size());
                 }
-                CloseSocket(hSocket);
                 return;
             }
         }
@@ -1219,12 +1212,11 @@ void CConnman::AcceptConnection(const ListenSocket& hListenSocket) {
     else
     {
         unsigned long err_code = 0;
-        ssl = tlsmanager.accept( hSocket, addr, err_code);
-        if(!ssl)
+        ssl = TLSManager::accept(*sock, addr, err_code);
+        if (!ssl)
         {
             LogPrint("tls", "%s():%d - err_code %x, failure accepting connection from %s\n",
                 __func__, __LINE__, err_code, addr.ToStringIP());
-            CloseSocket(hSocket);
             return;
         }
     }
@@ -1237,14 +1229,12 @@ void CConnman::AcceptConnection(const ListenSocket& hListenSocket) {
             LogPrintf ("TLS: ERROR: Wrong client certificate from %s. Connection will be closed.\n", addr.ToString());
         
             SSL_shutdown(ssl);
-            CloseSocket(hSocket);
-            SSL_free(ssl);
             return;
         }
     }
 #endif // USE_TLS
 
-    CNode* pnode = new CNode(hSocket, addr, "", true, ssl);
+    CNode* pnode = new CNode(std::move(sock), addr, "", true);
     pnode->AddRef();
     pnode->fWhitelisted = whitelisted;
 
@@ -1259,8 +1249,8 @@ void CConnman::ThreadNonTLSPoolsCleaner()
 {
     while (!interruptNet)
     {
-        tlsmanager.cleanNonTLSPool(vNonTLSNodesInbound,  cs_vNonTLSNodesInbound);
-        tlsmanager.cleanNonTLSPool(vNonTLSNodesOutbound, cs_vNonTLSNodesOutbound);
+        TLSManager::cleanNonTLSPool(connman->vNonTLSNodesInbound,  connman->cs_vNonTLSNodesInbound);
+        TLSManager::cleanNonTLSPool(connman->vNonTLSNodesOutbound, connman->cs_vNonTLSNodesOutbound);
         if (!interruptNet.sleep_for(std::chrono::milliseconds(DEFAULT_CONNECT_TIMEOUT)))
             return;
     }
@@ -1345,9 +1335,9 @@ void CConnman::ThreadSocketHandler()
         SOCKET hSocketMax = 0;
         bool have_fds = false;
 
-        BOOST_FOREACH(const ListenSocket& hListenSocket, vhListenSocket) {
-            FD_SET(hListenSocket.socket, &fdsetRecv);
-            hSocketMax = max(hSocketMax, hListenSocket.socket);
+        BOOST_FOREACH(const ListenSocket& hListenSocket, connman->vhListenSocket) {
+            FD_SET(hListenSocket.sock->Get(), &fdsetRecv);
+            hSocketMax = max(hSocketMax, hListenSocket.sock->Get());
             have_fds = true;
         }
 
@@ -1357,11 +1347,11 @@ void CConnman::ThreadSocketHandler()
             {
                 LOCK(pnode->cs_hSocket);
                 
-                if (pnode->hSocket == INVALID_SOCKET)
+                SOCKET socket = pnode->GetSocketFd();
+                if (socket == INVALID_SOCKET)
                     continue;
-                
-                FD_SET(pnode->hSocket, &fdsetError);
-                hSocketMax = max(hSocketMax, pnode->hSocket);
+                FD_SET(socket, &fdsetError);
+                hSocketMax = max(hSocketMax, socket);
                 have_fds = true;
 
                 // Implement the following logic:
@@ -1383,7 +1373,7 @@ void CConnman::ThreadSocketHandler()
                 {
                     TRY_LOCK(pnode->cs_vSend, lockSend);
                     if (lockSend && !pnode->vSendMsg.empty()) {
-                        FD_SET(pnode->hSocket, &fdsetSend);
+                        FD_SET(socket, &fdsetSend);
                         continue;
                     }
                 }
@@ -1392,7 +1382,7 @@ void CConnman::ThreadSocketHandler()
                     if (lockRecv && (
                         pnode->vRecvMsg.empty() || !pnode->vRecvMsg.front().complete() ||
                         pnode->GetTotalRecvSize() <= GetReceiveFloodSize()))
-                        FD_SET(pnode->hSocket, &fdsetRecv);
+                        FD_SET(socket, &fdsetRecv);
                 }
             }
         }
@@ -1422,7 +1412,7 @@ void CConnman::ThreadSocketHandler()
         //
         BOOST_FOREACH(const ListenSocket& hListenSocket, vhListenSocket)
         {
-            if (hListenSocket.socket != INVALID_SOCKET && FD_ISSET(hListenSocket.socket, &fdsetRecv))
+            if (hListenSocket.sock->Get() != INVALID_SOCKET && FD_ISSET(hListenSocket.sock->Get(), &fdsetRecv))
             {
                 AcceptConnection(hListenSocket);
             }
@@ -1443,7 +1433,7 @@ void CConnman::ThreadSocketHandler()
             if (interruptNet)
                 return;
 
-            if (tlsmanager.threadSocketHandler(pnode,fdsetRecv,fdsetSend,fdsetError)==-1){
+            if (TLSManager::threadSocketHandler(pnode,fdsetRecv,fdsetSend,fdsetError)==-1){
                 continue;
             }
 
@@ -1775,7 +1765,7 @@ bool CConnman::OpenNetworkConnection(const CAddress& addrConnect, CSemaphoreGran
             else
                 SplitHostPort(string(pszDest), port, strDest);
         
-            if (tlsmanager.isNonTLSAddr(strDest, vNonTLSNodesOutbound, cs_vNonTLSNodesOutbound))
+            if (TLSManager::isNonTLSAddr(strDest, vNonTLSNodesOutbound, cs_vNonTLSNodesOutbound))
             {
                 // Attempt to reconnect in non-TLS mode
                 pnode = ConnectNode(addrConnect, pszDest);
@@ -1798,7 +1788,6 @@ bool CConnman::OpenNetworkConnection(const CAddress& addrConnect, CSemaphoreGran
 
     return true;
 }
-
 
 void CConnman::ThreadMessageHandler()
 {
@@ -1899,14 +1888,15 @@ bool CConnman::BindListenPort(const CService &addrBind, string& strError, bool f
         return false;
     }
 
-    SOCKET hListenSocket = socket(((struct sockaddr*)&sockaddr)->sa_family, SOCK_STREAM, IPPROTO_TCP);
-    if (hListenSocket == INVALID_SOCKET)
+    //SOCKET hListenSocket = socket(((struct sockaddr*)&sockaddr)->sa_family, SOCK_STREAM, IPPROTO_TCP);
+    std::unique_ptr<Sock> sock = CreateSock(addrBind);
+    if (!sock)
     {
         strError = strprintf("Error: Couldn't open socket for incoming connections (socket returned error %s)", NetworkErrorString(WSAGetLastError()));
         LogPrintf("%s\n", strError);
         return false;
     }
-    if (!IsSelectableSocket(hListenSocket))
+    if (!sock->IsSelectable())
     {
         strError = "Error: Couldn't create a listenable socket for incoming connections";
         LogPrintf("%s\n", strError);
@@ -1916,16 +1906,16 @@ bool CConnman::BindListenPort(const CService &addrBind, string& strError, bool f
 #ifndef WIN32
 #ifdef SO_NOSIGPIPE
     // Different way of disabling SIGPIPE on BSD
-    setsockopt(hListenSocket, SOL_SOCKET, SO_NOSIGPIPE, (void*)&nOne, sizeof(int));
+    sock->SetSockOpt(SOL_SOCKET, SO_NOSIGPIPE, (void*)&nOne, sizeof(int));
 #endif
     // Allow binding if the port is still in TIME_WAIT state after
     // the program was closed and restarted.
-    setsockopt(hListenSocket, SOL_SOCKET, SO_REUSEADDR, (void*)&nOne, sizeof(int));
+    sock->SetSockOpt(SOL_SOCKET, SO_REUSEADDR, (void*)&nOne, sizeof(int));
     // Disable Nagle's algorithm
-    setsockopt(hListenSocket, IPPROTO_TCP, TCP_NODELAY, (void*)&nOne, sizeof(int));
+    sock->SetSockOpt(IPPROTO_TCP, TCP_NODELAY, (void*)&nOne, sizeof(int));
 #else
-    setsockopt(hListenSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&nOne, sizeof(int));
-    setsockopt(hListenSocket, IPPROTO_TCP, TCP_NODELAY, (const char*)&nOne, sizeof(int));
+    sock->SetSockOpt(SOL_SOCKET, SO_REUSEADDR, (const char*)&nOne, sizeof(int));
+    sock->SetSockOpt(IPPROTO_TCP, TCP_NODELAY, (const char*)&nOne, sizeof(int));
 #endif
 
     // Set to non-blocking, incoming connections will also inherit this
@@ -1934,7 +1924,7 @@ bool CConnman::BindListenPort(const CService &addrBind, string& strError, bool f
     // On Linux, the new socket returned by accept() does not inherit file
     // status flags such as O_NONBLOCK and O_ASYNC from the listening
     // socket. http://man7.org/linux/man-pages/man2/accept.2.html
-    if (!SetSocketNonBlocking(hListenSocket, true)) {
+    if (!sock->SetNonBlocking()) {
         strError = strprintf("BindListenPort: Setting listening socket to non-blocking failed, error %s\n", NetworkErrorString(WSAGetLastError()));
         LogPrintf("%s\n", strError);
         return false;
@@ -1945,18 +1935,18 @@ bool CConnman::BindListenPort(const CService &addrBind, string& strError, bool f
     if (addrBind.IsIPv6()) {
 #ifdef IPV6_V6ONLY
 #ifdef WIN32
-        setsockopt(hListenSocket, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&nOne, sizeof(int));
+        sock->SetSockOpt(IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&nOne, sizeof(int));
 #else
-        setsockopt(hListenSocket, IPPROTO_IPV6, IPV6_V6ONLY, (void*)&nOne, sizeof(int));
+        sock->SetSockOpt(IPPROTO_IPV6, IPV6_V6ONLY, (void*)&nOne, sizeof(int));
 #endif
 #endif
 #ifdef WIN32
         int nProtLevel = PROTECTION_LEVEL_UNRESTRICTED;
-        setsockopt(hListenSocket, IPPROTO_IPV6, IPV6_PROTECTION_LEVEL, (const char*)&nProtLevel, sizeof(int));
+        sock->SetSockOpt(IPPROTO_IPV6, IPV6_PROTECTION_LEVEL, (const char*)&nProtLevel, sizeof(int));
 #endif
     }
 
-    if (::bind(hListenSocket, (struct sockaddr*)&sockaddr, len) == SOCKET_ERROR)
+    if (sock->Bind((struct sockaddr*)&sockaddr, len) == SOCKET_ERROR)
     {
         int nErr = WSAGetLastError();
         if (nErr == WSAEADDRINUSE)
@@ -1964,21 +1954,19 @@ bool CConnman::BindListenPort(const CService &addrBind, string& strError, bool f
         else
             strError = strprintf(_("Unable to bind to %s on this computer (bind returned error %s)"), addrBind.ToString(), NetworkErrorString(nErr));
         LogPrintf("%s\n", strError);
-        CloseSocket(hListenSocket);
         return false;
     }
-    LogPrintf("Bound to %s\n", addrBind.ToString());
+    LogPrintf("Bound to %s on sock %d\n", addrBind.ToString(), sock->Get());
 
     // Listen for incoming connections
-    if (listen(hListenSocket, SOMAXCONN) == SOCKET_ERROR)
+    if (sock->Listen(SOMAXCONN) == SOCKET_ERROR)
     {
         strError = strprintf(_("Error: Listening for incoming connections failed (listen returned error %s)"), NetworkErrorString(WSAGetLastError()));
         LogPrintf("%s\n", strError);
-        CloseSocket(hListenSocket);
         return false;
     }
 
-    vhListenSocket.push_back(ListenSocket(hListenSocket, fWhitelisted));
+    vhListenSocket.emplace_back(std::move(sock), fWhitelisted);
 
     if (addrBind.IsRoutable() && fDiscover && !fWhitelisted)
         AddLocal(addrBind, LOCAL_BIND);
@@ -2062,19 +2050,19 @@ void CConnman::StartNode(CScheduler& scheduler, const Options& connOptions)
     }
 
     if (pnodeLocalHost == nullptr)
-        pnodeLocalHost = std::make_unique<CNode>(INVALID_SOCKET, CAddress(CService("127.0.0.1", 0), nLocalServices));
+        pnodeLocalHost = std::make_unique<CNode>(nullptr, CAddress(CService("127.0.0.1", 0), nLocalServices));
 
     Discover();
 
 #ifdef USE_TLS
     
-    if (!tlsmanager.prepareCredentials())
+    if (!TLSManager::prepareCredentials())
     {
         LogPrintf("TLS: ERROR: %s: %s: Credentials weren't loaded. Node can't be started.\n", __FILE__, __func__);
         return;
     }
     
-    if (!tlsmanager.initialize())
+    if (!TLSManager::initialize())
     {
         LogPrintf("TLS: ERROR: %s: %s: TLS initialization failed. Node can't be started.\n", __FILE__, __func__);
         return;
@@ -2346,13 +2334,12 @@ NodeId CConnman::GetNewNodeId()
     return nLastNodeId.fetch_add(1, std::memory_order_relaxed);
 }
 
-CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNameIn, bool fInboundIn, SSL *sslIn) :
+CNode::CNode(std::unique_ptr<Sock>&& sock, const CAddress& addrIn, const std::string& addrNameIn, bool fInboundIn) :
     ssSend{SER_NETWORK, INIT_PROTO_VERSION},
     addrKnown{5000, 0.001},
     setInventoryKnown{connman->GetSendBufferSize() / 1000},
-    hSocket{hSocketIn}
+    hSocket{std::move(sock)}
 {
-    ssl = sslIn;
     nServices = 0;
     nRecvVersion = INIT_PROTO_VERSION;
     nLastSend = 0;
@@ -2401,7 +2388,7 @@ CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNa
     }
 
     // Be shy and don't send version until we hear
-    if (hSocket != INVALID_SOCKET && !fInbound)
+    if (hSocket && !fInbound)
         PushVersion();
 
     GetNodeSignals().InitializeNode(GetId(), this);
@@ -2454,17 +2441,13 @@ CNode::~CNode()
     // No need to make a lock on cs_hSocket, because before deletion CNode object is removed from the vNodes vector, so any other thread hasn't access to it.
     // Removal is synchronized with read and write routines, so all of them will be completed to this moment.
     
-    if (hSocket != INVALID_SOCKET)
+    if (hSocket)
     {
-        if (ssl)
+        if (GetSSL())
         {
             unsigned long err_code = 0;
-            tlsmanager.waitFor(SSL_SHUTDOWN, addr, ssl, 0 /*no retries here make no sense on destructor*/, err_code);
-            SSL_free(ssl);
-            ssl = NULL;
+            TLSManager::waitFor(SSL_SHUTDOWN, addr, *hSocket, 0 /*no retries here make no sense on destructor*/, err_code);
         }
-        
-        CloseSocket(hSocket);
     }
 
     if (pfilter)

@@ -223,7 +223,7 @@ int printStats(bool mining)
     {
         LOCK2(cs_main, connman->cs_vNodes);
         connections = connman->vNodes.size();
-        tlsConnections = std::count_if(connman->vNodes.begin(), connman->vNodes.end(), [](CNode* n) {return n->ssl != NULL;});
+        tlsConnections = std::count_if(connman->vNodes.begin(), connman->vNodes.end(), [](CNode* n) {return n->GetSSL() != nullptr;});
     }
     unsigned long mempool_count = mempool->size();
 /*

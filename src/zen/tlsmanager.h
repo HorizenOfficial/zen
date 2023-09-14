@@ -16,8 +16,7 @@
 #else
 #include <fcntl.h>
 #endif
-
-using namespace std;
+#include "util/sock.h"
 
 extern std::unique_ptr<CConnman> connman;
 
@@ -28,17 +27,16 @@ namespace zen
  * @brief A class to wrap some of zen specific TLS functionalities used in the net.cpp
  * 
  */
-class TLSManager
+namespace TLSManager
 {
-public:
      /* This is set as a custom error number which is not an error in OpenSSL protocol.
         A true (not null) OpenSSL error returned by ERR_get_error() consists of a library number,
         function code and reason code. */
      static const long SELECT_TIMEDOUT = 0xFFFFFFFF;
 
-     int waitFor(SSLConnectionRoutine eRoutine, const CAddress& peerAddress, SSL* ssl, int timeoutMilliSec, unsigned long& err_code);
+     int waitFor(SSLConnectionRoutine eRoutine, const CAddress& peerAddress, Sock& sock, int timeoutMilliSec, unsigned long& err_code);
 
-     SSL* connect(SOCKET hSocket, const CAddress& addrConnect, unsigned long& err_code);
+     SSL* connect(Sock& sock, const CAddress& addrConnect, unsigned long& err_code);
      SSL_CTX* initCtx(
         TLSContextType ctxType,
         const boost::filesystem::path& privateKeyFile,
@@ -46,8 +44,8 @@ public:
         const std::vector<boost::filesystem::path>& trustedDirs);
 
      bool prepareCredentials();
-     SSL* accept(SOCKET hSocket, const CAddress& addr, unsigned long& err_code);
-     bool isNonTLSAddr(const string& strAddr, const vector<NODE_ADDR>& vPool, CCriticalSection& cs);
+     SSL* accept(Sock& sock, const CAddress& addr, unsigned long& err_code);
+     bool isNonTLSAddr(const std::string& strAddr, const std::vector<NODE_ADDR>& vPool, CCriticalSection& cs);
      void cleanNonTLSPool(std::vector<NODE_ADDR>& vPool, CCriticalSection& cs);
      int threadSocketHandler(CNode* pnode, fd_set& fdsetRecv, fd_set& fdsetSend, fd_set& fdsetError);
      bool initialize();

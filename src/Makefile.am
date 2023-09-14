@@ -212,6 +212,7 @@ BITCOIN_CORE_H = \
   undo.h \
   util.h \
   utilmoneystr.h \
+  util/sock.h \
   utilstrencodings.h \
   utiltime.h \
   validationinterface.h \
@@ -397,6 +398,7 @@ libbitcoin_common_a_SOURCES = \
   script/script_error.cpp \
   script/sign.cpp \
   script/standard.cpp \
+  util/sock.cpp \
   $(BITCOIN_CORE_H) \
   $(LIBZCASH_H)
 

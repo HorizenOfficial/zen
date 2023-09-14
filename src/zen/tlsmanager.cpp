@@ -183,11 +183,14 @@ int tlsCertVerificationCallback(int preverify_ok, X509_STORE_CTX* chainContext)
  * @param timeoutSec timeout in seconds.
  * @return int returns nError corresponding to the connection event.
  */
-int TLSManager::waitFor(SSLConnectionRoutine eRoutine, const CAddress& peerAddress, SSL* ssl, int timeoutMilliSec, unsigned long& err_code)
+int TLSManager::waitFor(SSLConnectionRoutine eRoutine, const CAddress& peerAddress, Sock& sock, int timeoutMilliSec, unsigned long& err_code)
 {
     std::string eRoutine_str{};
     int retOp{0};
-    const SOCKET hSocket = SSL_get_fd(ssl);
+    const SOCKET hSocket = sock.Get();
+    SSL* ssl = sock.GetSSL();
+    assert(ssl);
+    assert(SSL_get_fd(ssl) == hSocket);
 
     err_code = 0;
 
@@ -252,15 +255,6 @@ success:
         std::string ssl_error_str{};
         int result{0};
 
-        // select() modifies its arguments, so these must be reinitialized on each iteration
-        fd_set socketSet;
-        struct timeval timeout {
-            timeoutMilliSec / 1000, (timeoutMilliSec % 1000) * 1000
-        };
-
-        FD_ZERO(&socketSet);
-        FD_SET(hSocket, &socketSet);
-
         switch (sslErr) {
         case SSL_ERROR_SSL:
             // - case for shutdown sent while the peer still sending data after we've sent close_notify
@@ -288,11 +282,15 @@ success:
             [[fallthrough]]; // Need to read more
         case SSL_ERROR_WANT_READ:
             ssl_error_str = "SSL_ERROR_WANT_READ";
-            result = select(hSocket + 1, &socketSet, NULL, NULL, &timeout);
+            LogPrint("tls", "TLS: %s: %s: %s peer=%s want read more\n",
+                     __FILE__, __func__, eRoutine_str, peerAddress.ToString());
+            result = sock.Wait(timeoutMilliSec, Sock::RECV);
             break;
         case SSL_ERROR_WANT_WRITE:
             ssl_error_str = "SSL_ERROR_WANT_WRITE";
-            result = select(hSocket + 1, NULL, &socketSet, NULL, &timeout);
+            LogPrint("tls", "TLS: %s: %s: %s peer=%s want send more\n",
+                     __FILE__, __func__, eRoutine_str, peerAddress.ToString());
+            result = sock.Wait(timeoutMilliSec, Sock::SEND);
             break;
         default:
             // For all othe errors we intentionally do fail (no retries)
@@ -332,7 +330,7 @@ success:
  * @param tls_ctx_client TLS Client context
  * @return SSL* returns a ssl* if successful, otherwise returns NULL.
  */
-SSL* TLSManager::connect(SOCKET hSocket, const CAddress& addrConnect, unsigned long& err_code)
+SSL* TLSManager::connect(Sock& sock, const CAddress& addrConnect, unsigned long& err_code)
 {
     LogPrint("tls", "TLS: establishing connection (tid = %X), (peerid = %s)\n", pthread_self(), addrConnect.ToString());
 
@@ -341,8 +339,9 @@ SSL* TLSManager::connect(SOCKET hSocket, const CAddress& addrConnect, unsigned l
     bool bConnectedTLS = false;
 
     if ((ssl = SSL_new(tls_ctx_client))) {
-        if (SSL_set_fd(ssl, hSocket)) {
-            int ret = TLSManager::waitFor(SSL_CONNECT, addrConnect, ssl, DEFAULT_CONNECT_TIMEOUT, err_code);
+        if (SSL_set_fd(ssl, sock.Get())) {
+            sock.SetSSL(ssl);
+            int ret = TLSManager::waitFor(SSL_CONNECT, addrConnect, sock, DEFAULT_CONNECT_TIMEOUT, err_code);
             if (ret == 1)
             {
                 bConnectedTLS = true;
@@ -367,7 +366,8 @@ SSL* TLSManager::connect(SOCKET hSocket, const CAddress& addrConnect, unsigned l
 
         if (ssl) {
             SSL_free(ssl);
-            ssl = NULL;
+            ssl = nullptr;
+            sock.SetSSL(ssl);
         }
     }
     return ssl;
@@ -523,7 +523,7 @@ bool TLSManager::prepareCredentials()
  * @param tls_ctx_server TLS server context.
  * @return SSL* returns pointer to the ssl object if successful, otherwise returns NULL
  */
-SSL* TLSManager::accept(SOCKET hSocket, const CAddress& addr, unsigned long& err_code)
+SSL* TLSManager::accept(Sock& sock, const CAddress& addr, unsigned long& err_code)
 {
     LogPrint("tls", "TLS: accepting connection from %s (tid = %X)\n", addr.ToString(), pthread_self());
 
@@ -532,8 +532,9 @@ SSL* TLSManager::accept(SOCKET hSocket, const CAddress& addr, unsigned long& err
     bool bAcceptedTLS = false;
 
     if ((ssl = SSL_new(tls_ctx_server))) {
-        if (SSL_set_fd(ssl, hSocket)) {
-            bAcceptedTLS = (TLSManager::waitFor(SSL_ACCEPT, addr, ssl, DEFAULT_CONNECT_TIMEOUT, err_code) == 1);
+        if (SSL_set_fd(ssl, sock.Get())) {
+            sock.SetSSL(ssl);
+            bAcceptedTLS = (TLSManager::waitFor(SSL_ACCEPT, addr, sock, DEFAULT_CONNECT_TIMEOUT, err_code) == 1);
         }
     }
     else
@@ -559,7 +560,8 @@ SSL* TLSManager::accept(SOCKET hSocket, const CAddress& addr, unsigned long& err
 
         if (ssl) {
             SSL_free(ssl);
-            ssl = NULL;
+            ssl = nullptr;
+            sock.SetSSL(ssl);
         }
     }
 
@@ -627,12 +629,12 @@ int TLSManager::threadSocketHandler(CNode* pnode, fd_set& fdsetRecv, fd_set& fds
     {
         LOCK(pnode->cs_hSocket);
 
-        if (pnode->hSocket == INVALID_SOCKET)
+        if (pnode->hSocket->Get() == INVALID_SOCKET)
             return -1;
 
-        recvSet = FD_ISSET(pnode->hSocket, &fdsetRecv);
-        sendSet = FD_ISSET(pnode->hSocket, &fdsetSend);
-        errorSet = FD_ISSET(pnode->hSocket, &fdsetError);
+        recvSet  = FD_ISSET(pnode->hSocket->Get(), &fdsetRecv);
+        sendSet  = FD_ISSET(pnode->hSocket->Get(), &fdsetSend);
+        errorSet = FD_ISSET(pnode->hSocket->Get(), &fdsetError);
     }
 
     if (recvSet || errorSet) {
@@ -643,26 +645,20 @@ int TLSManager::threadSocketHandler(CNode* pnode, fd_set& fdsetRecv, fd_set& fds
                 // maximum record size is 16kB for SSL/TLS (still valid as of 1.1.1 version)
                 char pchBuf[0x10000];
                 bool bIsSSL = false;
-                int nBytes = 0, nRet = 0;
+                int nBytes = 0;
 
                 {
                     LOCK(pnode->cs_hSocket);
 
-                    if (pnode->hSocket == INVALID_SOCKET) {
+                    if (pnode->hSocket->Get() == INVALID_SOCKET) {
                         LogPrint("tls", "Receive: connection with %s is already closed\n", pnode->addr.ToString());
                         return -1;
                     }
 
-                    bIsSSL = (pnode->ssl != NULL);
+                    nBytes = pnode->hSocket->Recv(pchBuf, sizeof(pchBuf), MSG_DONTWAIT);
 
-                    if (bIsSSL) {
-                        ERR_clear_error(); // clear the error queue, otherwise we may be reading an old error that occurred previously in the current thread
-                        nBytes = SSL_read(pnode->ssl, pchBuf, sizeof(pchBuf));
-                        nRet = SSL_get_error(pnode->ssl, nBytes);
-                    } else {
-                        nBytes = recv(pnode->hSocket, pchBuf, sizeof(pchBuf), MSG_DONTWAIT);
-                        nRet = WSAGetLastError();
-                    }
+                    bIsSSL = (pnode->hSocket->GetSSL());
+
                 }
 
                 if (nBytes > 0) {
@@ -690,6 +686,7 @@ int TLSManager::threadSocketHandler(CNode* pnode, fd_set& fdsetRecv, fd_set& fds
                     // error
                     //
                     if (bIsSSL) {
+                        int nRet = SSL_get_error(pnode->hSocket->GetSSL(), nBytes);
                         if (nRet != SSL_ERROR_WANT_READ && nRet != SSL_ERROR_WANT_WRITE) // SSL_read() operation has to be repeated because of SSL_ERROR_WANT_READ or SSL_ERROR_WANT_WRITE (https://wiki.openssl.org/index.php/Manual:SSL_read(3)#NOTES)
                         {
                             if (!pnode->fDisconnect)
@@ -707,6 +704,7 @@ int TLSManager::threadSocketHandler(CNode* pnode, fd_set& fdsetRecv, fd_set& fds
                             MilliSleep(1); // 1 msec
                         }
                     } else {
+                        int nRet = WSAGetLastError();
                         if (nRet != WSAEWOULDBLOCK && nRet != WSAEMSGSIZE && nRet != WSAEINTR && nRet != WSAEINPROGRESS) {
                             if (!pnode->fDisconnect)
                                 LogPrintf("TLS: ERROR: socket recv %s\n", NetworkErrorString(nRet));

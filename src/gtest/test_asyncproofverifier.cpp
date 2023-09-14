@@ -27,7 +27,7 @@ public:
         mempool.reset(new CTxMemPool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000));
         connman.reset(new CConnman());
 
-        dummyNode.reset(new CNode(INVALID_SOCKET, CAddress(), "", true));
+        dummyNode.reset(new CNode(nullptr, CAddress(), "", true));
         dummyNode->id = 7;
 
         sidechain.creationBlockHeight = 100;
