@@ -243,6 +243,7 @@ const std::vector<unsigned char> SAMPLE_FIELD = {
 TEST_F(CreateNewBlockSuite, CreateNewBlock_1cert)
 {
     blockchain_test_utils::BlockchainTestManager &blockchain = blockchain_test_utils::BlockchainTestManager::GetInstance();
+    blockchain.Reset();
     std::shared_ptr<txCreationUtils::CNakedCCoinsViewCache> nakedView = blockchain.CoinsViewCache();
     if (pcoinsTip != nullptr) {
         delete pcoinsTip;
