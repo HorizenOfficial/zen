@@ -211,21 +211,21 @@ TEST_F(CreateNewBlockSuite, CreateNewBlock_1tx)
 {
     CBlockTemplate *pblocktemplate;
     CScript scriptPubKey = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
-    // assert(pblocktemplate = CreateNewBlock(scriptPubKey));
-    // delete pblocktemplate;
+
     CMutableTransaction tx;
     tx.vin.resize(1);
     // NOTE: OP_NOP is used to force 20 SigOps for the CHECKMULTISIG
     tx.vin[0].scriptSig = CScript() << OP_0 << OP_0 << OP_0 << OP_NOP << OP_CHECKMULTISIG << OP_1;
     tx.vin[0].prevout.hash = uint256S("0007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
     tx.vin[0].prevout.n = 0;
-    tx.resizeOut(1);
-    CTxOut out(50000LL, CScript() << OP_1);
+
+    CTxOut out(5LL, CScript() << OP_1);
     tx.addOut(out);
 
     uint256 hash1 = tx.GetHash();
     mempool->addUnchecked(hash1, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
     tx.vin[0].prevout.hash = hash1;
+
 
     pblocktemplate = CreateNewBlock(scriptPubKey);
     ASSERT_NE(pblocktemplate, nullptr);
