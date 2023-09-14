@@ -177,29 +177,29 @@ extern std::map<CNetAddr, LocalServiceInfo> mapLocalHost;
 class CNodeStats
 {
 public:
-    NodeId nodeid;
-    uint64_t nServices;
-    bool fTLSEstablished;
-    bool fTLSVerified;
-    int64_t nLastSend;
-    int64_t nLastRecv;
-    int64_t nTimeConnected;
-    int64_t nTimeOffset;
+    NodeId nodeid = 0;
+    uint64_t nServices = 0;
+    bool fTLSEstablished = false;
+    bool fTLSVerified = false;
+    int64_t nLastSend = 0;
+    int64_t nLastRecv = 0;
+    int64_t nTimeConnected = 0;
+    int64_t nTimeOffset = 0;
     std::string addrName;
-    int nVersion;
+    int nVersion = 0;
     std::string cleanSubVer;
-    bool fInbound;
-    int nStartingHeight;
-    uint64_t nSendBytes;
-    uint64_t nRecvBytes;
+    bool fInbound = false;
+    int nStartingHeight = 0;
+    uint64_t nSendBytes = 0;
+    uint64_t nRecvBytes = 0;
     std::map<std::string, std::pair<uint64_t, uint64_t>> mapSendBytesPerMsgType;
     std::map<std::string, std::pair<uint64_t, uint64_t>> mapRecvBytesPerMsgType;
-    bool fWhitelisted;
-    double dPingTime;
-    double dPingWait;
+    bool fWhitelisted = false;
+    double dPingTime = 0.0;
+    double dPingWait = 0.0;
     std::string addrLocal;
-    uint64_t m_addr_rate_limited;
-    uint64_t m_addr_processed;
+    uint64_t m_addr_rate_limited = 0;
+    uint64_t m_addr_processed = 0;
 };
 
 
@@ -219,7 +219,7 @@ public:
     int64_t nTime;                  // time (in microseconds) of message receipt.
 
     CNetMessage(const CMessageHeader::MessageStartChars& pchMessageStartIn, int nTypeIn, int nVersionIn) : hdrbuf(nTypeIn, nVersionIn), hdr(pchMessageStartIn), vRecv(nTypeIn, nVersionIn) {
-        hdrbuf.resize(24);
+        hdrbuf.resize(CMessageHeader::HEADER_SIZE);
         in_data = false;
         nHdrPos = 0;
         nDataPos = 0;
@@ -362,6 +362,7 @@ public:
 
     CNode(SOCKET hSocketIn, const CAddress &addrIn, const std::string &addrNameIn = "", bool fInboundIn = false, SSL *sslIn = NULL);
     ~CNode();
+    CNode(CNode&&) = delete;
 
 private:
     // messageType : {numberOfMessages, totalAmountOfBytes}
@@ -387,8 +388,8 @@ public:
     unsigned int GetTotalRecvSize()
     {
         unsigned int total = 0;
-        BOOST_FOREACH(const CNetMessage &msg, vRecvMsg)
-            total += msg.vRecv.size() + 24;
+        for (const CNetMessage &msg: vRecvMsg)
+            total += msg.vRecv.size() + CMessageHeader::HEADER_SIZE;
         return total;
     }
 
@@ -399,7 +400,7 @@ public:
     void SetRecvVersion(int nVersionIn)
     {
         nRecvVersion = nVersionIn;
-        BOOST_FOREACH(CNetMessage &msg, vRecvMsg)
+        for (CNetMessage &msg: vRecvMsg)
             msg.SetVersion(nVersionIn);
     }
 
@@ -779,6 +780,10 @@ public:
 
     CConnman();
     ~CConnman();
+    CConnman(const CConnman&) = delete;
+    CConnman(CConnman&&) = delete;
+    CConnman operator= (CConnman&) = delete;
+    CConnman operator= (CConnman&&) = delete;
 
     std::vector<CNode*> vNodes;
     CCriticalSection cs_vNodes;

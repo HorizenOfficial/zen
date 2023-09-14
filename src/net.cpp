@@ -779,8 +779,15 @@ void CConnman::Stop()
 
 CConnman::~CConnman()
 {
-    StopNode();
-    Stop();
+    try
+    {
+        StopNode();
+        Stop();
+    }
+    catch (...)
+    {
+        LogPrintf("CConnman destructor exception\n");
+    }
 }
 
 // Temporary!
