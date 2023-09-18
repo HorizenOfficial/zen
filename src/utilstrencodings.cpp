@@ -153,7 +153,7 @@ string EncodeBase64(const unsigned char* pch, size_t len)
 
 string EncodeBase64(const string& str)
 {
-    return EncodeBase64((const unsigned char*)str.c_str(), str.size());
+    return EncodeBase64(reinterpret_cast<const unsigned char*>(str.c_str()), str.size());
 }
 
 vector<unsigned char> DecodeBase64(const char* p, bool* pfInvalid)
@@ -306,7 +306,7 @@ string EncodeBase32(const unsigned char* pch, size_t len)
 
 string EncodeBase32(const string& str)
 {
-    return EncodeBase32((const unsigned char*)str.c_str(), str.size());
+    return EncodeBase32(reinterpret_cast<const unsigned char*>(str.c_str()), str.size());
 }
 
 vector<unsigned char> DecodeBase32(const char* p, bool* pfInvalid)
@@ -436,7 +436,7 @@ static bool ParsePrechecks(const std::string& str)
 {
     if (str.empty()) // No empty string allowed
         return false;
-    if (str.size() >= 1 && (isspace(str[0]) || isspace(str[str.size()-1]))) // No padding allowed
+    if (isspace(str[0]) || isspace(str[str.size()-1])) // No padding allowed
         return false;
     if (str.size() != strlen(str.c_str())) // No embedded NUL characters allowed
         return false;
@@ -482,7 +482,7 @@ bool ParseDouble(const std::string& str, double *out)
         return false;
     std::istringstream text(str);
     text.imbue(std::locale::classic());
-    double result;
+    double result = 0.0;
     text >> result;
     if(out) *out = result;
     return text.eof() && !text.fail();
