@@ -250,7 +250,6 @@ TEST_F(CreateNewBlockSuite, CreateNewBlock_1cert)
     }
     pcoinsTip = nakedView.get();
 
-    blockchain.Reset();
     CSidechain sidechain = blockchain.GenerateSidechain();
 
     const std::string scid("cccc");
@@ -289,6 +288,7 @@ TEST_F(CreateNewBlockSuite, CreateNewBlock_1cert)
 TEST_F(CreateNewBlockSuite, CreateNewBlock_sorting_certs)
 {
     blockchain_test_utils::BlockchainTestManager &blockchain = blockchain_test_utils::BlockchainTestManager::GetInstance();
+    blockchain.Reset();
     std::shared_ptr<txCreationUtils::CNakedCCoinsViewCache> nakedView = blockchain.CoinsViewCache();
     if (pcoinsTip != nullptr) {
         delete pcoinsTip;
@@ -296,7 +296,6 @@ TEST_F(CreateNewBlockSuite, CreateNewBlock_sorting_certs)
     pcoinsTip = nakedView.get();
 
 
-    blockchain.Reset();
     CBlockIndex blockIndex1;
     blockIndex1.SetNull();
     uint256 hash2 = uint256S("0007fffffffffffffffffffffffffffffffaffffffffffffffffffffffffffff");

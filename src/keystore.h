@@ -187,6 +187,9 @@ public:
     virtual bool RemoveViewingKey(const libzcash::ViewingKey &vk);
     virtual bool HaveViewingKey(const libzcash::PaymentAddress &address) const;
     virtual bool GetViewingKey(const libzcash::PaymentAddress &address, libzcash::ViewingKey& vkOut) const;
+    virtual void clearAll() {
+        mapViewingKeys.clear();
+    }
 };
 
 typedef std::vector<unsigned char, secure_allocator<unsigned char> > CKeyingMaterial;

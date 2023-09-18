@@ -1184,7 +1184,9 @@ sc_pk_t* BlockchainTestManager::GetTestProvingKey(ProvingSystem provingSystem, T
 void BlockchainTestManager::InitCoinGeneration()
 {
     coinsKey.MakeNewKey(true);
+    keystore.clearAll();
     keystore.AddKey(coinsKey);
+    coinsScript.clear();
     coinsScript << OP_DUP << OP_HASH160 << ToByteVector(coinsKey.GetPubKey().GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
 }
 
