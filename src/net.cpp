@@ -17,6 +17,7 @@
 #include "ui_interface.h"
 #include "crypto/common.h"
 #include "zen/utiltls.h"
+#include "zen/tlsmanager.h"
 
 #ifdef WIN32
 #include <string.h>
@@ -24,13 +25,9 @@
 #include <fcntl.h>
 #endif
 
-#include <boost/filesystem.hpp>
-#include <boost/thread.hpp>
-
 #include <openssl/conf.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
-#include <zen/tlsmanager.cpp>
 
 // Dump addresses to peers.dat every 15 minutes (900s)
 #define DUMP_ADDRESSES_INTERVAL 900
@@ -2015,7 +2012,7 @@ void static Discover()
 
 
 
-void CConnman::StartNode(boost::thread_group& threadGroup, CScheduler& scheduler, const Options& connOptions)
+void CConnman::StartNode(CScheduler& scheduler, const Options& connOptions)
 {
     Init(connOptions);
 

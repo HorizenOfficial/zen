@@ -46,10 +46,6 @@ class CAddrMan;
 class CScheduler;
 class CNode;
 
-namespace boost {
-    class thread_group;
-} // namespace boost
-
 /** Time between pings automatically sent out for latency probing and keepalive (in seconds). */
 static const int PING_INTERVAL = 2 * 60;
 /** Time after which to disconnect, after waiting for a ping response (or inactivity). */
@@ -761,7 +757,7 @@ public:
         }
     }
 
-    void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler , const Options& connOptions);
+    void StartNode(CScheduler& scheduler , const Options& connOptions);
     bool StopNode();
     void Stop();
     void NetCleanup();

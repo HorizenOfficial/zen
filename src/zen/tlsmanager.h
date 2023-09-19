@@ -19,6 +19,8 @@
 
 using namespace std;
 
+extern std::unique_ptr<CConnman> connman;
+
 namespace zen
 {
 
