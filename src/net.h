@@ -831,6 +831,8 @@ public:
     // that peer during `net_processing.cpp:PushNodeVersion()`.
     uint64_t GetLocalServices() const;
 
+    std::condition_variable condMsgProc;
+
 private:
     std::atomic<uint64_t> nTotalBytesRecv = 0;
     std::atomic<uint64_t> nTotalBytesSent = 0;
@@ -846,8 +848,7 @@ private:
     // // To be moved here in the next PR, when we will get rid of boost::thread!
     //
     // CThreadInterrupt interruptNet;
-    // std::condition_variable condMsgProc;
-    // std::mutex mutexMsgProc;
+    std::mutex mutexMsgProc;
     // std::atomic<bool> flagInterruptMsgProc;
     //
     std::thread threadDNSAddressSeed;

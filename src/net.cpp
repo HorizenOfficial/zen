@@ -70,8 +70,6 @@ std::map<CInv, CDataStream> mapRelay;
 std::deque<std::pair<int64_t, CInv> > vRelayExpiration;
 CCriticalSection cs_mapRelay;
 
-boost::condition_variable messageHandlerCondition;
-
 // Signals for message handling
 static CNodeSignals g_signals;
 CNodeSignals& GetNodeSignals() { return g_signals; }
@@ -697,7 +695,7 @@ bool CNode::ReceiveMsgBytes(const char *pch, unsigned int nBytes)
         if (msg.complete()) {
             msg.nTime = GetTimeMicros();
             AccountForRecvBytes(msg.hdr.pchCommand, msg.hdr.nMessageSize + CMessageHeader::HEADER_SIZE);
-            messageHandlerCondition.notify_one();
+            connman->condMsgProc.notify_one();
         }
     }
 
@@ -799,6 +797,9 @@ CConnman::~CConnman()
 // In Bitcoin this is called CConnman::Interrupt()
 bool CConnman::StopNode()
 {
+
+    condMsgProc.notify_all();
+
     LogPrintf("StopNode()\n");
     if (semOutbound)
         for (int i=0; i<MAX_OUTBOUND_CONNECTIONS; i++)
@@ -1837,8 +1838,10 @@ void CConnman::ThreadMessageHandler()
                 pnode->Release();
         }
 
-        if (fSleep)
-            messageHandlerCondition.timed_wait(lock, boost::posix_time::microsec_clock::universal_time() + boost::posix_time::milliseconds(100));
+        if (fSleep) {
+            std::unique_lock<std::mutex> lock(mutexMsgProc);
+            condMsgProc.wait_until(lock, std::chrono::steady_clock::now() + std::chrono::milliseconds(100));
+        }
     }
 }
 
