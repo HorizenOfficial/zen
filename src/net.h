@@ -845,9 +845,7 @@ private:
     unsigned int nSendBufferMaxSize;
     unsigned int nReceiveFloodSize;
 
-    // // To be moved here in the next PR, when we will get rid of boost::thread!
-    //
-    // CThreadInterrupt interruptNet;
+    CThreadInterrupt interruptNet;
     std::mutex mutexMsgProc;
     // std::atomic<bool> flagInterruptMsgProc;
     //

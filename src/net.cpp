@@ -797,10 +797,17 @@ CConnman::~CConnman()
 // In Bitcoin this is called CConnman::Interrupt()
 bool CConnman::StopNode()
 {
+    LogPrintf("StopNode()\n");
+    {
+        std::lock_guard<std::mutex> lock(mutexMsgProc);
+        flagInterruptMsgProc = true;
+    }
 
     condMsgProc.notify_all();
 
-    LogPrintf("StopNode()\n");
+    interruptNet();
+    // InterruptSocks5(true);
+
     if (semOutbound)
         for (int i=0; i<MAX_OUTBOUND_CONNECTIONS; i++)
             semOutbound->post();
@@ -1249,11 +1256,12 @@ void CConnman::AcceptConnection(const ListenSocket& hListenSocket) {
 #if defined(USE_TLS)
 void CConnman::ThreadNonTLSPoolsCleaner()
 {
-    while (true)
+    while (!interruptNet)
     {
         tlsmanager.cleanNonTLSPool(vNonTLSNodesInbound,  cs_vNonTLSNodesInbound);
         tlsmanager.cleanNonTLSPool(vNonTLSNodesOutbound, cs_vNonTLSNodesOutbound);
-        MilliSleep(DEFAULT_CONNECT_TIMEOUT);  // sleep and sleep_for are interruption points, which will throw boost::thread_interrupted
+        if (!interruptNet.sleep_for(std::chrono::milliseconds(DEFAULT_CONNECT_TIMEOUT)))
+            return;
     }
 }
 
@@ -1263,7 +1271,7 @@ void CConnman::ThreadNonTLSPoolsCleaner()
 void CConnman::ThreadSocketHandler()
 {
     unsigned int nPrevNodeCount = 0;
-    while (true)
+    while (!interruptNet)
     {
         //
         // Disconnect nodes
@@ -1390,7 +1398,8 @@ void CConnman::ThreadSocketHandler()
 
         int nSelect = select(have_fds ? hSocketMax + 1 : 0,
                              &fdsetRecv, &fdsetSend, &fdsetError, &timeout);
-        boost::this_thread::interruption_point();
+        if (interruptNet)
+            return;
 
         if (nSelect == SOCKET_ERROR)
         {
@@ -1403,7 +1412,8 @@ void CConnman::ThreadSocketHandler()
             }
             FD_ZERO(&fdsetSend);
             FD_ZERO(&fdsetError);
-            MilliSleep(timeout.tv_usec/1000);
+            if (!interruptNet.sleep_for(std::chrono::milliseconds(timeout.tv_usec/1000)))
+                return;
         }
 
         //
@@ -1429,7 +1439,8 @@ void CConnman::ThreadSocketHandler()
         }
         BOOST_FOREACH(CNode* pnode, vNodesCopy)
         {
-            boost::this_thread::interruption_point();
+            if (interruptNet)
+                return;
 
             if (tlsmanager.threadSocketHandler(pnode,fdsetRecv,fdsetSend,fdsetError)==-1){
                 continue;
@@ -1477,7 +1488,8 @@ void CConnman::ThreadDNSAddressSeed()
     // goal: only query DNS seeds if address need is acute
     if ((addrman.size() > 0) &&
         (!GetBoolArg("-forcednsseed", false))) {
-        MilliSleep(11 * 1000);
+        if (!interruptNet.sleep_for(std::chrono::seconds(11)))
+            return;
 
         LOCK(cs_vNodes);
         if (vNodes.size() >= 2) {
@@ -1569,23 +1581,27 @@ void CConnman::ThreadOpenConnections()
                 
                 for (int i = 0; i < 10 && i < nLoop; i++)
                 {
-                    MilliSleep(500);
+                    if (!interruptNet.sleep_for(std::chrono::milliseconds(500)))
+                        return;
                 }
             }
-            MilliSleep(500);
+            if (!interruptNet.sleep_for(std::chrono::milliseconds(500)))
+                return;
         }
     }
 
     // Initiate network connections
     int64_t nStart = GetTime();
-    while (true)
+    while (!interruptNet)
     {
         ProcessOneShot();
 
-        MilliSleep(500);
+        if (!interruptNet.sleep_for(std::chrono::milliseconds(500)))
+            return;
 
         CSemaphoreGrant grant(*semOutbound);
-        boost::this_thread::interruption_point();
+        if (interruptNet)
+            return;
 
         // Add seed nodes if DNS seeds are all down (an infrastructure attack?).
         if (addrman.size() == 0 && (GetTime() - nStart > 60)) {
@@ -1662,7 +1678,7 @@ void CConnman::ThreadOpenAddedConnections()
     }
 
     if (HaveNameProxy()) {
-        while(true) {
+        while(!interruptNet) {
             list<string> lAddresses(0);
             {
                 LOCK(cs_vAddedNodes);
@@ -1673,9 +1689,11 @@ void CConnman::ThreadOpenAddedConnections()
                 CAddress addr;
                 CSemaphoreGrant grant(*semOutbound);
                 OpenNetworkConnection(addr, &grant, strAddNode.c_str());
-                MilliSleep(500);
+                if (!interruptNet.sleep_for(std::chrono::milliseconds(500)))
+                    return;
             }
-            MilliSleep(120000); // Retry every 2 minutes
+            if (!interruptNet.sleep_for(std::chrono::minutes(2))) // Retry every 2 minutes
+                return;
         }
     }
 
@@ -1714,9 +1732,11 @@ void CConnman::ThreadOpenAddedConnections()
         {
             CSemaphoreGrant grant(*semOutbound);
             OpenNetworkConnection(CAddress(vserv[i % vserv.size()]), &grant);
-            MilliSleep(500);
+            if (!interruptNet.sleep_for(std::chrono::milliseconds(500)))
+                return;
         }
-        MilliSleep(120000); // Retry every 2 minutes
+        if (!interruptNet.sleep_for(std::chrono::minutes(2))) // Retry every 2 minutes
+            return;
     }
 }
 
@@ -1726,7 +1746,9 @@ bool CConnman::OpenNetworkConnection(const CAddress& addrConnect, CSemaphoreGran
     //
     // Initiate outbound network connection
     //
-    boost::this_thread::interruption_point();
+    if (interruptNet)
+        return false;
+
     if (!pszDest) {
         if (IsLocal(addrConnect) ||
             FindNode((CNetAddr)addrConnect) || CNode::IsBanned(addrConnect) ||
@@ -1736,8 +1758,9 @@ bool CConnman::OpenNetworkConnection(const CAddress& addrConnect, CSemaphoreGran
         return false;
     
     CNode* pnode = ConnectNode(addrConnect, pszDest);
-    boost::this_thread::interruption_point();
-    
+    if (interruptNet)
+        return false;
+
 #if defined(USE_TLS)
     if (CNode::GetTlsFallbackNonTls())
     {
@@ -1755,7 +1778,8 @@ bool CConnman::OpenNetworkConnection(const CAddress& addrConnect, CSemaphoreGran
             {
                 // Attempt to reconnect in non-TLS mode
                 pnode = ConnectNode(addrConnect, pszDest);
-                boost::this_thread::interruption_point();
+                if (interruptNet)
+                    return false;
             }
         }
     }
@@ -2062,6 +2086,10 @@ void CConnman::StartNode(CScheduler& scheduler, const Options& connOptions)
     //
     // Start threads
     //
+
+    // InterruptSocks5(false);
+    interruptNet.reset();
+    flagInterruptMsgProc = false;
 
     if (!GetBoolArg("-dnsseed", true))
         LogPrintf("DNS seeding disabled\n");
