@@ -1298,22 +1298,14 @@ void ThreadSocketHandler()
             list<CNode*> vNodesDisconnectedCopy = connman->vNodesDisconnected;
             BOOST_FOREACH(CNode* pnode, vNodesDisconnectedCopy)
             {
-                // wait until threads are done using it
-                if (pnode->GetRefCount() <= 0)
+                // Destroy the object only after other threads have stopped using it
+                if (pnode->GetRefCount() == 0)
                 {
                     bool fDelete = false;
                     {
-                        TRY_LOCK(pnode->cs_vSend, lockSend);
-                        if (lockSend)
-                        {
-                            TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
-                            if (lockRecv)
-                            {
-                                TRY_LOCK(pnode->cs_inventory, lockInv);
-                                if (lockInv)
-                                    fDelete = true;
-                            }
-                        }
+                        TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
+                        if (lockRecv)
+                            fDelete = true;
                     }
                     if (fDelete)
                     {
