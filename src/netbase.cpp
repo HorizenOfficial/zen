@@ -464,7 +464,7 @@ std::unique_ptr<Sock> CreateSockTCP(const CService& address_family)
 
     // Set the no-delay option (disable Nagle's algorithm) on the TCP socket.
     const int on{1};
-    if (sock->SetSockOpt(IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on)) == SOCKET_ERROR) {
+    if (sock->SetSockOpt(IPPROTO_TCP, TCP_NODELAY, (sockopt_arg_type)&on, sizeof(on)) == SOCKET_ERROR) {
         LogPrint("net", "Unable to set TCP_NODELAY on a newly created socket, continuing anyway\n");
     }
 
@@ -500,11 +500,7 @@ std::unique_ptr<Sock> static ConnectSocketDirectly(const CService &addrConnect, 
 #endif
 
     //Disable Nagle's algorithm
-#ifdef WIN32
-    sock->SetSockOpt(IPPROTO_TCP, TCP_NODELAY, (const char*)&set, sizeof(int));
-#else
-    sock->SetSockOpt(IPPROTO_TCP, TCP_NODELAY, (void*)&set, sizeof(int));
-#endif
+    sock->SetSockOpt(IPPROTO_TCP, TCP_NODELAY, (sockopt_arg_type)&set, sizeof(int));
 
     // Set to non-blocking
     if (!sock->SetNonBlocking()) {

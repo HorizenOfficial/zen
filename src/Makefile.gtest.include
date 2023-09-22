@@ -41,6 +41,7 @@ zen_gtest_SOURCES += \
 	gtest/test_pow.cpp \
 	gtest/test_random.cpp \
 	gtest/test_rpc.cpp \
+	gtest/test_sock.cpp \
 	gtest/test_getblocktemplate.cpp \
 	gtest/test_timedata.cpp \
 	gtest/test_transaction.cpp \

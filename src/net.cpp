@@ -12,6 +12,7 @@
 #include "addrman.h"
 #include "chainparams.h"
 #include "clientversion.h"
+#include "compat.h"
 #include "primitives/transaction.h"
 #include "scheduler.h"
 #include "ui_interface.h"
@@ -1146,11 +1147,7 @@ void CConnman::AcceptConnection(ListenSocket& hListenSocket) {
     // According to the internet TCP_NODELAY is not carried into accepted sockets
     // on all platforms.  Set it again here just to be sure.
     int set = 1;
-#ifdef WIN32
-    sock->SetSockOpt(IPPROTO_TCP, TCP_NODELAY, (const char*)&set, sizeof(int));
-#else
-    sock->SetSockOpt(IPPROTO_TCP, TCP_NODELAY, (void*)&set, sizeof(int));
-#endif
+    sock->SetSockOpt(IPPROTO_TCP, TCP_NODELAY, (sockopt_arg_type)&set, sizeof(int));
 
 
     SSL *ssl = nullptr;
@@ -1898,20 +1895,15 @@ bool CConnman::BindListenPort(const CService &addrBind, string& strError, bool f
         return false;
     }
 
-#ifndef WIN32
 #ifdef SO_NOSIGPIPE
     // Different way of disabling SIGPIPE on BSD
     sock->SetSockOpt(SOL_SOCKET, SO_NOSIGPIPE, (void*)&nOne, sizeof(int));
 #endif
     // Allow binding if the port is still in TIME_WAIT state after
     // the program was closed and restarted.
-    sock->SetSockOpt(SOL_SOCKET, SO_REUSEADDR, (void*)&nOne, sizeof(int));
+    sock->SetSockOpt(SOL_SOCKET, SO_REUSEADDR, (sockopt_arg_type)&nOne, sizeof(int));
     // Disable Nagle's algorithm
-    sock->SetSockOpt(IPPROTO_TCP, TCP_NODELAY, (void*)&nOne, sizeof(int));
-#else
-    sock->SetSockOpt(SOL_SOCKET, SO_REUSEADDR, (const char*)&nOne, sizeof(int));
-    sock->SetSockOpt(IPPROTO_TCP, TCP_NODELAY, (const char*)&nOne, sizeof(int));
-#endif
+    sock->SetSockOpt(IPPROTO_TCP, TCP_NODELAY, (sockopt_arg_type)&nOne, sizeof(int));
 
     // Set to non-blocking, incoming connections will also inherit this
     //
@@ -1929,15 +1921,11 @@ bool CConnman::BindListenPort(const CService &addrBind, string& strError, bool f
     // and enable it by default or not. Try to enable it, if possible.
     if (addrBind.IsIPv6()) {
 #ifdef IPV6_V6ONLY
-#ifdef WIN32
-        sock->SetSockOpt(IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&nOne, sizeof(int));
-#else
-        sock->SetSockOpt(IPPROTO_IPV6, IPV6_V6ONLY, (void*)&nOne, sizeof(int));
-#endif
+        sock->SetSockOpt(IPPROTO_IPV6, IPV6_V6ONLY, (sockopt_arg_type)&nOne, sizeof(int));
 #endif
 #ifdef WIN32
         int nProtLevel = PROTECTION_LEVEL_UNRESTRICTED;
-        sock->SetSockOpt(IPPROTO_IPV6, IPV6_PROTECTION_LEVEL, (const char*)&nProtLevel, sizeof(int));
+        sock->SetSockOpt(IPPROTO_IPV6, IPV6_PROTECTION_LEVEL, (sockopt_arg_type)&nProtLevel, sizeof(int));
 #endif
     }
 
