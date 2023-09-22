@@ -354,14 +354,12 @@ CNode* CConnman::ConnectNode(CAddress addrConnect, const char *pszDest)
         pszDest ? 0.0 : (double)(GetTime() - addrConnect.nTime)/3600.0);
 
     // Connect
-    std::unique_ptr<Sock> sock = CreateSock(addrConnect);
-    if (!sock) {
-        return nullptr;
-    }
     bool proxyConnectionFailed = false;
-    if (
-        pszDest ? ConnectSocketByName(addrConnect, *sock, pszDest, Params().GetDefaultPort(), nConnectTimeout, &proxyConnectionFailed) :
-                  ConnectSocket(addrConnect, *sock, nConnectTimeout, &proxyConnectionFailed))
+    // sock is actually created only by ConnectSocketDirectly()
+    std::unique_ptr<Sock> sock =
+                 pszDest ? ConnectSocketByName(addrConnect, pszDest, Params().GetDefaultPort(), nConnectTimeout, &proxyConnectionFailed) :
+                 ConnectSocket(addrConnect, nConnectTimeout, &proxyConnectionFailed);
+    if (sock)
     {
         if (!sock->IsSelectable()) {
             LogPrintf("Cannot create connection: non-selectable socket created (fd >= FD_SETSIZE ?)\n");
@@ -656,7 +654,7 @@ void CNode::copyStats(CNodeStats &stats)
     // If ssl != NULL it means TLS connection was established successfully
     {
         LOCK(cs_hSocket);
-        SSL* ssl = hSocket->GetSSL();
+        SSL* ssl = hSocket ? hSocket->GetSSL() : nullptr;
         stats.fTLSEstablished = (ssl != nullptr) && (SSL_get_state(ssl) == TLS_ST_OK);
         stats.fTLSVerified = (ssl != nullptr) && ValidatePeerCertificate(ssl);
     }
@@ -1099,8 +1097,6 @@ bool CConnman::AttemptToEvictConnection(bool fPreferNewConnection) {
 void CConnman::AcceptConnection(ListenSocket& hListenSocket) {
     struct sockaddr_storage sockaddr;
     socklen_t len = sizeof(sockaddr);
-    //SOCKET hSocket = accept(hListenSocket.sock->Get(), (struct sockaddr*)&sockaddr, &len);
-    //hListenSocket.sock.reset(new Sock(accept(hListenSocket.sock->Get(), (struct sockaddr*)&sockaddr, &len)));
     std::unique_ptr<Sock> sock = hListenSocket.sock->Accept((struct sockaddr*)&sockaddr, &len);
     CAddress addr;
     int nInbound = 0;
@@ -1888,7 +1884,6 @@ bool CConnman::BindListenPort(const CService &addrBind, string& strError, bool f
         return false;
     }
 
-    //SOCKET hListenSocket = socket(((struct sockaddr*)&sockaddr)->sa_family, SOCK_STREAM, IPPROTO_TCP);
     std::unique_ptr<Sock> sock = CreateSock(addrBind);
     if (!sock)
     {
@@ -2441,13 +2436,10 @@ CNode::~CNode()
     // No need to make a lock on cs_hSocket, because before deletion CNode object is removed from the vNodes vector, so any other thread hasn't access to it.
     // Removal is synchronized with read and write routines, so all of them will be completed to this moment.
     
-    if (hSocket)
+    if (hSocket && GetSSL())
     {
-        if (GetSSL())
-        {
-            unsigned long err_code = 0;
-            TLSManager::waitFor(SSL_SHUTDOWN, addr, *hSocket, 0 /*no retries here make no sense on destructor*/, err_code);
-        }
+        unsigned long err_code = 0;
+        TLSManager::waitFor(SSL_SHUTDOWN, addr, *hSocket, 0 /*no retries here make no sense on destructor*/, err_code);
     }
 
     if (pfilter)

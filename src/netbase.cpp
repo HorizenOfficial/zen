@@ -479,67 +479,70 @@ std::unique_ptr<Sock> CreateSockTCP(const CService& address_family)
 std::function<std::unique_ptr<Sock>(const CService&)> CreateSock = CreateSockTCP;
 
 
-bool static ConnectSocketDirectly(const CService &addrConnect, Sock& sock, int nTimeout)
+std::unique_ptr<Sock> static ConnectSocketDirectly(const CService &addrConnect, int nTimeout)
 {
     struct sockaddr_storage sockaddr;
     socklen_t len = sizeof(sockaddr);
     if (!addrConnect.GetSockAddr(reinterpret_cast<struct sockaddr*>(&sockaddr), &len)) {
         LogPrintf("Cannot connect to %s: unsupported network\n", addrConnect.ToString());
-        return false;
+        return nullptr;
     }
 
-    if (sock.Get() == INVALID_SOCKET)
-        return false;
+    std::unique_ptr<Sock> sock = CreateSock(addrConnect);
+
+    if (!sock)
+        return nullptr;
 
     int set = 1;
 #ifdef SO_NOSIGPIPE
     // Different way of disabling SIGPIPE on BSD
-    sock.SetSockOpt(SOL_SOCKET, SO_NOSIGPIPE, (void*)&set, sizeof(int));
+    sock->SetSockOpt(SOL_SOCKET, SO_NOSIGPIPE, (void*)&set, sizeof(int));
 #endif
 
     //Disable Nagle's algorithm
 #ifdef WIN32
-    sock.SetSockOpt(IPPROTO_TCP, TCP_NODELAY, (const char*)&set, sizeof(int));
+    sock->SetSockOpt(IPPROTO_TCP, TCP_NODELAY, (const char*)&set, sizeof(int));
 #else
-    sock.SetSockOpt(IPPROTO_TCP, TCP_NODELAY, (void*)&set, sizeof(int));
+    sock->SetSockOpt(IPPROTO_TCP, TCP_NODELAY, (void*)&set, sizeof(int));
 #endif
 
     // Set to non-blocking
-    if (!sock.SetNonBlocking())
-        return error("ConnectSocketDirectly: Setting socket to non-blocking failed, error %s\n", NetworkErrorString(WSAGetLastError()));
+    if (!sock->SetNonBlocking()) {
+        LogPrint("net", "ConnectSocketDirectly: Setting socket to non-blocking failed, error %s\n", NetworkErrorString(WSAGetLastError()));
+        return nullptr;
+    }
 
-    if (sock.Connect((struct sockaddr*)&sockaddr, len) == SOCKET_ERROR)
+    if (sock->Connect((struct sockaddr*)&sockaddr, len) == SOCKET_ERROR)
     {
         int nErr = WSAGetLastError();
         // WSAEINVAL is here because some legacy version of winsock uses it
         if (nErr == WSAEINPROGRESS || nErr == WSAEWOULDBLOCK || nErr == WSAEINVAL)
         {
-            //int nRet = select(hSocket + 1, NULL, &fdset, NULL, &timeout);
-            int nRet = sock.Wait(nTimeout, Sock::SEND);
+            int nRet = sock->Wait(nTimeout, Sock::SEND);
             if (nRet == 0)
             {
                 LogPrint("net", "connection to %s timeout\n", addrConnect.ToString());
-                return false;
+                return nullptr;
             }
             if (nRet == SOCKET_ERROR)
             {
                 LogPrintf("select() for %s failed: %s\n", addrConnect.ToString(), NetworkErrorString(WSAGetLastError()));
-                return false;
+                return nullptr;
             }
             socklen_t nRetSize = sizeof(nRet);
 #ifdef WIN32
-            if (sock.GetSockOpt(SOL_SOCKET, SO_ERROR, (char*)(&nRet), &nRetSize) == SOCKET_ERROR)
+            if (sock->GetSockOpt(SOL_SOCKET, SO_ERROR, (char*)(&nRet), &nRetSize) == SOCKET_ERROR)
 #else
-            if (sock.GetSockOpt(SOL_SOCKET, SO_ERROR, &nRet, &nRetSize) == SOCKET_ERROR)
+            if (sock->GetSockOpt(SOL_SOCKET, SO_ERROR, &nRet, &nRetSize) == SOCKET_ERROR)
 #endif
             {
                 LogPrintf("getsockopt() for %s failed: %s\n", addrConnect.ToString(), NetworkErrorString(WSAGetLastError()));
-                return false;
+                return nullptr;
             }
             if (nRet != 0)
             {
                 LogPrintf("connect() to %s failed after select(): %s\n", addrConnect.ToString(), NetworkErrorString(nRet));
-                return false;
+                return nullptr;
             }
         }
 #ifdef WIN32
@@ -549,11 +552,11 @@ bool static ConnectSocketDirectly(const CService &addrConnect, Sock& sock, int n
 #endif
         {
             LogPrintf("connect() to %s failed: %s\n", addrConnect.ToString(), NetworkErrorString(WSAGetLastError()));
-            return false;
+            return nullptr;
         }
     }
 
-    return true;
+    return sock;
 }
 
 bool SetProxy(enum Network net, const proxyType &addrProxy) {
@@ -604,42 +607,43 @@ bool IsProxy(const CNetAddr &addr) {
     return false;
 }
 
-static bool ConnectThroughProxy(const proxyType &proxy, const std::string& strDest, int port, Sock& sock, int nTimeout, bool *outProxyConnectionFailed)
+static std::unique_ptr<Sock> ConnectThroughProxy(const proxyType &proxy, const std::string& strDest, int port, int nTimeout, bool *outProxyConnectionFailed)
 {
+    std::unique_ptr<Sock> sock = ConnectSocketDirectly(proxy.proxy, nTimeout);
     // first connect to proxy server
-    if (!ConnectSocketDirectly(proxy.proxy, sock, nTimeout)) {
+    if (!sock) {
         if (outProxyConnectionFailed)
             *outProxyConnectionFailed = true;
-        return false;
+        return nullptr;
     }
     // do socks negotiation
     if (proxy.randomize_credentials) {
         ProxyCredentials random_auth;
         random_auth.username = strprintf("%i", insecure_rand());
         random_auth.password = strprintf("%i", insecure_rand());
-        if (!Socks5(strDest, (unsigned short)port, &random_auth, sock))
-            return false;
+        if (!Socks5(strDest, (unsigned short)port, &random_auth, *sock))
+            return nullptr;
     } else {
-        if (!Socks5(strDest, (unsigned short)port, 0, sock))
-            return false;
+        if (!Socks5(strDest, (unsigned short)port, 0, *sock))
+            return nullptr;
     }
 
-    return true;
+    return sock;
 }
 
-bool ConnectSocket(const CService &addrDest, Sock& sock, int nTimeout, bool *outProxyConnectionFailed)
+std::unique_ptr<Sock> ConnectSocket(const CService &addrDest, int nTimeout, bool *outProxyConnectionFailed)
 {
     proxyType proxy;
     if (outProxyConnectionFailed)
         *outProxyConnectionFailed = false;
 
     if (GetProxy(addrDest.GetNetwork(), proxy))
-        return ConnectThroughProxy(proxy, addrDest.ToStringIP(), addrDest.GetPort(), sock, nTimeout, outProxyConnectionFailed);
+        return ConnectThroughProxy(proxy, addrDest.ToStringIP(), addrDest.GetPort(), nTimeout, outProxyConnectionFailed);
     else // no proxy needed (none set for target network)
-        return ConnectSocketDirectly(addrDest, sock, nTimeout);
+        return ConnectSocketDirectly(addrDest, nTimeout);
 }
 
-bool ConnectSocketByName(CService &addr, Sock& sock, const char *pszDest, int portDefault, int nTimeout, bool *outProxyConnectionFailed)
+std::unique_ptr<Sock> ConnectSocketByName(CService &addr, const char *pszDest, int portDefault, int nTimeout, bool *outProxyConnectionFailed)
 {
     std::string strDest;
     int port = portDefault;
@@ -655,15 +659,14 @@ bool ConnectSocketByName(CService &addr, Sock& sock, const char *pszDest, int po
     CService addrResolved(CNetAddr(strDest, fNameLookup && !HaveNameProxy()), port);
     if (addrResolved.IsValid()) {
         addr = addrResolved;
-        sock = std::move(*CreateSock(addr)); // TODO: address this in net.cpp
-        return ConnectSocket(addr, sock, nTimeout);
+        return ConnectSocket(addr, nTimeout);
     }
 
     addr = CService("0.0.0.0:0");
 
     if (!HaveNameProxy())
-        return false;
-    return ConnectThroughProxy(nameProxy, strDest, port, sock, nTimeout, outProxyConnectionFailed);
+        return nullptr;
+    return ConnectThroughProxy(nameProxy, strDest, port, nTimeout, outProxyConnectionFailed);
 }
 
 void CNetAddr::Init()

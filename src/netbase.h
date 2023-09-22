@@ -209,8 +209,8 @@ std::unique_ptr<Sock> CreateSockTCP(const CService& address_family);
  */
 extern std::function<std::unique_ptr<Sock>(const CService&)> CreateSock;
 
-bool ConnectSocket(const CService &addr, Sock& sock, int nTimeout, bool *outProxyConnectionFailed = 0);
-bool ConnectSocketByName(CService &addr, Sock& sock, const char *pszDest, int portDefault, int nTimeout, bool *outProxyConnectionFailed = 0);
+std::unique_ptr<Sock> ConnectSocket(const CService &addr, int nTimeout, bool *outProxyConnectionFailed = 0);
+std::unique_ptr<Sock> ConnectSocketByName(CService &addr, const char *pszDest, int portDefault, int nTimeout, bool *outProxyConnectionFailed = 0);
 /** Return readable error string for a network error code */
 std::string NetworkErrorString(int err);
 /** Disable or enable blocking-mode for a socket */

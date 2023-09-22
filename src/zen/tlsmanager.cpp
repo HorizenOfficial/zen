@@ -282,14 +282,10 @@ success:
             [[fallthrough]]; // Need to read more
         case SSL_ERROR_WANT_READ:
             ssl_error_str = "SSL_ERROR_WANT_READ";
-            LogPrint("tls", "TLS: %s: %s: %s peer=%s want read more\n",
-                     __FILE__, __func__, eRoutine_str, peerAddress.ToString());
             result = sock.Wait(timeoutMilliSec, Sock::RECV);
             break;
         case SSL_ERROR_WANT_WRITE:
             ssl_error_str = "SSL_ERROR_WANT_WRITE";
-            LogPrint("tls", "TLS: %s: %s: %s peer=%s want send more\n",
-                     __FILE__, __func__, eRoutine_str, peerAddress.ToString());
             result = sock.Wait(timeoutMilliSec, Sock::SEND);
             break;
         default:
@@ -339,13 +335,8 @@ SSL* TLSManager::connect(Sock& sock, const CAddress& addrConnect, unsigned long&
     bool bConnectedTLS = false;
 
     if ((ssl = SSL_new(tls_ctx_client))) {
-        if (SSL_set_fd(ssl, sock.Get())) {
-            sock.SetSSL(ssl);
-            int ret = TLSManager::waitFor(SSL_CONNECT, addrConnect, sock, DEFAULT_CONNECT_TIMEOUT, err_code);
-            if (ret == 1)
-            {
-                bConnectedTLS = true;
-            }
+        if (sock.SetSSL(ssl)) {
+            bConnectedTLS = (TLSManager::waitFor(SSL_CONNECT, addrConnect, sock, DEFAULT_CONNECT_TIMEOUT, err_code) == 1);
         }
     }
     else
@@ -365,9 +356,8 @@ SSL* TLSManager::connect(Sock& sock, const CAddress& addrConnect, unsigned long&
             __FILE__, __func__, __LINE__, addrConnect.ToString(), err_code);
 
         if (ssl) {
-            SSL_free(ssl);
             ssl = nullptr;
-            sock.SetSSL(ssl);
+            sock.SetSSL(nullptr);
         }
     }
     return ssl;
@@ -532,8 +522,7 @@ SSL* TLSManager::accept(Sock& sock, const CAddress& addr, unsigned long& err_cod
     bool bAcceptedTLS = false;
 
     if ((ssl = SSL_new(tls_ctx_server))) {
-        if (SSL_set_fd(ssl, sock.Get())) {
-            sock.SetSSL(ssl);
+        if (sock.SetSSL(ssl)) {
             bAcceptedTLS = (TLSManager::waitFor(SSL_ACCEPT, addr, sock, DEFAULT_CONNECT_TIMEOUT, err_code) == 1);
         }
     }
@@ -559,9 +548,8 @@ SSL* TLSManager::accept(Sock& sock, const CAddress& addr, unsigned long& err_cod
             __FILE__, __func__, __LINE__, addr.ToString(), err_code);
 
         if (ssl) {
-            SSL_free(ssl);
             ssl = nullptr;
-            sock.SetSSL(ssl);
+            sock.SetSSL(nullptr);
         }
     }
 
