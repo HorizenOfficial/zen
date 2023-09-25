@@ -22,6 +22,7 @@ import subprocess
 import time
 import re
 import codecs
+from b2sdk.v2 import *
 from test_framework.authproxy import AuthServiceProxy, JSONRPCException
 
 COIN = 100000000 # 1 zec in zatoshis
@@ -766,3 +767,21 @@ def get_field_element_with_padding(field_element, sidechain_version):
         return field_element.ljust(FIELD_ELEMENT_STRING_SIZE, "0")
     else:
         assert(False)
+
+def download_snapshot(snapshot_filename, temporary_dir):
+    print(colorize('e', "Downloading snapshot"), snapshot_filename, colorize('e', "from Blaze..."), end='', flush=True)
+    info = InMemoryAccountInfo()
+    b2_api = B2Api(info)
+    application_key_id = os.environ['MCB_B2_APPLICATION_KEY_ID']
+    application_key    = os.environ['MCB_B2_APPLICATION_KEY']
+    bucket_name        = os.environ['MCB_B2_BUCKET_NAME']
+    b2_api.authorize_account("production", application_key_id, application_key)
+
+    local_filename = temporary_dir + os.sep + snapshot_filename
+    bucket = b2_api.get_bucket_by_name(bucket_name)
+    downloaded_file = bucket.download_file_by_name(snapshot_filename)
+    downloaded_file.save_to(local_filename)
+    print(colorize('g', " Done!"))
+
+    # returns the complete path to the saved filename, to be used with import_data_to_data_dir()
+    return local_filename

@@ -216,13 +216,13 @@ def create_chained_transactions(node, tmpdir, utxos):
 
     return txs
 
-def create_sidechains(nodes, mcTest, num, ceasing):
+def create_sidechains(nodes, mcTest, num, ceasing, epoch_len = EPOCH_LENGTH, amount = Decimal("15")):
     res = []
     # generate wCertVk and constant
     for i in range(num):
         newsc = {}
         constant = generate_random_field_element_hex()
-        ep_len = EPOCH_LENGTH if ceasing else 0
+        ep_len = epoch_len if ceasing else 0
         par_name = PARAMS_NAME + ("c" if ceasing else "nc") + str(i)
 
         vk = mcTest.generate_params(par_name, keyrot=True)
@@ -232,7 +232,7 @@ def create_sidechains(nodes, mcTest, num, ceasing):
             "version": 2,
             "withdrawalEpochLength": ep_len,
             "toaddress": "dada",
-            "amount": Decimal("15"),
+            "amount": amount,
             "wCertVk": vk,
             "constant": constant,
         }

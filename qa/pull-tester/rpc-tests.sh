@@ -164,6 +164,8 @@ testScripts=(
   'p2p_ignore_spent_tx.py',215,455
   'shieldedpooldeprecation_rpc.py',558,1794
   'mempool_size_limit.py',121,203
+  'mempool_size_limit_more.py',103,160
+  'mempool_size_limit_even_more.py',87,210
   'mempool_hard_fork_cleaning.py',34,60
 );
 
