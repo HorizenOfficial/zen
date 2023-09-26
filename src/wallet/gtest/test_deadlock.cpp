@@ -35,7 +35,6 @@ void write_block(CWallet &walletdb, std::atomic_int &finish) {
 }
 
 TEST(deadlock_test, deadlock) {
-    // GTEST_SKIP() << "Segmenteation fault while running all unittests";
     //set tmp db folder
     boost::filesystem::path pathTemp = boost::filesystem::temp_directory_path()
             / boost::filesystem::unique_path();
@@ -45,9 +44,7 @@ TEST(deadlock_test, deadlock) {
     //create wallet
     SelectParams(CBaseChainParams::TESTNET);
     bool fFirstRun = true;
-    std::string walletFileName("deadlock_ut_wallet.dat");
-    appendUniqueSuffixToFileName(walletFileName);
-    CWallet walletMain(walletFileName);
+    CWallet walletMain("deadlock_ut_wallet.dat");
     walletMain.LoadWallet(fFirstRun);
 
     auto sk = libzcash::SpendingKey::random();

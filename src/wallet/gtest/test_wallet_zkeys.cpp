@@ -6,7 +6,6 @@
 #include "util.h"
 
 #include <boost/filesystem.hpp>
-#include <iomanip>
 
 
 class MockCWallet : public CWallet {
@@ -36,7 +35,6 @@ protected:
  * LoadZKeyMetadata()
  */
 TEST_F(WalletZkeysTest, store_and_load_zkeys) {
-    // GTEST_SKIP << "Test failing ";
     SelectParams(CBaseChainParams::MAIN);
 
     MockCWallet wallet;
@@ -149,9 +147,7 @@ TEST_F(WalletZkeysTest, write_zkey_direct_to_db) {
     mapArgs["-datadir"] = pathTemp.string();
 
     bool fFirstRun;
-    std::string walletFileName("wallet.dat");
-    appendUniqueSuffixToFileName(walletFileName);
-    MockCWallet wallet(walletFileName);
+    MockCWallet wallet("wallet.dat");
     ASSERT_EQ(DB_LOAD_OK, wallet.LoadWallet(fFirstRun));
 
     // No default CPubKey set
@@ -174,7 +170,7 @@ TEST_F(WalletZkeysTest, write_zkey_direct_to_db) {
     auto addr = sk.address();
     int64_t now = GetTime();
     CKeyMetadata meta(now);
-    CWalletDB db(walletFileName);
+    CWalletDB db("wallet.dat");
     db.WriteZKey(addr, sk, meta);
 
     // wallet should not be aware of key
@@ -223,7 +219,7 @@ TEST_F(WalletZkeysTest, WriteViewingKeyDirectToDB) {
     mapArgs["-datadir"] = pathTemp.string();
 
     bool fFirstRun;
-    MockCWallet wallet("wallet-vkey1.dat");
+    MockCWallet wallet("wallet-vkey.dat");
     ASSERT_EQ(DB_LOAD_OK, wallet.LoadWallet(fFirstRun));
 
     // No default CPubKey set
@@ -235,7 +231,7 @@ TEST_F(WalletZkeysTest, WriteViewingKeyDirectToDB) {
     auto addr = sk.address();
     int64_t now = GetTime();
     CKeyMetadata meta(now);
-    CWalletDB db("wallet-vkey1.dat");
+    CWalletDB db("wallet-vkey.dat");
     db.WriteViewingKey(vk);
 
     // wallet should not be aware of viewing key
@@ -268,9 +264,7 @@ TEST_F(WalletZkeysTest, write_cryptedzkey_direct_to_db) {
     mapArgs["-datadir"] = pathTemp.string();
 
     bool fFirstRun;
-    std::string walletFileName("wallet_crypted.dat");
-    appendUniqueSuffixToFileName(walletFileName);
-    MockCWallet wallet(walletFileName);
+    MockCWallet wallet("wallet_crypted.dat");
     ASSERT_EQ(DB_LOAD_OK, wallet.LoadWallet(fFirstRun));
 
     // No default CPubKey set
@@ -302,7 +296,7 @@ TEST_F(WalletZkeysTest, write_cryptedzkey_direct_to_db) {
     auto paymentAddress2 = wallet.GenerateNewZKey();
 
     // Create a new wallet from the existing wallet path
-    CWallet wallet2(walletFileName);
+    CWallet wallet2("wallet_crypted.dat");
     ASSERT_EQ(DB_LOAD_OK, wallet2.LoadWallet(fFirstRun));
 
     // Confirm it's not the same as the other wallet

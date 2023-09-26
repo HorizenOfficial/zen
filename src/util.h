@@ -302,6 +302,5 @@ std::string dbg_blk_global_tips();
 int getLeadingZeroBitsInByte(unsigned char inputByte);
 int getTrailingZeroBitsInByte(unsigned char inputByte);
 int getBytesFromBits(int nbits, int& reminder);
-void appendUniqueSuffixToFileName(std::string& base);
 
 #endif // BITCOIN_UTIL_H

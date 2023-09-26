@@ -10,12 +10,11 @@ zen_gtest_SOURCES = \
 	gtest/tx_creation_utils.cpp \
 	gtest/test_checktransaction.cpp \
 	gtest/test_consensus.cpp \
-	gtest/test_createnewblock.cpp \
 	gtest/json_test_vectors.cpp \
 	gtest/json_test_vectors.h \
 	gtest/libzendoo_test_files.h \
  	gtest/test_forkmanager.cpp \
-  	gtest/test_checkblockdelay.cpp
+  	gtest/test_checkblockdelay.cpp 
 
 # These tests are order-dependent, because they
 # depend on global state (see #1539)
@@ -60,7 +59,8 @@ zen_gtest_SOURCES += \
 	gtest/test_libzendoo.cpp \
 	gtest/test_reindex.cpp \
 	gtest/test_asyncproofverifier.cpp \
-	gtest/test_blockdownload.cpp
+	gtest/test_blockdownload.cpp \
+	gtest/test_createnewblock.cpp
 
 if ENABLE_WALLET
 zen_gtest_SOURCES += \
