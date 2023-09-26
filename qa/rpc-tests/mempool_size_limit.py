@@ -9,10 +9,6 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs,\
     get_epoch_data, hex_str_to_bytes, swap_bytes, download_snapshot
-#from test_framework.script import CScript, CScriptNum, OP_CHECKBLOCKATHEIGHT, OP_RETURN, OP_PUSHDATA1, OP_PUSHDATA2, OP_1
-#from test_framework.mininode import CTransaction, ToHex, ser_string
-#from io import BytesIO
-#from binascii import unhexlify, hexlify
 from test_framework.mc_test.mc_test import *
 import os
 import zipfile
@@ -83,17 +79,20 @@ def create_tx_script(script_size, amount):
     for i in range(bytes_per_out):
         script_pubkey += "01"
 
-    # Push fake a hash and height on the stack, followed by checkblockatheight
+    # Push a fake hash and height on the stack, followed by checkblockatheight
     script_pubkey += "4c20"  # PUSH1 32bytes
     script_pubkey += "0000000000000000000000000000000000000000000000000000000000000000" # 0
     script_pubkey += "51"  # PUSH 1
     script_pubkey += "b4" # OP_CHECKBLOCKATHEIGHT
     ## concatenate NUM_OUT txouts of above script_pubkey which we'll insert before the txout for change
     txouts = b2x(varlenEncode(NUM_OUT))
-    amount_str = b2x((amount_to_satoshi(amount) // NUM_OUT).to_bytes(8, 'little'))
+    satoshis_amount = amount_to_satoshi(amount) // NUM_OUT
+    amount_str = b2x((satoshis_amount).to_bytes(8, 'little'))
+    satoshis_amount_remainder = satoshis_amount + (amount_to_satoshi(amount) % NUM_OUT)
+    amount_str_remainder = b2x((satoshis_amount_remainder).to_bytes(8, 'little'))
     for k in range(NUM_OUT):
         # add txout value
-        txouts += amount_str
+        txouts += amount_str if (k > 0) else amount_str_remainder
         # add length of script_pubkey
         txouts += b2x(varlenEncode(len(script_pubkey)//2))
         # add script_pubkey
@@ -103,6 +102,10 @@ def create_tx_script(script_size, amount):
 
 '''
 TODO: replace the default ones with the _noraw variants of the functions below
+#from test_framework.script import CScript, CScriptNum, OP_CHECKBLOCKATHEIGHT, OP_RETURN, OP_PUSHDATA1, OP_PUSHDATA2, OP_1
+#from test_framework.mininode import CTransaction, ToHex, ser_string
+#from io import BytesIO
+#from binascii import unhexlify, hexlify
 def create_tx_script_noraw(script_size, amount):
     bytes_per_out = script_size // NUM_OUT
 
@@ -163,7 +166,7 @@ def create_big_transaction(node, tmpdir, input_t, script_size, fee, i):
     if (tmpdir is not None):
         write_to_file(tmpdir + "/tx" + str(i), feerate, signresult["hex"])
     tx = {'feerate': feerate, 'hex': signresult["hex"]}
-    return tx
+    return tx, tsize
 
 
 def create_big_transactions(node, tmpdir, utxos, size):
@@ -172,16 +175,16 @@ def create_big_transactions(node, tmpdir, utxos, size):
     i = 0
     os.makedirs(tmpdir + "/txs")
     minfeerate, maxfeerate = MAX_FEE, Decimal("0")
-    fee = Decimal(0.5) + Decimal(0.01) * i
+    fee = Decimal("0.5") + Decimal("0.01") * i
     while (tot_size < size):
-        tx = create_big_transaction(node, tmpdir + "/txs", utxos.pop(), 512 * NUM_OUT, fee, i)
+        tx, tsize = create_big_transaction(node, tmpdir + "/txs", utxos.pop(), 512 * NUM_OUT, fee, i)
         tot_size += tsize
-        txs.append(tx['hex'])
+        txs.append(tx)
         i += 1
         feerate = tx['feerate']
         minfeerate = min(minfeerate, feerate)
         maxfeerate = max(maxfeerate, feerate)
-        fee += Decimal(0.0000001)
+        fee += Decimal("0.0000001")
 
     print("Created big transaction for a total size: " + str(tot_size))
     print("Min feerate: " + str(minfeerate))
@@ -278,9 +281,9 @@ def create_chained_transactions(node, tmpdir, utxos, script_size, low_feerate, h
     ptx = node.decoderawtransaction(signresult["hex"])
 
     in_value = t['amount'] - low_fee
-    tx = create_big_transaction(node, tmpdir, { "txid" : ptx['txid'], "vout" : 0, "amount" : in_value, "scriptPubKey": ptx['vout'][0]['scriptPubKey']['hex']}, script_size, high_fee, 1)
+    tx, _ = create_big_transaction(node, tmpdir, { "txid" : ptx['txid'], "vout" : 0, "amount" : in_value, "scriptPubKey": ptx['vout'][0]['scriptPubKey']['hex']}, script_size, high_fee, 1)
 
-    txs.append({'feerate': tx['feerate'], 'hex': tx["hex"]})
+    txs.append({'feerate': tx['feerate'], 'hex': tx['hex']})
 
     return txs
 
@@ -290,9 +293,9 @@ def create_chained_transactions_and_remover(node, tmpdir, utxos, low_feerate, hi
     # EXP_SIZE should be ~2.5x the size of one of the chained tx created above
     EXP_SIZE = 60 * NUM_OUT
     high_fee = high_feerate * (EXP_SIZE + BIG_SCRIPT_OVERHEAD_B)
-    tx = create_big_transaction(node, tmpdir, utxos.pop(), EXP_SIZE, high_fee, 2)
+    tx, _ = create_big_transaction(node, tmpdir, utxos.pop(), EXP_SIZE, high_fee, 2)
 
-    ctxs_r.append({'feerate': tx['feerate'], 'hex': tx["hex"]})
+    ctxs_r.append({'feerate': tx['feerate'], 'hex': tx['hex']})
 
     return ctxs_r
 
@@ -355,13 +358,11 @@ class mempool_size_limit(BitcoinTestFramework):
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args =
             [
-                ['-debug=all', '-debug=cert', '-debug=mempool', '-maxorphantx=10000', f'-maxmempool={NODE0_LIMIT_B / 1000000}', '-minconf=0', '-allownonstandardtx', '-datacarriersize=512', '-maxtipage=3153600000'],
+                ['-debug=cert', '-debug=mempool', '-maxorphantx=10000', f'-maxmempool={NODE0_LIMIT_B / 1000000}', '-minconf=0', '-allownonstandardtx', '-datacarriersize=512', '-maxtipage=3153600000', '-whitelist=127.0.0.1'],
                 ['-debug=cert', '-debug=mempool', '-maxorphantx=10000', f'-maxmempool={NODE1_LIMIT_B / 1000000}', '-minconf=0', '-allownonstandardtx', '-datacarriersize=512', '-maxtipage=3153600000']
             ])
 
         connect_nodes_bi(self.nodes, 0, 1)
-        sync_blocks(self.nodes[1:NUMB_OF_NODES])
-        sync_mempools(self.nodes[1:NUMB_OF_NODES])
         self.sync_all()
 
     def setup_test(self):
@@ -394,7 +395,7 @@ class mempool_size_limit(BitcoinTestFramework):
             self.utxos = self.nodes[0].listunspent(0)
             txs, minfr, maxfr = create_big_transactions(self.nodes[0], self.options.tmpdir, self.utxos, NODE0_LIMIT_B + EPSILON)
             ctxs_nr = create_chained_transactions(self.nodes[0], self.options.tmpdir + "/ctxs_nr", self.utxos, 2 * NUM_OUT, minfr / 2, maxfr * 2)
-            ctxs_r = create_chained_transactions_and_remover(self.nodes[0], self.options.tmpdir + "/ctxs_r", self.utxos, minfr / Decimal(1.1), minfr * Decimal(1.1))
+            ctxs_r = create_chained_transactions_and_remover(self.nodes[0], self.options.tmpdir + "/ctxs_r", self.utxos, minfr / Decimal("1.1"), minfr * Decimal("1.1"))
 
             certs = []
             for i in range(NUM_CEASING_SIDECHAINS):
@@ -470,7 +471,8 @@ class mempool_size_limit(BitcoinTestFramework):
             tx_fees[txid] = feerate
             tx_size = len(tx_hex)//2
             tx_sent += tx_size
-            #print("Sent " + str(txid) + " [" + str(tx_size) + ", " + str(feerate) + ", " + str(feerate*tx_size) + "]")
+            # sync here to make sure that all txs have inputs when received by node1
+            self.sync_all()
 
         mark_logs("Filling mempools with more transactions...", self.nodes, DEBUG_MODE)
         tx_sent_size = 0
@@ -527,7 +529,6 @@ class mempool_size_limit(BitcoinTestFramework):
             txid = self.nodes[0].decoderawtransaction(tx_hex)['txid']
             tx_fees[txid] = feerate
             tx_sent += tx_size
-            #print("Sent " + str(txid) + " [" + str(tx_size) + ", " + str(feerate) + ", " + str(feerate*tx_size) + "]")
             self.assert_limits_enforced()
 
         mark_logs("Sending high fee transaction, expecting success", self.nodes, DEBUG_MODE)
@@ -680,6 +681,19 @@ class mempool_size_limit(BitcoinTestFramework):
             assert(high_quality_cert_sc0 not in mpool)
             for ct in ctransactions_nr:
                 assert(ct in mpool) # make sure that chained transactions, known to be high fee, have not been evicted
+
+        print("Waiting for mpool1 to settle")
+        timeout = 60 # 1 min
+        mpool1 = self.nodes[1].getrawmempool()
+        tmp = []
+        while tmp != mpool1 and timeout >= 0:
+            print("Waiting...")
+            timeout -= 1
+            time.sleep(1)
+            tmp    = mpool1
+            mpool1 = self.nodes[1].getrawmempool()
+
+        assert(timeout >= 0) # if things are still changing after 1min, something is probably wrong
 
         self.assert_limits_enforced()
         for n in range(2):

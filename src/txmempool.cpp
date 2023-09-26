@@ -2086,6 +2086,7 @@ size_t CTxMemPool::DynamicMemoryUsage() const {
 }
 
 bool CTxMemPool::trimToSize(const CMemPoolEntry* entry, size_t max_size, bool dryrun) {
+    // Remove elements from the mempool to reduce its size to max_size at most.
     LOCK(cs);
     size_t new_entry_usage = entry ? entry->GetSize() : 0;
     if (new_entry_usage > max_size) return false;
@@ -2118,10 +2119,11 @@ bool CTxMemPool::trimToSize(const CMemPoolEntry* entry, size_t max_size, bool dr
 
     // Check what should be removed, and if this selection includes entry...
     std::unordered_set<uint256> to_be_removed;
+    const CFeeRate entry_feerate = entry ? CFeeRate(entry->GetFee(), entry->GetSize()) : CRawFeeRate();
     for (auto remove_candidate = raw_fee_rates.begin(); remove_candidate != raw_fee_rates.end() && size_to_be_removed > 0; ++remove_candidate) {
         // If it includes entry (i.e. the incoming tx/cert has a fee eq/lower than other elements that would be evicted),
         // then just reject the incoming transaction and do nothing else
-        if (entry && remove_candidate->first >= CFeeRate(entry->GetFee(), entry->GetSize())) return false;
+        if (entry && remove_candidate->first >= entry_feerate) return false;
 
         for (const uint256& h: remove_candidate->second) {
             if (to_be_removed.insert(h).second) {

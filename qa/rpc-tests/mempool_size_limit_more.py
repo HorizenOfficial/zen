@@ -6,9 +6,9 @@
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
-    start_nodes, sync_blocks,connect_nodes_bi, mark_logs, download_snapshot, \
+    start_nodes, sync_blocks, mark_logs, download_snapshot, \
     colorize as cc
-from mempool_size_limit import load_from_storage, satoshi_round, create_big_transaction
+from mempool_size_limit import load_from_storage, create_big_transaction
 from test_framework.mc_test.mc_test import *
 import os
 import zipfile
@@ -143,7 +143,7 @@ class mempool_size_limit_more(BitcoinTestFramework):
                 tx = txs.pop(0)
             else:
                 assert(len(self.utxos) > 0)
-                tx = create_big_transaction(self.nodes[0], None, self.utxos.pop(), 512 * 128, Decimal(512 * 128 * 0.000008), 0)
+                tx = create_big_transaction(self.nodes[0], None, self.utxos.pop(), 512 * 128, (512 * 128) * Decimal("0.000008"), 0)
             if tx['feerate'] < Decimal('0.00000692'):
                 discarded_txs += 1
                 continue
