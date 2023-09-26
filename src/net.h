@@ -762,7 +762,6 @@ public:
     bool StopNode();
     void Stop();
     void NetCleanup();
-    void Interrupt();
 
     bool Bind(const CService &addr, unsigned int flags);
     bool BindListenPort(const CService &bindAddr, std::string& strError, bool fWhitelisted = false);

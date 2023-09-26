@@ -201,7 +201,6 @@ void Shutdown()
     GenerateBitcoins(false, 0);
  #endif
 #endif
-    connman->StopNode();
     StopTorControl();
     UnregisterNodeSignals(GetNodeSignals());
 
@@ -267,7 +266,6 @@ void Shutdown()
     pzcashParams = NULL;
     globalVerifyHandle.reset();
     ECC_Stop();
-    connman->NetCleanup();
     connman.reset();
     LogPrintf("%s: done\n", __func__);
 }

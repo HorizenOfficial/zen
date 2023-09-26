@@ -784,8 +784,10 @@ CConnman::~CConnman()
 {
     try
     {
+        LogPrintf("CConnman destruction");
         StopNode();
         Stop();
+        LogPrintf("CConnman destruction - done");
     }
     catch (...)
     {
@@ -797,7 +799,7 @@ CConnman::~CConnman()
 // In Bitcoin this is called CConnman::Interrupt()
 bool CConnman::StopNode()
 {
-    LogPrintf("StopNode()\n");
+    LogPrintf("CConnman: StopNode()\n");
 
     flagInterruptMsgProc = true;
 
@@ -823,7 +825,7 @@ void CConnman::NetCleanup()
 {
     // Close sockets
     BOOST_FOREACH(CNode* pnode, vNodes)
-    pnode->CloseSocketDisconnect();
+        pnode->CloseSocketDisconnect();
     BOOST_FOREACH(ListenSocket& hListenSocket, vhListenSocket)
         if (hListenSocket.socket != INVALID_SOCKET)
             if (!CloseSocket(hListenSocket.socket))
