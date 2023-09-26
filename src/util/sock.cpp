@@ -83,42 +83,97 @@ ssize_t Sock::Recv(void* buf, size_t len, int flags) const
     return recv(m_socket, static_cast<char*>(buf), len, flags);
 }
 
-int Sock::Wait(int64_t timeout, Event requested) const
+
+int Sock::WaitMany(int64_t timeout, std::unordered_map<SOCKET, Events>& events_per_sock)
 {
 #ifdef USE_POLL
-    pollfd fd;
-    fd.fd = m_socket;
-    fd.events = 0;
-    if (requested & RECV) {
-        fd.events |= POLLIN;
-    }
-    if (requested & SEND) {
-        fd.events |= POLLOUT;
+    std::vector<pollfd> pfds;
+    for (auto& [sock, events] : events_per_sock) {
+        pfds.emplace_back();
+        auto& pfd = pfds.back();
+        pfd.fd = sock;
+        if (events.requested & RECV) {
+            pfd.events |= POLLIN;
+        }
+        if (events.requested & SEND) {
+            pfd.events |= POLLOUT;
+        }
     }
 
-    return poll(&fd, 1, count_milliseconds(timeout));
-#else
-    if (!IsSelectable()) {
+    int ret = poll(pfds.data(), pfds.size(), timeout);
+    if (ret == SOCKET_ERROR) {
         return -1;
     }
 
-    fd_set fdset_recv;
-    fd_set fdset_send;
-    FD_ZERO(&fdset_recv);
-    FD_ZERO(&fdset_send);
+    assert(pfds.size() == events_per_sock.size());
+    size_t i{0};
+    for (auto& [sock, events] : events_per_sock) {
+        assert(sock == static_cast<SOCKET>(pfds[i].fd));
+        events.occurred = 0;
+        if (pfds[i].revents & POLLIN) {
+            events.occurred |= RECV;
+        }
+        if (pfds[i].revents & POLLOUT) {
+            events.occurred |= SEND;
+        }
+        if (pfds[i].revents & (POLLERR | POLLHUP)) {
+            events.occurred |= ERR;
+        }
+        ++i;
+    }
+    return ret;
+#else
+    fd_set recv;
+    fd_set send;
+    fd_set err;
+    FD_ZERO(&recv);
+    FD_ZERO(&send);
+    FD_ZERO(&err);
+    SOCKET socket_max{0};
 
-    if (requested & RECV) {
-        FD_SET(m_socket, &fdset_recv);
+    for (const auto& [s, events] : events_per_sock) {
+        if (s >= FD_SETSIZE) {
+            return false;
+        }
+        if (events.requested & RECV) {
+            FD_SET(s, &recv);
+        }
+        if (events.requested & SEND) {
+            FD_SET(s, &send);
+        }
+        FD_SET(s, &err);
+        socket_max = std::max(socket_max, s);
     }
 
-    if (requested & SEND) {
-        FD_SET(m_socket, &fdset_send);
+    timeval tv = MillisToTimeval(timeout);
+
+    int ret = select(socket_max + 1, &recv, &send, &err, &tv);
+    if (ret == SOCKET_ERROR) {
+        return -1;
     }
 
-    timeval timeout_struct = MillisToTimeval(timeout);
+    for (auto& [s, events] : events_per_sock) {
+        events.occurred = 0;
+        if (FD_ISSET(s, &recv)) {
+            events.occurred |= RECV;
+        }
+        if (FD_ISSET(s, &send)) {
+            events.occurred |= SEND;
+        }
+        if (FD_ISSET(s, &err)) {
+            events.occurred |= ERR;
+        }
+    }
 
-    return select(m_socket + 1, &fdset_recv, &fdset_send, nullptr, &timeout_struct);
+    return ret;
 #endif /* USE_POLL */
+}
+
+
+int Sock::Wait(int64_t timeout, Event requested) const
+{
+    std::unordered_map<SOCKET, Events> events_per_sock = { {m_socket, Events(requested)} };
+    return WaitMany(timeout, events_per_sock);
 }
 
 
@@ -159,7 +214,6 @@ std::string NetworkErrorString(int err)
 
 bool Sock::Close()
 {
-        LogPrintf("CLosing socket: %d. Error: %s\n", m_socket, NetworkErrorString(WSAGetLastError()));
     if (m_ssl) {
         SSL_free(m_ssl);
         m_ssl = nullptr;

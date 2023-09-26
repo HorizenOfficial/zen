@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <unordered_map>
 
 #include "compat.h"
 
@@ -82,12 +83,25 @@ public:
     /**
      * If passed to `Wait()`, then it will wait for readiness to read from the socket.
      */
-    static constexpr Event RECV = 0b01;
+    static constexpr Event RECV = 0b001;
 
     /**
      * If passed to `Wait()`, then it will wait for readiness to send to the socket.
      */
-    static constexpr Event SEND = 0b10;
+    static constexpr Event SEND = 0b010;
+
+    /**
+     * Ignored if passed to `Wait()`, but could be set in the occurred events if an
+     * exceptional condition has occurred on the socket or if it has been disconnected.
+     */
+    static constexpr Event ERR = 0b100;
+
+    struct Events {
+        explicit Events() : requested{0} {}
+        explicit Events(Event req) : requested{req} {}
+        Event requested;
+        Event occurred{0};
+    };
 
     /**
      * Wait for readiness for input (recv) or output (send).
@@ -96,6 +110,7 @@ public:
      * @return true on success and false otherwise
      */
     virtual int Wait(int64_t timeout, Event requested) const;
+    static int WaitMany(int64_t timeout, std::unordered_map<SOCKET, Events>& events_per_sock);
     int GetSockOpt(int level, int opt_name, void* opt_val, socklen_t* opt_len) const;
     int SetSockOpt(int level, int opt_name, const void* opt_val, socklen_t opt_len) const;
     bool SetNonBlocking() const;
@@ -110,7 +125,7 @@ private:
      * Contained socket. `INVALID_SOCKET` designates the object is empty.
      */
     SOCKET m_socket;
-    SSL*   m_ssl; // TODO: remember to free this!!!
+    SSL*   m_ssl;
 
     /** Close socket and set hSocket to INVALID_SOCKET */
     bool Close();

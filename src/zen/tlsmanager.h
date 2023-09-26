@@ -47,7 +47,7 @@ namespace TLSManager
      SSL* accept(Sock& sock, const CAddress& addr, unsigned long& err_code);
      bool isNonTLSAddr(const std::string& strAddr, const std::vector<NODE_ADDR>& vPool, CCriticalSection& cs);
      void cleanNonTLSPool(std::vector<NODE_ADDR>& vPool, CCriticalSection& cs);
-     int threadSocketHandler(CNode* pnode, fd_set& fdsetRecv, fd_set& fdsetSend, fd_set& fdsetError);
+     int threadSocketHandler(CNode* pnode, const std::unordered_map<SOCKET, Sock::Events>& events);
      bool initialize();
 };
 }

@@ -607,7 +607,7 @@ void TLSManager::cleanNonTLSPool(std::vector<NODE_ADDR>& vPool, CCriticalSection
  * @param fdsetError 
  * @return int returns -1 when socket is invalid. returns 0 otherwise.
  */
-int TLSManager::threadSocketHandler(CNode* pnode, fd_set& fdsetRecv, fd_set& fdsetSend, fd_set& fdsetError)
+int TLSManager::threadSocketHandler(CNode* pnode, const std::unordered_map<SOCKET, Sock::Events>& events)
 {
     //
     // Receive
@@ -620,9 +620,13 @@ int TLSManager::threadSocketHandler(CNode* pnode, fd_set& fdsetRecv, fd_set& fds
         if (pnode->hSocket->Get() == INVALID_SOCKET)
             return -1;
 
-        recvSet  = FD_ISSET(pnode->hSocket->Get(), &fdsetRecv);
-        sendSet  = FD_ISSET(pnode->hSocket->Get(), &fdsetSend);
-        errorSet = FD_ISSET(pnode->hSocket->Get(), &fdsetError);
+        const auto& it = events.find(pnode->hSocket->Get());
+        if (it == events.end()) {
+            return 0;
+        }
+        recvSet  = it->second.occurred & Sock::RECV;
+        sendSet  = it->second.occurred & Sock::SEND;
+        errorSet = it->second.occurred & Sock::ERR;
     }
 
     if (recvSet || errorSet) {

@@ -19,6 +19,7 @@
 #include "crypto/common.h"
 #include "zen/utiltls.h"
 #include "zen/tlsmanager.h"
+#include "util/sock.h"
 
 #ifdef WIN32
 #include <string.h>
@@ -1315,22 +1316,13 @@ void CConnman::ThreadSocketHandler()
         //
         // Find which sockets have data to receive
         //
-        struct timeval timeout;
-        timeout.tv_sec  = 0;
-        timeout.tv_usec = 50000; // frequency to poll pnode->vSend
+        constexpr int64_t timeout_ms = 50;
 
-        fd_set fdsetRecv;
-        fd_set fdsetSend;
-        fd_set fdsetError;
-        FD_ZERO(&fdsetRecv);
-        FD_ZERO(&fdsetSend);
-        FD_ZERO(&fdsetError);
-        SOCKET hSocketMax = 0;
+        std::unordered_map<SOCKET, Sock::Events> ev_to_monitor;
         bool have_fds = false;
 
         BOOST_FOREACH(const ListenSocket& hListenSocket, connman->vhListenSocket) {
-            FD_SET(hListenSocket.sock->Get(), &fdsetRecv);
-            hSocketMax = max(hSocketMax, hListenSocket.sock->Get());
+            ev_to_monitor[hListenSocket.sock->Get()].requested |= Sock::RECV;
             have_fds = true;
         }
 
@@ -1343,8 +1335,7 @@ void CConnman::ThreadSocketHandler()
                 SOCKET socket = pnode->GetSocketFd();
                 if (socket == INVALID_SOCKET)
                     continue;
-                FD_SET(socket, &fdsetError);
-                hSocketMax = max(hSocketMax, socket);
+                ev_to_monitor[socket].requested |= Sock::ERR;
                 have_fds = true;
 
                 // Implement the following logic:
@@ -1366,7 +1357,7 @@ void CConnman::ThreadSocketHandler()
                 {
                     TRY_LOCK(pnode->cs_vSend, lockSend);
                     if (lockSend && !pnode->vSendMsg.empty()) {
-                        FD_SET(socket, &fdsetSend);
+                        ev_to_monitor[socket].requested |= Sock::SEND;
                         continue;
                     }
                 }
@@ -1375,13 +1366,12 @@ void CConnman::ThreadSocketHandler()
                     if (lockRecv && (
                         pnode->vRecvMsg.empty() || !pnode->vRecvMsg.front().complete() ||
                         pnode->GetTotalRecvSize() <= GetReceiveFloodSize()))
-                        FD_SET(socket, &fdsetRecv);
+                        ev_to_monitor[socket].requested |= Sock::RECV;
                 }
             }
         }
 
-        int nSelect = select(have_fds ? hSocketMax + 1 : 0,
-                             &fdsetRecv, &fdsetSend, &fdsetError, &timeout);
+        int nSelect = Sock::WaitMany(timeout_ms, ev_to_monitor);
         if (interruptNet)
             return;
 
@@ -1391,21 +1381,17 @@ void CConnman::ThreadSocketHandler()
             {
                 int nErr = WSAGetLastError();
                 LogPrintf("socket select error %s\n", NetworkErrorString(nErr));
-                for (unsigned int i = 0; i <= hSocketMax; i++)
-                    FD_SET(i, &fdsetRecv);
             }
-            FD_ZERO(&fdsetSend);
-            FD_ZERO(&fdsetError);
-            if (!interruptNet.sleep_for(std::chrono::microseconds(timeout.tv_usec)))
+            if (!interruptNet.sleep_for(std::chrono::milliseconds(timeout_ms)))
                 return;
         }
 
         //
         // Accept new connections
         //
-        BOOST_FOREACH(const ListenSocket& hListenSocket, vhListenSocket)
+        BOOST_FOREACH(ListenSocket& hListenSocket, vhListenSocket)
         {
-            if (hListenSocket.sock->Get() != INVALID_SOCKET && FD_ISSET(hListenSocket.sock->Get(), &fdsetRecv))
+            if (hListenSocket.sock->Get() != INVALID_SOCKET && ev_to_monitor.at(hListenSocket.sock->Get()).occurred & Sock::RECV)
             {
                 AcceptConnection(hListenSocket);
             }
@@ -1426,7 +1412,7 @@ void CConnman::ThreadSocketHandler()
             if (interruptNet)
                 return;
 
-            if (TLSManager::threadSocketHandler(pnode,fdsetRecv,fdsetSend,fdsetError)==-1){
+            if (TLSManager::threadSocketHandler(pnode, ev_to_monitor) == -1){
                 continue;
             }
 
