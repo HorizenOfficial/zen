@@ -16,10 +16,13 @@
 #include "random.h"
 #include "streams.h"
 #include "sync.h"
+#include "threadinterrupt.h"
 #include "uint256.h"
 #include "utilstrencodings.h"
 
 #include <deque>
+#include <thread>
+#include <condition_variable>
 #include <stdint.h>
 
 #ifndef WIN32
@@ -847,19 +850,24 @@ private:
     // // To be moved here in the next PR, when we will get rid of boost::thread!
     //
     // CThreadInterrupt interruptNet;
+    // std::condition_variable condMsgProc;
+    // std::mutex mutexMsgProc;
+    // std::atomic<bool> flagInterruptMsgProc;
     //
-    // std::thread threadDNSAddressSeed;
-    // std::thread threadSocketHandler;
-    // std::thread threadOpenAddedConnections;
-    // std::thread threadOpenConnections;
-    // std::thread threadMessageHandler;
-    // std::thread threadNonTLSPoolsCleaner;
-    // void ThreadOpenConnections();
-    // void ThreadOpenAddedConnections();
-    // void ThreadNonTLSPoolsCleaner();
-    // void ThreadSocketHandler();
-    // void ThreadDNSAddressSeed();
-    // void void ThreadMessageHandler();
+    std::thread threadDNSAddressSeed;
+    std::thread threadSocketHandler;
+    std::thread threadOpenAddedConnections;
+    std::thread threadOpenConnections;
+    std::thread threadMessageHandler;
+    std::thread threadNonTLSPoolsCleaner;
+    void ThreadOpenConnections();
+    void ThreadOpenAddedConnections();
+    void ThreadNonTLSPoolsCleaner();
+    void ThreadSocketHandler();
+    void ThreadDNSAddressSeed();
+    void ThreadMessageHandler();
+
+    void DumpAddresses();
 
 };
 

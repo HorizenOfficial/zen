@@ -6,9 +6,6 @@
 #include <openssl/dh.h>
 #endif
 
-#include <boost/filesystem.hpp>
-#include <boost/thread.hpp>
-
 #include "tlsmanager.h"
 #include "utiltls.h"
 
