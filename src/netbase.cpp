@@ -31,7 +31,6 @@
 
 #include <boost/algorithm/string/case_conv.hpp> // for to_lower()
 #include <boost/algorithm/string/predicate.hpp> // for startswith() and endswith()
-#include <boost/thread.hpp>
 
 #if !defined(HAVE_MSG_NOSIGNAL) && !defined(MSG_NOSIGNAL)
 #define MSG_NOSIGNAL 0
@@ -48,6 +47,8 @@ static const unsigned char pchIPv4[12] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0
 
 // Need ample time for negotiation for very slow proxies such as Tor (milliseconds)
 static const int SOCKS5_RECV_TIMEOUT = 20 * 1000;
+static std::atomic<bool> interruptSocks5Recv{false};
+static std::atomic<bool> interruptLookupRecv{false};
 
 enum Network ParseNetwork(std::string net) {
     boost::to_lower(net);
@@ -151,7 +152,8 @@ bool static LookupIntern(const char *pszName, std::vector<CNetAddr>& vIP, unsign
         // 2 seconds looks fine in our situation.
         struct timespec ts = { 2, 0 };
         gai_suspend(&query, 1, &ts);
-        boost::this_thread::interruption_point();
+        if (interruptLookupRecv)
+            return false;
 
         nErr = gai_error(query);
         if (0 == nErr)
@@ -246,7 +248,7 @@ struct timeval MillisToTimeval(int64_t nTimeout)
 /**
  * Read bytes from socket. This will either read the full number of bytes requested
  * or return False on error or timeout.
- * This function can be interrupted by boost thread interrupt.
+ * This function can be interrupted by calling InterruptSocks5().
  *
  * @param data Buffer to receive into
  * @param len  Length of data to receive
@@ -292,7 +294,8 @@ bool static InterruptibleRecv(uint8_t* data, size_t len, int timeout, SOCKET& hS
                 return false;
             }
         }
-        boost::this_thread::interruption_point();
+        if (interruptSocks5Recv)
+            return false;
         curTime = GetTimeMillis();
     }
     return len == 0;
@@ -1430,4 +1433,12 @@ bool SetSocketNonBlocking(SOCKET& hSocket, bool fNonBlocking)
     }
 
     return true;
+}
+
+void InterruptSocks5(bool interrupt) {
+    interruptSocks5Recv = interrupt;
+}
+
+void InterruptLookup(bool interrupt) {
+    interruptLookupRecv = interrupt;
 }

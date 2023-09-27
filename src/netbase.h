@@ -207,5 +207,7 @@ bool SetSocketNonBlocking(SOCKET& hSocket, bool fNonBlocking);
  * Convert milliseconds to a struct timeval for e.g. select.
  */
 struct timeval MillisToTimeval(int64_t nTimeout);
+void InterruptSocks5(bool interrupt);
+void InterruptLookup(bool interrupt);
 
 #endif // BITCOIN_NETBASE_H

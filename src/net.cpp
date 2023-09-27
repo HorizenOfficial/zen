@@ -806,7 +806,8 @@ bool CConnman::StopNode()
     condMsgProc.notify_all();
 
     interruptNet();
-    // InterruptSocks5(true);
+    InterruptSocks5(true);
+    InterruptLookup(true);
 
     if (semOutbound)
         for (int i=0; i<MAX_OUTBOUND_CONNECTIONS; i++)
@@ -2086,7 +2087,8 @@ void CConnman::StartNode(CScheduler& scheduler, const Options& connOptions)
     // Start threads
     //
 
-    // InterruptSocks5(false);
+    InterruptSocks5(false);
+    InterruptLookup(false);
     interruptNet.reset();
     flagInterruptMsgProc = false;
 
