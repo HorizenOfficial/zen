@@ -182,6 +182,18 @@ std::string GetArg(const std::string& strArg, const std::string& strDefault);
 int64_t GetArg(const std::string& strArg, int64_t nDefault);
 
 /**
+ * Return integer argument or default value (if missing or outside limits)
+ * If the default itself is outside limits, it is returned nonetheless
+ * Limits boundaries are considered inside limits
+ *
+ * @param strArg Argument to get (e.g. "-foo")
+ * @param default (e.g. 1)
+ * @param limits Limits (as pair of min-max)
+ * @return command-line argument (0 if invalid number outside limits) or default value
+ */
+int64_t GetArgWithinLimits(const std::string& strArg, int64_t nDefault, const std::pair<int64_t, int64_t>& limits);
+
+/**
  * Return boolean argument or default value
  *
  * @param strArg Argument to get (e.g. "-foo")

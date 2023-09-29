@@ -400,6 +400,17 @@ int64_t GetArg(const std::string& strArg, int64_t nDefault)
     return nDefault;
 }
 
+int64_t GetArgWithinLimits(const std::string& strArg, int64_t nDefault, const std::pair<int64_t, int64_t>& limits)
+{
+    if (mapArgs.count(strArg))
+    {
+        int64_t arg = atoi64(mapArgs[strArg]);
+        if (limits.first <= arg && arg <= limits.second)
+            return arg;
+    }
+    return nDefault;
+}
+
 bool GetBoolArg(const std::string& strArg, bool fDefault)
 {
     if (mapArgs.count(strArg))

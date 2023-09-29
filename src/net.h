@@ -71,12 +71,16 @@ static_assert((MAX_PROTOCOL_MESSAGE_LENGTH >= MAX_BLOCK_SIZE),
 static const bool DEFAULT_LISTEN = true;
 /** The maximum number of entries in mapAskFor */
 static const size_t MAPASKFOR_MAX_SZ = MAX_INV_SZ;
-/** The maximum number of entries in setAskFor (larger due to getdata latency)*/
+/** The maximum number of entries in setAskFor (larger due to getdata latency) */
 static const size_t SETASKFOR_MAX_SZ = 2 * MAX_INV_SZ;
-/** The maximum number of entries in mapAlreadyReceived (8 peers * 2min additional delay each * 100tx/s)*/
+/** The maximum number of entries in mapAlreadyReceived (8 peers * 2min additional delay each * 100tx/s) */
 static const size_t MAPRECEIVED_MAX_SZ = 8 * 120 * 100;
-/** The maximum number of peer connections to maintain. */
+/** The maximum number of peer connections to maintain */
 static const unsigned int DEFAULT_MAX_PEER_CONNECTIONS = 125;
+/** The default size of receive buffer (<n>*1000 bytes) */
+static const unsigned int DEFAULT_MAX_RECEIVE_BUFFER = 5000;
+/** The default size of send buffer (<n>*1000 bytes) */
+static const unsigned int DEFAULT_MAX_SEND_BUFFER = 1000;
 
 static const int MAX_OUTBOUND_CONNECTIONS = 8;
 
