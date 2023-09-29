@@ -378,8 +378,8 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-listen", _("Accept connections from outside (default: 1 if no -proxy or -connect)"));
     strUsage += HelpMessageOpt("-listenonion", strprintf(_("Automatically create Tor hidden service (default: %d)"), DEFAULT_LISTEN_ONION));
     strUsage += HelpMessageOpt("-maxconnections=<n>", strprintf(_("Maintain at most <n> connections to peers (default: %u)"), DEFAULT_MAX_PEER_CONNECTIONS));
-    strUsage += HelpMessageOpt("-maxreceivebuffer=<n>", strprintf(_("Maximum per-connection receive buffer, <n>*1000 bytes (default: %u)"), 5000));
-    strUsage += HelpMessageOpt("-maxsendbuffer=<n>", strprintf(_("Maximum per-connection send buffer, <n>*1000 bytes (default: %u)"), 1000));
+    strUsage += HelpMessageOpt("-maxreceivebuffer=<n>", strprintf(_("Maximum per-connection receive buffer, <n>*1000 bytes (default: %u)"), DEFAULT_MAX_RECEIVE_BUFFER));
+    strUsage += HelpMessageOpt("-maxsendbuffer=<n>", strprintf(_("Maximum per-connection send buffer, <n>*1000 bytes (default: %u)"), DEFAULT_MAX_SEND_BUFFER));
     strUsage += HelpMessageOpt("-onion=<ip:port>", strprintf(_("Use separate SOCKS5 proxy to reach peers via Tor hidden services (default: %s)"), "-proxy"));
     strUsage += HelpMessageOpt("-onlynet=<net>", _("Only connect to nodes in network <net> (ipv4, ipv6 or onion)"));
     strUsage += HelpMessageOpt("-permitbaremultisig", strprintf(_("Relay non-P2SH multisig (default: %u)"), 1));
@@ -859,8 +859,6 @@ bool AppInitServers()
 namespace {
     uint64_t nLocalServices = NODE_NETWORK;
     int nMaxConnections = DEFAULT_MAX_PEER_CONNECTIONS;
-    unsigned int nSendBufferMaxSize;
-    unsigned int nReceiveFloodSize;
 } // namespace
 
 /** Initialize bitcoin.
@@ -1979,9 +1977,12 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     connOptions.nLocalServices      = nLocalServices;
     connOptions.nMaxConnections     = nMaxConnections;
-    connOptions.nSendBufferMaxSize  = 1000*GetArg("-maxsendbuffer", 1*1000);
-    connOptions.nReceiveFloodSize   = 1000*GetArg("-maxreceivebuffer", 5*1000);
 
+    const unsigned int fromKBtoBfactor = 1000; // from kilobytes to bytes
+    const std::pair<int64_t, int64_t> bufferMinMax = {1, std::numeric_limits<unsigned int>::max() / fromKBtoBfactor};
+    connOptions.nSendBufferMaxSize = fromKBtoBfactor * static_cast<unsigned int>(GetArgWithinLimits("-maxsendbuffer", DEFAULT_MAX_SEND_BUFFER, bufferMinMax));
+    connOptions.nReceiveFloodSize = fromKBtoBfactor * static_cast<unsigned int>(GetArgWithinLimits("-maxreceivebuffer", DEFAULT_MAX_RECEIVE_BUFFER, bufferMinMax));
+    
     connman->StartNode(threadGroup, scheduler, connOptions);
 
     // Monitor the chain, and alert if we get blocks much quicker or slower than expected
