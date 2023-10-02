@@ -1087,7 +1087,8 @@ uint32_t BlockchainTestManager::GetAsyncProofVerifierMaxBatchVerifyDelay() const
  */
 void BlockchainTestManager::ResetAsyncProofVerifier()const
 {
-    TEST_FRIEND_CScAsyncProofVerifier::GetInstance().Reset();
+    TEST_FRIEND_CScAsyncProofVerifier::GetInstance().ResetStatistics();
+    TEST_FRIEND_CScAsyncProofVerifier::GetInstance().ClearFromQueue();
 }
 
 /**

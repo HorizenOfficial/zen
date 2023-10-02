@@ -53,7 +53,7 @@ public:
     void RunPeriodicVerification();
 
     static const uint32_t BATCH_VERIFICATION_MAX_DELAY;   /**< The maximum delay in milliseconds between batch verification requests */
-    static const uint32_t BATCH_VERIFICATION_MAX_SIZE;      /**< The threshold size of the proof queue that triggers a call to the batch verification. */
+    static const uint32_t BATCH_VERIFICATION_MAX_SIZE;    /**< The threshold size of the proof queue that triggers a call to the batch verification. */
 
     static uint32_t GetCustomMaxBatchVerifyDelay();
     static uint32_t GetCustomMaxBatchVerifyMaxSize();
@@ -63,6 +63,8 @@ private:
     friend class TEST_FRIEND_CScAsyncProofVerifier;         /**< A friend class used as a proxy for private members in unit tests (Regtest mode only). */
 
     static const uint32_t THREAD_WAKE_UP_PERIOD = 100;           /**< The period of time in milliseconds after which the thread wakes up. */
+
+    std::map</* Cert or Tx hash */ uint256, uint64_t> proofsInsertionMillisecondsQueue;   /**< The queue of insertion time for proofs to be verified. */ 
 
     CCriticalSection cs_asyncQueue;         /**< The lock to be used for entering the critical section in async mode only. */
 
@@ -134,7 +136,7 @@ public:
 
         int counter = 0;
 
-        for (auto item : CScAsyncProofVerifier::GetInstance().proofQueue)
+        for (auto item : CScAsyncProofVerifier::GetInstance().proofsQueue)
         {
             if (item.second.proofInput.type() == typeid(CCertProofVerifierInput))
             {
@@ -157,7 +159,7 @@ public:
 
         int counter = 0;
 
-        for (auto item : CScAsyncProofVerifier::GetInstance().proofQueue)
+        for (auto item : CScAsyncProofVerifier::GetInstance().proofsQueue)
         {
             if (item.second.proofInput.type() == typeid(std::vector<CCswProofVerifierInput>))
             {
@@ -179,13 +181,44 @@ public:
     }
 
     /**
-     * @brief Resets the async proof verifier statistics and queue.
+     * @brief Resets the async proof verifier statistics.
      */
-    void Reset()
+    void ResetStatistics()
     {
         CScAsyncProofVerifier& verifier = CScAsyncProofVerifier::GetInstance();
 
         verifier.stats = AsyncProofVerifierStatistics();
+    }
+
+    /**
+     * @brief Clears proofs from the async queue.
+     */
+    void ClearFromQueue(const std::vector<uint256>& proofsToClear = std::vector<uint256>())
+    {
+        CScAsyncProofVerifier& verifier = CScAsyncProofVerifier::GetInstance();
+
+        {
+            LOCK(verifier.cs_asyncQueue);
+            if (verifier.proofsQueue.size() > 0)
+            {
+                if (proofsToClear.size() == 0)
+                {
+                    verifier.proofsQueue.clear();
+                    verifier.proofsInsertionMillisecondsQueue.clear();
+                    assert(verifier.proofsQueue.size() == 0);
+                    assert(verifier.proofsInsertionMillisecondsQueue.size() == 0);
+                }
+                else
+                {
+                    for (auto proofToClear : proofsToClear)
+                    {
+                        verifier.proofsQueue.erase(proofToClear);
+                        verifier.proofsInsertionMillisecondsQueue.erase(proofToClear);
+                    }
+                    assert(verifier.proofsQueue.size() == verifier.proofsInsertionMillisecondsQueue.size());
+                }
+            }
+        }
     }
 
     /**

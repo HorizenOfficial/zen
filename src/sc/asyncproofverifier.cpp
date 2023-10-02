@@ -15,12 +15,16 @@ void CScAsyncProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& v
 {
     LOCK(cs_asyncQueue);
     CScProofVerifier::LoadDataForCertVerification(view, scCert, pfrom);
+    proofsInsertionMillisecondsQueue.insert(std::make_pair(scCert.GetHash(), GetTimeMillis()));
+    assert(proofsQueue.size() == proofsInsertionMillisecondsQueue.size());
 }
 
 void CScAsyncProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, const CTransaction& scTx, CNode* pfrom)
 {
     LOCK(cs_asyncQueue);
     CScProofVerifier::LoadDataForCswVerification(view, scTx, pfrom);
+    proofsInsertionMillisecondsQueue.insert(std::make_pair(scTx.GetHash(), GetTimeMillis()));
+    assert(proofsQueue.size() == proofsInsertionMillisecondsQueue.size());
 }
 #endif
 
@@ -59,65 +63,61 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
      * This value represents the time spent in the queue by the oldest proof in the queue.
      */
     uint32_t queueAge = 0;
+    uint64_t oldestProofInsertionMilliseconds = 0;
 
     uint32_t batchVerificationMaxDelay = GetCustomMaxBatchVerifyDelay();
     uint32_t batchVerificationMaxSize  = GetCustomMaxBatchVerifyMaxSize();
 
+    std::map</*scTxHash*/uint256, CProofVerifierItem> tempProofData;
 
     while (!ShutdownRequested())
     {
-        size_t currentQueueSize = proofQueue.size();
-
-        if (currentQueueSize > 0)
         {
-            queueAge += THREAD_WAKE_UP_PERIOD;
+            LOCK(cs_asyncQueue);
 
-            /**
-             * The batch verification can be triggered by two events:
-             * 
-             * 1. The queue has grown up beyond the threshold size;
-             * 2. The oldest proof in the queue has waited for too long.
-             */
-            if (queueAge > batchVerificationMaxDelay || currentQueueSize > batchVerificationMaxSize)
+            if (proofsQueue.size() > 0)
             {
-                queueAge = 0;
-                std::map</*scTxHash*/uint256, CProofVerifierItem> tempProofData;
+                oldestProofInsertionMilliseconds = std::min_element(proofsInsertionMillisecondsQueue.begin(),
+                                                                        proofsInsertionMillisecondsQueue.end(),
+                                                                        [](const auto& l, const auto& r) { return l.second < r.second; })->second;
+                queueAge = GetTimeMillis() - oldestProofInsertionMilliseconds;
 
+                /**
+                 * The batch verification can be triggered by two events:
+                 * 
+                 * 1. The queue has grown up beyond the threshold size;
+                 * 2. The oldest proof in the queue has waited for too long.
+                 */
+                if (queueAge > batchVerificationMaxDelay || proofsQueue.size() > batchVerificationMaxSize)
                 {
-                    LOCK(cs_asyncQueue);
-
-                    size_t proofQueueSize = proofQueue.size();
-
                     LogPrint("cert", "%s():%d - Async verification triggered, %d proofs to be verified \n",
-                             __func__, __LINE__, proofQueueSize);
+                                 __func__, __LINE__, proofsQueue.size());
 
                     // Move the queued proofs into a local map, so that we can release the lock
-                    tempProofData = std::move(proofQueue);
+                    tempProofData = std::move(proofsQueue);
 
-                    assert(proofQueue.size() == 0);
-                    assert(tempProofData.size() == proofQueueSize);
-                }
-
-                bool batchResult = BatchVerifyInternal(tempProofData);
+                    assert(proofsQueue.size() == 0);
+                    assert(tempProofData.size() == 0);
+                }                    
+            }
+        }
+        
+        if (tempProofData.size() > 0)
+        {
+            bool batchResult = BatchVerifyInternal(tempProofData);
+            ProcessVerificationOutputs(tempProofData);
+            if (tempProofData.size() > 0)
+            {
+                LogPrint("cert", "%s():%d - Batch verification failed, removed proofs that caused the failure and trying again... \n", __func__, __LINE__);
+                batchResult = BatchVerifyInternal(tempProofData);
                 ProcessVerificationOutputs(tempProofData);
-
                 if (tempProofData.size() > 0)
                 {
-                    LogPrint("cert", "%s():%d - Batch verification failed, removed proofs that caused the failure and trying again... \n", __func__, __LINE__);
-
-                    batchResult = BatchVerifyInternal(tempProofData);
+                    LogPrint("cert", "%s():%d - Batch verification failed again, verifying proofs one by one... \n", __func__, __LINE__);
+                    // As last attempt, verify the proofs one by one.
+                    NormalVerify(tempProofData);
                     ProcessVerificationOutputs(tempProofData);
-
-                    if (tempProofData.size() > 0)
-                    {
-                        LogPrint("cert", "%s():%d - Batch verification failed again, verifying proofs one by one... \n", __func__, __LINE__);
-
-                        // As last attempt, verify the proofs one by one.
-                        NormalVerify(tempProofData);
-                        ProcessVerificationOutputs(tempProofData);
-                    }
                 }
-
                 assert(tempProofData.size() == 0);
             }
         }
@@ -143,8 +143,6 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
  * 
  * 3. All the transactions/certificates that are in an UNKNOWN state are not processed
  * and are kept into the related maps.
- * 
- * @param proofs The set of proofs submitted as input to the proof verifier
  */
 void CScAsyncProofVerifier::ProcessVerificationOutputs(std::map</* Tx hash */ uint256, CProofVerifierItem>& proofs)
 {
@@ -171,8 +169,8 @@ void CScAsyncProofVerifier::ProcessVerificationOutputs(std::map</* Tx hash */ ui
 
             CValidationState dummyState;
             mempoolCallback(*item.parentPtr.get(), item.node,
-                                            item.result == ProofVerificationResult::Passed ? BatchVerificationStateFlag::VERIFIED : BatchVerificationStateFlag::FAILED,
-                                            dummyState);
+                            item.result == ProofVerificationResult::Passed ? BatchVerificationStateFlag::VERIFIED : BatchVerificationStateFlag::FAILED,
+                            dummyState);
 
             i = proofs.erase(i);
         }

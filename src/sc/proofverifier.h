@@ -127,7 +127,7 @@ protected:
     ProofVerificationResult NormalVerifyCertificate(CCertProofVerifierInput input) const;
     ProofVerificationResult NormalVerifyCsw(std::vector<CCswProofVerifierInput> cswInputs) const;
 
-    std::map</* Cert or Tx hash */ uint256, CProofVerifierItem> proofQueue;   /**< The queue of proofs to be verified. */
+    std::map</* Cert or Tx hash */ uint256, CProofVerifierItem> proofsQueue;   /**< The queue of proofs to be verified. */
 
 private:
 

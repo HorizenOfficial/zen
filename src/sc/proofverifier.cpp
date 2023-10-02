@@ -161,7 +161,7 @@ void CScProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& view, 
     item.node = pfrom;
     item.result = ProofVerificationResult::Unknown;
     item.proofInput = CertificateToVerifierItem(scCert, sidechain.fixedParams, pfrom, &view);
-    proofQueue.insert(std::make_pair(scCert.GetHash(), item));
+    proofsQueue.insert(std::make_pair(scCert.GetHash(), item));
 }
 
 /**
@@ -196,7 +196,7 @@ void CScProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, c
         item.result = ProofVerificationResult::Unknown;
         item.node = pfrom;
         item.proofInput = cswInputProofs;
-        auto pair_ret = proofQueue.insert(std::make_pair(scTx.GetHash(), item));
+        auto pair_ret = proofsQueue.insert(std::make_pair(scTx.GetHash(), item));
 
         if (!pair_ret.second)
         {
@@ -220,7 +220,7 @@ void CScProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, c
  */
 bool CScProofVerifier::BatchVerify()
 {
-    return BatchVerifyInternal(proofQueue);
+    return BatchVerifyInternal(proofsQueue);
 }
 
 /**

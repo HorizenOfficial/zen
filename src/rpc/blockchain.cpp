@@ -2522,12 +2522,12 @@ UniValue getproofverifierstats(const UniValue& params, bool fHelp)
     size_t pendingCSWs = TEST_FRIEND_CScAsyncProofVerifier::GetInstance().PendingAsyncCswProofs();
 
     UniValue obj(UniValue::VOBJ);
-    obj.pushKV("pendingCerts",  pendingCerts);
-    obj.pushKV("pendingCSWs",   pendingCSWs);
-    obj.pushKV("failedCerts",   static_cast<uint64_t>(stats.failedCertCounter));
-    obj.pushKV("failedCSWs",    static_cast<uint64_t>(stats.failedCswCounter));
-    obj.pushKV("okCerts",       static_cast<uint64_t>(stats.okCertCounter));
-    obj.pushKV("okCSWs",        static_cast<uint64_t>(stats.okCswCounter));
+    obj.pushKV("pendingCerts",               pendingCerts);
+    obj.pushKV("pendingCSWs",                pendingCSWs);
+    obj.pushKV("failedCerts",                static_cast<uint64_t>(stats.failedCertCounter));
+    obj.pushKV("failedCSWs",                 static_cast<uint64_t>(stats.failedCswCounter));
+    obj.pushKV("okCerts",                    static_cast<uint64_t>(stats.okCertCounter));
+    obj.pushKV("okCSWs",                     static_cast<uint64_t>(stats.okCswCounter));
 
     return obj;
 }
@@ -2701,6 +2701,7 @@ UniValue clearmempool(const UniValue& params, bool fHelp)
 
     LOCK(cs_main);
     mempool->clear();
+    TEST_FRIEND_CScAsyncProofVerifier::GetInstance().ClearFromQueue();
 
     return NullUniValue;
 }
