@@ -250,7 +250,7 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
             {
                 proofItem.result = proofVerificationManager->mostRecentProofsVerificationsResults.find(proofId)->second.second;
                 proofItem.resultReused = true;
-                LogPrint("cert", "%s():%d - Reusing result (%d) for proof %s\n",
+                LogPrint("sc", "%s():%d - Reusing result (%d) for proof %s\n",
                          __func__, __LINE__, static_cast<std::underlying_type<ProofVerificationResult>::type>(proofItem.result), proofId.ToString());
             }
         }

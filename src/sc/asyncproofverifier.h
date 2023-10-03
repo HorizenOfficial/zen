@@ -262,7 +262,7 @@ public:
                 if (proofsToClear.size() == 0)
                 {
                     clearedProofs = verifier.proofsQueue.size();
-                    LogPrint("cert", "%s():%d - %d proofs cleared from async verification queue\n",
+                    LogPrint("sc", "%s():%d - %d proofs cleared from async verification queue\n",
                              __func__, __LINE__, clearedProofs);
                     verifier.proofsQueue.clear();
                     verifier.proofsInsertionMillisecondsQueue.clear();
@@ -276,7 +276,7 @@ public:
                         if (verifier.proofsQueue.erase(proofToClear) > 0)
                         {
                             ++clearedProofs;
-                            LogPrint("cert", "%s():%d - %s proof cleared from async verification queue\n",
+                            LogPrint("sc", "%s():%d - %s proof cleared from async verification queue\n",
                                      __func__, __LINE__, proofToClear.ToString());
                             verifier.proofsQueue.erase(proofToClear);
                             verifier.proofsInsertionMillisecondsQueue.erase(proofToClear);
@@ -306,7 +306,7 @@ public:
             {
                 if (proofsVerificationsToDiscard.size() == 0)
                 {
-                    LogPrint("cert", "%s():%d - %d proofs verifications results will be discarded from current verification\n",
+                    LogPrint("sc", "%s():%d - %d proofs verifications results will be discarded from current verification\n",
                              __func__, __LINE__, verifier.proofsInVerificationQueue.size());
                     verifier.discardAllProofsVerifications = true;
                 }
@@ -314,7 +314,7 @@ public:
                 {
                     for (auto proofToDiscard : proofsVerificationsToDiscard)
                     {
-                        LogPrint("cert", "%s():%d - %s proof verification result will be discarded from current verification\n",
+                        LogPrint("sc", "%s():%d - %s proof verification result will be discarded from current verification\n",
                                  __func__, __LINE__, proofToDiscard.ToString());
                         verifier.proofsVerificationsToDiscard.push_back(proofToDiscard);
                     }
