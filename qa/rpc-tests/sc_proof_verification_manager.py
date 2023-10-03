@@ -35,9 +35,10 @@ SEGMENT_SIZE_FAST = 1 << 11
 
 # type of wait
 WAIT_ON_PENDING_PROOFS = 0
-WAIT_ON_FAIL_PROOFS = 1
-WAIT_ON_PASS_PROOFS = 2
-WAIT_ON_FAIL_PASS_PROOFS = 3
+WAIT_ON_IN_VERIFICATION_PROOFS = 1
+WAIT_ON_FAIL_PROOFS = 2
+WAIT_ON_PASS_PROOFS = 3
+WAIT_ON_FAIL_PASS_PROOFS = 4
 
 class sc_proof_verification_manager(BitcoinTestFramework):
     FEE = 0.0001
@@ -124,15 +125,52 @@ class sc_proof_verification_manager(BitcoinTestFramework):
 
         print("Waiting for the time the certificate (node1) would have required to start being verified and then to complete being verified...")
         time.sleep((BATCH_VERIFICATION_MAX_DELAY_ARG + BATCH_VERIFICATION_PROCESSING_ESTIMATION) / 1000)
+      
+        print("Checking mempools and stats after waiting enough time")
+        assert_equal(self.nodes[0].getmempoolinfo()["size"], 0)
+        assert_equal(self.nodes[1].getmempoolinfo()["size"], 0)
+        node1_stats = self.nodes[1].getproofverifierstats()
+        assert_equal(node1_stats["pendingCerts"] + node1_stats["pendingCSWs"] +
+                     node1_stats["pendingCertsInVerification"] + node1_stats["pendingCSWsInVerification"], 0)
+        assert_equal(node1_stats["failedCerts"] + node1_stats["failedCSWs"] +
+                     node1_stats["okCerts"] + node1_stats["okCSWs"], 0)
+
+        print("Test is OK")
+
+
+        # ---------- TEST ----------
+        # a certificate is sent by node0 and the mempools are cleared when the proof has started being verified on node1; even
+        # after waiting for the time that would be required for the certificate to complete being verified, the mempools are empty
+
+        self.send_certificate_from_node(self.nodes[0], "sc1", scid, 2, mcTest, scid_swapped, constant, node1Addr, bwt_amount, CERT_NUM_CONSTRAINTS_SLOW, SEGMENT_SIZE_SLOW)
+
+        print("Checking mempools before clearing")
+        assert_equal(self.nodes[0].getmempoolinfo()["size"], 1)
+        # node1 has received the certificate, but it has been queued in async proof verifier
+        assert_equal(self.nodes[1].getmempoolinfo()["size"], 0)
+
+        print("Mempools clearing")
+        self.nodes[0].clearmempool()
+        # clear mempools with proper timing on node1
+        self.wait_for_proofs(self.nodes[1], WAIT_ON_IN_VERIFICATION_PROOFS, 1)
+        self.nodes[1].clearmempool()
+
+        print("Checking mempools after clearing")
+        assert_equal(self.nodes[0].getmempoolinfo()["size"], 0)
+        assert_equal(self.nodes[1].getmempoolinfo()["size"], 0)
+
+        print("Waiting for the time the certificate (node1) would have required to complete being verified...")
+        time.sleep((BATCH_VERIFICATION_PROCESSING_ESTIMATION) / 1000)
 
         print("Checking mempools and stats after waiting enough time")
         assert_equal(self.nodes[0].getmempoolinfo()["size"], 0)
         assert_equal(self.nodes[1].getmempoolinfo()["size"], 0)
         node1_stats = self.nodes[1].getproofverifierstats()
-        assert_equal(node1_stats["pendingCerts"] + node1_stats["pendingCSWs"], 0)
+        assert_equal(node1_stats["pendingCerts"] + node1_stats["pendingCSWs"] +
+                     node1_stats["pendingCertsInVerification"] + node1_stats["pendingCSWsInVerification"], 0)
         assert_equal(node1_stats["failedCerts"] + node1_stats["failedCSWs"] +
                      node1_stats["okCerts"] + node1_stats["okCSWs"], 0)
-
+        
         print("Test is OK")
 
 
@@ -142,6 +180,10 @@ class sc_proof_verification_manager(BitcoinTestFramework):
             if (wait_on_type == WAIT_ON_PENDING_PROOFS):
                 if (node_stats["pendingCerts"] + node_stats["pendingCSWs"] == quantity):
                     print(f"{quantity} proofs scheduled for verification on node async proof verifier")
+                    break
+            elif (wait_on_type == WAIT_ON_IN_VERIFICATION_PROOFS):
+                if (node_stats["pendingCertsInVerification"] + node_stats["pendingCSWsInVerification"] == quantity):
+                    print(f"{quantity} proofs in verification on node async proof verifier")
                     break
             elif (wait_on_type == WAIT_ON_FAIL_PROOFS):
                 if (node_stats["failedCerts"] + node_stats["failedCSWs"] == quantity):
