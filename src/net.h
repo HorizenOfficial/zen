@@ -20,6 +20,7 @@
 #include "uint256.h"
 #include "utilstrencodings.h"
 
+#include <atomic>
 #include <deque>
 #include <thread>
 #include <condition_variable>
@@ -119,8 +120,8 @@ struct CombinerAll
 struct CNodeSignals
 {
     boost::signals2::signal<int ()> GetHeight;
-    boost::signals2::signal<bool (CNode*), CombinerAll> ProcessMessages;
-    boost::signals2::signal<bool (CNode*, bool), CombinerAll> SendMessages;
+    boost::signals2::signal<bool (CNode*, const std::atomic<bool>&), CombinerAll> ProcessMessages;
+    boost::signals2::signal<bool (CNode*, bool, const std::atomic<bool>&), CombinerAll> SendMessages;
     boost::signals2::signal<void (NodeId, const CNode*)> InitializeNode;
     boost::signals2::signal<void (NodeId)> FinalizeNode;
 };
@@ -847,8 +848,8 @@ private:
 
     CThreadInterrupt interruptNet;
     std::mutex mutexMsgProc;
-    // std::atomic<bool> flagInterruptMsgProc;
-    //
+    std::atomic<bool> flagInterruptMsgProc{false};
+
     std::thread threadDNSAddressSeed;
     std::thread threadSocketHandler;
     std::thread threadOpenAddedConnections;

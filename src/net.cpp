@@ -798,10 +798,8 @@ CConnman::~CConnman()
 bool CConnman::StopNode()
 {
     LogPrintf("StopNode()\n");
-    {
-        std::lock_guard<std::mutex> lock(mutexMsgProc);
-        flagInterruptMsgProc = true;
-    }
+
+    flagInterruptMsgProc = true;
 
     condMsgProc.notify_all();
 
@@ -1412,7 +1410,7 @@ void CConnman::ThreadSocketHandler()
             }
             FD_ZERO(&fdsetSend);
             FD_ZERO(&fdsetError);
-            if (!interruptNet.sleep_for(std::chrono::milliseconds(timeout.tv_usec/1000)))
+            if (!interruptNet.sleep_for(std::chrono::microseconds(timeout.tv_usec)))
                 return;
         }
 
@@ -1801,11 +1799,8 @@ bool CConnman::OpenNetworkConnection(const CAddress& addrConnect, CSemaphoreGran
 
 void CConnman::ThreadMessageHandler()
 {
-    boost::mutex condition_mutex;
-    boost::unique_lock<boost::mutex> lock(condition_mutex);
-
     SetThreadPriority(THREAD_PRIORITY_BELOW_NORMAL);
-    while (true)
+    while (!flagInterruptMsgProc)
     {
         vector<CNode*> vNodesCopy;
         {
@@ -1833,7 +1828,7 @@ void CConnman::ThreadMessageHandler()
                 TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
                 if (lockRecv)
                 {
-                    if (!g_signals.ProcessMessages(pnode))
+                    if (!g_signals.ProcessMessages(pnode, flagInterruptMsgProc))
                         pnode->CloseSocketDisconnect();
 
                     if (pnode->nSendSize < GetSendBufferSize())
@@ -1845,15 +1840,17 @@ void CConnman::ThreadMessageHandler()
                     }
                 }
             }
-            boost::this_thread::interruption_point();
+            if (flagInterruptMsgProc)
+                return;
 
             // Send messages
             {
                 TRY_LOCK(pnode->cs_vSend, lockSend);
                 if (lockSend)
-                    g_signals.SendMessages(pnode, pnode == pnodeTrickle || pnode->fWhitelisted);
+                    g_signals.SendMessages(pnode, pnode == pnodeTrickle || pnode->fWhitelisted, flagInterruptMsgProc);
             }
-            boost::this_thread::interruption_point();
+            if (flagInterruptMsgProc)
+                return;
         }
 
         {
