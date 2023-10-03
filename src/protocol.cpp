@@ -42,31 +42,21 @@ std::string CMessageHeader::GetCommand() const
     return std::string(pchCommand, pchCommand + strnlen(pchCommand, COMMAND_SIZE));
 }
 
-bool CMessageHeader::IsValid(const MessageStartChars& pchMessageStartIn) const
+bool CMessageHeader::HasValidCommand() const
 {
-    // Check start string
-    if (memcmp(pchMessageStart, pchMessageStartIn, MESSAGE_START_SIZE) != 0)
-        return false;
-
     // Check the command string for errors
-    for (const char* p1 = pchCommand; p1 < pchCommand + COMMAND_SIZE; p1++)
+    if (pchCommand[0] < ' ' || pchCommand[0] > 0x7E) // case "== 0" is here included
+        return false;
+    bool endFound = false;
+    for (const char* p1 = pchCommand + 1; p1 < pchCommand + COMMAND_SIZE; ++p1)
     {
         if (*p1 == 0)
-        {
+            endFound = true;
+        else if (endFound)
             // Must be all zeros after the first zero
-            for (; p1 < pchCommand + COMMAND_SIZE; p1++)
-                if (*p1 != 0)
-                    return false;
-        }
+            return false;
         else if (*p1 < ' ' || *p1 > 0x7E)
             return false;
-    }
-
-    // Message size
-    if (nMessageSize > MAX_SERIALIZED_COMPACT_SIZE)
-    {
-        LogPrintf("CMessageHeader::IsValid(): (%s, %u bytes) nMessageSize > MAX_SERIALIZED_COMPACT_SIZE\n", GetCommand(), nMessageSize);
-        return false;
     }
 
     return true;
