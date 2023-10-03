@@ -62,6 +62,8 @@ public:
     unsigned int GetHeight() const { return nHeight; }
     size_t DynamicMemoryUsage() const { return nUsageSize; }
     virtual size_t GetSize() const = 0;
+    virtual const std::vector<CTxIn>& GetVin() const = 0;
+    virtual bool IsCertificate() const = 0;
 };
 
 /**
@@ -83,6 +85,8 @@ public:
     size_t GetTxSize() const { return nTxSize; }
     bool WasClearAtEntry() const { return hadNoDependencies; }
     virtual size_t GetSize() const override { return GetTxSize(); }
+    virtual const std::vector<CTxIn>& GetVin() const override { return tx.GetVin(); }
+    virtual bool IsCertificate() const override { return false; }
 };
 
 class CCertificateMemPoolEntry : public CMemPoolEntry
@@ -100,6 +104,8 @@ public:
     double GetPriority(unsigned int currentHeight) const override;
     size_t GetCertificateSize() const { return nCertificateSize; }
     virtual size_t GetSize() const override { return GetCertificateSize(); }
+    virtual const std::vector<CTxIn>& GetVin() const override { return cert.GetVin(); }
+    virtual bool IsCertificate() const override { return true; }
 };
 
 class CBlockPolicyEstimator;
@@ -241,7 +247,7 @@ public:
     std::vector<uint256> mempoolDependenciesFrom(const CTransactionBase& origTx) const;
     std::vector<uint256> mempoolDependenciesOf(const CTransactionBase& origTx) const;
 
-    CRawFeeRate avgFeeRateWithDeps(const uint256& rootTx, const bool certificatesAllowed, std::unordered_map<uint256, CRawFeeRate>& cache) const;
+    std::pair<CRawFeeRate, std::vector<uint256>> avgFeeRateWithDeps(const uint256& rootTx, const std::vector<CTxIn>& vin, const bool certificatesAllowed, std::unordered_map<uint256, CRawFeeRate>& cache) const;
 
     void remove(const CTransactionBase& origTx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive = false);
     void remove(const uint256& origTx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive = false);

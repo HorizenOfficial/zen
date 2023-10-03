@@ -6,9 +6,9 @@
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
-    start_nodes, sync_blocks,connect_nodes_bi, mark_logs, \
+    start_nodes, sync_blocks, mark_logs, download_snapshot, \
     colorize as cc
-from mempool_size_limit import load_from_storage, satoshi_round, create_tx_script
+from mempool_size_limit import load_from_storage, create_big_transaction
 from test_framework.mc_test.mc_test import *
 import os
 import zipfile
@@ -17,10 +17,7 @@ from decimal import Decimal
 DEBUG_MODE = 1
 NUMB_OF_NODES = 1
 
-CERT_FEE       = Decimal('0.00015')
-
 NODE0_LIMIT_B = 5000000
-NODE1_LIMIT_B = 4000000
 
 NODE0_CERT_LIMIT_B = NODE0_LIMIT_B / 2
 
@@ -42,16 +39,16 @@ Test replacement of transactions when certificate partition is full:
     - Add a new transaction, fee_rate = F_highest [OK, one transaction gets evicted]
 
 --------------
-feerates ratings: F_high and F_medium a evaluated at realtime, given the feerates of txs array
+feerates ratings: F_high and F_medium are evaluated at realtime, given the feerates of txs array
 
 F_highest ---   0.00020
            |
            |     \                      |- maxtxfeerate
-F_high    ---    | --> midpoint between |             ~ 0.000165
+F_high    ---    | --> midpoint between |             ~ 0.00000692
            |     /                      |- mintxfeerate
            |
            |     \                      |- mintxfeerate
-F_medium  ---    | --> midpoint between |             ~ 0.000081
+F_medium  ---    | --> midpoint between |             ~ 0.00000347
            |     /                      |- F_low
            |
 F_low     ---   ~2.245E-8
@@ -65,7 +62,8 @@ class mempool_size_limit_more(BitcoinTestFramework):
     def import_data_to_data_dir(self):
         # importing datadir resource
         # Tests checkpoint creation (during startup rescan) and usage, checks everything ok with old wallet
-        resource_file = os.sep.join([os.path.dirname(__file__), 'resources', 'mempool_size_limit', 'test_setup_.zip'])
+        snapshot_filename = 'mempool_size_limit_snapshot.zip'
+        resource_file = download_snapshot(snapshot_filename, self.options.tmpdir)
         with zipfile.ZipFile(resource_file, 'r') as zip_ref:
             zip_ref.extractall(self.options.tmpdir)
 
@@ -86,30 +84,9 @@ class mempool_size_limit_more(BitcoinTestFramework):
 
         sync_blocks(self.nodes)
 
-    def create_a_big_transaction(self, utxos):
-        txscript = create_tx_script()
-        addr = self.nodes[0].getnewaddress()
-        t = utxos.pop()
-        inputs = [{ "txid" : t["txid"], "vout" : t["vout"]}]
-        outputs = {addr: satoshi_round(t['amount'])} # This will be overwritten anyway
-        rawtx = self.nodes[0].createrawtransaction(inputs, outputs)
-        out_num_pos = rawtx.find('ffffffff')
-        script_position = rawtx.find('76a914')
-        script_length = int(rawtx[script_position - 2 : script_position], 16) * 2
-
-        newtx = rawtx[0:out_num_pos + 8]
-        newtx = newtx + txscript
-        newtx = newtx + rawtx[script_position + script_length:]
-
-        signresult = self.nodes[0].signrawtransaction(newtx, None, None, "NONE")
-        tsize = len(signresult['hex']) // 2
-        feerate = (t['amount'] - 128 * Decimal(0.00005816)) / tsize
-        txs = {'feerate': feerate, 'hex': signresult["hex"]} 
-        return txs
-
     def setup_test(self):
         txs   = load_from_storage(self.options.tmpdir + "/txs/")
-        ctxs  = load_from_storage(self.options.tmpdir + "/ctxs/")
+        ctxs  = load_from_storage(self.options.tmpdir + "/ctxs_r/")
         certs = []
         for s in range(NUM_CEASING_SIDECHAINS):
             certs.append(load_from_storage(self.options.tmpdir + f"/certs/{s}/"))
@@ -154,7 +131,7 @@ class mempool_size_limit_more(BitcoinTestFramework):
         print()
 
 
-        mark_logs("Filling tx partition with transactions having feerate > 0.00015 (F_high)", self.nodes, DEBUG_MODE, color = 'c')
+        mark_logs("Filling tx partition with transactions having feerate >= 0.00000692 (F_high)", self.nodes, DEBUG_MODE, color = 'c')
         mark_logs("Trying to be conservative and not overcome tx partition limit ", self.nodes, DEBUG_MODE, color = 'c')
         self.utxos = self.nodes[0].listunspent()
         tx_sent = 0
@@ -166,8 +143,8 @@ class mempool_size_limit_more(BitcoinTestFramework):
                 tx = txs.pop(0)
             else:
                 assert(len(self.utxos) > 0)
-                tx = self.create_a_big_transaction(self.utxos)
-            if tx['feerate'] <= Decimal('0.00015'):
+                tx = create_big_transaction(self.nodes[0], None, self.utxos.pop(), 512 * 128, (512 * 128) * Decimal("0.000008"), 0)
+            if tx['feerate'] < Decimal('0.00000692'):
                 discarded_txs += 1
                 continue
             tx_hex = tx['hex']
@@ -257,7 +234,7 @@ class mempool_size_limit_more(BitcoinTestFramework):
         print()
 
 
-        mark_logs("Sending a highest feerate transaction (F_higest = 0.0002) will result in the eviction of a low fee transaction", self.nodes, DEBUG_MODE, color = 'c')
+        mark_logs("Sending a highest feerate transaction (F_highest = 0.0002) will result in the eviction of a low fee transaction", self.nodes, DEBUG_MODE, color = 'c')
         t = utxos.pop(0)
         inputs = [{"txid" : t["txid"], "vout" : t["vout"]}]
 
