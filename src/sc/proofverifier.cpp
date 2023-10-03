@@ -196,7 +196,7 @@ void CScProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, c
         item.result = ProofVerificationResult::Unknown;
         item.node = pfrom;
         item.proofInput = cswInputProofs;
-        auto pair_ret = proofsQueue.insert(std::make_pair(scTx.GetHash(), item));
+        auto pair_ret = proofsQueue.insert({scTx.GetHash(), item});
 
         if (!pair_ret.second)
         {
@@ -266,7 +266,7 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
         {
             for (auto& cswInput : boost::get<std::vector<CCswProofVerifierInput>>(item.proofInput))
             {
-                proofIdMap.insert(std::make_pair(cswInput.proofId, proofEntry.first));
+                proofIdMap.insert({cswInput.proofId, proofEntry.first});
 
                 wrappedFieldPtr sptrScId = CFieldElement(cswInput.scId).GetFieldElement();
                 field_t* scid_fe = sptrScId.get();
@@ -311,7 +311,7 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
         else if (item.proofInput.type() == typeid(CCertProofVerifierInput))
         {
             CCertProofVerifierInput certInput = boost::get<CCertProofVerifierInput>(item.proofInput);
-            proofIdMap.insert(std::make_pair(certInput.proofId, proofEntry.first));
+            proofIdMap.insert({certInput.proofId, proofEntry.first});
 
             int custom_fields_len = certInput.vCustomFields.size(); 
             std::unique_ptr<const field_t*[]> custom_fields(new const field_t*[custom_fields_len]);

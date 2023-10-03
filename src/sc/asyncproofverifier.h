@@ -66,7 +66,15 @@ private:
 
     std::map</* Cert or Tx hash */ uint256, uint64_t> proofsInsertionMillisecondsQueue;   /**< The queue of insertion time for proofs to be verified. */ 
 
+    std::map</* Cert or Tx hash */ uint256, CProofVerifierItem> proofsInVerificationQueue;   /**< The queue of proofs being verified. */
+
+    bool discardAllProofsVerifications = false;   /**< Flag indicating if all proofs verifications has to be discard (from current execution). */
+
+    std::vector</* Cert or Tx hash */ uint256> proofsVerificationsToDiscard;   /**< The vector of proofs verifications to discard (from current execution). */
+
     CCriticalSection cs_asyncQueue;         /**< The lock to be used for entering the critical section in async mode only. */
+
+    CCriticalSection cs_asyncQueueInVerification;         /**< The lock to be used for entering the critical section in async mode only (for proofsInVerificationQueue). */
 
     // Members used for REGTEST mode only. [Start]
     AsyncProofVerifierStatistics stats;     /**< Async proof verifier statistics. */
@@ -83,7 +91,7 @@ private:
     {
     }
 
-    void ProcessVerificationOutputs(std::map</* Tx hash */ uint256, CProofVerifierItem>& proofs);
+    void ProcessVerificationOutputs();
     void UpdateStatistics(const CProofVerifierItem& item);
 };
 
@@ -147,6 +155,29 @@ public:
         return counter;
     }
 
+     /**
+     * @brief Gets the current number of certificate proofs in verification
+     * by the async proof verifier.
+     * 
+     * @return size_t The number of certificate proofs in verification.
+     */
+    size_t PendingAsyncCertProofsInVerification()
+    {
+        LOCK(CScAsyncProofVerifier::GetInstance().cs_asyncQueueInVerification);
+
+        int counter = 0;
+
+        for (auto item : CScAsyncProofVerifier::GetInstance().proofsInVerificationQueue)
+        {
+            if (item.second.proofInput.type() == typeid(CCertProofVerifierInput))
+            {
+                counter++;
+            }
+        }
+
+        return counter;
+    }
+
     /**
      * @brief Gets the current number of CSW proofs waiting to be verified
      * by the async proof verifier.
@@ -160,6 +191,29 @@ public:
         int counter = 0;
 
         for (auto item : CScAsyncProofVerifier::GetInstance().proofsQueue)
+        {
+            if (item.second.proofInput.type() == typeid(std::vector<CCswProofVerifierInput>))
+            {
+                counter++;
+            }
+        }
+
+        return counter;
+    }
+
+     /**
+     * @brief Gets the current number of CSW proofs in verification
+     * by the async proof verifier.
+     * 
+     * @return size_t The number of CSW proofs in verification.
+     */
+    size_t PendingAsyncCswProofsInVerification()
+    {
+        LOCK(CScAsyncProofVerifier::GetInstance().cs_asyncQueueInVerification);
+
+        int counter = 0;
+
+        for (auto item : CScAsyncProofVerifier::GetInstance().proofsInVerificationQueue)
         {
             if (item.second.proofInput.type() == typeid(std::vector<CCswProofVerifierInput>))
             {
@@ -187,7 +241,10 @@ public:
     {
         CScAsyncProofVerifier& verifier = CScAsyncProofVerifier::GetInstance();
 
-        verifier.stats = AsyncProofVerifierStatistics();
+        {
+            LOCK(verifier.cs_asyncQueueInVerification);
+            verifier.stats = AsyncProofVerifierStatistics();
+        }
     }
 
     /**
@@ -203,6 +260,8 @@ public:
             {
                 if (proofsToClear.size() == 0)
                 {
+                    LogPrint("cert", "%s():%d - %d proofs cleared from async verification queue\n",
+                             __func__, __LINE__, verifier.proofsQueue.size());
                     verifier.proofsQueue.clear();
                     verifier.proofsInsertionMillisecondsQueue.clear();
                     assert(verifier.proofsQueue.size() == 0);
@@ -212,10 +271,38 @@ public:
                 {
                     for (auto proofToClear : proofsToClear)
                     {
+                        LogPrint("cert", "%s():%d - %s proofs cleared from async verification queue\n",
+                                 __func__, __LINE__, proofToClear.ToString());
                         verifier.proofsQueue.erase(proofToClear);
                         verifier.proofsInsertionMillisecondsQueue.erase(proofToClear);
                     }
                     assert(verifier.proofsQueue.size() == verifier.proofsInsertionMillisecondsQueue.size());
+                }
+            }
+        }
+    }
+
+    /**
+     * @brief Discards proof verification results from the current async verification
+     */
+    void DiscardFromCurrentVerification(const std::vector<uint256>& proofsVerificationsToDiscard = std::vector<uint256>())
+    {
+        CScAsyncProofVerifier& verifier = CScAsyncProofVerifier::GetInstance();
+
+        {
+            LOCK(verifier.cs_asyncQueueInVerification);
+            if (verifier.proofsInVerificationQueue.size() > 0)
+            {
+                if (proofsVerificationsToDiscard.size() == 0)
+                {
+                    verifier.discardAllProofsVerifications = true;
+                }
+                else
+                {
+                    for (auto proofToDiscard : proofsVerificationsToDiscard)
+                    {
+                        verifier.proofsVerificationsToDiscard.push_back(proofToDiscard);
+                    }
                 }
             }
         }
@@ -234,13 +321,17 @@ public:
 
     }
 
-private:
-    TEST_FRIEND_CScAsyncProofVerifier()
+    void DisableMempoolCallback()
     {
         // Disables the call to AcceptToMemory pool from the async proof verifier when performing unit tests (not python ones).
         CScAsyncProofVerifier::GetInstance().mempoolCallback = [](const CTransactionBase&, CNode*, BatchVerificationStateFlag, CValidationState&){};
     }
 
+private:
+    TEST_FRIEND_CScAsyncProofVerifier()
+    {
+    }
+    
     CZendooLowPrioThreadGuard* lowPrioThreadGuard = NULL;
 };
 
