@@ -129,7 +129,7 @@ class sc_proof_verification_manager(BitcoinTestFramework):
         print("Checking mempools and stats after waiting enough time")
         assert_equal(self.nodes[0].getmempoolinfo()["size"], 0)
         assert_equal(self.nodes[1].getmempoolinfo()["size"], 0)
-        node1_stats = self.nodes[1].getproofverifierstats()
+        node1_stats = self.nodes[1].getasyncproofverifierstats()
         assert_equal(node1_stats["pendingCerts"] + node1_stats["pendingCSWs"] +
                      node1_stats["pendingCertsInVerification"] + node1_stats["pendingCSWsInVerification"], 0)
         assert_equal(node1_stats["failedCerts"] + node1_stats["failedCSWs"] +
@@ -166,7 +166,7 @@ class sc_proof_verification_manager(BitcoinTestFramework):
         print("Checking mempools and stats after waiting enough time")
         assert_equal(self.nodes[0].getmempoolinfo()["size"], 0)
         assert_equal(self.nodes[1].getmempoolinfo()["size"], 0)
-        node1_stats = self.nodes[1].getproofverifierstats()
+        node1_stats = self.nodes[1].getasyncproofverifierstats()
         assert_equal(node1_stats["pendingCerts"] + node1_stats["pendingCSWs"] +
                      node1_stats["pendingCertsInVerification"] + node1_stats["pendingCSWsInVerification"], 0)
         assert_equal(node1_stats["failedCerts"] + node1_stats["failedCSWs"] +
@@ -195,7 +195,7 @@ class sc_proof_verification_manager(BitcoinTestFramework):
 
         print("Checking mempools and stats after waiting enough time")
         # the stats for node1 are expected to be all null because the certificate has been synchronously verified
-        node1_stats = self.nodes[1].getproofverifierstats()
+        node1_stats = self.nodes[1].getasyncproofverifierstats()
         assert_equal(node1_stats["pendingCerts"] + node1_stats["pendingCSWs"] +
                      node1_stats["pendingCertsInVerification"] + node1_stats["pendingCSWsInVerification"], 0)
         assert_equal(node1_stats["failedCerts"] + node1_stats["failedCSWs"] +
@@ -324,7 +324,7 @@ class sc_proof_verification_manager(BitcoinTestFramework):
 
     def wait_for_proofs(self, node, wait_on_type, quantity = 1):
         for i in range(6000): # one minute at worst (0.01 * 6000 = 60)
-            node_stats = node.getproofverifierstats()
+            node_stats = node.getasyncproofverifierstats()
             if (wait_on_type == WAIT_ON_PENDING_PROOFS):
                 if (node_stats["pendingCerts"] + node_stats["pendingCSWs"] == quantity):
                     print(f"{quantity} proofs scheduled for verification on node async proof verifier")

@@ -334,7 +334,7 @@ extern UniValue listaddresses(const UniValue& params, bool fHelp); // in rpcwall
 extern UniValue dbg_log(const UniValue &params, bool fHelp); // print a line in debug.log
 extern UniValue dbg_do(const UniValue &params, bool fHelp); // does a dbg hard coded task
 
-extern UniValue getproofverifierstats(const UniValue& params, bool fHelp); // in blockchain.cpp
+extern UniValue getasyncproofverifierstats(const UniValue& params, bool fHelp); // in blockchain.cpp
 extern UniValue setproofverifierlowpriorityguard(const UniValue& params, bool fHelp); // in blockchain.cpp
 
 bool StartRPC();

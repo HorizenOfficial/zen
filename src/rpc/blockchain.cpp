@@ -2495,20 +2495,19 @@ UniValue dbg_do(const UniValue& params, bool fHelp)
 }
 
 /**
- * @brief Retrieves the statistics about the sidechain proof verifier, for instance
- * the number of accepted and failed verifications, the number of pending
- * proofs, etc.
+ * @brief Retrieves the statistics about the sidechain async proof verifier, for instance
+ * the number of accepted and failed verifications, the number of pending proofs, etc.
  */
-UniValue getproofverifierstats(const UniValue& params, bool fHelp)
+UniValue getasyncproofverifierstats(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
     {
         throw runtime_error(
-            "getproofverifierstats\n"
+            "getasyncproofverifierstats\n"
             "\nCollects statistics about the sidechain proof verification system.\n"
             "\nExamples:\n"
-            + HelpExampleCli("getproofverifierstats", "")
-            + HelpExampleRpc("getproofverifierstats", "")
+            + HelpExampleCli("getasyncproofverifierstats", "")
+            + HelpExampleRpc("getasyncproofverifierstats", "")
         );
     }
 

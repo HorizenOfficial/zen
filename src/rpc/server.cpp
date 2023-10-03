@@ -294,7 +294,7 @@ static const CRPCCommand vRPCCommands[] =
     { "control",            "getactivecertdatahash",  &getactivecertdatahash,  true  },
     { "control",            "getceasingcumsccommtreehash", &getceasingcumsccommtreehash, true  },
     { "control",            "getscgenesisinfo",       &getscgenesisinfo,       true  },
-    { "control",            "getproofverifierstats",  &getproofverifierstats,  true  },
+    { "control",            "getasyncproofverifierstats",  &getasyncproofverifierstats,  true  },
     { "control",            "setproofverifierlowpriorityguard",  &setproofverifierlowpriorityguard,  true  },
 
     /* P2P networking */

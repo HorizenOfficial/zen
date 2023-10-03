@@ -408,8 +408,8 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
         assert_true(final_raw_tx in self.nodes[1].getrawmempool())
 
         # Get the current async proof verifier statistics
-        node0_initial_stats = self.nodes[0].getproofverifierstats()
-        node1_initial_stats = self.nodes[1].getproofverifierstats()
+        node0_initial_stats = self.nodes[0].getasyncproofverifierstats()
+        node1_initial_stats = self.nodes[1].getasyncproofverifierstats()
 
         # Generate one block containing the last CSW transaction (currently in the mempool)
         mark_logs("Generate one block...", self.nodes, DEBUG_MODE)
@@ -425,8 +425,8 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
         # by comparing its current statistics with the initial ones.
         # This way we are also sure that it has not been called by 'CreateNewBlock()'
         # since we generated a block to include the CSW transaction.
-        assert_equal(node0_initial_stats, self.nodes[0].getproofverifierstats())
-        assert_equal(node1_initial_stats, self.nodes[1].getproofverifierstats())
+        assert_equal(node0_initial_stats, self.nodes[0].getasyncproofverifierstats())
+        assert_equal(node1_initial_stats, self.nodes[1].getasyncproofverifierstats())
 
         # Disconnect one block
         mark_logs("Disconnect one block...", self.nodes, DEBUG_MODE)
@@ -441,8 +441,8 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
 
         # Check that the async proof verifier has not been called by 'DisconnectTip()'
         # by comparing its current statistics with the initial ones.
-        assert_equal(node0_initial_stats, self.nodes[0].getproofverifierstats())
-        assert_equal(node1_initial_stats, self.nodes[1].getproofverifierstats())
+        assert_equal(node0_initial_stats, self.nodes[0].getasyncproofverifierstats())
+        assert_equal(node1_initial_stats, self.nodes[1].getasyncproofverifierstats())
 
 
 if __name__ == '__main__':
