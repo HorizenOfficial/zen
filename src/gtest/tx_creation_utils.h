@@ -207,7 +207,6 @@ public:
     // SIDECHAIN HELPERS
     CScCertificate GenerateCertificate(uint256 scId, int epochNumber, int64_t quality, ProvingSystem provingSystem, CTransactionBase* inputTxBase = nullptr) const;
     void GenerateSidechainTestParameters(ProvingSystem provingSystem, TestCircuitType circuitType, bool key_rotation) const;
-    CSidechain GenerateSidechain();
     CScProof GenerateTestCertificateProof(CCertProofVerifierInput certificate, ProvingSystem provingSystem, TestCircuitType circuitType = TestCircuitType::Certificate) const;
     CScProof GenerateTestCswProof(CCswProofVerifierInput csw, ProvingSystem provingSystem, TestCircuitType circuitType = TestCircuitType::CSW) const;
     CScVKey GetTestVerificationKey(ProvingSystem provingSystem, TestCircuitType circuitType) const;

@@ -170,6 +170,7 @@ class CreateNewBlockSuite : public ::testing::Test {
     
     void SetUp() override {
         //Setup environment
+        // UnloadBlockIndex();
         SelectParams(CBaseChainParams::REGTEST);
 
         mempool.reset(new CTxMemPool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000));
@@ -190,7 +191,10 @@ class CreateNewBlockSuite : public ::testing::Test {
     }
 
     void TearDown() override {
-        chainActive.SetTip(nullptr);
+        // chainActive.SetTip(nullptr);
+        UnloadBlockIndex();
+        mGlobalForkTips.clear();
+
     }
 };
 
@@ -229,16 +233,10 @@ TEST_F(CreateNewBlockSuite, CreateNewBlock_1tx)
 
     pblocktemplate = CreateNewBlock(scriptPubKey);
     ASSERT_NE(pblocktemplate, nullptr);
+    ASSERT_EQ(pblocktemplate->block.vtx.size(), 1);
     delete pblocktemplate;
     mempool->clear();
 }
-
-const std::vector<unsigned char> SAMPLE_FIELD = {
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x3f
-};
 
 TEST_F(CreateNewBlockSuite, CreateNewBlock_1cert)
 {
@@ -250,7 +248,6 @@ TEST_F(CreateNewBlockSuite, CreateNewBlock_1cert)
     }
     pcoinsTip = nakedView.get();
 
-    CSidechain sidechain = blockchain.GenerateSidechain();
 
     const std::string scid("cccc");
     uint256 sidechainId;
@@ -266,21 +263,31 @@ TEST_F(CreateNewBlockSuite, CreateNewBlock_1cert)
     chainActive.SetTip(&blockIndex1);
     assert(chainActive.Tip());
 
+    // blockchain.InitSidechainParameters();
+    const ProvingSystem testProvingSystem = ProvingSystem::CoboundaryMarlin;
+    blockchain.GenerateSidechainTestParameters(testProvingSystem, TestCircuitType::Certificate, false);
+
+    CSidechain sidechain = blockchain.GenerateSidechain(sidechainId, 0);
+
+    sidechain.fixedParams.withdrawalEpochLength = 1;
     // Store the test sidechain and extend the blockchain to complete at least one epoch. 
     blockchain.StoreSidechainWithCurrentHeight(sidechainId, sidechain, sidechain.creationBlockHeight + sidechain.fixedParams.withdrawalEpochLength);
-    CSidechainsCacheEntry cacheEntry(sidechain, CMutableSidechainCacheEntry::Flags::DEFAULT);
-    nakedView->getSidechainMap().emplace(sidechainId, cacheEntry);
-    nakedView->SetBestBlock(chainActive.Tip()->GetBlockHash());
+    // CSidechainsCacheEntry cacheEntry(sidechain, CMutableSidechainCacheEntry::Flags::DEFAULT);
+    // nakedView->getSidechainMap().emplace(sidechainId, cacheEntry);
+    // nakedView->SetBestBlock(chainActive.Tip()->GetBlockHash());
 
     CBlockTemplate *pblocktemplate;
     CScript scriptPubKey = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
-    CMutableScCertificate cert = CreateCertificate(sidechainId, 5);
+    CMutableScCertificate cert = blockchain.GenerateCertificate(sidechainId, 0, 5, testProvingSystem);//CreateCertificate(sidechainId, 5);
 
     uint256 hash1 = cert.GetHash();
     mempool->addUnchecked(hash1, CCertificateMemPoolEntry(cert, 11, GetTime(), 111.0, 11));
 
     pblocktemplate = CreateNewBlock(scriptPubKey);
     ASSERT_NE(pblocktemplate, nullptr);
+    ASSERT_EQ(pblocktemplate->block.vtx.size(), 1);
+    // IS THIS CERTIFACTE THREATED AS TRANSACTION?
+    ASSERT_EQ(pblocktemplate->block.vcert.size(), 1);
     delete pblocktemplate;
     mempool->clear();
 }
@@ -306,25 +313,25 @@ TEST_F(CreateNewBlockSuite, CreateNewBlock_sorting_certs)
     assert(chainActive.Tip());
 
     uint256 sidechain1Id = uint256S("1");
-    CSidechain sidechain1 = blockchain.GenerateSidechain();
+    CSidechain sidechain1 = blockchain.GenerateSidechain(sidechain1Id, 1);
 
     // Store the test sidechain and extend the blockchain to complete at least one epoch. 
-    blockchain.StoreSidechainWithCurrentHeight(sidechain1Id, sidechain1, sidechain1.creationBlockHeight + sidechain1.fixedParams.withdrawalEpochLength);
+    blockchain.StoreSidechainWithCurrentHeight(sidechain1Id, sidechain1, sidechain1.creationBlockHeight + 5);
     CSidechainsCacheEntry cacheEntry1(sidechain1, CMutableSidechainCacheEntry::Flags::DEFAULT);
     nakedView->getSidechainMap().emplace(sidechain1Id, cacheEntry1);
 
     uint256 sidechain2Id = uint256S("2");
-    CSidechain sidechain2 = blockchain.GenerateSidechain();
+    CSidechain sidechain2 = blockchain.GenerateSidechain(sidechain2Id, 1);
 
     // Store the test sidechain and extend the blockchain to complete at least one epoch. 
-    blockchain.StoreSidechainWithCurrentHeight(sidechain2Id, sidechain2, sidechain1.creationBlockHeight + sidechain2.fixedParams.withdrawalEpochLength);
-    CSidechainsCacheEntry cacheEntry2(sidechain2, CMutableSidechainCacheEntry::Flags::DEFAULT);
-    nakedView->getSidechainMap().emplace(sidechain2Id, cacheEntry2);
+    blockchain.StoreSidechainWithCurrentHeight(sidechain2Id, sidechain2, sidechain1.creationBlockHeight + 5);
+    // CSidechainsCacheEntry cacheEntry2(sidechain2, CMutableSidechainCacheEntry::Flags::DEFAULT);
+    // nakedView->getSidechainMap().emplace(sidechain2Id, cacheEntry2);
 
     //cert{scid}_{id}
-    CMutableScCertificate cert1_1 = CreateCertificate(sidechain1Id, 5);
-    CMutableScCertificate cert1_2 = CreateCertificate(sidechain1Id, 15);
-    CMutableScCertificate cert2_1 = CreateCertificate(sidechain2Id, 5);
+    CMutableScCertificate cert1_1 = blockchain.GenerateCertificate(sidechain1Id, 0, 5, ProvingSystem::CoboundaryMarlin, nullptr);//CreateCertificate(sidechain1Id, 5);
+    CMutableScCertificate cert1_2 = blockchain.GenerateCertificate(sidechain1Id, 0, 15, ProvingSystem::CoboundaryMarlin, nullptr);
+    CMutableScCertificate cert2_1 = blockchain.GenerateCertificate(sidechain2Id, 0, 5, ProvingSystem::CoboundaryMarlin, nullptr);
 
     mempool->addUnchecked(cert1_2.GetHash(), CCertificateMemPoolEntry(cert1_2, 2, GetTime(), 111.0, 11));
     mempool->addUnchecked(cert2_1.GetHash(), CCertificateMemPoolEntry(cert2_1, 11, GetTime(), 111.0, 11));
@@ -335,344 +342,8 @@ TEST_F(CreateNewBlockSuite, CreateNewBlock_sorting_certs)
     CBlockTemplate *pblocktemplate;
     pblocktemplate = CreateNewBlock(scriptPubKey);
     ASSERT_NE(pblocktemplate, nullptr);
+    ASSERT_EQ(pblocktemplate->block.vtx.size(), 3);
+    ASSERT_EQ(pblocktemplate->block.vcert.size(), 0);
     delete pblocktemplate;
     mempool->clear();
-}
-
-// TODO: Regenerate miner tests after launch
-// NOTE: These tests rely on CreateNewBlock doing its own self-validation!
-TEST_F(CreateNewBlockSuite, CreateNewBlock_validity)
-{
-    GTEST_SKIP() << "Test takes too long time due to mining";
-    CScript scriptPubKey = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
-    CBlockTemplate *pblocktemplate;
-    CMutableTransaction tx,tx2;
-    CScript script;
-    uint256 hash;
-    bool fCoinbaseEnforcedProtectionEnabled = false;
-    {
-        LOCK(cs_main);
-        fCheckpointsEnabled = false;
-    }
-    // We can't make transactions until we have inputs
-    // Therefore, load 100 blocks :)
-    std::vector<CTransaction*>txFirst;
-    for (unsigned int i = 0; i < sizeof(blockinfo)/sizeof(*blockinfo); ++i)
-    {
-        // Simple block creation, nothing special yet:
-        assert(pblocktemplate = CreateNewBlock(scriptPubKey));
-
-        CBlock *pblock = &pblocktemplate->block; // pointer for convenience
-        pblock->nVersion = 4;
-        // Fake the blocks taking at least nPowTargetSpacing to be mined.
-        // GetMedianTimePast() returns the median of 11 blocks, so the timestamp
-        // of the next block must be six spacings ahead of that to be at least
-        // one spacing ahead of the tip. Within 11 blocks of genesis, the median
-        // will be closer to the tip, and blocks will appear slower.
-        pblock->nTime = chainActive.Tip()->GetMedianTimePast()+6*Params().GetConsensus().nPowTargetSpacing;
-        CMutableTransaction txCoinbase(pblock->vtx[0]);
-        txCoinbase.nVersion = 1;
-        txCoinbase.vin[0].scriptSig = CScript() << (chainActive.Height()+1) << OP_0;
-        // txCoinbase.vout[0].scriptPubKey = CScript();
-        pblock->vtx[0] = CTransaction(txCoinbase);
-        if (txFirst.size() < 2)
-            txFirst.push_back(new CTransaction(pblock->vtx[0]));
-        pblock->hashMerkleRoot = pblock->BuildMerkleTree();
-        pblock->nNonce = uint256S(blockinfo[i].nonce_hex);
-        pblock->nSolution = ParseHex(blockinfo[i].solution_hex);
-
-
-        {
-        arith_uint256 try_nonce(0);
-        unsigned int n = Params().EquihashN();
-        unsigned int k = Params().EquihashK();
-
-        // Hash state
-        crypto_generichash_blake2b_state eh_state;
-        EhInitialiseState(n, k, eh_state);
-
-        // I = the block header minus nonce and solution.
-        CEquihashInput I{*pblock};
-        CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-        ss << I;
-
-        // H(I||...
-        crypto_generichash_blake2b_update(&eh_state, (unsigned char*)&ss[0], ss.size());
-
-        while (true) {
-            pblock->nNonce = ArithToUint256(try_nonce);
-
-            // H(I||V||...
-            crypto_generichash_blake2b_state curr_state;
-            curr_state = eh_state;
-            crypto_generichash_blake2b_update(&curr_state,
-                                              pblock->nNonce.begin(),
-                                              pblock->nNonce.size());
-
-            // Create solver and initialize it.
-            equi eq(1);
-            eq.setstate(&curr_state);
-
-            // Intialization done, start algo driver.
-            eq.digit0(0);
-            eq.xfull = eq.bfull = eq.hfull = 0;
-            eq.showbsizes(0);
-            for (u32 r = 1; r < WK; r++) {
-                (r&1) ? eq.digitodd(r, 0) : eq.digiteven(r, 0);
-                eq.xfull = eq.bfull = eq.hfull = 0;
-                eq.showbsizes(r);
-            }
-            eq.digitK(0);
-
-            // Convert solution indices to byte array (decompress) and pass it to validBlock method.
-            std::set<std::vector<unsigned char>> solns;
-            for (size_t s = 0; s < eq.nsols; s++) {
-                LogPrint("pow", "Checking solution %d\n", s+1);
-                std::vector<eh_index> index_vector(PROOFSIZE);
-                for (size_t i = 0; i < PROOFSIZE; i++) {
-                    index_vector[i] = eq.sols[s][i];
-                }
-                std::vector<unsigned char> sol_char = GetMinimalFromIndices(index_vector, DIGITBITS);
-                solns.insert(sol_char);
-            }
-
-            bool ret;
-            for (auto soln : solns) {
-                EhIsValidSolution(n, k, curr_state, soln, ret);
-                if (!ret) continue;
-                pblock->nSolution = soln;
-
-                CValidationState state;
-                
-                if (ProcessNewBlock(state, NULL, pblock, true, NULL) && state.IsValid()) {
-                    goto foundit;
-                }
-
-                //std::cout << state.GetRejectReason() << std::endl;
-            }
-
-            try_nonce += 1;
-        }
-        foundit:
-
-            std::cout << "    {\"" << pblock->nNonce.GetHex() << "\", \"";
-            std::cout << HexStr(pblock->nSolution.begin(), pblock->nSolution.end());
-            std::cout << "\"}," << std::endl;
-
-        }
-
-        CValidationState state;
-        assert(ProcessNewBlock(state, NULL, pblock, true, NULL));
-        ASSERT_TRUE(state.IsValid()) << state.GetRejectReason();
-        pblock->hashPrevBlock = pblock->GetHash();
-
-        // Need to recreate the template each round because of mining slow start
-        delete pblocktemplate;
-    }
-
-    // Just to make sure we can still make simple blocks
-    assert(pblocktemplate = CreateNewBlock(scriptPubKey));
-    delete pblocktemplate;
-
-    // block sigops > limit: 1000 CHECKMULTISIG + 1
-    tx.vin.resize(1);
-    // NOTE: OP_NOP is used to force 20 SigOps for the CHECKMULTISIG
-    tx.vin[0].scriptSig = CScript() << OP_0 << OP_0 << OP_0 << OP_NOP << OP_CHECKMULTISIG << OP_1;
-    tx.vin[0].prevout.hash = txFirst[0]->GetHash();
-    tx.vin[0].prevout.n = 0;
-    // tx.vout.resize(1);
-    // tx.vout[0].nValue = 50000LL;
-    for (unsigned int i = 0; i < 1001; ++i)
-    {
-        // tx.vout[0].nValue -= 10;
-        hash = tx.GetHash();
-        mempool->addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
-        tx.vin[0].prevout.hash = hash;
-    }
-    assert(pblocktemplate = CreateNewBlock(scriptPubKey));
-    delete pblocktemplate;
-    mempool->clear();
-
-    // block size > limit
-    tx.vin[0].scriptSig = CScript();
-    // 18 * (520char + DROP) + OP_1 = 9433 bytes
-    std::vector<unsigned char> vchData(520);
-    for (unsigned int i = 0; i < 18; ++i)
-        tx.vin[0].scriptSig << vchData << OP_DROP;
-    tx.vin[0].scriptSig << OP_1;
-    tx.vin[0].prevout.hash = txFirst[0]->GetHash();
-    // tx.vout[0].nValue = 50000LL;
-    for (unsigned int i = 0; i < 128; ++i)
-    {
-        // tx.vout[0].nValue -= 350;
-        hash = tx.GetHash();
-        mempool->addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
-        tx.vin[0].prevout.hash = hash;
-    }
-    assert(pblocktemplate = CreateNewBlock(scriptPubKey));
-    delete pblocktemplate;
-    mempool->clear();
-
-    // orphan in mempool
-    hash = tx.GetHash();
-    mempool->addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
-    assert(pblocktemplate = CreateNewBlock(scriptPubKey));
-    delete pblocktemplate;
-    mempool->clear();
-
-    // child with higher priority than parent
-    tx.vin[0].scriptSig = CScript() << OP_1;
-    tx.vin[0].prevout.hash = txFirst[1]->GetHash();
-    // tx.vout[0].nValue = 39000LL;
-    hash = tx.GetHash();
-    mempool->addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
-    tx.vin[0].prevout.hash = hash;
-    tx.vin.resize(2);
-    tx.vin[1].scriptSig = CScript() << OP_1;
-    tx.vin[1].prevout.hash = txFirst[0]->GetHash();
-    tx.vin[1].prevout.n = 0;
-    // tx.vout[0].nValue = 49000LL;
-    hash = tx.GetHash();
-    mempool->addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
-    assert(pblocktemplate = CreateNewBlock(scriptPubKey));
-    delete pblocktemplate;
-    mempool->clear();
-
-    // coinbase in mempool
-    tx.vin.resize(1);
-    tx.vin[0].prevout.SetNull();
-    tx.vin[0].scriptSig = CScript() << OP_0 << OP_1;
-    // tx.vout[0].nValue = 0;
-    hash = tx.GetHash();
-    mempool->addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
-    assert(pblocktemplate = CreateNewBlock(scriptPubKey));
-    delete pblocktemplate;
-    mempool->clear();
-
-    // invalid (pre-p2sh) txn in mempool
-    tx.vin[0].prevout.hash = txFirst[0]->GetHash();
-    tx.vin[0].prevout.n = 0;
-    tx.vin[0].scriptSig = CScript() << OP_1;
-    // tx.vout[0].nValue = 49000LL;
-    script = CScript() << OP_0;
-    // tx.vout[0].scriptPubKey = GetScriptForDestination(CScriptID(script));
-    hash = tx.GetHash();
-    mempool->addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
-    tx.vin[0].prevout.hash = hash;
-    tx.vin[0].scriptSig = CScript() << (std::vector<unsigned char>)script;
-    // tx.vout[0].nValue -= 10000;
-    hash = tx.GetHash();
-    mempool->addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
-    assert(pblocktemplate = CreateNewBlock(scriptPubKey));
-    delete pblocktemplate;
-    mempool->clear();
-
-    // double spend txn pair in mempool
-    tx.vin[0].prevout.hash = txFirst[0]->GetHash();
-    tx.vin[0].scriptSig = CScript() << OP_1;
-    // tx.vout[0].nValue = 49000LL;
-    // tx.vout[0].scriptPubKey = CScript() << OP_1;
-    hash = tx.GetHash();
-    mempool->addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
-    // tx.vout[0].scriptPubKey = CScript() << OP_2;
-    hash = tx.GetHash();
-    mempool->addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
-    assert(pblocktemplate = CreateNewBlock(scriptPubKey));
-    delete pblocktemplate;
-    mempool->clear();
-
-    // subsidy changing
-    int nHeight = chainActive.Height();
-    // Create an actual 209999-long block chain (without valid blocks).
-    while (chainActive.Tip()->nHeight < 209999) {
-        CBlockIndex* prev = chainActive.Tip();
-        CBlockIndex* next = new CBlockIndex();
-        next->phashBlock = new uint256(GetRandHash());
-        pcoinsTip->SetBestBlock(next->GetBlockHash());
-        next->pprev = prev;
-        next->nHeight = prev->nHeight + 1;
-        next->BuildSkip();
-        chainActive.SetTip(next);
-    }
-    assert(pblocktemplate = CreateNewBlock(scriptPubKey));
-    delete pblocktemplate;
-    // Extend to a 210000-long block chain.
-    while (chainActive.Tip()->nHeight < 210000) {
-        CBlockIndex* prev = chainActive.Tip();
-        CBlockIndex* next = new CBlockIndex();
-        next->phashBlock = new uint256(GetRandHash());
-        pcoinsTip->SetBestBlock(next->GetBlockHash());
-        next->pprev = prev;
-        next->nHeight = prev->nHeight + 1;
-        next->BuildSkip();
-        chainActive.SetTip(next);
-    }
-    assert(pblocktemplate = CreateNewBlock(scriptPubKey));
-    delete pblocktemplate;
-    // Delete the dummy blocks again.
-    while (chainActive.Tip()->nHeight > nHeight) {
-        CBlockIndex* del = chainActive.Tip();
-        chainActive.SetTip(del->pprev);
-        pcoinsTip->SetBestBlock(del->pprev->GetBlockHash());
-        delete del->phashBlock;
-        delete del;
-    }
-
-    // non-final txs in mempool
-    SetMockTime(chainActive.Tip()->GetMedianTimePast()+1);
-
-    // height locked
-    tx.vin[0].prevout.hash = txFirst[0]->GetHash();
-    tx.vin[0].scriptSig = CScript() << OP_1;
-    tx.vin[0].nSequence = 0;
-    tx.resizeOut(1);
-    CTxOut out(49000LL, CScript() << OP_1);
-    tx.addOut(out);
-    tx.nLockTime = chainActive.Tip()->nHeight+1;
-    hash = tx.GetHash();
-    mempool->addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
-    assert(!CheckFinalTx(tx, LOCKTIME_MEDIAN_TIME_PAST));
-
-    // time locked
-    tx2.vin.resize(1);
-    tx2.vin[0].prevout.hash = txFirst[1]->GetHash();
-    tx2.vin[0].prevout.n = 0;
-    tx2.vin[0].scriptSig = CScript() << OP_1;
-    tx2.vin[0].nSequence = 0;
-    tx2.resizeOut(1);
-    CTxOut out2(79000LL, CScript() << OP_1);
-    tx2.addOut(out2);
-    tx2.nLockTime = chainActive.Tip()->GetMedianTimePast()+1;
-    hash = tx2.GetHash();
-    mempool->addUnchecked(hash, CTxMemPoolEntry(tx2, 11, GetTime(), 111.0, 11));
-    assert(!CheckFinalTx(tx2, LOCKTIME_MEDIAN_TIME_PAST));
-
-    assert(pblocktemplate = CreateNewBlock(scriptPubKey));
-
-    // Neither tx should have make it into the template.
-    EXPECT_EQ(pblocktemplate->block.vtx.size(), 1);
-    delete pblocktemplate;
-
-    // However if we advance height and time by one, both will.
-    chainActive.Tip()->nHeight++;
-    SetMockTime(chainActive.Tip()->GetMedianTimePast()+2);
-
-    // FIXME: we should *actually* create a new block so the following test
-    //        works; CheckFinalTx() isn't fooled by monkey-patching nHeight.
-    //assert(CheckFinalTx(tx));
-    //assert(CheckFinalTx(tx2));
-
-    assert(pblocktemplate = CreateNewBlock(scriptPubKey));
-    EXPECT_EQ(pblocktemplate->block.vtx.size(), 2);
-    delete pblocktemplate;
-
-    chainActive.Tip()->nHeight--;
-    SetMockTime(0);
-    mempool->clear();
-
-    BOOST_FOREACH(CTransaction *tx, txFirst)
-        delete tx;
-
-    fCheckpointsEnabled = true;
-    fCoinbaseEnforcedProtectionEnabled = true;
 }

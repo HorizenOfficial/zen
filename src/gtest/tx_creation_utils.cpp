@@ -668,7 +668,7 @@ MempoolReturnValue BlockchainTestManager::TestAcceptTxToMemoryPool(CValidationSt
 {
     CCoinsViewCache* saved_pcoinsTip = pcoinsTip;
 
-    mempool.reset(new CTxMemPool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000));
+    std::unique_ptr<CTxMemPool> pool(new CTxMemPool(::minRelayTxFee, DEFAULT_MAX_MEMPOOL_SIZE_MB * 1000000));
     pcoinsTip = viewCache.get();
     pcoinsTip->SetBestBlock(chainActive.Tip()->GetBlockHash());
     pindexBestHeader = chainActive.Tip();
@@ -676,7 +676,7 @@ MempoolReturnValue BlockchainTestManager::TestAcceptTxToMemoryPool(CValidationSt
     CCoinsViewCache view(pcoinsTip);
 
     LOCK(cs_main);
-    MempoolReturnValue val = AcceptTxToMemoryPool(*mempool, state, tx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, MempoolProofVerificationFlag::SYNC);
+    MempoolReturnValue val = AcceptTxToMemoryPool(*pool, state, tx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, MempoolProofVerificationFlag::SYNC);
 
     pcoinsTip = saved_pcoinsTip;
 
@@ -700,7 +700,7 @@ CScCertificate BlockchainTestManager::GenerateCertificate(uint256 scId, int epoc
     CAmount inputAmount{20};
     CAmount dummyNonZeroFee {10};
     CAmount changeTotalAmount = inputAmount - dummyNonZeroFee;
-    CAmount bwtTotalAmount {0};
+    CAmount bwtTotalAmount {10};
     unsigned int numChangeOut = 1;
     unsigned int numBwt = 2;
 
@@ -762,21 +762,6 @@ void BlockchainTestManager::GenerateSidechainTestParameters(ProvingSystem provin
                                    tempFolderPath.string().size(),
                                    &errorCode
                                    );
-}
-
-CSidechain BlockchainTestManager::GenerateSidechain() {
-    CSidechain sidechain;
-    sidechain.creationBlockHeight = 100;
-    sidechain.fixedParams.withdrawalEpochLength = 20;
-    sidechain.fixedParams.constant = CFieldElement{SAMPLE_FIELD};
-    sidechain.fixedParams.version = 0;
-    sidechain.lastTopQualityCertHash = uint256S("c22c");
-    sidechain.lastTopQualityCertQuality = 100;
-    sidechain.lastTopQualityCertReferencedEpoch = -1;
-    sidechain.lastTopQualityCertBwtAmount = 50;
-    sidechain.balance = CAmount(100);
-
-    return sidechain;
 }
 
 /**
@@ -931,8 +916,8 @@ CSidechain BlockchainTestManager::GenerateSidechain(uint256 scId, uint8_t versio
     CSidechain sc;
     sc.fixedParams.version = version;
     sc.fixedParams.constant = CFieldElement{SAMPLE_FIELD};
-    sc.fixedParams.wCertVk = GetTestVerificationKey(ProvingSystem::CoboundaryMarlin, TestCircuitType::CertificateNoConstant);
-    sc.fixedParams.wCeasedVk = GetTestVerificationKey(ProvingSystem::CoboundaryMarlin, TestCircuitType::CSWNoConstant);
+    sc.fixedParams.wCertVk = GetTestVerificationKey(ProvingSystem::CoboundaryMarlin, TestCircuitType::Certificate);
+    sc.fixedParams.wCeasedVk = GetTestVerificationKey(ProvingSystem::CoboundaryMarlin, TestCircuitType::CSW);
     return sc;
 }
 
@@ -1184,9 +1169,7 @@ sc_pk_t* BlockchainTestManager::GetTestProvingKey(ProvingSystem provingSystem, T
 void BlockchainTestManager::InitCoinGeneration()
 {
     coinsKey.MakeNewKey(true);
-    keystore.clearAll();
     keystore.AddKey(coinsKey);
-    coinsScript.clear();
     coinsScript << OP_DUP << OP_HASH160 << ToByteVector(coinsKey.GetPubKey().GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
 }
 
