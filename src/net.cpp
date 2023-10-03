@@ -682,10 +682,8 @@ bool CNode::ReceiveMsgBytes(const char *pch, unsigned int nBytes)
             handled = msg.readData(pch, nBytes);
 
         if (handled < 0)
-                return false;
-
-        if (msg.in_data && msg.hdr.nMessageSize > MAX_PROTOCOL_MESSAGE_LENGTH) {
-            LogPrint("net", "Oversized message from peer=%i, disconnecting\n", GetId());
+        {
+            LogPrint("net", "Invalid %s from peer=%i, disconnecting\n", (!msg.in_data ? "header" : "message"), GetId());
             return false;
         }
 
@@ -693,8 +691,23 @@ bool CNode::ReceiveMsgBytes(const char *pch, unsigned int nBytes)
         nBytes -= handled;
 
         if (msg.complete()) {
-            msg.nTime = GetTimeMicros();
+            if (!msg.hdr.HasValidCommand())
+            {
+                vRecvMsg.pop_back();
+                LogPrint("net", "Header error: invalid command (%s), discarding\n", SanitizeString(msg.hdr.GetCommand()));
+                return true;
+            }
+
+            unsigned int messageChecksum = msg.ComputeMessageChecksum();
+            if (messageChecksum != msg.hdr.nChecksum)
+            {
+                vRecvMsg.pop_back();
+                LogPrint("net", "Message error: invalid checksum (nChecksum=%08x hdr.nChecksum=%08x), discarding\n", messageChecksum, msg.hdr.nChecksum);
+                return true;
+            }
+
             AccountForRecvBytes(msg.hdr.pchCommand, msg.hdr.nMessageSize + CMessageHeader::HEADER_SIZE);
+            msg.nTime = GetTimeMicros();
             connman->condMsgProc.notify_one();
         }
     }
@@ -712,7 +725,7 @@ int CNetMessage::readHeader(const char *pch, unsigned int nBytes)
     nHdrPos += nCopy;
 
     // if header incomplete, exit
-    if (nHdrPos < 24)
+    if (nHdrPos < CMessageHeader::HEADER_SIZE)
         return nCopy;
 
     // deserialize to CMessageHeader
@@ -720,12 +733,22 @@ int CNetMessage::readHeader(const char *pch, unsigned int nBytes)
         hdrbuf >> hdr;
     }
     catch (const std::exception&) {
+        LogPrint("net", "Header error: failed to deserialize\n");
         return -1;
     }
 
-    // reject messages larger than MAX_SERIALIZED_COMPACT_SIZE
-    if (hdr.nMessageSize > MAX_SERIALIZED_COMPACT_SIZE)
-            return -1;
+    // reject messages with invalid start
+    if (memcmp(hdr.pchMessageStart, Params().MessageStart(), MESSAGE_START_SIZE) != 0) {
+        LogPrint("net", "Header error: invalid start (%s)\n", SanitizeString(std::string(hdr.pchMessageStart, hdr.pchMessageStart + MESSAGE_START_SIZE)));
+        return -1;
+    }
+
+    // reject messages larger than MAX_PROTOCOL_MESSAGE_LENGTH or MAX_SERIALIZED_COMPACT_SIZE
+    if (hdr.nMessageSize > MAX_PROTOCOL_MESSAGE_LENGTH || hdr.nMessageSize > MAX_SERIALIZED_COMPACT_SIZE)
+    {
+        LogPrint("net", "Header error: message size too large (%u bytes)\n", hdr.nMessageSize);
+        return -1;
+    }
 
     // switch state to reading message data
     in_data = true;
@@ -746,10 +769,22 @@ int CNetMessage::readData(const char *pch, unsigned int nBytes)
     memcpy(&vRecv[nDataPos], pch, nCopy);
     nDataPos += nCopy;
 
+    // reject messages larger than MAX_PROTOCOL_MESSAGE_LENGTH or MAX_SERIALIZED_COMPACT_SIZE
+    // (enforce additional check after the one performed on hdr.nMessageSize)
+    if (nDataPos > MAX_PROTOCOL_MESSAGE_LENGTH || nDataPos > MAX_SERIALIZED_COMPACT_SIZE)
+    {
+        LogPrint("net", "Message error: size too large (%u bytes)\n", nDataPos);
+        return -1;
+    }
+
     return nCopy;
 }
 
-
+unsigned int CNetMessage::ComputeMessageChecksum()
+{
+    uint256 hash = Hash(vRecv.begin(), vRecv.begin() + hdr.nMessageSize);
+    return ReadLE32((unsigned char*)&hash);
+}
 
 
 

@@ -245,6 +245,8 @@ public:
 
     int readHeader(const char *pch, unsigned int nBytes);
     int readData(const char *pch, unsigned int nBytes);
+
+    unsigned int ComputeMessageChecksum();
 };
 
 
