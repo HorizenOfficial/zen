@@ -52,8 +52,8 @@ class sc_proof_verification_manager(BitcoinTestFramework):
 
     def setup_network(self, split=False):
         self.nodes=[]
-        self.nodes += [start_node(0, self.options.tmpdir,extra_args=[f'-scproofverificationdelay={BATCH_VERIFICATION_MAX_DELAY_ARG}', '-logtimemicros'])]
-        self.nodes += [start_node(1, self.options.tmpdir,extra_args=[f'-scproofverificationdelay={BATCH_VERIFICATION_MAX_DELAY_ARG}', '-logtimemicros'])]
+        self.nodes += [start_node(0, self.options.tmpdir,extra_args=[f'-scproofverificationdelay={BATCH_VERIFICATION_MAX_DELAY_ARG}', '-logtimemicros', '-debug=sc', '-debug=bench', '-debug=cert'])]
+        self.nodes += [start_node(1, self.options.tmpdir,extra_args=[f'-scproofverificationdelay={BATCH_VERIFICATION_MAX_DELAY_ARG}', '-logtimemicros', '-debug=sc', '-debug=bench', '-debug=cert'])]
 
         connect_nodes(self.nodes, 0, 1) # non-bidirectional connection is set in order to avoid receiving twice invs (especially when clearing mempool)
 
@@ -171,6 +171,152 @@ class sc_proof_verification_manager(BitcoinTestFramework):
         assert_equal(node1_stats["failedCerts"] + node1_stats["failedCSWs"] +
                      node1_stats["okCerts"] + node1_stats["okCSWs"], 0)
         
+        print("Test is OK")
+
+
+        # ---------- TEST ----------
+        # a certificate is sent by node0, after the proof has been scheduled for verification on node1 (but before it has
+        # started being verified) a block is mined by node0; even after waiting for the time that would be required for the
+        # certificate to start being verified and then to complete being verified, the statistics for async proof verifier
+        # report no certificate has been verified, thus showing no useless (the result being already available) proof
+        # verification has been performed
+
+        self.send_certificate_from_node(self.nodes[0], "sc1", scid, 3, mcTest, scid_swapped, constant, node1Addr, bwt_amount, CERT_NUM_CONSTRAINTS_SLOW, SEGMENT_SIZE_SLOW)
+
+        # mine a block with proper timing on node1
+        self.wait_for_proofs(self.nodes[1], WAIT_ON_PENDING_PROOFS, 1)
+        self.nodes[0].generate(1)
+        sync_blocks(self.nodes[:2])
+
+        print("Waiting for the certificate (node1) to start being verified and then to complete being verified...")
+        time.sleep((BATCH_VERIFICATION_MAX_DELAY_ARG + BATCH_VERIFICATION_PROCESSING_ESTIMATION) / 1000)
+
+        print("Checking mempools and stats after waiting enough time")
+        # the stats for node1 are expected to be all null because the certificate has been synchronously verified
+        node1_stats = self.nodes[1].getproofverifierstats()
+        assert_equal(node1_stats["pendingCerts"] + node1_stats["pendingCSWs"] +
+                     node1_stats["pendingCertsInVerification"] + node1_stats["pendingCSWsInVerification"], 0)
+        assert_equal(node1_stats["failedCerts"] + node1_stats["failedCSWs"] +
+                     node1_stats["okCerts"] + node1_stats["okCSWs"], 0)
+        assert_equal(node1_stats["removedFromQueueProofs"], 1 + 1)
+
+        print("Test is OK")
+
+
+        # ---------- TEST ----------
+        # a certificate is sent by node0 and a block is mined by node0, then a synchronization of blockchains on node0 and
+        # on node1 is performed, measuring the time of mining and synchronizing; a certificate is sent by node0 and a
+        # synchronization only of the mempools on node0 and node1 is performed (hence allowing for certificate validation),
+        # then a block is mined by node0, then a synchronization of mempools and blockchains on node0 and node1 is performed,
+        # measuring the time of mining and synchronizing; this second measurement must be (much) shorter than the first one
+
+        self.send_certificate_from_node(self.nodes[0], "sc1", scid, 4, mcTest, scid_swapped, constant, node1Addr, bwt_amount, CERT_NUM_CONSTRAINTS_SLOW, SEGMENT_SIZE_SLOW)
+
+        # mine a block that would require proof verification (on node1) and sync
+        timeBeforeBlock = time.time()
+        self.nodes[0].generate(1)
+        sync_blocks(self.nodes[0:2], wait=0.1)
+        timeAfterBlock = time.time()
+        elapsedTimeWithProofVerification = timeAfterBlock - timeBeforeBlock
+        print(f"Elapsed time mining a block (containing a certificate) with proof verification: {elapsedTimeWithProofVerification}")
+        self.sync_all() 
+
+        self.send_certificate_from_node(self.nodes[0], "sc1", scid, 5, mcTest, scid_swapped, constant, node1Addr, bwt_amount, CERT_NUM_CONSTRAINTS_SLOW, SEGMENT_SIZE_SLOW)
+        sync_mempools(self.nodes)
+
+        # mine a block that would not require proof verification (on neither node) and sync
+        timeBeforeBlock = time.time()
+        self.nodes[0].generate(1)
+        sync_blocks(self.nodes[0:2], wait=0.1)
+        timeAfterBlock = time.time()
+        elapsedTimeWithoutProofVerification = timeAfterBlock - timeBeforeBlock
+        print(f"Elapsed time mining a block (containing a certificate) without proof verification: {elapsedTimeWithoutProofVerification}")
+        self.sync_all()
+
+        print(f"Checking elapsed time with proof verification is greater than elapsed time without proof verification")
+        assert_greater_than(elapsedTimeWithProofVerification, elapsedTimeWithoutProofVerification)
+
+        print("Test is OK")
+
+
+        # ---------- TEST ----------
+        # a certificate is sent by node0, a block is mined by node0, then some time elapses and a second certificate is sent
+        # by node0; a check is perfomed in order to attest the async verification has been triggered due to second certificate
+        # queue age (not first certificate queue age, whose result is already available)
+        #
+        # timeline from node1 perspective:
+        #
+        # 0--------------------------------->t
+        #
+        # 1--------------------?............ (cert1 enters async queue)
+        # ..B............................... (block arrives and is checked)
+        # ..1V.............................. (cert1 is sync verified)
+        # ...1X............................. (cert1 is removed from async queue)
+        # .................................. (some time waiting)
+        # ...........2--------------------?. (cert2 enters async queue)
+        # ................................2V (cert2 enters verification)
+        #                      ^          ^
+        #                      |__________|
+
+        ########### Create a sidechain ##################
+        print("########### Create a sidechain ##################")
+        
+        print(f"Using {PROOVING_SYSTEM_FAST} proving system")
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir, PROOVING_SYSTEM_FAST)
+        vk = mcTest.generate_params("sc2", 'cert', num_constraints=CERT_NUM_CONSTRAINTS_FAST, segment_size=SEGMENT_SIZE_FAST)
+
+        constant = generate_random_field_element_hex()
+
+        cmdInput = {
+            "version": 0,
+            'withdrawalEpochLength': EPOCH_LENGTH,
+            'toaddress': "dada",
+            'amount': creation_amount,
+            'wCertVk': vk,
+            'constant': constant
+        }
+
+        ret = self.nodes[0].sc_create(cmdInput)
+        scid = ret['scid']
+        scid_swapped = str(swap_bytes(scid))
+        self.sync_all()
+
+        # Mine block creating the sidechain
+        self.nodes[0].generate(1)
+        self.sync_all()
+
+        # Advance for 1 Epoch
+        self.nodes[0].generate(EPOCH_LENGTH)
+        self.sync_all()
+
+        self.send_certificate_from_node(self.nodes[0], "sc2", scid, 1, mcTest, scid_swapped, constant, node1Addr, bwt_amount, CERT_NUM_CONSTRAINTS_FAST, SEGMENT_SIZE_FAST)
+
+        # mine a block (with proper timing on node1)
+        self.wait_for_proofs(self.nodes[1], WAIT_ON_PENDING_PROOFS, 1)
+        timeFirstCertificateEnteredQueue = time.time()
+        print(f"Time first certificate entered queue (node1): {timeFirstCertificateEnteredQueue}")
+
+        timeFirstCertificateWouldHaveStartedVerification = timeFirstCertificateEnteredQueue + (BATCH_VERIFICATION_MAX_DELAY_ARG) / 1000
+        print(f"Time first certificate would have started verification (node1): {timeFirstCertificateWouldHaveStartedVerification}")
+
+        self.nodes[0].generate(1)
+        sync_blocks(self.nodes[:2])
+        self.wait_for_proofs(self.nodes[1], WAIT_ON_PENDING_PROOFS, 0)
+
+        # in order to make the difference more significant
+        print("Waiting for the certificate (node1) to arrive almost at half of queue time...")
+        time.sleep((BATCH_VERIFICATION_MAX_DELAY_ARG) / 1000 / 2 - (time.time() - timeFirstCertificateEnteredQueue))
+        print(f"Finished waiting: {time.time()}")
+
+        self.send_certificate_from_node(self.nodes[0], "sc2", scid, 2, mcTest, scid_swapped, constant, node1Addr, bwt_amount, CERT_NUM_CONSTRAINTS_FAST, SEGMENT_SIZE_FAST)
+        self.wait_for_proofs(self.nodes[1], WAIT_ON_PENDING_PROOFS, 1)
+        self.wait_for_proofs(self.nodes[1], WAIT_ON_PENDING_PROOFS, 0)
+        timeSecondCertificateStartedVerification = time.time()
+        print(f"Time second certificate started verification: {timeSecondCertificateStartedVerification}")
+
+        print(f"Checking time second certificate started verification is much greater than time first certificate would have started verification")
+        assert_greater_than(timeSecondCertificateStartedVerification, timeFirstCertificateWouldHaveStartedVerification + (BATCH_VERIFICATION_MAX_DELAY_ARG) / 1000 / 2)
+
         print("Test is OK")
 
 
