@@ -16,10 +16,14 @@
 #include "random.h"
 #include "streams.h"
 #include "sync.h"
+#include "threadinterrupt.h"
 #include "uint256.h"
 #include "utilstrencodings.h"
 
+#include <atomic>
 #include <deque>
+#include <thread>
+#include <condition_variable>
 #include <stdint.h>
 
 #ifndef WIN32
@@ -42,10 +46,6 @@
 class CAddrMan;
 class CScheduler;
 class CNode;
-
-namespace boost {
-    class thread_group;
-} // namespace boost
 
 /** Time between pings automatically sent out for latency probing and keepalive (in seconds). */
 static const int PING_INTERVAL = 2 * 60;
@@ -120,8 +120,8 @@ struct CombinerAll
 struct CNodeSignals
 {
     boost::signals2::signal<int ()> GetHeight;
-    boost::signals2::signal<bool (CNode*), CombinerAll> ProcessMessages;
-    boost::signals2::signal<bool (CNode*, bool), CombinerAll> SendMessages;
+    boost::signals2::signal<bool (CNode*, const std::atomic<bool>&), CombinerAll> ProcessMessages;
+    boost::signals2::signal<bool (CNode*, bool, const std::atomic<bool>&), CombinerAll> SendMessages;
     boost::signals2::signal<void (NodeId, const CNode*)> InitializeNode;
     boost::signals2::signal<void (NodeId)> FinalizeNode;
 };
@@ -758,11 +758,10 @@ public:
         }
     }
 
-    void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler , const Options& connOptions);
+    void StartNode(CScheduler& scheduler , const Options& connOptions);
     bool StopNode();
     void Stop();
     void NetCleanup();
-    void Interrupt();
 
     bool Bind(const CService &addr, unsigned int flags);
     bool BindListenPort(const CService &bindAddr, std::string& strError, bool fWhitelisted = false);
@@ -832,6 +831,8 @@ public:
     // that peer during `net_processing.cpp:PushNodeVersion()`.
     uint64_t GetLocalServices() const;
 
+    std::condition_variable condMsgProc;
+
 private:
     std::atomic<uint64_t> nTotalBytesRecv = 0;
     std::atomic<uint64_t> nTotalBytesSent = 0;
@@ -844,22 +845,24 @@ private:
     unsigned int nSendBufferMaxSize;
     unsigned int nReceiveFloodSize;
 
-    // // To be moved here in the next PR, when we will get rid of boost::thread!
-    //
-    // CThreadInterrupt interruptNet;
-    //
-    // std::thread threadDNSAddressSeed;
-    // std::thread threadSocketHandler;
-    // std::thread threadOpenAddedConnections;
-    // std::thread threadOpenConnections;
-    // std::thread threadMessageHandler;
-    // std::thread threadNonTLSPoolsCleaner;
-    // void ThreadOpenConnections();
-    // void ThreadOpenAddedConnections();
-    // void ThreadNonTLSPoolsCleaner();
-    // void ThreadSocketHandler();
-    // void ThreadDNSAddressSeed();
-    // void void ThreadMessageHandler();
+    CThreadInterrupt interruptNet;
+    std::mutex mutexMsgProc;
+    std::atomic<bool> flagInterruptMsgProc{false};
+
+    std::thread threadDNSAddressSeed;
+    std::thread threadSocketHandler;
+    std::thread threadOpenAddedConnections;
+    std::thread threadOpenConnections;
+    std::thread threadMessageHandler;
+    std::thread threadNonTLSPoolsCleaner;
+    void ThreadOpenConnections();
+    void ThreadOpenAddedConnections();
+    void ThreadNonTLSPoolsCleaner();
+    void ThreadSocketHandler();
+    void ThreadDNSAddressSeed();
+    void ThreadMessageHandler();
+
+    void DumpAddresses();
 
 };
 

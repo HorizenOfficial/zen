@@ -201,7 +201,6 @@ void Shutdown()
     GenerateBitcoins(false, 0);
  #endif
 #endif
-    connman->StopNode();
     StopTorControl();
     UnregisterNodeSignals(GetNodeSignals());
 
@@ -267,7 +266,6 @@ void Shutdown()
     pzcashParams = NULL;
     globalVerifyHandle.reset();
     ECC_Stop();
-    connman->NetCleanup();
     connman.reset();
     LogPrintf("%s: done\n", __func__);
 }
@@ -1983,7 +1981,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     connOptions.nSendBufferMaxSize = fromKBtoBfactor * static_cast<unsigned int>(GetArgWithinLimits("-maxsendbuffer", DEFAULT_MAX_SEND_BUFFER, bufferMinMax));
     connOptions.nReceiveFloodSize = fromKBtoBfactor * static_cast<unsigned int>(GetArgWithinLimits("-maxreceivebuffer", DEFAULT_MAX_RECEIVE_BUFFER, bufferMinMax));
     
-    connman->StartNode(threadGroup, scheduler, connOptions);
+    connman->StartNode(scheduler, connOptions);
 
     // Monitor the chain, and alert if we get blocks much quicker or slower than expected
     int64_t nPowTargetSpacing = Params().GetConsensus().nPowTargetSpacing;

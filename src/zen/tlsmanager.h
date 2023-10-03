@@ -1,13 +1,14 @@
+#ifndef BITCOIN_TLSMANAGER_H
+#define BITCOIN_TLSMANAGER_H
+
 #include <openssl/conf.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include "tlsenums.h"
 #include <boost/filesystem.hpp>
-#include <boost/thread.hpp>
 #include "../util.h"
 #include "../net.h"
 #include "sync.h"
-#include <boost/filesystem/path.hpp>
 #include <boost/foreach.hpp>
 #include <boost/signals2/signal.hpp>
 #ifdef WIN32
@@ -17,6 +18,8 @@
 #endif
 
 using namespace std;
+
+extern std::unique_ptr<CConnman> connman;
 
 namespace zen
 {
@@ -50,3 +53,5 @@ public:
      bool initialize();
 };
 }
+
+#endif // BITCOIN_TLSMANAGER_H
