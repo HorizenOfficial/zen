@@ -125,7 +125,7 @@ class sc_proof_verification_manager(BitcoinTestFramework):
 
         print("Waiting for the time the certificate (node1) would have required to start being verified and then to complete being verified...")
         time.sleep((BATCH_VERIFICATION_MAX_DELAY_ARG + BATCH_VERIFICATION_PROCESSING_ESTIMATION) / 1000)
-      
+
         print("Checking mempools and stats after waiting enough time")
         assert_equal(self.nodes[0].getmempoolinfo()["size"], 0)
         assert_equal(self.nodes[1].getmempoolinfo()["size"], 0)
@@ -134,6 +134,7 @@ class sc_proof_verification_manager(BitcoinTestFramework):
                      node1_stats["pendingCertsInVerification"] + node1_stats["pendingCSWsInVerification"], 0)
         assert_equal(node1_stats["failedCerts"] + node1_stats["failedCSWs"] +
                      node1_stats["okCerts"] + node1_stats["okCSWs"], 0)
+        assert_equal(node1_stats["removedFromQueueProofs"], 1)
 
         print("Test is OK")
 
@@ -170,7 +171,8 @@ class sc_proof_verification_manager(BitcoinTestFramework):
                      node1_stats["pendingCertsInVerification"] + node1_stats["pendingCSWsInVerification"], 0)
         assert_equal(node1_stats["failedCerts"] + node1_stats["failedCSWs"] +
                      node1_stats["okCerts"] + node1_stats["okCSWs"], 0)
-        
+        assert_equal(node1_stats["discardedResultsProofs"], 1)
+
         print("Test is OK")
 
 

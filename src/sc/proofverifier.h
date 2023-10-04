@@ -76,6 +76,7 @@ struct CProofVerifierItem
     std::shared_ptr<CTransactionBase> parentPtr;                                                    /**< The parent (Transaction or Certificate) that owns the item (CSW input or certificate itself). */
     CNode* node;                                                                                    /**< The node that sent the parent (Transaction or Certiticate). */
     ProofVerificationResult result;                                                                 /**< The overall result of the proof(s) verification for the transaction/certificate. */
+    bool resultReused = false;                                                                      /**< The flag indicating if the result has been reused (instead of being the outcome of an actual verification) */
     boost::variant<CCertProofVerifierInput, std::vector<CCswProofVerifierInput>> proofInput;        /**< The proof input data, it can be a (single) certificate input or a list of CSW inputs. */
 };
 

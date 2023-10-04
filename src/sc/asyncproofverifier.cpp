@@ -1,4 +1,5 @@
 #include "asyncproofverifier.h"
+#include "proofverificationmanager.hpp"
 
 #include "coins.h"
 #include "init.h"
@@ -15,7 +16,7 @@ void CScAsyncProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& v
 {
     LOCK(cs_asyncQueue);
     CScProofVerifier::LoadDataForCertVerification(view, scCert, pfrom);
-    proofsInsertionMillisecondsQueue.insert(std::make_pair(scCert.GetHash(), GetTimeMillis()));
+    proofsInsertionMillisecondsQueue.insert({scCert.GetHash(), GetTimeMillis()});
     assert(proofsQueue.size() == proofsInsertionMillisecondsQueue.size());
 }
 
@@ -23,7 +24,7 @@ void CScAsyncProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& vi
 {
     LOCK(cs_asyncQueue);
     CScProofVerifier::LoadDataForCswVerification(view, scTx, pfrom);
-    proofsInsertionMillisecondsQueue.insert(std::make_pair(scTx.GetHash(), GetTimeMillis()));
+    proofsInsertionMillisecondsQueue.insert({scTx.GetHash(), GetTimeMillis()});
     assert(proofsQueue.size() == proofsInsertionMillisecondsQueue.size());
 }
 #endif
@@ -63,11 +64,12 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
      * This value represents the time spent in the queue by the oldest proof in the queue.
      */
     uint32_t queueAge = 0;
-    uint64_t oldestProofInsertionMilliseconds = 0;
+    std::map<uint256, uint64_t>::iterator oldestProof;
 
     uint32_t batchVerificationMaxDelay = GetCustomMaxBatchVerifyDelay();
     uint32_t batchVerificationMaxSize  = GetCustomMaxBatchVerifyMaxSize();
 
+    auto proofVerificationManager = &CScProofVerificationManager::GetInstance();
 
     while (!ShutdownRequested())
     {
@@ -76,32 +78,65 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
 
             if (proofsQueue.size() > 0)
             {
-                oldestProofInsertionMilliseconds = std::min_element(proofsInsertionMillisecondsQueue.begin(),
-                                                                    proofsInsertionMillisecondsQueue.end(),
-                                                                    [](const auto& l, const auto& r) { return l.second < r.second; })->second;
-                queueAge = GetTimeMillis() - oldestProofInsertionMilliseconds;
-
-                /**
-                 * The batch verification can be triggered by two events:
-                 * 
-                 * 1. The queue has grown up beyond the threshold size;
-                 * 2. The oldest proof in the queue has waited for too long.
-                 */
-                if (queueAge > batchVerificationMaxDelay || proofsQueue.size() > batchVerificationMaxSize)
                 {
+                    LOCK(proofVerificationManager->cs_proofsVerificationsResults);
+                    size_t clearedProofs = 0;
+
+                    if (proofVerificationManager->mostRecentProofsVerificationsResults.size() > 0)
                     {
-                        LOCK(cs_asyncQueueInVerification);
+                        for (auto it = proofsQueue.cbegin(); it != proofsQueue.cend(); )
+                        {
+                            if (proofVerificationManager->mostRecentProofsVerificationsResults.find(it->first) !=
+                                proofVerificationManager->mostRecentProofsVerificationsResults.end())
+                            {
+                                ++clearedProofs;
+                                LogPrint("cert", "%s():%d - %s proof cleared from async verification queue\n",
+                                         __func__, __LINE__, it->first.ToString());
+                                proofsInsertionMillisecondsQueue.erase(it->first);
+                                proofsQueue.erase(it++);
+                            }
+                            else
+                            {
+                                ++it;
+                            }
+                        }
+                        assert(proofsQueue.size() == proofsInsertionMillisecondsQueue.size());
+                        if (BOOST_UNLIKELY(Params().NetworkIDString() == "regtest"))
+                        {
+                            stats.removedFromQueueCounter += clearedProofs;
+                        }
+                    }
+                }
 
-                        LogPrint("cert", "%s():%d - Async verification triggered, %d proofs to be verified \n",
-                                 __func__, __LINE__, proofsQueue.size());
+                if (proofsQueue.size() > 0)
+                {
+                    oldestProof = std::min_element(proofsInsertionMillisecondsQueue.begin(),
+                                                   proofsInsertionMillisecondsQueue.end(),
+                                                   [](const auto& l, const auto& r) { return l.second < r.second; });
+                    queueAge = GetTimeMillis() - oldestProof->second;
 
-                        // Move the queued proofs into map dedicated to proofs in verification, so that we can release the lock
-                        proofsInVerificationQueue = std::move(proofsQueue);
-                        proofsQueue.clear();
-                        proofsInsertionMillisecondsQueue.clear();
+                    /**
+                     * The batch verification can be triggered by two events:
+                     * 
+                     * 1. The queue has grown up beyond the threshold size;
+                     * 2. The oldest proof in the queue has waited for too long.
+                     */
+                    if (queueAge > batchVerificationMaxDelay || proofsQueue.size() > batchVerificationMaxSize)
+                    {
+                        {
+                            LOCK(cs_asyncQueueInVerification);
 
-                        assert(proofsQueue.size() == 0);
-                        assert(proofsInsertionMillisecondsQueue.size() == 0);
+                            LogPrint("cert", "%s():%d - Async verification triggered, %d proofs to be verified \n",
+                                     __func__, __LINE__, proofsQueue.size());
+
+                            // Move the queued proofs into map dedicated to proofs in verification, so that we can release the lock
+                            proofsInVerificationQueue = std::move(proofsQueue);
+                            proofsQueue.clear();
+                            proofsInsertionMillisecondsQueue.clear();
+
+                            assert(proofsQueue.size() == 0);
+                            assert(proofsInsertionMillisecondsQueue.size() == 0);
+                        }
                     }
                 }
             }
@@ -110,14 +145,14 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
         {
             if (proofsInVerificationQueue.size() > 0)
             {
-                bool batchResult = BatchVerifyInternal(proofsInVerificationQueue);
+                BatchVerifyInternal(proofsInVerificationQueue);
                 ProcessVerificationOutputs();
 
                 if (proofsInVerificationQueue.size() > 0)
                 {
                     LogPrint("cert", "%s():%d - Batch verification failed, removed proofs that caused the failure and trying again... \n", __func__, __LINE__);
 
-                    batchResult = BatchVerifyInternal(proofsInVerificationQueue);
+                    BatchVerifyInternal(proofsInVerificationQueue);
                     ProcessVerificationOutputs();
 
                     if (proofsInVerificationQueue.size() > 0)
@@ -159,18 +194,32 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
 void CScAsyncProofVerifier::ProcessVerificationOutputs()
 {
     LOCK(cs_asyncQueueInVerification);
+    size_t discardedProofsVerifications = 0;
+
     if (discardAllProofsVerifications)
     {
+        discardedProofsVerifications = proofsInVerificationQueue.size();
         proofsInVerificationQueue.clear();
         discardAllProofsVerifications = false;
+        LogPrint("cert", "%s():%d - Discarding %d proofs verifications from current processing\n",
+                 __func__, __LINE__, discardedProofsVerifications);
     }
     else if (proofsVerificationsToDiscard.size() > 0)
     {
-        for (auto proofVerificationToDiscard : proofsVerificationsToDiscard)
+        for (auto& proofVerificationToDiscard : proofsVerificationsToDiscard)
         {
-            proofsInVerificationQueue.erase(proofVerificationToDiscard);
+            if (proofsInVerificationQueue.erase(proofVerificationToDiscard) > 0)
+            {
+                ++discardedProofsVerifications;
+                LogPrint("cert", "%s():%d - Discarding proof verification for proof %s from current processing\n",
+                         __func__, __LINE__, proofVerificationToDiscard.ToString());
+            }
         }
         proofsVerificationsToDiscard.clear();
+    }
+    if (BOOST_UNLIKELY(Params().NetworkIDString() == "regtest"))
+    {
+        stats.discardedResultCounter += discardedProofsVerifications;
     }
 
     // Post processing of proofs
@@ -196,8 +245,8 @@ void CScAsyncProofVerifier::ProcessVerificationOutputs()
 
             CValidationState dummyState;
             mempoolCallback(*item.parentPtr.get(), item.node,
-                                            item.result == ProofVerificationResult::Passed ? BatchVerificationStateFlag::VERIFIED : BatchVerificationStateFlag::FAILED,
-                                            dummyState);
+                            item.result == ProofVerificationResult::Passed ? BatchVerificationStateFlag::VERIFIED : BatchVerificationStateFlag::FAILED,
+                            dummyState);
 
             i = proofsInVerificationQueue.erase(i);
         }
@@ -214,26 +263,29 @@ void CScAsyncProofVerifier::UpdateStatistics(const CProofVerifierItem& item)
 {
     assert(Params().NetworkIDString() == "regtest");
 
-    if (item.parentPtr->IsCertificate())
+    if (!item.resultReused)
     {
-        if (item.result == ProofVerificationResult::Passed)
+        if (item.parentPtr->IsCertificate())
         {
-            stats.okCertCounter++;
+            if (item.result == ProofVerificationResult::Passed)
+            {
+                stats.okCertCounter++;
+            }
+            else if (item.result == ProofVerificationResult::Failed)
+            {
+                stats.failedCertCounter++;
+            }
         }
-        else if (item.result == ProofVerificationResult::Failed)
+        else
         {
-            stats.failedCertCounter++;
-        }
-    }
-    else
-    {
-        if (item.result == ProofVerificationResult::Passed)
-        {
-            stats.okCswCounter++;
-        }
-        else if (item.result == ProofVerificationResult::Failed)
-        {
-            stats.failedCswCounter++;
+            if (item.result == ProofVerificationResult::Passed)
+            {
+                stats.okCswCounter++;
+            }
+            else if (item.result == ProofVerificationResult::Failed)
+            {
+                stats.failedCswCounter++;
+            }
         }
     }
 }

@@ -24,10 +24,12 @@ class CCoinsViewCache;
  */
 struct AsyncProofVerifierStatistics
 {
-    uint32_t okCertCounter = 0;     /**< The number of certificate proofs that have been correctly verified. */
-    uint32_t okCswCounter = 0;      /**< The number of CSW input proofs that have been correctly verified. */
-    uint32_t failedCertCounter = 0; /**< The number of certificate proofs whose verification failed. */
-    uint32_t failedCswCounter = 0;  /**< The number of CSW input proofs whose verification failed. */
+    uint32_t okCertCounter = 0;           /**< The number of certificate proofs that have been correctly verified. */
+    uint32_t okCswCounter = 0;            /**< The number of CSW input proofs that have been correctly verified. */
+    uint32_t failedCertCounter = 0;       /**< The number of certificate proofs whose verification failed. */
+    uint32_t failedCswCounter = 0;        /**< The number of CSW input proofs whose verification failed. */
+    uint32_t removedFromQueueCounter = 0; /**< The number of certificate/csw proofs that have been removed from queue. */
+    uint32_t discardedResultCounter = 0;  /**< The number of certificate/csw proofs whose verification result has been discarded. */
 };
 
 /**
@@ -241,10 +243,7 @@ public:
     {
         CScAsyncProofVerifier& verifier = CScAsyncProofVerifier::GetInstance();
 
-        {
-            LOCK(verifier.cs_asyncQueueInVerification);
-            verifier.stats = AsyncProofVerifierStatistics();
-        }
+        verifier.stats = AsyncProofVerifierStatistics();
     }
 
     /**
@@ -256,12 +255,15 @@ public:
 
         {
             LOCK(verifier.cs_asyncQueue);
+            size_t clearedProofs = 0;
+
             if (verifier.proofsQueue.size() > 0)
             {
                 if (proofsToClear.size() == 0)
                 {
+                    clearedProofs = verifier.proofsQueue.size();
                     LogPrint("cert", "%s():%d - %d proofs cleared from async verification queue\n",
-                             __func__, __LINE__, verifier.proofsQueue.size());
+                             __func__, __LINE__, clearedProofs);
                     verifier.proofsQueue.clear();
                     verifier.proofsInsertionMillisecondsQueue.clear();
                     assert(verifier.proofsQueue.size() == 0);
@@ -271,21 +273,30 @@ public:
                 {
                     for (auto proofToClear : proofsToClear)
                     {
-                        LogPrint("cert", "%s():%d - %s proofs cleared from async verification queue\n",
-                                 __func__, __LINE__, proofToClear.ToString());
-                        verifier.proofsQueue.erase(proofToClear);
-                        verifier.proofsInsertionMillisecondsQueue.erase(proofToClear);
+                        if (verifier.proofsQueue.erase(proofToClear) > 0)
+                        {
+                            ++clearedProofs;
+                            LogPrint("cert", "%s():%d - %s proof cleared from async verification queue\n",
+                                     __func__, __LINE__, proofToClear.ToString());
+                            verifier.proofsQueue.erase(proofToClear);
+                            verifier.proofsInsertionMillisecondsQueue.erase(proofToClear);
+                        }
                     }
                     assert(verifier.proofsQueue.size() == verifier.proofsInsertionMillisecondsQueue.size());
                 }
+            }
+            if (BOOST_UNLIKELY(Params().NetworkIDString() == "regtest"))
+            {
+                verifier.stats.removedFromQueueCounter += clearedProofs;
             }
         }
     }
 
     /**
-     * @brief Discards proof verification results from the current async verification
+     * @brief Set discarding of proof verification results from the current async verification
+     *        (will actually take place at the end of current async verification, if any)
      */
-    void DiscardFromCurrentVerification(const std::vector<uint256>& proofsVerificationsToDiscard = std::vector<uint256>())
+    void SetDiscardingFromCurrentVerification(const std::vector<uint256>& proofsVerificationsToDiscard = std::vector<uint256>())
     {
         CScAsyncProofVerifier& verifier = CScAsyncProofVerifier::GetInstance();
 
@@ -295,12 +306,16 @@ public:
             {
                 if (proofsVerificationsToDiscard.size() == 0)
                 {
+                    LogPrint("cert", "%s():%d - %d proofs verifications results will be discarded from current verification\n",
+                             __func__, __LINE__, verifier.proofsInVerificationQueue.size());
                     verifier.discardAllProofsVerifications = true;
                 }
                 else
                 {
                     for (auto proofToDiscard : proofsVerificationsToDiscard)
                     {
+                        LogPrint("cert", "%s():%d - %s proof verification result will be discarded from current verification\n",
+                                 __func__, __LINE__, proofToDiscard.ToString());
                         verifier.proofsVerificationsToDiscard.push_back(proofToDiscard);
                     }
                 }

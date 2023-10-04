@@ -1091,7 +1091,7 @@ void BlockchainTestManager::ResetAsyncProofVerifier()const
     asyncProofVerifier.DisableMempoolCallback();
     asyncProofVerifier.ResetStatistics();
     asyncProofVerifier.ClearFromQueue();
-    asyncProofVerifier.DiscardFromCurrentVerification();
+    asyncProofVerifier.SetDiscardingFromCurrentVerification();
 }
 
 /**

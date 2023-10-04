@@ -1,4 +1,5 @@
 #include "sc/proofverifier.h"
+#include "sc/proofverificationmanager.hpp"
 
 #include "coins.h"
 #include "main.h"
@@ -161,7 +162,7 @@ void CScProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& view, 
     item.node = pfrom;
     item.result = ProofVerificationResult::Unknown;
     item.proofInput = CertificateToVerifierItem(scCert, sidechain.fixedParams, pfrom, &view);
-    proofsQueue.insert(std::make_pair(scCert.GetHash(), item));
+    proofsQueue.insert({scCert.GetHash(), item});
 }
 
 /**
@@ -233,16 +234,33 @@ bool CScProofVerifier::BatchVerify()
  */
 bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint256, CProofVerifierItem>& proofs)
 {
+    auto proofVerificationManager = &CScProofVerificationManager::GetInstance();
+
     if (proofs.size() == 0)
     {
         return true;
     }
 
+    {
+        LOCK(proofVerificationManager->cs_proofsVerificationsResults);
+        for (auto& [proofId, proofItem] : proofs)
+        {
+            if (proofVerificationManager->mostRecentProofsVerificationsResults.find(proofId) !=
+                proofVerificationManager->mostRecentProofsVerificationsResults.end())
+            {
+                proofItem.result = proofVerificationManager->mostRecentProofsVerificationsResults.find(proofId)->second.second;
+                proofItem.resultReused = true;
+                LogPrint("cert", "%s():%d - Reusing result (%d) for proof %s\n",
+                         __func__, __LINE__, static_cast<std::underlying_type<ProofVerificationResult>::type>(proofItem.result), proofId.ToString());
+            }
+        }
+    }
+
     if (verificationMode == Verification::Loose)
     {
-        for (auto& proof : proofs)
+        for (auto& [proofId, proofItem] : proofs)
         {
-            proof.second.result = ProofVerificationResult::Passed;
+            proofItem.result = ProofVerificationResult::Passed;
         }
         return true;
     }
@@ -250,181 +268,204 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
     // The parameter in the ctor is a boolean telling mc-crypto lib if the rust verifier executing thread
     // will be a high-priority one (default is false)
     ZendooBatchProofVerifier batchVerifier(verificationPriority == Priority::High);
-    bool addFailure = false;
+    bool addFailure = false, reusageFailure = false, needToRunVerification = false;
     std::map<uint32_t /* Proof ID */, uint256 /* Tx or Cert hash */> proofIdMap;
     CctpErrorCode code;
 
     LogPrint("bench", "%s():%d - starting verification\n", __func__, __LINE__);
     int64_t nTime1 = GetTimeMicros();
-    for (auto& proofEntry : proofs)
+    for (auto& [proofId, proofItem] : proofs)
     {
-        CProofVerifierItem& item = proofEntry.second;
-
-        assert(item.result == ProofVerificationResult::Unknown);
-
-        if (item.proofInput.type() == typeid(std::vector<CCswProofVerifierInput>))
-        {
-            for (auto& cswInput : boost::get<std::vector<CCswProofVerifierInput>>(item.proofInput))
+        if (proofItem.result == ProofVerificationResult::Unknown)
+        {            
+            if (proofItem.proofInput.type() == typeid(std::vector<CCswProofVerifierInput>))
             {
-                proofIdMap.insert({cswInput.proofId, proofEntry.first});
+                for (auto& cswInput : boost::get<std::vector<CCswProofVerifierInput>>(proofItem.proofInput))
+                {
+                    proofIdMap.insert({cswInput.proofId, proofId});
 
-                wrappedFieldPtr sptrScId = CFieldElement(cswInput.scId).GetFieldElement();
-                field_t* scid_fe = sptrScId.get();
-    
-                const uint160& csw_pk_hash = cswInput.pubKeyHash;
-                BufferWithSize bws_csw_pk_hash(csw_pk_hash.begin(), csw_pk_hash.size());
-    
-                wrappedFieldPtr   sptrConst     = cswInput.constant.GetFieldElement();
-                wrappedFieldPtr   sptrCdh       = cswInput.certDataHash.GetFieldElement();
-                wrappedFieldPtr   sptrCum       = cswInput.ceasingCumScTxCommTree.GetFieldElement();
-                wrappedFieldPtr   sptrNullifier = cswInput.nullifier.GetFieldElement();
-                wrappedScProofPtr sptrProof     = cswInput.proof.GetProofPtr();
-                wrappedScVkeyPtr  sptrCeasedVk  = cswInput.verificationKey.GetVKeyPtr();
+                    wrappedFieldPtr sptrScId = CFieldElement(cswInput.scId).GetFieldElement();
+                    field_t* scid_fe = sptrScId.get();
 
-                bool ret = batchVerifier.add_csw_proof(
-                    cswInput.proofId,
-                    cswInput.nValue,
+                    const uint160& csw_pk_hash = cswInput.pubKeyHash;
+                    BufferWithSize bws_csw_pk_hash(csw_pk_hash.begin(), csw_pk_hash.size());
+
+                    wrappedFieldPtr   sptrConst     = cswInput.constant.GetFieldElement();
+                    wrappedFieldPtr   sptrCdh       = cswInput.certDataHash.GetFieldElement();
+                    wrappedFieldPtr   sptrCum       = cswInput.ceasingCumScTxCommTree.GetFieldElement();
+                    wrappedFieldPtr   sptrNullifier = cswInput.nullifier.GetFieldElement();
+                    wrappedScProofPtr sptrProof     = cswInput.proof.GetProofPtr();
+                    wrappedScVkeyPtr  sptrCeasedVk  = cswInput.verificationKey.GetVKeyPtr();
+
+                    bool ret = batchVerifier.add_csw_proof(
+                        cswInput.proofId,
+                        cswInput.nValue,
+                        sptrConst.get(),
+                        scid_fe, 
+                        sptrNullifier.get(),
+                        &bws_csw_pk_hash,
+                        sptrCdh.get(),
+                        sptrCum.get(),
+                        sptrProof.get(),
+                        sptrCeasedVk.get(),
+                        &code
+                    );
+
+                    if (!ret || code != CctpErrorCode::OK)
+                    {
+                        LogPrintf("ERROR: %s():%d - tx [%s] has csw proof which does not verify: ret[%d], code [0x%x]\n",
+                                  __func__, __LINE__, proofId.ToString(), (int)ret, code);
+
+                        proofItem.result = ProofVerificationResult::Failed;
+                        addFailure = true;
+
+                        // If one CSW input fails, it is possible to skip the whole transaction.
+                        break;
+                    }
+                    else
+                    {
+                        needToRunVerification = true;
+                    }
+                }
+            }
+            else if (proofItem.proofInput.type() == typeid(CCertProofVerifierInput))
+            {
+                CCertProofVerifierInput certInput = boost::get<CCertProofVerifierInput>(proofItem.proofInput);
+                proofIdMap.insert({certInput.proofId, proofId});
+
+                int custom_fields_len = certInput.vCustomFields.size(); 
+                std::unique_ptr<const field_t*[]> custom_fields(new const field_t*[custom_fields_len]);
+                int i = 0;
+                std::vector<wrappedFieldPtr> vSptr;
+                for (auto entry: certInput.vCustomFields)
+                {
+                    wrappedFieldPtr sptrFe = entry.GetFieldElement();
+                    custom_fields[i] = sptrFe.get();
+                    vSptr.push_back(sptrFe);
+                    i++;
+                }
+
+                const backward_transfer_t* bt_list_ptr = certInput.bt_list.data();
+                int bt_list_len = certInput.bt_list.size();
+
+                // mc crypto lib wants a null ptr if we have no fields
+                if (custom_fields_len == 0)
+                    custom_fields.reset();
+                if (bt_list_len == 0)
+                    bt_list_ptr = nullptr;
+
+                wrappedFieldPtr sptrScId = CFieldElement(certInput.scId).GetFieldElement();
+                field_t* scidFe = sptrScId.get();
+
+                wrappedFieldPtr   sptrConst  = certInput.constant.GetFieldElement();
+                wrappedFieldPtr   sptrCum    = certInput.endEpochCumScTxCommTreeRoot.GetFieldElement();
+                wrappedScProofPtr sptrProof  = certInput.proof.GetProofPtr();
+                wrappedScVkeyPtr  sptrCertVk = certInput.verificationKey.GetVKeyPtr();
+
+                // wrappedFieldPtr can be nullptr, which is expected for the optional parameter
+                wrappedFieldPtr   sptrPrevHash = certInput.lastCertHash.GetFieldElement();
+
+                bool ret = batchVerifier.add_certificate_proof(
+                    certInput.proofId,
                     sptrConst.get(),
-                    scid_fe, 
-                    sptrNullifier.get(),
-                    &bws_csw_pk_hash,
-                    sptrCdh.get(),
+                    scidFe,
+                    certInput.epochNumber,
+                    certInput.quality,
+                    bt_list_ptr,
+                    bt_list_len,
+                    custom_fields.get(),
+                    custom_fields_len,
                     sptrCum.get(),
+                    certInput.mainchainBackwardTransferRequestScFee,
+                    certInput.forwardTransferScFee,
                     sptrProof.get(),
-                    sptrCeasedVk.get(),
+                    sptrCertVk.get(),
+                    sptrPrevHash.get(),
                     &code
                 );
 
                 if (!ret || code != CctpErrorCode::OK)
                 {
-                    LogPrintf("ERROR: %s():%d - tx [%s] has csw proof which does not verify: ret[%d], code [0x%x]\n",
-                        __func__, __LINE__, proofEntry.first.ToString(), (int)ret, code);
+                    LogPrintf("ERROR: %s():%d - cert [%s] has proof which does not verify: ret[%d], code [0x%x]\n",
+                        __func__, __LINE__, certInput.certHash.ToString(), (int)ret, code);
 
-                    item.result = ProofVerificationResult::Failed;
+                    proofItem.result = ProofVerificationResult::Failed;
                     addFailure = true;
+                }
+                else
+                {
+                    needToRunVerification = true;
+                }
+            }
+            else
+            {
+                // It should never happen that the proof entry is neither a certificate nor a CSW input.
+                assert(false);
+            }
+        }
+        else
+        {
+            if (proofItem.result == ProofVerificationResult::Failed)
+            {
+                reusageFailure = true;
+            }
+        }
+    }
 
-                    // If one CSW input fails, it is possible to skip the whole transaction.
-                    break;
+    bool verificationResult = true;
+    if (needToRunVerification)
+    {
+        CZendooBatchProofVerifierResult verRes(batchVerifier.batch_verify_all(&code));
+
+        if (verRes.Result())
+        {
+            assert(verRes.FailedProofs().size() == 0);
+
+            for (auto& [proofId, proofItem] : proofs)
+            {
+                // Set as "passed" only proofs that didn't fail during the add process.
+                if (proofItem.result == ProofVerificationResult::Unknown)
+                {
+                    proofItem.result = ProofVerificationResult::Passed;
                 }
             }
         }
-        else if (item.proofInput.type() == typeid(CCertProofVerifierInput))
-        {
-            CCertProofVerifierInput certInput = boost::get<CCertProofVerifierInput>(item.proofInput);
-            proofIdMap.insert({certInput.proofId, proofEntry.first});
-
-            int custom_fields_len = certInput.vCustomFields.size(); 
-            std::unique_ptr<const field_t*[]> custom_fields(new const field_t*[custom_fields_len]);
-            int i = 0;
-            std::vector<wrappedFieldPtr> vSptr;
-            for (auto entry: certInput.vCustomFields)
-            {
-                wrappedFieldPtr sptrFe = entry.GetFieldElement();
-                custom_fields[i] = sptrFe.get();
-                vSptr.push_back(sptrFe);
-                i++;
-            }
-
-            const backward_transfer_t* bt_list_ptr = certInput.bt_list.data();
-            int bt_list_len = certInput.bt_list.size();
-
-            // mc crypto lib wants a null ptr if we have no fields
-            if (custom_fields_len == 0)
-                custom_fields.reset();
-            if (bt_list_len == 0)
-                bt_list_ptr = nullptr;
-
-            wrappedFieldPtr sptrScId = CFieldElement(certInput.scId).GetFieldElement();
-            field_t* scidFe = sptrScId.get();
-
-            wrappedFieldPtr   sptrConst    = certInput.constant.GetFieldElement();
-            wrappedFieldPtr   sptrCum      = certInput.endEpochCumScTxCommTreeRoot.GetFieldElement();
-            wrappedScProofPtr sptrProof    = certInput.proof.GetProofPtr();
-            wrappedScVkeyPtr  sptrCertVk   = certInput.verificationKey.GetVKeyPtr();
-
-            // wrappedFieldPtr can be nullptr, which is expected for the optional parameter
-            wrappedFieldPtr   sptrPrevHash = certInput.lastCertHash.GetFieldElement();
-
-            bool ret = batchVerifier.add_certificate_proof(
-                certInput.proofId,
-                sptrConst.get(),
-                scidFe,
-                certInput.epochNumber,
-                certInput.quality,
-                bt_list_ptr,
-                bt_list_len,
-                custom_fields.get(),
-                custom_fields_len,
-                sptrCum.get(),
-                certInput.mainchainBackwardTransferRequestScFee,
-                certInput.forwardTransferScFee,
-                sptrProof.get(),
-                sptrCertVk.get(),
-                sptrPrevHash.get(),
-                &code
-            );
-            //dumpBtArr((backward_transfer_t*)bt_list_ptr, bt_list_len, "bwt list");
-            //dumpFeArr((field_t**)custom_fields.get(), custom_fields_len, "custom fields");
-            //dumpFe(sptrCum.get(), "cumTree");
-
-            if (!ret || code != CctpErrorCode::OK)
-            {
-                LogPrintf("ERROR: %s():%d - cert [%s] has proof which does not verify: ret[%d], code [0x%x]\n",
-                    __func__, __LINE__, certInput.certHash.ToString(), (int)ret, code);
-
-                item.result = ProofVerificationResult::Failed;
-                addFailure = true;
-            }
-        }
         else
         {
-            // It should never happen that the proof entry is neither a certificate nor a CSW input.
-            assert(false);
-        }
-    }
-
-    CZendooBatchProofVerifierResult verRes(batchVerifier.batch_verify_all(&code));
-
-    if (verRes.Result())
-    {
-        assert(verRes.FailedProofs().size() == 0);
-
-        for (auto& proof : proofs)
-        {
-            CProofVerifierItem& item = proof.second;
-
-            // Set as "passed" only proofs that didn't fail during the add process.
-            if (item.result == ProofVerificationResult::Unknown)
+            if (verRes.FailedProofs().size() > 0)
             {
-                item.result = ProofVerificationResult::Passed;
+                // We know for sure that some proofs failed, the other ones may be valid or not (unknown).
+                LogPrintf("ERROR: %s():%d - verify failed for %d proof(s), code [0x%x]\n",
+                          __func__, __LINE__, verRes.FailedProofs().size(), code);
+
+                for (auto& failedProofId : verRes.FailedProofs())
+                {
+                    uint256 txHash = proofIdMap.at(failedProofId);
+                    proofs.at(txHash).result = ProofVerificationResult::Failed;
+                }
+            }
+            else
+            {
+                // We don't know which proofs made the batch process fail.
+                LogPrintf("ERROR: %s():%d - verify failed without detailed information, code [0x%x]\n", __func__, __LINE__, code);
             }
         }
-    }
-    else
-    { 
-
-        if (verRes.FailedProofs().size() > 0)
-        {
-            // We know for sure that some proofs failed, the other ones may be valid or not (unknown).
-            LogPrintf("ERROR: %s():%d - verify failed for %d proof(s), code [0x%x]\n",
-            __func__, __LINE__, verRes.FailedProofs().size(), code);
-
-            for (uint32_t proofId : verRes.FailedProofs())
-            {
-                uint256 txHash = proofIdMap.at(proofId);
-                proofs.at(txHash).result = ProofVerificationResult::Failed;
-            }
-        }
-        else
-        {
-            // We don't know which proofs made the batch process fail.
-            LogPrintf("ERROR: %s():%d - verify failed without detailed information, code [0x%x]\n", __func__, __LINE__, code);
-        }
+        verificationResult = verRes.Result();
     }
 
     int64_t nTime2 = GetTimeMicros();
     LogPrint("bench", "%s():%d - verification completed: %.2fms\n", __func__, __LINE__, (nTime2-nTime1) * 0.001);
-    return !addFailure && verRes.Result();
+    
+    {
+        LOCK(proofVerificationManager->cs_proofsVerificationsResults);
+        int64_t timeMillis = GetTimeMillis();
+        for (auto& [proofId, proofItem] : proofs)
+        {
+            proofVerificationManager->mostRecentProofsVerificationsResults.insert({proofId, {timeMillis, proofItem.result}});
+        }
+    }
+
+    return !reusageFailure && !addFailure && verificationResult;
 }
 
 /**
@@ -436,17 +477,15 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
  */
 void CScProofVerifier::NormalVerify(std::map</* Cert or Tx hash */ uint256, CProofVerifierItem>& proofs)
 {
-    for (auto& proof : proofs)
+    for (auto& [proofId, proofItem] : proofs)
     {
-        CProofVerifierItem& item = proof.second;
-
-        if (item.proofInput.type() == typeid(std::vector<CCswProofVerifierInput>))
+        if (proofItem.proofInput.type() == typeid(std::vector<CCswProofVerifierInput>))
         {
-            item.result = NormalVerifyCsw(boost::get<std::vector<CCswProofVerifierInput>>(item.proofInput));
+            proofItem.result = NormalVerifyCsw(boost::get<std::vector<CCswProofVerifierInput>>(proofItem.proofInput));
         }
-        else if (item.proofInput.type() == typeid(CCertProofVerifierInput))
+        else if (proofItem.proofInput.type() == typeid(CCertProofVerifierInput))
         {
-            item.result = NormalVerifyCertificate(boost::get<CCertProofVerifierInput>(item.proofInput));
+            proofItem.result = NormalVerifyCertificate(boost::get<CCertProofVerifierInput>(proofItem.proofInput));
         }
         else
         {

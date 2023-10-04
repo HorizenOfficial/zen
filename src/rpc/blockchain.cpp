@@ -2532,6 +2532,8 @@ UniValue getproofverifierstats(const UniValue& params, bool fHelp)
     obj.pushKV("failedCSWs",                 static_cast<uint64_t>(stats.failedCswCounter));
     obj.pushKV("okCerts",                    static_cast<uint64_t>(stats.okCertCounter));
     obj.pushKV("okCSWs",                     static_cast<uint64_t>(stats.okCswCounter));
+    obj.pushKV("removedFromQueueProofs",     static_cast<uint64_t>(stats.removedFromQueueCounter));
+    obj.pushKV("discardedResultsProofs",     static_cast<uint64_t>(stats.discardedResultCounter));
 
     return obj;
 }
@@ -2704,9 +2706,10 @@ UniValue clearmempool(const UniValue& params, bool fHelp)
     }
 
     LOCK(cs_main);
-    mempool->clear();
+
     TEST_FRIEND_CScAsyncProofVerifier::GetInstance().ClearFromQueue();
-    TEST_FRIEND_CScAsyncProofVerifier::GetInstance().DiscardFromCurrentVerification();
+    TEST_FRIEND_CScAsyncProofVerifier::GetInstance().SetDiscardingFromCurrentVerification();
+    mempool->clear();
 
     return NullUniValue;
 }
