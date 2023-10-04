@@ -11,7 +11,7 @@ constexpr int RESULTS_LIMIT = 100;
  * @brief Helper class for managing proofs verifications results
  * 
  */
-class CScProofVerificationManager
+class CScProofVerificationResultManager
 {
 public:
 
@@ -19,15 +19,15 @@ public:
 
     LimitedMap<uint256, std::pair<uint64_t, ProofVerificationResult>> mostRecentProofsVerificationsResults;
 
-    static CScProofVerificationManager& GetInstance()
+    static CScProofVerificationResultManager& GetInstance()
     {
-        static CScProofVerificationManager instance;
+        static CScProofVerificationResultManager instance;
         
         return instance;
     }
 
 private:
-    CScProofVerificationManager() : mostRecentProofsVerificationsResults(RESULTS_LIMIT)
+    CScProofVerificationResultManager() : mostRecentProofsVerificationsResults(RESULTS_LIMIT)
     {
     }
 };

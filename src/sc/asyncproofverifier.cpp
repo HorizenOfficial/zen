@@ -1,5 +1,5 @@
 #include "asyncproofverifier.h"
-#include "proofverificationmanager.hpp"
+#include "proofverificationresultmanager.hpp"
 
 #include "coins.h"
 #include "init.h"
@@ -69,7 +69,9 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
     uint32_t batchVerificationMaxDelay = GetCustomMaxBatchVerifyDelay();
     uint32_t batchVerificationMaxSize  = GetCustomMaxBatchVerifyMaxSize();
 
-    auto proofVerificationManager = &CScProofVerificationManager::GetInstance();
+    auto proofVerificationResultManager = &CScProofVerificationResultManager::GetInstance();
+
+    std::map</* Cert or Tx hash */ uint256, CProofVerifierItem> tempProofsInVerificationQueue;
 
     while (!ShutdownRequested())
     {
@@ -79,15 +81,17 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
             if (proofsQueue.size() > 0)
             {
                 {
-                    LOCK(proofVerificationManager->cs_proofsVerificationsResults);
+                    // the goal here is to remove every proof whose result is already
+                    // available so that any useless async proof verifier run is avoided
+                    LOCK(proofVerificationResultManager->cs_proofsVerificationsResults);
                     size_t clearedProofs = 0;
 
-                    if (proofVerificationManager->mostRecentProofsVerificationsResults.size() > 0)
+                    if (proofVerificationResultManager->mostRecentProofsVerificationsResults.size() > 0)
                     {
                         for (auto it = proofsQueue.cbegin(); it != proofsQueue.cend(); )
                         {
-                            if (proofVerificationManager->mostRecentProofsVerificationsResults.find(it->first) !=
-                                proofVerificationManager->mostRecentProofsVerificationsResults.end())
+                            if (proofVerificationResultManager->mostRecentProofsVerificationsResults.find(it->first) !=
+                                proofVerificationResultManager->mostRecentProofsVerificationsResults.end())
                             {
                                 ++clearedProofs;
                                 LogPrint("cert", "%s():%d - %s proof cleared from async verification queue\n",
@@ -143,30 +147,65 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
         }
 
         {
+            LOCK(cs_asyncQueueInVerification);
+
+            // copy the in-verification queued proofs into a local map, so that we can release the lock
             if (proofsInVerificationQueue.size() > 0)
             {
-                BatchVerifyInternal(proofsInVerificationQueue);
+                tempProofsInVerificationQueue = proofsInVerificationQueue;
+            }
+        }
+        
+        if (tempProofsInVerificationQueue.size() > 0)
+        {
+            BatchVerifyInternal(tempProofsInVerificationQueue);
+            {
+                LOCK(cs_asyncQueueInVerification);
+
+                // copy back the local map into in-verification queued proofs for processing result
+                proofsInVerificationQueue = tempProofsInVerificationQueue;
                 ProcessVerificationOutputs();
 
-                if (proofsInVerificationQueue.size() > 0)
-                {
-                    LogPrint("cert", "%s():%d - Batch verification failed, removed proofs that caused the failure and trying again... \n", __func__, __LINE__);
+                // copy the in-verification queued proofs into a local map, so that we can release the lock
+                tempProofsInVerificationQueue = proofsInVerificationQueue;
+            }
 
-                    BatchVerifyInternal(proofsInVerificationQueue);
+            if (tempProofsInVerificationQueue.size() > 0)
+            {
+                LogPrint("cert", "%s():%d - Batch verification failed, removed proofs that caused the failure and trying again... \n", __func__, __LINE__);
+
+                BatchVerifyInternal(tempProofsInVerificationQueue);
+                {
+                    LOCK(cs_asyncQueueInVerification);
+
+                    // copy back the local map into in-verification queued proofs for processing result
+                    proofsInVerificationQueue = tempProofsInVerificationQueue;
                     ProcessVerificationOutputs();
 
-                    if (proofsInVerificationQueue.size() > 0)
-                    {
-                        LogPrint("cert", "%s():%d - Batch verification failed again, verifying proofs one by one... \n", __func__, __LINE__);
-
-                        // As last attempt, verify the proofs one by one.
-                        NormalVerify(proofsInVerificationQueue);
-                        ProcessVerificationOutputs();
-                    }
-
-                    assert(proofsInVerificationQueue.size() == 0);
+                    // copy the in-verification queued proofs into a local map, so that we can release the lock
+                    tempProofsInVerificationQueue = proofsInVerificationQueue;
                 }
+
+                if (tempProofsInVerificationQueue.size() > 0)
+                {
+                    LogPrint("cert", "%s():%d - Batch verification failed again, verifying proofs one by one... \n", __func__, __LINE__);
+
+                    // As last attempt, verify the proofs one by one.
+                    NormalVerify(tempProofsInVerificationQueue);
+                    {
+                        LOCK(cs_asyncQueueInVerification);
+
+                        // copy back the local map into in-verification queued proofs for processing result
+                        proofsInVerificationQueue = tempProofsInVerificationQueue;
+                        ProcessVerificationOutputs();
+
+                        // copy the in-verification queued proofs into a local map, so that we can release the lock
+                        tempProofsInVerificationQueue = proofsInVerificationQueue;
+                    }
+                }
+
             }
+            assert(tempProofsInVerificationQueue.size() == 0);
         }
 
         MilliSleep(THREAD_WAKE_UP_PERIOD);

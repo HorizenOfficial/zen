@@ -62,24 +62,26 @@ public:
 
 private:
 
-    friend class TEST_FRIEND_CScAsyncProofVerifier;         /**< A friend class used as a proxy for private members in unit tests (Regtest mode only). */
+    friend class TEST_FRIEND_CScAsyncProofVerifier;                                         /**< A friend class used as a proxy for private members in unit tests (Regtest mode only). */
 
-    static const uint32_t THREAD_WAKE_UP_PERIOD = 100;           /**< The period of time in milliseconds after which the thread wakes up. */
+    static const uint32_t THREAD_WAKE_UP_PERIOD = 100;                                      /**< The period of time in milliseconds after which the thread wakes up. */
 
-    std::map</* Cert or Tx hash */ uint256, uint64_t> proofsInsertionMillisecondsQueue;   /**< The queue of insertion time for proofs to be verified. */ 
+    std::map</* Cert or Tx hash */ uint256, uint64_t> proofsInsertionMillisecondsQueue;     /**< The queue of insertion time for proofs to be verified. */ 
 
-    std::map</* Cert or Tx hash */ uint256, CProofVerifierItem> proofsInVerificationQueue;   /**< The queue of proofs being verified. */
+    std::map</* Cert or Tx hash */ uint256, CProofVerifierItem> proofsInVerificationQueue;  /**< The queue of proofs being verified. */
 
-    bool discardAllProofsVerifications = false;   /**< Flag indicating if all proofs verifications has to be discard (from current execution). */
+    bool discardAllProofsVerifications = false;                                             /**< Flag indicating if all proofs verifications has to be discard (from current execution). */
 
-    std::vector</* Cert or Tx hash */ uint256> proofsVerificationsToDiscard;   /**< The vector of proofs verifications to discard (from current execution). */
+    std::vector</* Cert or Tx hash */ uint256> proofsVerificationsToDiscard;                /**< The vector of proofs verifications to discard (from current execution). */
 
-    CCriticalSection cs_asyncQueue;         /**< The lock to be used for entering the critical section in async mode only. */
+    CCriticalSection cs_asyncQueue;                                                         /**< The lock to be used for entering the critical section in async mode only. */
 
-    CCriticalSection cs_asyncQueueInVerification;         /**< The lock to be used for entering the critical section in async mode only (for proofsInVerificationQueue). */
+    CCriticalSection cs_asyncQueueInVerification;                                           /**< The lock to be used for entering the critical section in async mode only (for proofsInVerificationQueue). */
+
+    CCriticalSection cs_asyncQueueToDiscard;                                                /**< The lock to be used for entering the critical section in async mode only (for discardAllProofsVerifications and proofsVerificationsToDiscard). */
 
     // Members used for REGTEST mode only. [Start]
-    AsyncProofVerifierStatistics stats;     /**< Async proof verifier statistics. */
+    AsyncProofVerifierStatistics stats;                                                     /**< Async proof verifier statistics. */
     // Members used for REGTEST mode only. [End]
 
     /**
@@ -131,6 +133,8 @@ public:
      */
     AsyncProofVerifierStatistics GetStatistics()
     {
+        auto& verifier = CScAsyncProofVerifier::GetInstance();
+        LOCK2(verifier.cs_asyncQueue, verifier.cs_asyncQueueInVerification);
         return CScAsyncProofVerifier::GetInstance().stats;
     }
 
@@ -142,11 +146,12 @@ public:
      */
     size_t PendingAsyncCertProofs()
     {
-        LOCK(CScAsyncProofVerifier::GetInstance().cs_asyncQueue);
+        auto& verifier = CScAsyncProofVerifier::GetInstance();
+        LOCK(verifier.cs_asyncQueue);
 
         int counter = 0;
 
-        for (auto item : CScAsyncProofVerifier::GetInstance().proofsQueue)
+        for (auto item : verifier.proofsQueue)
         {
             if (item.second.proofInput.type() == typeid(CCertProofVerifierInput))
             {
@@ -165,11 +170,12 @@ public:
      */
     size_t PendingAsyncCertProofsInVerification()
     {
-        LOCK(CScAsyncProofVerifier::GetInstance().cs_asyncQueueInVerification);
+        auto& verifier = CScAsyncProofVerifier::GetInstance();
+        LOCK(verifier.cs_asyncQueueInVerification);
 
         int counter = 0;
 
-        for (auto item : CScAsyncProofVerifier::GetInstance().proofsInVerificationQueue)
+        for (auto item : verifier.proofsInVerificationQueue)
         {
             if (item.second.proofInput.type() == typeid(CCertProofVerifierInput))
             {
@@ -188,11 +194,12 @@ public:
      */
     size_t PendingAsyncCswProofs()
     {
-        LOCK(CScAsyncProofVerifier::GetInstance().cs_asyncQueue);
+        auto& verifier = CScAsyncProofVerifier::GetInstance();
+        LOCK(verifier.cs_asyncQueue);
 
         int counter = 0;
 
-        for (auto item : CScAsyncProofVerifier::GetInstance().proofsQueue)
+        for (auto item : verifier.proofsQueue)
         {
             if (item.second.proofInput.type() == typeid(std::vector<CCswProofVerifierInput>))
             {
@@ -211,11 +218,12 @@ public:
      */
     size_t PendingAsyncCswProofsInVerification()
     {
-        LOCK(CScAsyncProofVerifier::GetInstance().cs_asyncQueueInVerification);
+        auto& verifier = CScAsyncProofVerifier::GetInstance();
+        LOCK(verifier.cs_asyncQueueInVerification);
 
         int counter = 0;
 
-        for (auto item : CScAsyncProofVerifier::GetInstance().proofsInVerificationQueue)
+        for (auto item : verifier.proofsInVerificationQueue)
         {
             if (item.second.proofInput.type() == typeid(std::vector<CCswProofVerifierInput>))
             {
@@ -241,55 +249,54 @@ public:
      */
     void ResetStatistics()
     {
-        CScAsyncProofVerifier& verifier = CScAsyncProofVerifier::GetInstance();
-
-        verifier.stats = AsyncProofVerifierStatistics();
+        CScAsyncProofVerifier::GetInstance().stats = AsyncProofVerifierStatistics();
     }
 
     /**
-     * @brief Clears proofs from the async queue.
+     * @brief Clears proofs from the async queue (before they are started to be verified)
      */
     void ClearFromQueue(const std::vector<uint256>& proofsToClear = std::vector<uint256>())
     {
-        CScAsyncProofVerifier& verifier = CScAsyncProofVerifier::GetInstance();
+        auto& verifier = CScAsyncProofVerifier::GetInstance();
+        LOCK(verifier.cs_asyncQueue);
 
+        size_t clearedProofs = 0;
+
+        if (verifier.proofsQueue.size() > 0)
         {
-            LOCK(verifier.cs_asyncQueue);
-            size_t clearedProofs = 0;
-
-            if (verifier.proofsQueue.size() > 0)
+            if (proofsToClear.size() == 0)
             {
-                if (proofsToClear.size() == 0)
-                {
-                    clearedProofs = verifier.proofsQueue.size();
-                    LogPrint("sc", "%s():%d - %d proofs cleared from async verification queue\n",
-                             __func__, __LINE__, clearedProofs);
-                    verifier.proofsQueue.clear();
-                    verifier.proofsInsertionMillisecondsQueue.clear();
-                    assert(verifier.proofsQueue.size() == 0);
-                    assert(verifier.proofsInsertionMillisecondsQueue.size() == 0);
-                }
-                else
-                {
-                    for (auto proofToClear : proofsToClear)
-                    {
-                        if (verifier.proofsQueue.erase(proofToClear) > 0)
-                        {
-                            ++clearedProofs;
-                            LogPrint("sc", "%s():%d - %s proof cleared from async verification queue\n",
-                                     __func__, __LINE__, proofToClear.ToString());
-                            verifier.proofsQueue.erase(proofToClear);
-                            verifier.proofsInsertionMillisecondsQueue.erase(proofToClear);
-                        }
-                    }
-                    assert(verifier.proofsQueue.size() == verifier.proofsInsertionMillisecondsQueue.size());
-                }
+                // clear all proofs
+                clearedProofs = verifier.proofsQueue.size();
+                LogPrint("sc", "%s():%d - %d proofs cleared from async verification queue\n",
+                         __func__, __LINE__, clearedProofs);
+                verifier.proofsQueue.clear();
+                verifier.proofsInsertionMillisecondsQueue.clear();
+                assert(verifier.proofsQueue.size() == 0);
+                assert(verifier.proofsInsertionMillisecondsQueue.size() == 0);
             }
+            else
+            {
+                // clear only provided proofs
+                for (auto proofToClear : proofsToClear)
+                {
+                    if (verifier.proofsQueue.erase(proofToClear) > 0)
+                    {
+                        ++clearedProofs;
+                        LogPrint("sc", "%s():%d - %s proof cleared from async verification queue\n",
+                                 __func__, __LINE__, proofToClear.ToString());
+                        verifier.proofsQueue.erase(proofToClear);
+                        verifier.proofsInsertionMillisecondsQueue.erase(proofToClear);
+                    }
+                }
+                assert(verifier.proofsQueue.size() == verifier.proofsInsertionMillisecondsQueue.size());
+            }
+
             if (BOOST_UNLIKELY(Params().NetworkIDString() == "regtest"))
             {
                 verifier.stats.removedFromQueueCounter += clearedProofs;
             }
-        }
+        }       
     }
 
     /**
@@ -298,26 +305,25 @@ public:
      */
     void SetDiscardingFromCurrentVerification(const std::vector<uint256>& proofsVerificationsToDiscard = std::vector<uint256>())
     {
-        CScAsyncProofVerifier& verifier = CScAsyncProofVerifier::GetInstance();
+        auto& verifier = CScAsyncProofVerifier::GetInstance();
+        LOCK(verifier.cs_asyncQueueInVerification);
 
+
+        if (verifier.proofsInVerificationQueue.size() > 0)
         {
-            LOCK(verifier.cs_asyncQueueInVerification);
-            if (verifier.proofsInVerificationQueue.size() > 0)
+            if (proofsVerificationsToDiscard.size() == 0)
             {
-                if (proofsVerificationsToDiscard.size() == 0)
+                LogPrint("sc", "%s():%d - %d proofs verifications results will be discarded from current verification\n",
+                         __func__, __LINE__, verifier.proofsInVerificationQueue.size());
+                verifier.discardAllProofsVerifications = true;
+            }
+            else
+            {
+                for (auto proofToDiscard : proofsVerificationsToDiscard)
                 {
-                    LogPrint("sc", "%s():%d - %d proofs verifications results will be discarded from current verification\n",
-                             __func__, __LINE__, verifier.proofsInVerificationQueue.size());
-                    verifier.discardAllProofsVerifications = true;
-                }
-                else
-                {
-                    for (auto proofToDiscard : proofsVerificationsToDiscard)
-                    {
-                        LogPrint("sc", "%s():%d - %s proof verification result will be discarded from current verification\n",
-                                 __func__, __LINE__, proofToDiscard.ToString());
-                        verifier.proofsVerificationsToDiscard.push_back(proofToDiscard);
-                    }
+                    LogPrint("sc", "%s():%d - %s proof verification result will be discarded from current verification\n",
+                             __func__, __LINE__, proofToDiscard.ToString());
+                    verifier.proofsVerificationsToDiscard.push_back(proofToDiscard);
                 }
             }
         }

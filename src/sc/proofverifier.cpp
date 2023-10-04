@@ -1,5 +1,5 @@
 #include "sc/proofverifier.h"
-#include "sc/proofverificationmanager.hpp"
+#include "sc/proofverificationresultmanager.hpp"
 
 #include "coins.h"
 #include "main.h"
@@ -234,7 +234,7 @@ bool CScProofVerifier::BatchVerify()
  */
 bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint256, CProofVerifierItem>& proofs)
 {
-    auto proofVerificationManager = &CScProofVerificationManager::GetInstance();
+    auto proofVerificationResultManager = &CScProofVerificationResultManager::GetInstance();
 
     if (proofs.size() == 0)
     {
@@ -242,13 +242,13 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
     }
 
     {
-        LOCK(proofVerificationManager->cs_proofsVerificationsResults);
+        LOCK(proofVerificationResultManager->cs_proofsVerificationsResults);
         for (auto& [proofId, proofItem] : proofs)
         {
-            if (proofVerificationManager->mostRecentProofsVerificationsResults.find(proofId) !=
-                proofVerificationManager->mostRecentProofsVerificationsResults.end())
+            if (proofVerificationResultManager->mostRecentProofsVerificationsResults.find(proofId) !=
+                proofVerificationResultManager->mostRecentProofsVerificationsResults.end())
             {
-                proofItem.result = proofVerificationManager->mostRecentProofsVerificationsResults.find(proofId)->second.second;
+                proofItem.result = proofVerificationResultManager->mostRecentProofsVerificationsResults.find(proofId)->second.second;
                 proofItem.resultReused = true;
                 LogPrint("sc", "%s():%d - Reusing result (%d) for proof %s\n",
                          __func__, __LINE__, static_cast<std::underlying_type<ProofVerificationResult>::type>(proofItem.result), proofId.ToString());
@@ -457,11 +457,11 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
     LogPrint("bench", "%s():%d - verification completed: %.2fms\n", __func__, __LINE__, (nTime2-nTime1) * 0.001);
     
     {
-        LOCK(proofVerificationManager->cs_proofsVerificationsResults);
+        LOCK(proofVerificationResultManager->cs_proofsVerificationsResults);
         int64_t timeMillis = GetTimeMillis();
         for (auto& [proofId, proofItem] : proofs)
         {
-            proofVerificationManager->mostRecentProofsVerificationsResults.insert({proofId, {timeMillis, proofItem.result}});
+            proofVerificationResultManager->mostRecentProofsVerificationsResults.insert({proofId, {timeMillis, proofItem.result}});
         }
     }
 
