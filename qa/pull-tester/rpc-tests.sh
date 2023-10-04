@@ -167,6 +167,7 @@ testScripts=(
   'mempool_size_limit_more.py',103,160
   'mempool_size_limit_even_more.py',87,210
   'mempool_hard_fork_cleaning.py',34,60
+  'sc_proof_verification_manager.py',550,800
 );
 
 testScriptsExt=(
