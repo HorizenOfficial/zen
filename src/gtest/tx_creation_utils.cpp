@@ -645,7 +645,6 @@ CMutableTransaction BlockchainTestManager::CreateTransaction(const CTransactionC
             totalInputAmount += out.nValue;
         }
 
-
         std::pair<uint256, CCoinsCacheEntry> coinData = GenerateCoinsAmount(totalInputAmount);
         StoreCoins(coinData);
 
@@ -697,7 +696,7 @@ CScCertificate BlockchainTestManager::GenerateCertificate(uint256 scId, int epoc
 {
     uint256 dummyBlockHash {};
     CFieldElement endEpochCumScTxCommTreeRoot = CFieldElement{SAMPLE_FIELD};
-    CAmount inputAmount{20};
+    CAmount inputAmount{200};
     CAmount dummyNonZeroFee {10};
     CAmount changeTotalAmount = inputAmount - dummyNonZeroFee;
     CAmount bwtTotalAmount {10};
@@ -724,7 +723,7 @@ CScCertificate BlockchainTestManager::GenerateCertificate(uint256 scId, int epoc
     if (inputTxBase)
     {
         res.vin.push_back(CTxIn(COutPoint(inputTxBase->GetHash(), 0), CScript(), -1));
-        SignSignature(keystore, inputTxBase->GetVout()[0].scriptPubKey, res, 0);
+        assert(SignSignature(keystore, inputTxBase->GetVout()[0].scriptPubKey, res, 0));
     }
     else if (inputAmount > 0)
     {
@@ -732,7 +731,7 @@ CScCertificate BlockchainTestManager::GenerateCertificate(uint256 scId, int epoc
         StoreCoins(coinData);
     
         res.vin.push_back(CTxIn(COutPoint(coinData.first, 0), CScript(), -1));
-        SignSignature(keystore, coinData.second.coins.vout[0].scriptPubKey, res, 0);
+        assert(SignSignature(keystore, coinData.second.coins.vout[0].scriptPubKey, res, 0));
     }
 
     CSidechain sidechain;
@@ -916,8 +915,8 @@ CSidechain BlockchainTestManager::GenerateSidechain(uint256 scId, uint8_t versio
     CSidechain sc;
     sc.fixedParams.version = version;
     sc.fixedParams.constant = CFieldElement{SAMPLE_FIELD};
-    sc.fixedParams.wCertVk = GetTestVerificationKey(ProvingSystem::CoboundaryMarlin, TestCircuitType::Certificate);
-    sc.fixedParams.wCeasedVk = GetTestVerificationKey(ProvingSystem::CoboundaryMarlin, TestCircuitType::CSW);
+    sc.fixedParams.wCertVk = GetTestVerificationKey(ProvingSystem::CoboundaryMarlin, TestCircuitType::CertificateNoConstant);
+    sc.fixedParams.wCeasedVk = GetTestVerificationKey(ProvingSystem::CoboundaryMarlin, TestCircuitType::CSWNoConstant);
     return sc;
 }
 
@@ -1169,7 +1168,9 @@ sc_pk_t* BlockchainTestManager::GetTestProvingKey(ProvingSystem provingSystem, T
 void BlockchainTestManager::InitCoinGeneration()
 {
     coinsKey.MakeNewKey(true);
+    keystore.clearAll();
     keystore.AddKey(coinsKey);
+    coinsScript.clear();
     coinsScript << OP_DUP << OP_HASH160 << ToByteVector(coinsKey.GetPubKey().GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
 }
 

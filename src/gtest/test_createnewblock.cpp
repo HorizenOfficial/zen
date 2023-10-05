@@ -14,6 +14,8 @@
 #include "pow/tromp/equi_miner.h"
 #include "coins.h"
 #include "tx_creation_utils.h"
+#include "zen/forks/fork8_sidechainfork.h"
+#include "wallet/wallet.h"
 
 #include "test/test_bitcoin.h"
 
@@ -238,6 +240,28 @@ TEST_F(CreateNewBlockSuite, CreateNewBlock_1tx)
     mempool->clear();
 }
 
+class TestReserveKey : public CReserveKey
+{
+public:
+    TestReserveKey()
+        : CReserveKey(nullptr)
+    {
+        m_key.MakeNewKey(true);
+    }
+    virtual ~TestReserveKey()
+    {
+    }
+
+    bool GetReservedKey(CPubKey &pubkey) override
+    {
+        pubkey = m_key.GetPubKey();
+        return true;
+    }
+
+private:
+    CKey m_key;
+};
+
 TEST_F(CreateNewBlockSuite, CreateNewBlock_1cert)
 {
     blockchain_test_utils::BlockchainTestManager &blockchain = blockchain_test_utils::BlockchainTestManager::GetInstance();
@@ -269,21 +293,29 @@ TEST_F(CreateNewBlockSuite, CreateNewBlock_1cert)
 
     CSidechain sidechain = blockchain.GenerateSidechain(sidechainId, 0);
 
-    sidechain.fixedParams.withdrawalEpochLength = 1;
+    sidechain.fixedParams.withdrawalEpochLength = 10;
     // Store the test sidechain and extend the blockchain to complete at least one epoch. 
-    blockchain.StoreSidechainWithCurrentHeight(sidechainId, sidechain, sidechain.creationBlockHeight + sidechain.fixedParams.withdrawalEpochLength);
+    blockchain.StoreSidechainWithCurrentHeight(sidechainId, sidechain, SidechainFork().getHeight(CBaseChainParams::REGTEST) + sidechain.fixedParams.withdrawalEpochLength);
     // CSidechainsCacheEntry cacheEntry(sidechain, CMutableSidechainCacheEntry::Flags::DEFAULT);
     // nakedView->getSidechainMap().emplace(sidechainId, cacheEntry);
     // nakedView->SetBestBlock(chainActive.Tip()->GetBlockHash());
 
+
     CBlockTemplate *pblocktemplate;
-    CScript scriptPubKey = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
+    std::vector<unsigned char> hnm1(ParseHex("01000000"));
+    // CScript scriptPubKey = CScript();
+    // CScript scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG
+    //     << ToByteVector(uint256()) << hnm1 << OP_CHECKBLOCKATHEIGHT;
     CMutableScCertificate cert = blockchain.GenerateCertificate(sidechainId, 0, 5, testProvingSystem);//CreateCertificate(sidechainId, 5);
 
     uint256 hash1 = cert.GetHash();
-    mempool->addUnchecked(hash1, CCertificateMemPoolEntry(cert, 11, GetTime(), 111.0, 11));
+    mempool->addUnchecked(hash1, CCertificateMemPoolEntry(cert, 1, GetTime(), 111.0, 11));
 
-    pblocktemplate = CreateNewBlock(scriptPubKey);
+    TestReserveKey reserveKey;
+    std::optional<CScript> scriptPubKey = GetMinerScriptPubKey(reserveKey);
+
+
+    pblocktemplate = CreateNewBlock(*scriptPubKey);
     ASSERT_NE(pblocktemplate, nullptr);
     ASSERT_EQ(pblocktemplate->block.vtx.size(), 1);
     // IS THIS CERTIFACTE THREATED AS TRANSACTION?
