@@ -86,46 +86,67 @@ def str_to_b64str(string):
 def swap_bytes(input_buf):
     return codecs.encode(codecs.decode(input_buf, 'hex')[::-1], 'hex').decode()
 
-def sync_blocks(rpc_connections, wait=1, p=False, limit_loop=0):
+def sync_blocks(rpc_connections, wait=0.1, p=False, limit_loop=0):
     """
     Wait until everybody has the same block count or a limit has been exceeded
     """
+    length = len(rpc_connections)
+    if (length == 0 or
+        (length == 1 and not p)):
+        return
     loop_num = 0
+    blockcounts = [0] * length
+    
     while True:
         if limit_loop > 0:
             loop_num += 1
             if loop_num > limit_loop:
-                break
-        counts = [ x.getblockcount() for x in rpc_connections ]
-        if p :
-            print(counts)
-        if counts == [ counts[0] ]*len(counts):
-            break
+                return
+        
+        blockcounts[0] = rpc_connections[0].getblockcount()
+        getblockcount_synced = True
+        for index in range(1, length):
+            blockcounts[index] = rpc_connections[index].getblockcount()
+            if (blockcounts[index] != blockcounts[0]):
+                getblockcount_synced = False
+                if (not p): # if printing, all nodes have to be queried
+                    break
+
+        if (p):
+            print(blockcounts)
+        if (getblockcount_synced):
+            return
         time.sleep(wait)
 
-def sync_mempools(rpc_connections, wait=1):
+def sync_mempools(rpc_connections, wait=0.1):
     """
     Wait until everybody has the same transactions in their memory
     pools, and has notified all internal listeners of them
     """
-    while True:
+    length = len(rpc_connections)
+    getrawmempool_synced = False if length > 1 else True
+
+    while not getrawmempool_synced:
         pool = set(rpc_connections[0].getrawmempool())
-        num_match = 1
-        for i in range(1, len(rpc_connections)):
-            if set(rpc_connections[i].getrawmempool()) == pool:
-                num_match = num_match+1
-        if num_match == len(rpc_connections):
+        for index in range(1, length):
+            if set(rpc_connections[index].getrawmempool()) != pool:
+                break
+            if (index == length - 1):
+                getrawmempool_synced = True
+        if (getrawmempool_synced):
             break
         time.sleep(wait)
 
     # Now that the mempools are in sync, wait for the internal
     # notifications to finish
-    while True:
-        notified = [ x.getmempoolinfo()['fullyNotified'] for x in rpc_connections ]
-        if notified == [ True ] * len(notified):
-            break
+    getmempoolinfo_synced = False if length > 0 else True
+    while not getmempoolinfo_synced:
+        for index in range(0, length):
+            if (rpc_connections[index].getmempoolinfo()['fullyNotified'] == False):
+                break
+            if (index == length - 1):
+                return
         time.sleep(wait)
-
 
 bitcoind_processes = {}
 
