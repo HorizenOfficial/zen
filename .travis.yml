@@ -69,7 +69,7 @@ os: linux
       - DOCKER_IS_DEB=true
       - MAKEFLAGS="--enable-lcov"
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=5:1 --coverage"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:1 --coverage"
   - &docker_amd64_linux_ubuntu_jammy_rpc-tests_2
     env:
       - DOCKER_ARCH=amd64
@@ -78,7 +78,7 @@ os: linux
       - DOCKER_IS_DEB=true
       - MAKEFLAGS="--enable-lcov"
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=5:2 --coverage"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:2 --coverage"
   - &docker_amd64_linux_ubuntu_jammy_rpc-tests_3
     env:
       - DOCKER_ARCH=amd64
@@ -87,7 +87,7 @@ os: linux
       - DOCKER_IS_DEB=true
       - MAKEFLAGS="--enable-lcov"
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=5:3 --coverage"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:3 --coverage"
   - &docker_amd64_linux_ubuntu_jammy_rpc-tests_4
     env:
       - DOCKER_ARCH=amd64
@@ -96,7 +96,7 @@ os: linux
       - DOCKER_IS_DEB=true
       - MAKEFLAGS="--enable-lcov"
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=5:4 --coverage"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:4 --coverage"
   - &docker_amd64_linux_ubuntu_jammy_rpc-tests_5
     env:
       - DOCKER_ARCH=amd64
@@ -105,7 +105,16 @@ os: linux
       - DOCKER_IS_DEB=true
       - MAKEFLAGS="--enable-lcov"
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=5:5 --coverage"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:5 --coverage"
+  - &docker_amd64_linux_ubuntu_jammy_rpc-tests_6
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_jammy
+      - DOCKER_IS_DEB=true
+      - MAKEFLAGS="--enable-lcov"
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:6 --coverage"
   - &docker_amd64_linux_ubuntu_jammy_test-fetch-params
     env:
       - DOCKER_ARCH=amd64
@@ -129,7 +138,7 @@ os: linux
       - DOCKER_FROM=ubuntu_focal
       - DOCKER_IS_DEB=true
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:1"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:1"
   - &docker_amd64_linux_ubuntu_focal_rpc-tests_2
     env:
       - DOCKER_ARCH=amd64
@@ -137,7 +146,7 @@ os: linux
       - DOCKER_FROM=ubuntu_focal
       - DOCKER_IS_DEB=true
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:2"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:2"
   - &docker_amd64_linux_ubuntu_focal_rpc-tests_3
     env:
       - DOCKER_ARCH=amd64
@@ -145,7 +154,7 @@ os: linux
       - DOCKER_FROM=ubuntu_focal
       - DOCKER_IS_DEB=true
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:3"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:3"
   - &docker_amd64_linux_ubuntu_focal_rpc-tests_4
     env:
       - DOCKER_ARCH=amd64
@@ -153,7 +162,23 @@ os: linux
       - DOCKER_FROM=ubuntu_focal
       - DOCKER_IS_DEB=true
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:4"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:4"
+  - &docker_amd64_linux_ubuntu_focal_rpc-tests_5
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_focal
+      - DOCKER_IS_DEB=true
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:5"
+  - &docker_amd64_linux_ubuntu_focal_rpc-tests_6
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_focal
+      - DOCKER_IS_DEB=true
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=6:6"
   - &docker_amd64_linux_ubuntu_focal_test-fetch-params
     env:
       - DOCKER_ARCH=amd64
@@ -172,54 +197,64 @@ os: linux
   - &amd64_osx_xcode14_2_rpc-tests_1
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:1 --rpc-macrebalance"
+      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=12:1 --rpc-macrebalance"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
   - &amd64_osx_xcode14_2_rpc-tests_2
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:2 --rpc-macrebalance"
+      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=12:2 --rpc-macrebalance"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
   - &amd64_osx_xcode14_2_rpc-tests_3
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:3 --rpc-macrebalance"
+      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=12:3 --rpc-macrebalance"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
   - &amd64_osx_xcode14_2_rpc-tests_4
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:4 --rpc-macrebalance"
+      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=12:4 --rpc-macrebalance"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
   - &amd64_osx_xcode14_2_rpc-tests_5
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:5 --rpc-macrebalance"
+      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=12:5 --rpc-macrebalance"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
   - &amd64_osx_xcode14_2_rpc-tests_6
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:6 --rpc-macrebalance"
+      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=12:6 --rpc-macrebalance"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
   - &amd64_osx_xcode14_2_rpc-tests_7
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:7 --rpc-macrebalance"
+      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=12:7 --rpc-macrebalance"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
   - &amd64_osx_xcode14_2_rpc-tests_8
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:8 --rpc-macrebalance"
+      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=12:8 --rpc-macrebalance"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
   - &amd64_osx_xcode14_2_rpc-tests_9
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:9 --rpc-macrebalance"
+      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=12:9 --rpc-macrebalance"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
   - &amd64_osx_xcode14_2_rpc-tests_10
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:10 --rpc-macrebalance"
+      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=12:10 --rpc-macrebalance"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
   - &amd64_osx_xcode14_2_rpc-tests_11
+    env:
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=12:11 --rpc-macrebalance"
+      - MAKEFLAGS="--disable-libs --legacy-cpu"
+  - &amd64_osx_xcode14_2_rpc-tests_12
+    env:
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=12:12 --rpc-macrebalance"
+      - MAKEFLAGS="--disable-libs --legacy-cpu"
+  - &amd64_osx_xcode14_2_rpc-tests_13
     env:
       - TEST_CMD="./qa/zcash/full_test_suite.py"
       - TEST_ARGS="rpc --rpc-runonly=wallet_mergetoaddress_2.py"
@@ -378,6 +413,9 @@ jobs:
       <<: *docker_amd64_linux_ubuntu_jammy_rpc-tests_5
     - stage: Test
       <<: *test_docker_amd64_x-large
+      <<: *docker_amd64_linux_ubuntu_jammy_rpc-tests_6
+    - stage: Test
+      <<: *test_docker_amd64_x-large
       <<: *docker_amd64_linux_ubuntu_jammy_clang-tidy
     - stage: Test
       <<: *test_docker_amd64
@@ -397,6 +435,12 @@ jobs:
     - stage: Test
       <<: *test_docker_amd64_x-large
       <<: *docker_amd64_linux_ubuntu_focal_rpc-tests_4
+    - stage: Test
+      <<: *test_docker_amd64_x-large
+      <<: *docker_amd64_linux_ubuntu_focal_rpc-tests_5
+    - stage: Test
+      <<: *test_docker_amd64_x-large
+      <<: *docker_amd64_linux_ubuntu_focal_rpc-tests_6
     - stage: Test
       <<: *test_docker_amd64
       <<: *docker_amd64_linux_ubuntu_focal_test-fetch-params
@@ -437,6 +481,12 @@ jobs:
     - stage: Test
       <<: *test_osx_xcode14_2
       <<: *amd64_osx_xcode14_2_rpc-tests_11
+    - stage: Test
+      <<: *test_osx_xcode14_2
+      <<: *amd64_osx_xcode14_2_rpc-tests_12
+    - stage: Test
+      <<: *test_osx_xcode14_2
+      <<: *amd64_osx_xcode14_2_rpc-tests_13
     - stage: Finalize_coverage
       <<: *finalize_docker_amd64_x-large
       <<: *docker_amd64_linux_ubuntu_jammy
