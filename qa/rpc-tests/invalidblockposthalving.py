@@ -70,7 +70,7 @@ class InvalidBlockPostHalving(ComparisonTestFramework):
 
         print("---> Create a new block with an anyone-can-spend coinbase")
 
-        block = create_block(self.tip, create_coinbase_h(chainHeight+1), self.block_time)
+        block = create_block(self.tip, create_coinbase_h(chainHeight+1), self.block_time, get_nBits(chainHeight))
         chainHeight += 1
         self.block_time += 1
         block.solve()

@@ -54,7 +54,7 @@ class SpentIndexTest(BitcoinTestFramework):
         addressHash = "0b2f0a0c31bfe0406b0ccc1381fdbe311946dadc"
         op_equalverify = "88"
         op_checksig = "ac"
-        genesisCbah = "20bb1acf2c1fc1228967a611c7db30632098f0c641855180b5fe23793b72eea50d00b4"
+        genesisCbah = "20" + "4375b0a6cdc392199294e82e1acba9d67d99abd55cf3fd497fe0e6bd19b6c266" + "00b4"
         scriptPubKey = binascii.unhexlify(op_dup + op_hash160 + op_push_20_bytes_onto_the_stack + addressHash + op_equalverify + op_checksig + genesisCbah)
         unspent = self.nodes[0].listunspent()
         tx = CTransaction()

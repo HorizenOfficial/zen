@@ -21,7 +21,7 @@ def create_block(hashprev, coinbase, nTime=None, nBits=None):
         block.nTime = nTime
     block.hashPrevBlock = hashprev
     if nBits is None:
-        block.nBits = 0x200f0f0f # Will break after a difficulty adjustment...
+        block.nBits = 0x207f0f0f # Will break after a difficulty adjustment...
     else:
         block.nBits = nBits
     block.vtx.append(coinbase)
@@ -49,11 +49,11 @@ def get_nBits(chainHeight):
     # Hard-coding max target would not work due to rounding behaviour of arith_uint256 type in division in the
     # pow.cpp src code. This is an approximation for regtest.
     #---
-    # consensus.nPowAveragingWindow = 17
-    # genesis.nBits = 0x200f0f0f
-    # nBits stabilizes after 0x2d windows
-    nBits = 0x200f0f0f
-    r = min(chainHeight // 17, 45)
+    # consensus.nPowAveragingWindow = 2
+    # genesis.nBits = 0x207f0f0f
+    # nBits stabilizes after 0x34 windows (based on experiments/observations)
+    nBits = 0x207f0f0f
+    r = min(chainHeight // 2, 52)
     nBits -= r
     #print "--- called with {} --> nBits = {}".format(chainHeight, nBits)
     return nBits

@@ -62,7 +62,7 @@ class mempool_size_limit_more(BitcoinTestFramework):
     def import_data_to_data_dir(self):
         # importing datadir resource
         # Tests checkpoint creation (during startup rescan) and usage, checks everything ok with old wallet
-        snapshot_filename = 'mempool_size_limit_snapshot.zip'
+        snapshot_filename = 'mempool_size_limit_NP_snapshot.zip'
         resource_file = download_snapshot(snapshot_filename, self.options.tmpdir)
         with zipfile.ZipFile(resource_file, 'r') as zip_ref:
             zip_ref.extractall(self.options.tmpdir)

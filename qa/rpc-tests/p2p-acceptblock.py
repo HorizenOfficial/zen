@@ -157,8 +157,9 @@ class AcceptBlockTest(BitcoinTestFramework):
         # This should be accepted.
         blocks_h2 = []  # the height 2 blocks on each node's chain
         block_time = int(time.time()) + 1
+        chainHeight = 1
         for i in range(2):
-            blocks_h2.append(create_block(tips[i], create_coinbase_h(2), block_time))
+            blocks_h2.append(create_block(tips[i], create_coinbase_h(chainHeight+1), block_time, get_nBits(chainHeight)))
             blocks_h2[i].solve()
             block_time += 1
         test_node.send_message(msg_block(blocks_h2[0]))
@@ -172,7 +173,7 @@ class AcceptBlockTest(BitcoinTestFramework):
         # 3. Send another block that builds on the original tip.
         blocks_h2f = []  # Blocks at height 2 that fork off the main chain
         for i in range(2):
-            blocks_h2f.append(create_block(tips[i], create_coinbase_h(2), blocks_h2[i].nTime+1))
+            blocks_h2f.append(create_block(tips[i], create_coinbase_h(chainHeight+1), blocks_h2[i].nTime+1, get_nBits(chainHeight)))
             blocks_h2f[i].solve()
         test_node.send_message(msg_block(blocks_h2f[0]))
         white_node.send_message(msg_block(blocks_h2f[1]))
@@ -190,8 +191,9 @@ class AcceptBlockTest(BitcoinTestFramework):
 
         # 4. Now send another block that builds on the forking chain.
         blocks_h3 = []
+        chainHeight = 2
         for i in range(2):
-            blocks_h3.append(create_block(blocks_h2f[i].sha256, create_coinbase_h(3), blocks_h2f[i].nTime+1))
+            blocks_h3.append(create_block(blocks_h2f[i].sha256, create_coinbase_h(chainHeight+1), blocks_h2f[i].nTime+1, get_nBits(chainHeight)))
             blocks_h3[i].solve()
         test_node.send_message(msg_block(blocks_h3[0]))
         white_node.send_message(msg_block(blocks_h3[1]))
