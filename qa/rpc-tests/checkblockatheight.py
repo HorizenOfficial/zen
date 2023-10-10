@@ -254,11 +254,11 @@ class checkblockatheight(BitcoinTestFramework):
 
         self.mark_logs("  Node0 generating 1 honest block")
         blocks.extend(self.nodes[0].generate(1)) 
-        sync_blocks(self.nodes, 1, False, 5)
+        sync_blocks(self.nodes[0:3])
 
         h_current = self.nodes[1].getblockcount()
 
-        # we will perform on attack aimed at reverting from this block (latest generated) upward
+        # we will perform an attack aimed at reverting from this block (latest generated) upward
         h_attacked = h_current
         hash_attacked = blocks[-1]
         assert hash_attacked == blocks[h_attacked]
@@ -331,7 +331,7 @@ class checkblockatheight(BitcoinTestFramework):
 
         print("  Node0 generating 1 honest block")
         blocks.extend(self.nodes[0].generate(1))
-        sync_blocks(self.nodes[0:2])
+        sync_blocks(self.nodes[0:3])
         
         # check tx is no more in mempool
         assert_equal(self.is_in_mempool(tx_1000, 1), False)
@@ -348,7 +348,6 @@ class checkblockatheight(BitcoinTestFramework):
 
         print("  Node3 generating 3 malicious blocks thus reverting the honest chain once the ntw is joined!")
         blocks.extend(self.nodes[3].generate(3))
-        sync_blocks(self.nodes, limit_loop=5)
         
         self.mark_logs("Joining network")
         self.join_network()
