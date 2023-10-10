@@ -72,7 +72,6 @@ class mempool_size_limit_even_more(BitcoinTestFramework):
         if (USE_SNAPSHOT):
             self.import_data_to_data_dir()
             os.remove(self.options.tmpdir+'/node0/regtest/debug.log') # make sure that we have only logs from this test
-            os.remove(self.options.tmpdir+'/node1/regtest/debug.log')
         print("Initializing test directory " + self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
 

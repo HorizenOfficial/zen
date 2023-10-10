@@ -263,7 +263,9 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         fwt_amount = Decimal(0.5)
         fwd_tx = self.nodes[0].sc_send(
                                         [{'toaddress': "abcd", 'amount': fwt_amount, "scid": scid, "mcReturnAddress": self.nodes[0].getnewaddress()}],
-                                        {'minconf': 1} # this minconf is used to make sure that fwd_tx does not depend on cert_2
+                                        {'minconf': 102} # this minconf is used to make sure that fwd_tx does not depend on cert_2 ('minconf': 1)
+                                                         # in addition, since later in the test c0_block is invalidated and fwd_tx is checked for inclusion in the
+                                                         # mempool, we want to make sure coins mature before c0_block are used (here we are at c0_block+1 height)
                                       )
         assert(fwd_tx in self.nodes[0].getrawmempool())
 
