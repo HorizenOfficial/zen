@@ -1,0 +1,21 @@
+appenders:
+
+  file:
+    kind: rolling_file
+    path: test_log.log
+    encoder:
+      pattern: "{d(%Y-%m-%d %H:%M:%S)} | {({l}):5.5} | {f}:{L} — {m}{n}"
+    policy:
+      trigger:
+        kind: size
+        limit: 10 kb
+      roller:
+        kind: fixed_window
+        pattern: test_log_{}.gz
+        count: 5
+        base: 1
+
+root:
+  level: info
+  appenders:
+    - file

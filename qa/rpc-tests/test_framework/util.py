@@ -149,6 +149,9 @@ def initialize_datadir(dirname, n):
         f.write("listenonion=0\n")
 #        f.write("debug=net\n")
 #        f.write("logtimemicros=1\n")
+
+    mc_crypto_cfg_file = os.path.join(os.path.dirname(__file__), "../../../contrib/debian/examples/sample_log_config.yaml")
+    shutil.copy(mc_crypto_cfg_file, os.path.join(datadir, "sample_log_config.yaml"))
     return datadir
 
 def rpc_url(i, rpchost=None):

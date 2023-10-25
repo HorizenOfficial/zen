@@ -625,6 +625,15 @@ boost::filesystem::path GetConfigFile()
     return pathConfigFile;
 }
 
+boost::filesystem::path GetMcCryptoConfigFile()
+{
+    boost::filesystem::path pathConfigFile(GetArg("-mc_crypto_conf", "sample_log_config.yaml"));
+    if (!pathConfigFile.is_absolute())
+        pathConfigFile = GetDataDir(false) / pathConfigFile;
+
+    return pathConfigFile;
+}
+
 void ReadConfigFile(map<string, string>& mapSettingsRet,
                     map<string, vector<string> >& mapMultiSettingsRet)
 {
