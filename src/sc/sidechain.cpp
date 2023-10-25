@@ -26,7 +26,7 @@ bool Sidechain::InitZendoo()
 
     const std::string cfg_path = GetMcCryptoConfigFile().string();
     zendoo_init(
-        (path_char_t const*) cfg_path.c_str(),
+        reinterpret_cast<path_char_t const*>(cfg_path.c_str()),
         cfg_path.size(),
         &ret_code
     );

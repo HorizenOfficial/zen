@@ -2,7 +2,7 @@ appenders:
 
   file:
     kind: rolling_file
-    path: test_log.log
+    path: FILENAME_PLACEHOLDER
     encoder:
       pattern: "{d(%Y-%m-%d %H:%M:%S)} | {({l}):5.5} | {f}:{L} — {m}{n}"
     policy:
@@ -11,7 +11,7 @@ appenders:
         limit: 10 kb
       roller:
         kind: fixed_window
-        pattern: test_log_{}.gz
+        pattern: FILENAME_PLACEHOLDER{}.gz
         count: 5
         base: 1
 

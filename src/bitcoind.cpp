@@ -19,6 +19,7 @@
 
 #include <stdio.h>
 #include <fstream>
+#include <regex>
 
 /* Introduction text for doxygen: */
 
@@ -38,7 +39,7 @@
 
 namespace {
 
-void CopyDefaultConfigFile(const std::string& destination, const std::string& filename) {
+void CopyDefaultConfigFile(const std::string& destination, const std::string& filename, const std::regex& regex_src, const std::string& regex_dst) {
     try
     {
         // Warn user about using default config file
@@ -48,7 +49,7 @@ void CopyDefaultConfigFile(const std::string& destination, const std::string& fi
             "Automatically copying the default config file to:\n"
             "\n"
 #ifdef  __APPLE__
-            "~/Library/Application Support/Zen\n"
+            "~/Library/Application Support/Zen/%s\n"
 #else
             "~/.zen/%s\n"
 #endif
@@ -82,10 +83,13 @@ void CopyDefaultConfigFile(const std::string& destination, const std::string& fi
 #endif
         // Copy default config file
         std::ifstream src(strConfPath, std::ios::binary);
-        src.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+        src.exceptions(std::ifstream::badbit);
 
         std::ofstream dst(destination.c_str(), std::ios::binary);
-        dst << src.rdbuf();
+        std::string tmpline;
+        while (std::getline(src, tmpline)) {
+            dst << std::regex_replace(tmpline, regex_src, regex_dst) << '\n';
+        }
     } catch (const std::exception& e) {
         fprintf(stdout,
             "------------------------------------------------------------------\n"
@@ -212,7 +216,7 @@ bool AppInit(int argc, char* argv[])
 #ifdef WIN32
             PrintFileMissingError("zen.conf");
 #else
-            CopyDefaultConfigFile(GetConfigFile().string(), "zen.conf");
+            CopyDefaultConfigFile(GetConfigFile().string(), "zen.conf", std::regex(), "");
 #endif
             should_return = true;
         } catch (const std::exception& e) {
@@ -220,22 +224,22 @@ bool AppInit(int argc, char* argv[])
             should_return = true;
         }
 
-        // sample_log_config.yaml
+        // Check for -testnet or -regtest parameter (Params() calls are only valid after this clause)
+        if (!SelectParamsFromCommandLine()) {
+            fprintf(stderr, "Error: Invalid combination of -regtest and -testnet.\n");
+            return false;
+        }
+
+        // mc_crypto_log_config.yaml
         if (!boost::filesystem::exists(GetMcCryptoConfigFile())) {
 #ifdef WIN32
-            PrintFileMissingError("sample_log_config.yaml");
+            PrintFileMissingError("mc_crypto_log_config.yaml");
 #else
-            CopyDefaultConfigFile(GetMcCryptoConfigFile().string(), "sample_log_config.yaml");
+            CopyDefaultConfigFile(GetMcCryptoConfigFile().string(), "mc_crypto_log_config.yaml", std::regex("FILENAME_PLACEHOLDER"), GetMCCryptoLogPath().string());
 #endif
             should_return = true;
         }
         if (should_return) {
-            return false;
-        }
-
-        // Check for -testnet or -regtest parameter (Params() calls are only valid after this clause)
-        if (!SelectParamsFromCommandLine()) {
-            fprintf(stderr, "Error: Invalid combination of -regtest and -testnet.\n");
             return false;
         }
 
