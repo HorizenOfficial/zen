@@ -198,6 +198,11 @@ boost::filesystem::path GetDebugLogPath()
     return GetDataDir() / "debug.log";
 }
 
+boost::filesystem::path GetMCCryptoLogPath()
+{
+    return GetDataDir(false) / "mc_crypto.log";
+}
+
 void OpenDebugLog()
 {
     boost::call_once(&DebugPrintInit, debugPrintInitFlag);
@@ -619,6 +624,15 @@ void ClearDatadirCache()
 boost::filesystem::path GetConfigFile()
 {
     boost::filesystem::path pathConfigFile(GetArg("-conf", "zen.conf"));
+    if (!pathConfigFile.is_absolute())
+        pathConfigFile = GetDataDir(false) / pathConfigFile;
+
+    return pathConfigFile;
+}
+
+boost::filesystem::path GetMcCryptoConfigFile()
+{
+    boost::filesystem::path pathConfigFile(GetArg("-mc_crypto_conf", "mc_crypto_log_config.yaml"));
     if (!pathConfigFile.is_absolute())
         pathConfigFile = GetDataDir(false) / pathConfigFile;
 

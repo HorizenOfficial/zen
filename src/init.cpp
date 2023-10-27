@@ -324,6 +324,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-checkblocks=<n>", strprintf(_("How many blocks to check at startup (default: %u, 0 = all)"), 288));
     strUsage += HelpMessageOpt("-checklevel=<n>", strprintf(_("How thorough the block verification of -checkblocks is (0-4, default: %u)"), 3));
     strUsage += HelpMessageOpt("-conf=<file>", strprintf(_("Specify configuration file (default: %s)"), "zen.conf"));
+    strUsage += HelpMessageOpt("-mc_crypto_conf=<file>", strprintf(_("Specify configuration file for libzendoo logging (default: %s)"), "mc_crypto_log_config.yaml"));
     if (mode == HMM_BITCOIND)
     {
 #if !defined(WIN32)
@@ -1248,6 +1249,10 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // Initialize sidechains folder, hosting keys for sidechains validations
     if(!Sidechain::InitSidechainsFolder())
         return InitError(strprintf(_("Cannot create or access sidechains folder.")));
+
+    // Initialize Zendoo
+    if(!Sidechain::InitZendoo())
+        return InitError(strprintf(_("Cannot initialize Zendoo.")));
 
     // Initialize DLog keys
     if(!Sidechain::InitDLogKeys())

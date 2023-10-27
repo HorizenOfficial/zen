@@ -34,6 +34,8 @@ class MCTestUtils(object):
         args = [os.getenv("ZENDOOMC", os.path.join(self.srcdir, "zendoo/mcTest"))]
 
         args += [op, "-c", str(circuit_type), "-p", str(ps_type), "-s", str(segment_size), "-n", str(num_constraints)]
+        # we always use node0's cfg file, but we expect all these to be equal
+        args += ["-l", self.datadir + "/node0/mc_crypto_log_config.yaml"]
 
         if constant is not None and constant != False:
             args.append("-k")

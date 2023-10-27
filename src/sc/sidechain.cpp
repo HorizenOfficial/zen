@@ -20,6 +20,24 @@ static const boost::filesystem::path Sidechain::GetSidechainDataDir()
     return sidechainsDataDir;
 }
 
+bool Sidechain::InitZendoo()
+{
+    CctpErrorCode ret_code = CctpErrorCode::OK;
+
+    const std::string cfg_path = GetMcCryptoConfigFile().string();
+    zendoo_init(
+        reinterpret_cast<path_char_t const*>(cfg_path.c_str()),
+        cfg_path.size(),
+        &ret_code
+    );
+
+    if (ret_code != CctpErrorCode::OK) {
+        return error("%s():%d - ERROR: Failed initializing Zendoo library, err %d\n",
+            __func__, __LINE__, ret_code);
+    }
+    return true;
+}
+
 bool Sidechain::InitDLogKeys()
 {
     CctpErrorCode errorCode;

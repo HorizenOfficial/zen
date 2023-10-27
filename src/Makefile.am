@@ -447,6 +447,10 @@ zend_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 zend_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) $(COVERAGE_FLAGS)
 zend_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(COVERAGE_FLAGS)
 
+if TARGET_DARWIN
+zend_LDFLAGS += -framework CoreFoundation
+endif
+
 if TARGET_WINDOWS
 zend_SOURCES += bitcoind-res.rc
 endif
@@ -647,6 +651,9 @@ zendoo_mcTest_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) $(COVERAGE_FLAGS)
 zendoo_mcTest_LDADD = $(ZENDOO_MCTEST_LIBS)
 zendoo_mcTest_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(COVERAGE_FLAGS)
 
+if TARGET_DARWIN
+zendoo_mcTest_LDFLAGS += -framework CoreFoundation
+endif
 
 
 CLEANFILES = leveldb/libleveldb.a leveldb/libmemenv.a *.gcda *.gcno */*.gcno wallet/*/*.gcno zen/*/*.gcno

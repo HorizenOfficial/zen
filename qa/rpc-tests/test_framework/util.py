@@ -149,6 +149,13 @@ def initialize_datadir(dirname, n):
         f.write("listenonion=0\n")
 #        f.write("debug=net\n")
 #        f.write("logtimemicros=1\n")
+
+    mc_crypto_cfg_file = os.path.join(os.path.dirname(__file__), "../../../contrib/debian/examples/mc_crypto_log_config.yaml")
+    with open(os.path.join(datadir, "mc_crypto_log_config.yaml"), 'w') as o:
+        with open(mc_crypto_cfg_file, 'r') as f:
+            content = f.read()
+            content_new = re.sub('FILENAME_PLACEHOLDER', os.path.join(datadir, "mc_crypto.log"), content, flags = re.M)
+        o.write(content_new)
     return datadir
 
 def rpc_url(i, rpchost=None):
