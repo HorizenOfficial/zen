@@ -30,7 +30,7 @@ Starting from this release, `zend` includes a logging mechanism specific for the
 * Minor refactoring of the code inside `ThreadSocketHandler()` [#608](https://github.com/HorizenOfficial/zen/pull/608)
 * Removed any reference to `boost::thread` from the networking code [#612](https://github.com/HorizenOfficial/zen/pull/612)
 * Copyright header update [#613](https://github.com/HorizenOfficial/zen/pull/613)
-* 
+* Fixed a sporadic error on the CI related to `sc_cert_nonceasing` and improved a few more tests [#618](https://github.com/HorizenOfficial/zen/pull/618)
 
 
 ## Contributors
