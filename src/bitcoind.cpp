@@ -79,6 +79,9 @@ void CopyDefaultConfigFile(const std::string& destination, const std::string& fi
 #endif
         // Copy default config file
         std::ifstream src(strConfPath, std::ios::binary);
+        if (!src.is_open()) {
+            throw std::runtime_error("Could not find default config file");
+        }
         src.exceptions(std::ifstream::badbit);
 
         std::ofstream dst(destination.c_str(), std::ios::binary);
