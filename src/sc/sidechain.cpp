@@ -24,7 +24,12 @@ bool Sidechain::InitZendoo()
 {
     CctpErrorCode ret_code = CctpErrorCode::OK;
 
+#ifdef WIN32
+    const std::wstring cfg_path = GetMcCryptoConfigFile().wstring();
+#else
     const std::string cfg_path = GetMcCryptoConfigFile().string();
+#endif
+
     zendoo_init(
         reinterpret_cast<path_char_t const*>(cfg_path.c_str()),
         cfg_path.size(),
