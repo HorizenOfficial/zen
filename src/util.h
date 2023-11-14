@@ -132,6 +132,7 @@ void ClearDatadirCache();
 boost::filesystem::path GetConfigFile();
 boost::filesystem::path GetMcCryptoConfigFile();
 boost::filesystem::path GetMCCryptoLogPath();
+void createMcCryptoLogConfigFile();
 #ifndef WIN32
 boost::filesystem::path GetPidFile();
 void CreatePidFile(const boost::filesystem::path &path, pid_t pid);

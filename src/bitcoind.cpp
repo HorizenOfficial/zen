@@ -230,16 +230,11 @@ bool AppInit(int argc, char* argv[])
         }
 
         // mc_crypto_log_config.yaml
-        if (!boost::filesystem::exists(GetMcCryptoConfigFile())) {
-#ifdef WIN32
-            PrintFileMissingError("mc_crypto_log_config.yaml");
-#else
-            CopyDefaultConfigFile(GetMcCryptoConfigFile().string(), "mc_crypto_log_config.yaml", std::regex("FILENAME_PLACEHOLDER"), GetMCCryptoLogPath().string());
-#endif
-            should_return = true;
-        }
-        if (should_return) {
-            return false;
+        if (GetBoolArg("-enable_mc_crypto_logger", false)) {
+            LogPrintf("mc-crypto logger enabled\n");
+            // Create the configuration file if it does not exist
+            if (!boost::filesystem::exists(GetMcCryptoConfigFile()))
+                createMcCryptoLogConfigFile();
         }
 
         // Command-line RPC

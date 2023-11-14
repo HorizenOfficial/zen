@@ -18,6 +18,7 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <regex>
 
 #if (defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__))
 #include <pthread.h>
@@ -630,13 +631,66 @@ boost::filesystem::path GetConfigFile()
     return pathConfigFile;
 }
 
+// This one returns a valid path only if we specify the "-enable_mc_crypto_logger" option
+// otherwise it returns an empty string. This case makes init_zendoo() function forcefully fail,
+// thus disabling the logging function altogether.
 boost::filesystem::path GetMcCryptoConfigFile()
 {
-    boost::filesystem::path pathConfigFile(GetArg("-mc_crypto_conf", "mc_crypto_log_config.yaml"));
-    if (!pathConfigFile.is_absolute())
-        pathConfigFile = GetDataDir(false) / pathConfigFile;
+    if (GetBoolArg("-enable_mc_crypto_logger", false)) 
+        return GetDataDir(false) / "mc_crypto_log_config.yaml";
+    else
+        return boost::filesystem::path("");
+}
 
-    return pathConfigFile;
+void createMcCryptoLogConfigFile() {
+    LogPrintf("mc-crypto logger configuration file not found! Creating a new on in current dataDir\n");
+
+const char* configFilePayload = 
+"appenders:\n\
+\n\
+  file:\n\
+    kind: rolling_file\n\
+    path: FILENAME_PLACEHOLDER\n\
+    encoder:\n\
+      pattern: \"{d(%Y-%m-%d %H:%M:%S)} | {({l}):5.5} | {f}:{L} - {m}{n}\"\n\
+    policy:\n\
+      trigger:\n\
+        kind: size\n\
+        limit: 10 kb\n\
+      roller:\n\
+        kind: fixed_window\n\
+        pattern: FILENAME_PLACEHOLDER{}.gz\n\
+        count: 5\n\
+        base: 1\n\
+\n\
+root:\n\
+  level: info\n\
+  appenders:\n\
+    - file\n";
+
+    // Replace FILENAME_PLACEHOLDER with the current data dir (depending on the OS!) and the log filename
+    boost::filesystem::path logFilename = GetDataDir(false) / "mc_crypto.log";
+
+#ifdef WIN32
+    std::wstring logConfigContents(&configFilePayload[0], &configFilePayload[strlen(configFilePayload)]);
+    std::wstring updatedContent = std::regex_replace(logConfigContents, std::wregex(L"FILENAME_PLACEHOLDER"), logFilename.c_str());
+#else
+    std::string logConfigContents(configFilePayload);
+    std::string updatedContent = std::regex_replace(logConfigContents, std::regex("FILENAME_PLACEHOLDER"), logFilename.c_str());
+#endif
+
+    // Save the updated content in a .yaml file in the current datadir
+    const boost::filesystem::path destination = GetMcCryptoConfigFile();
+    {
+#ifdef WIN32
+        std::wofstream dst(destination.c_str(), std::ios::binary);
+#else
+        std::ofstream dst(destination.c_str(), std::ios::binary);
+#endif
+        dst << updatedContent;
+    }
+
+    LogPrintf("mc-crypto logger configuration file successfully created in current dataDir\n");
 }
 
 void ReadConfigFile(map<string, string>& mapSettingsRet,

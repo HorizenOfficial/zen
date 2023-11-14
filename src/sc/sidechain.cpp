@@ -30,16 +30,24 @@ bool Sidechain::InitZendoo()
     const std::string cfg_path = GetMcCryptoConfigFile().string();
 #endif
 
-    zendoo_init(
-        reinterpret_cast<path_char_t const*>(cfg_path.c_str()),
-        cfg_path.size(),
-        &ret_code
-    );
+    if (!cfg_path.empty())
+        zendoo_init(
+            reinterpret_cast<path_char_t const*>(cfg_path.c_str()),
+            cfg_path.size(),
+            &ret_code
+        );
 
     if (ret_code != CctpErrorCode::OK) {
+        // mc-crypto returns CctpErrorCode::LoggerInitializationError if it cannot open log4rs configuration file.
+        // This is a non-blocking issue and zend can continue with its startup
+        if (ret_code == CctpErrorCode::InitializationError) {
+            LogPrintf("%s():%d - Error initializing mc-crypto logger - errCode [%d]\n", __func__, __LINE__, ret_code);
+            return true;
+        }
         return error("%s():%d - ERROR: Failed initializing Zendoo library, err %d\n",
             __func__, __LINE__, ret_code);
     }
+
     return true;
 }
 
