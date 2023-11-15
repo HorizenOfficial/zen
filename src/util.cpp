@@ -199,11 +199,6 @@ boost::filesystem::path GetDebugLogPath()
     return GetDataDir() / "debug.log";
 }
 
-boost::filesystem::path GetMCCryptoLogPath()
-{
-    return GetDataDir(false) / "mc_crypto.log";
-}
-
 void OpenDebugLog()
 {
     boost::call_once(&DebugPrintInit, debugPrintInitFlag);
@@ -637,15 +632,15 @@ boost::filesystem::path GetConfigFile()
 boost::filesystem::path GetMcCryptoConfigFile()
 {
     if (GetBoolArg("-enable_mc_crypto_logger", false)) 
-        return GetDataDir(false) / "mc_crypto_log_config.yaml";
+        return GetDataDir() / "mc_crypto_log_config.yaml";
     else
         return boost::filesystem::path("");
 }
 
 void createMcCryptoLogConfigFile() {
-    LogPrintf("mc-crypto logger configuration file not found! Creating a new on in current dataDir\n");
+    LogPrintf("mc-crypto logger configuration file not found! Creating a new one in current dataDir\n");
 
-const char* configFilePayload = 
+    const char* configFilePayload = 
 "appenders:\n\
 \n\
   file:\n\
@@ -669,24 +664,15 @@ root:\n\
     - file\n";
 
     // Replace FILENAME_PLACEHOLDER with the current data dir (depending on the OS!) and the log filename
-    boost::filesystem::path logFilename = GetDataDir(false) / "mc_crypto.log";
+    boost::filesystem::path logFilename = GetDataDir() / "mc_crypto.log";
 
-#ifdef WIN32
-    std::wstring logConfigContents(&configFilePayload[0], &configFilePayload[strlen(configFilePayload)]);
-    std::wstring updatedContent = std::regex_replace(logConfigContents, std::wregex(L"FILENAME_PLACEHOLDER"), logFilename.c_str());
-#else
     std::string logConfigContents(configFilePayload);
-    std::string updatedContent = std::regex_replace(logConfigContents, std::regex("FILENAME_PLACEHOLDER"), logFilename.c_str());
-#endif
+    std::string updatedContent = std::regex_replace(logConfigContents, std::regex("FILENAME_PLACEHOLDER"), logFilename.string());
 
     // Save the updated content in a .yaml file in the current datadir
     const boost::filesystem::path destination = GetMcCryptoConfigFile();
     {
-#ifdef WIN32
-        std::wofstream dst(destination.c_str(), std::ios::binary);
-#else
         std::ofstream dst(destination.c_str(), std::ios::binary);
-#endif
         dst << updatedContent;
     }
 
