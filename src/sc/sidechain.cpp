@@ -30,15 +30,18 @@ bool Sidechain::InitZendoo()
     const std::string cfg_path = GetMcCryptoConfigFile().string();
 #endif
 
-    zendoo_init(
-        reinterpret_cast<path_char_t const*>(cfg_path.c_str()),
-        cfg_path.size(),
-        &ret_code
-    );
+    // Enable mc-crypto logger only if we explicitly request that
+    if (GetBoolArg("-enable_mc_crypto_logger", false)) {
+        zendoo_init_logger(
+            reinterpret_cast<path_char_t const*>(cfg_path.c_str()),
+            cfg_path.size(),
+            &ret_code
+        );
 
-    if (ret_code != CctpErrorCode::OK) {
-        return error("%s():%d - ERROR: Failed initializing Zendoo library, err %d\n",
-            __func__, __LINE__, ret_code);
+        if (ret_code != CctpErrorCode::OK) {
+            return error("%s():%d - ERROR: Failed initializing Zendoo library, err %d\n",
+                __func__, __LINE__, ret_code);
+        }
     }
     return true;
 }
