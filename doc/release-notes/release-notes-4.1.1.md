@@ -1,4 +1,4 @@
-zend v4.1.99
+zend v4.1.1
 =========
 
 This version is expected to deprecate on Mainnet at block **#1502084**, which will occur on **February 6th 2024 at approximately 12:00 PM UTC**. Please, update to a newer version before February 6th.
