@@ -5,10 +5,9 @@
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, initialize_chain_clean, \
-    start_node, connect_nodes_bi, wait_and_assert_operationid_status
+    start_node, connect_nodes_bi, wait_and_assert_operationid_status, download_snapshot
 import zipfile
-import requests
-import io
+from decimal import Decimal
 
 class WalletMergeToAddress2Test (BitcoinTestFramework):
 
@@ -27,21 +26,19 @@ class WalletMergeToAddress2Test (BitcoinTestFramework):
         # 100 blocks generated on node0 + 100 blocks generated on node1 + (1 "shielding" on node0 + 1 block generated on node1) * 100
         #
         # node0:
-        # +] ztpTDK62DWALH9GWJu4rPgqihEGxoWAHFUq                                                             -> 0.00000000
-        # +] ztZwyCWWmUvHsP1Ho1rB8sjHTC81y93n4rF                                                             -> 0.00000000
-        # +] ztTw9aP9jeWRNsR3uMHEB3Z3VUqdFsmJaUVWLgJZDRXQM3MydY56JVr8mXC21kUBgJ51YGKK8QuYSVx2kSM7YXf9gZm1Rb4 -> 1143.75000000 {100 notes}
+        # +] ztmVazvU5wC6cbizPinHMU5GjJYj1iKxhTH                                                             -> 0.00000000
+        # +] zthRUUZDq5yiToeHpi2R5qAAhs19SSw6pSs                                                             -> 0.00000000
+        # +] ztmPTt93ugMaijAghGncX8ir6hPLvwQThz8N2K5uBcjU8E58qXQmne5Rcp4taxRTFpWDZPyv673p7e6aHLkjza4ywe88AkW -> 1143.74000000 {100 notes}
         #
         # node1:
-        # +] ztpvEirKWj1mzvoMCn718KkM2DA1nXohuew                                                             -> 0.00000000
-        # +] ztiFyseKx9q7h4D9eXMjygQqbHvLA4FTZfT                                                             -> 882.75000000 (+750.75000000 immature) {100 utxos (+100 immature)}
+        # +] ztbQADKRubhMhrrpxA2JQR6VLzssWZntQju                                                             -> 0.00000000
+        # +] ztmSek66GPEPc6z2HyumX6ypmqYAaiSCuvD                                                             -> 882.75000000 (+750.01000000 immature) {100 utxos (+100 immature)}
         #
-        
-        r = requests.get("https://downloads.horizen.io/file/depends-sources/test_setup_wallet_mergetoaddress_2.zip", stream=True)
-        if r.ok:
-            z = zipfile.ZipFile(io.BytesIO(r.content))
-            z.extractall(self.options.tmpdir)
-        else:
-            raise Exception("Failed to download zip archive for data dir setup (" + str(r.status_code) + " - " + r.reason + ")")
+
+        snapshot_filename = 'wallet_mergetoaddress_2_NP_snapshot.zip'
+        resource_file = download_snapshot(snapshot_filename, self.options.tmpdir)
+        with zipfile.ZipFile(resource_file, 'r') as zip_ref:
+            zip_ref.extractall(self.options.tmpdir)
 
     def get_merged_transaction(self, unspent_transactions_before_merge, unspent_transactions_after_merge):
         unspent_txid_before = [x["txid"] for x in unspent_transactions_before_merge]
@@ -96,9 +93,9 @@ class WalletMergeToAddress2Test (BitcoinTestFramework):
         assert_equal(result[self.op_result_k][self.mergingUTXOs_k], 0)
         assert_equal(result[self.op_result_k][self.mergingNotes_k], 58)
         assert_equal(result[self.op_result_k][self.mergingTransparentValue_k], 0)
-        # 663.375 is the sum of the amount of the first 58 notes
-        assert_equal(result[self.op_result_k][self.mergingShieldedValue_k], 663.375)
-        assert_equal(result[self.balance_delta_k], 663.375)
+        # 663.3692 is the sum of the amount of the first 58 notes
+        assert_equal(result[self.op_result_k][self.mergingShieldedValue_k], Decimal("663.36920000"))
+        assert_equal(result[self.balance_delta_k], Decimal("663.36920000"))
         # 57 joinsplits are required because first two shielded inputs are merged in a shielded output, which is then set as shielded input (change) which is
         # then set as shielded input (change) in the subsequent joinsplit and paired with another shielded input until the final shielded output is obtained
         # note0  _____

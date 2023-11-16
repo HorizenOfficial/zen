@@ -39,7 +39,7 @@ class PruneTest(BitcoinTestFramework):
         # each output should be protected with OP_CHECKBLOCKATHEIGHT,
         # let it be anchored to the genesis block because its hash is a constant
         # HASH_SIZE + GENESIS_BLOCK_HASH + GENESIS_BLOCK_HEIGHT + OP_CHECKBLOCKATHEIGHT
-        script_pubkey += "20" + "bb1acf2c1fc1228967a611c7db30632098f0c641855180b5fe23793b72eea50d" + "00" + "b4"
+        script_pubkey += "20" + "4375b0a6cdc392199294e82e1acba9d67d99abd55cf3fd497fe0e6bd19b6c266" + "00" + "b4"
 
         # concatenate 690 txouts of above script_pubkey which we'll insert before the txout for change
         self.txouts = "fdb302"

@@ -17,7 +17,7 @@ from test_framework.mininode import CTransaction, CTxIn, CTxOut, COutPoint, ToHe
 # time signing.
 redeem_script_1 = CScript([OP_1, OP_DROP])
 redeem_script_2 = CScript([OP_2, OP_DROP])
-genesis_block_hash = hex_str_to_bytes("bb1acf2c1fc1228967a611c7db30632098f0c641855180b5fe23793b72eea50d")
+genesis_block_hash = hex_str_to_bytes("4375b0a6cdc392199294e82e1acba9d67d99abd55cf3fd497fe0e6bd19b6c266")
 P2SH_1 = CScript([OP_HASH160, hash160(redeem_script_1), OP_EQUAL,CScript(genesis_block_hash),0,OP_CHECKBLOCKATHEIGHT])
 P2SH_2 = CScript([OP_HASH160, hash160(redeem_script_2), OP_EQUAL,CScript(genesis_block_hash),0,OP_CHECKBLOCKATHEIGHT])
 

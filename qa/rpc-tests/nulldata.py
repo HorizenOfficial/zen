@@ -78,7 +78,7 @@ class NullDataTest (BitcoinTestFramework):
 
             newScriptPubKey = newScriptPubKey + str_to_hex_str(chr(len(data)))\
             + str_to_hex_str(data)\
-            +"20bb1acf2c1fc1228967a611c7db30632098f0c641855180b5fe23793b72eea50d"\
+            +"20" + "4375b0a6cdc392199294e82e1acba9d67d99abd55cf3fd497fe0e6bd19b6c266"\
             +"00b4" # Genesis Block hash + ParamHeight=0 + OP_CHECKBLOCKHEIGHT
 
             # prepend script size

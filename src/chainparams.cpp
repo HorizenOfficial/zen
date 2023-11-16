@@ -78,7 +78,7 @@ public:
         CMutableTransaction txNew;
         txNew.nVersion = 1;
         txNew.vin.resize(1);
-        txNew.vin[0].scriptSig = CScript() << 486604799 << CScriptNum(4) << vector<unsigned char>(reinterpret_cast<const unsigned char*>(pszTimestamp), reinterpret_cast<const unsigned char*>(pszTimestamp) + strlen(pszTimestamp));
+        txNew.vin[0].scriptSig = CScript() << 486604799 << CScriptNum(4) << vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
         txNew.addOut(CTxOut());
         txNew.getOut(0).nValue = 0;
         txNew.getOut(0).scriptPubKey = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
@@ -299,7 +299,8 @@ public:
         consensus.nMajorityEnforceBlockUpgrade = 750;
         consensus.nMajorityRejectBlockOutdated = 950;
         consensus.nMajorityWindow = 1000;
-        consensus.powLimit = uint256S("0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f");
+        consensus.nPowAveragingWindow = 2;
+        consensus.powLimit = uint256S("7f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f");
         assert(maxUint/UintToArith256(consensus.powLimit) >= consensus.nPowAveragingWindow);
         consensus.nPowMaxAdjustDown = 0; // Turn off adjustment down
         consensus.nPowMaxAdjustUp = 0; // Turn off adjustment up
@@ -316,13 +317,13 @@ public:
         nEquihashK = K;
         genesis.hashPrevBlock.SetNull();
         genesis.nTime = 1494548150;
-        genesis.nBits = 0x200f0f0f;
+        genesis.nBits = 0x207f0f0f;
         genesis.nVersion = 4;
-        genesis.nNonce = uint256S("0x000000000000000000000000000000000000000000000000000000000000003d");
-        genesis.nSolution = ParseHex("00CBA7185285F4FF37432E1F3AA7A569FBC81B5A0876F23DA8D38840B0130C74E68297B5");
+        genesis.nNonce = uint256S("0x0000000000000000000000000000000000000000000000000000000000000001");
+        genesis.nSolution = ParseHex("015354ce93552675bb0ad652dffae7dee3eb11e84c15759b31b566196f285ac2a7b91db2");
         consensus.hashGenesisBlock = genesis.GetHash();
         nDefaultPort = 19133;
-        assert(consensus.hashGenesisBlock == uint256S("0x0da5ee723b7923feb580518541c6f098206330dbc711a6678922c11f2ccf1abb"));
+        assert(consensus.hashGenesisBlock == uint256S("0x66c2b619bde6e07f49fdf35cd5ab997dd6a9cb1a2ee894921992c3cda6b07543"));
 
         nPruneAfterHeight = 1000;
 
@@ -346,7 +347,7 @@ public:
 
         checkpointData = (Checkpoints::CCheckpointData){
             boost::assign::map_list_of
-            ( 0, uint256S("0x0da5ee723b7923feb580518541c6f098206330dbc711a6678922c11f2ccf1abb")),
+            ( 0, uint256S("0x66c2b619bde6e07f49fdf35cd5ab997dd6a9cb1a2ee894921992c3cda6b07543")),
             0,
             0,
             0

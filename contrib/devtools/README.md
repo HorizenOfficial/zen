@@ -2,6 +2,7 @@ Contents
 ===========
 This directory contains tools for developers working on this repository.
 
+
 github-merge.sh
 ==================
 
@@ -36,6 +37,7 @@ Configuring the github-merge tool for the bitcoin repository is done in the foll
     git config githubmerge.testcmd "make -j4 check" (adapt to whatever you want to use for testing)
     git config --global user.signingkey mykeyid (if you want to GPG sign)
 
+
 fix-copyright-headers.py
 ===========================
 
@@ -48,6 +50,7 @@ For example a file changed in 2014 (with 2014 being the current year):
 
 would be changed to:
 ```// Copyright (c) 2009-2014 The Bitcoin Core developers```
+
 
 symbol-check.py
 ==================
@@ -69,6 +72,7 @@ If there are 'unsupported' symbols, the return value will be 1 a list like this 
     .../64/test_bitcoin: symbol std::out_of_range::~out_of_range() from unsupported version GLIBCXX_3.4.15
     .../64/test_bitcoin: symbol _ZNSt8__detail15_List_nod from unsupported version GLIBCXX_3.4.15
 
+
 update-translations.py
 =======================
 
@@ -81,11 +85,13 @@ It will do the following automatically:
 
 See doc/translation-process.md for more information.
 
+
 gen-manpages.sh
 ===============
 
 A small script to automatically create manpages in ../../doc/man by running the release binaries with the -help option.
 This requires help2man which can be found at: https://www.gnu.org/software/help2man/
+
 
 git-subtree-check.sh
 ====================
@@ -101,7 +107,8 @@ maintained:
 Usage: git-subtree-check.sh DIR COMMIT
 COMMIT may be omitted, in which case HEAD is used.
 
-release_management/release_preparation
+
+release_management/(release_preparation)
 ==================
 
 Inside this folder the following are provided:
@@ -128,7 +135,8 @@ After script completion the user is required to:
 - open a PR merging release preparation into release branch and wait for approval
 - once the release preparation branch is merged into the release branch, create annotated tag (vX.Y.Z)
 
-release_management/release_backport
+
+release_management/(release_backport)
 ==================
 
 Inside this folder the following are provided:
@@ -153,3 +161,13 @@ After script completion the user is required to:
 - check no error code is returned by the script
 - push from release backport local branch to remote
 - open a PR merging release backport into `main` branch and wait for approval
+
+
+tests-execution-times-update.py
+==================
+
+A script interacting with Travis CI API, its purpose is to update estimated execution times for Python regression tests
+based on measured execution times of recent Travis CI runs. The script accepts `travis_token`, `builds_quantity` and
+`rpc_tests_sh_file_path` parameters representing respectively the token for authenticating to Travis CI API, the quantity
+of builds to consider when computing average estimated execution times and the path to the `rpc-tests.sh` file to update. 
+The script prints average estimated execution times and consequently updates the file `rpc-tests.sh`.

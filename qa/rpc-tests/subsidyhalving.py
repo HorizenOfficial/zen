@@ -5,8 +5,8 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, initialize_chain_clean, \
-    start_nodes, stop_nodes, wait_bitcoinds, sync_blocks, sync_mempools, connect_nodes_bi, \
-    connect_nodes, wait_and_assert_operationid_status
+    start_nodes, stop_nodes, wait_bitcoinds, sync_blocks, sync_mempools, \
+    connect_nodes, wait_until
 import os
 import pprint
 from decimal import *
@@ -145,18 +145,13 @@ class subsidyhalving(BitcoinTestFramework):
 
         def mine_and_check_fork_reward(node, numb_of_blocks, reward_amount, coinbase_amount = COINBASE_AMOUNT):
             block = node.generate(1)[0]
-            #self.sync_all()
-            sync_blocks(self.nodes, 1, False, 5)
             
             # check starting block
             check_coinbase(node, block, reward_amount, coinbase_amount)
 
-            for i in range(1, numb_of_blocks-1):
-                node.generate(1)
+            node.generate(numb_of_blocks-2)
 
             block = node.generate(1)[0]
-            #self.sync_all()
-            sync_blocks(self.nodes, 1, False, 5)
 
             # check ending block
             check_coinbase(node, block, reward_amount, coinbase_amount)
@@ -168,6 +163,7 @@ class subsidyhalving(BitcoinTestFramework):
         mine_and_check_fork_reward(self.nodes[1],    4, MINER_REWARD_101)
         mine_and_check_fork_reward(self.nodes[1],   95, MINER_REWARD_105)
         mine_and_check_fork_reward(self.nodes[1], (HALVING_INTERVAL-200), MINER_REWARD_200)
+        sync_blocks(self.nodes[0:3])
 
         peer_info_0_pre = self.nodes[0].getpeerinfo()
         peer_info_1_pre = self.nodes[1].getpeerinfo()
@@ -191,7 +187,7 @@ class subsidyhalving(BitcoinTestFramework):
         check_coinbase(self.nodes[0], bad_block, MINER_REWARD_200, COINBASE_AMOUNT)
 
         # upon sync, the other nodes will reject this block and Node0 will be banned by both Node1 and Node2
-        sync_blocks(self.nodes, 1, False, 5)
+        wait_until(lambda: len(self.nodes[0].getpeerinfo()) == 0, timeout=60) # the waiting condition is on node disconnection
 
         self.mark_logs("Checking we reject blocks with pre-halving coinbase amount and ban the sender Node...")
 
@@ -204,9 +200,18 @@ class subsidyhalving(BitcoinTestFramework):
         assert_equal(len(peer_info_1_post), 1)
         assert_equal(len(peer_info_1_post), len(peer_info_2_post))
 
+        block_count_0_post = self.nodes[0].getblockcount()
+        block_count_1_post = self.nodes[1].getblockcount()
+        block_count_2_post = self.nodes[2].getblockcount()
+
+        # checking node 0 tip has not been accepted by node 1 and node 2
+        assert_equal(block_count_1_post, block_count_0_post - 1)
+        assert_equal(block_count_2_post, block_count_0_post - 1)
+
         self.mark_logs("Cross the halving height and check that blocks have expected halved coinbase amounts...")
 
         mine_and_check_fork_reward(self.nodes[1], 5, MINER_REWARD_2000, COINBASE_AMOUNT*Decimal("0.5"))
+        sync_blocks(self.nodes[1:3])
         
         # verify that Node0, being disconneceted, has just its own chain
         ct0 = self.nodes[0].getchaintips()
@@ -232,6 +237,7 @@ class subsidyhalving(BitcoinTestFramework):
 
         # enhance active chain after halving
         mine_and_check_fork_reward(self.nodes[2], 20, MINER_REWARD_2000, COINBASE_AMOUNT*Decimal("0.5"))
+        sync_blocks(self.nodes[0:3])
 
         # Node0 had its bad chain reverted and now all Nodes share the same blockchain with halved coinbase
         assert_equal(self.nodes[0].getbestblockhash(), self.nodes[1].getbestblockhash())
