@@ -2,6 +2,7 @@ Contents
 ===========
 This directory contains tools for developers working on this repository.
 
+
 github-merge.sh
 ==================
 
@@ -29,12 +30,13 @@ merge), and when using GPG signatures, that even a compromised github
 couldn't mess with the sources.
 
 Setup
----------
+--------
 Configuring the github-merge tool for the bitcoin repository is done in the following way:
 
     git config githubmerge.repository bitcoin/bitcoin
     git config githubmerge.testcmd "make -j4 check" (adapt to whatever you want to use for testing)
     git config --global user.signingkey mykeyid (if you want to GPG sign)
+
 
 fix-copyright-headers.py
 ===========================
@@ -48,6 +50,7 @@ For example a file changed in 2014 (with 2014 being the current year):
 
 would be changed to:
 ```// Copyright (c) 2009-2014 The Bitcoin Core developers```
+
 
 symbol-check.py
 ==================
@@ -69,8 +72,9 @@ If there are 'unsupported' symbols, the return value will be 1 a list like this 
     .../64/test_bitcoin: symbol std::out_of_range::~out_of_range() from unsupported version GLIBCXX_3.4.15
     .../64/test_bitcoin: symbol _ZNSt8__detail15_List_nod from unsupported version GLIBCXX_3.4.15
 
+
 update-translations.py
-=======================
+=========================
 
 Run this script from the root of the repository to update all translations from transifex.
 It will do the following automatically:
@@ -81,14 +85,16 @@ It will do the following automatically:
 
 See doc/translation-process.md for more information.
 
+
 gen-manpages.sh
-===============
+==================
 
 A small script to automatically create manpages in ../../doc/man by running the release binaries with the -help option.
 This requires help2man which can be found at: https://www.gnu.org/software/help2man/
 
+
 git-subtree-check.sh
-====================
+=======================
 
 Run this script from the root of the repository to verify that a subtree matches the contents of
 the commit it claims to have been updated to.
@@ -101,8 +107,9 @@ maintained:
 Usage: git-subtree-check.sh DIR COMMIT
 COMMIT may be omitted, in which case HEAD is used.
 
-release_management/release_preparation
-==================
+
+release_management/
+======================
 
 Inside this folder the following are provided:
 
@@ -128,8 +135,6 @@ After script completion the user is required to:
 - open a PR merging release preparation into release branch and wait for approval
 - once the release preparation branch is merged into the release branch, create annotated tag (vX.Y.Z)
 
-release_management/release_backport
-==================
 
 Inside this folder the following are provided:
 
@@ -137,7 +142,7 @@ Inside this folder the following are provided:
 - a template config file (release_backport_config.yaml)
 - various config files associated to past releases preparations (configs/release_backport_config-X.Y.Z.yaml)
 
-Run the script for preparing a new release.
+Run the script for backporting a release.
 It is suggested to run the script from a terminal located at repository root. 
 The script accepts one command line parameter, being the path of the config file containing all the inputs
 to the script (it is suggested to put this file in `./contrib/devtools/release_management/configs` folder, naming it
