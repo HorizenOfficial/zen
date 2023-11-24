@@ -32,7 +32,7 @@ public:
     /**
      * @brief canSendCommunityFundsToTransparentAddress true if community funds can be sent to a transparent address
      */
-    inline virtual bool canSendCommunityFundsToTransparentAddress(CBaseChainParams::Network network) const;
+    virtual bool canSendCommunityFundsToTransparentAddress(CBaseChainParams::Network network) const;
 
     /**
      * @brief getReplayProtectionLevel returns the replay protection level provided by the current fork
