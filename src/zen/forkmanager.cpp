@@ -16,6 +16,7 @@
 #include "forks/fork9_sidechainversionfork.h"
 #include "forks/fork10_nonceasingsidechainfork.h"
 #include "forks/fork11_shieldedpooldeprecationfork.h"
+#include "forks/fork12_unshieldingtoscriptonlyfork.h"
 
 namespace zen {
 
@@ -201,6 +202,10 @@ bool ForkManager::isShieldingForbidden(int height) const {
     return getForkAtHeight(height)->isShieldingForbidden();
 }
 
+bool ForkManager::mustUnshieldToScript(int height) const {
+    return getForkAtHeight(height)->mustUnshieldToScript();
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// PRIVATE MEMBERS
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -223,6 +228,7 @@ ForkManager::ForkManager() {
     registerFork(new SidechainVersionFork());
     registerFork(new NonCeasingSidechainFork());
     registerFork(new ShieldedPoolDeprecationFork());
+    registerFork(new UnshieldingToScriptOnlyFork());
 }
 
 /**

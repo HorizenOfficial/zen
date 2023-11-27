@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include "zen/forkmanager.h"
 #include "chainparams.h"
-#include "zen/forks/fork11_shieldedpooldeprecationfork.h"
+#include "zen/forks/fork12_unshieldingtoscriptonlyfork.h"
 
 using namespace zen;
 
@@ -529,6 +529,9 @@ TEST(ForkManager, ShieldedPoolDeprecationForkMainnet) {
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight - 1), true);
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight), false);
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight + 1), false);
+    EXPECT_EQ(ForkManager::getInstance().isShieldingForbidden(shieldedPoolDeprecationForkHeight - 1), false);
+    EXPECT_EQ(ForkManager::getInstance().isShieldingForbidden(shieldedPoolDeprecationForkHeight), true);
+    EXPECT_EQ(ForkManager::getInstance().isShieldingForbidden(shieldedPoolDeprecationForkHeight + 1), true);
 }
 
 TEST(ForkManager, ShieldedPoolDeprecationForkTestnet) {
@@ -538,6 +541,9 @@ TEST(ForkManager, ShieldedPoolDeprecationForkTestnet) {
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight - 1), true);
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight), false);
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight + 1), false);
+    EXPECT_EQ(ForkManager::getInstance().isShieldingForbidden(shieldedPoolDeprecationForkHeight - 1), false);
+    EXPECT_EQ(ForkManager::getInstance().isShieldingForbidden(shieldedPoolDeprecationForkHeight), true);
+    EXPECT_EQ(ForkManager::getInstance().isShieldingForbidden(shieldedPoolDeprecationForkHeight + 1), true);
 }
 
 TEST(ForkManager, ShieldedPoolDeprecationForkRegtest) {
@@ -547,6 +553,9 @@ TEST(ForkManager, ShieldedPoolDeprecationForkRegtest) {
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight - 1), false);
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight), false);
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight + 1), false);
+    EXPECT_EQ(ForkManager::getInstance().isShieldingForbidden(shieldedPoolDeprecationForkHeight - 1), false);
+    EXPECT_EQ(ForkManager::getInstance().isShieldingForbidden(shieldedPoolDeprecationForkHeight), true);
+    EXPECT_EQ(ForkManager::getInstance().isShieldingForbidden(shieldedPoolDeprecationForkHeight + 1), true);
 
     bool alreadyPresent = !mapArgs.insert({"-regtestprotectcoinbase", ""}).second;
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight - 1), true);
@@ -556,8 +565,35 @@ TEST(ForkManager, ShieldedPoolDeprecationForkRegtest) {
         mapArgs.erase("-regtestprotectcoinbase");
 }
 
+TEST(ForkManager, UnshieldingToScriptOnlyForkMainnet) {
+    SelectParams(CBaseChainParams::MAIN);
+
+    int unshieldingToScriptOnlyForkHeight = 2000000;
+    EXPECT_EQ(ForkManager::getInstance().mustUnshieldToScript(unshieldingToScriptOnlyForkHeight - 1), false);
+    EXPECT_EQ(ForkManager::getInstance().mustUnshieldToScript(unshieldingToScriptOnlyForkHeight), true);
+    EXPECT_EQ(ForkManager::getInstance().mustUnshieldToScript(unshieldingToScriptOnlyForkHeight + 1), true);
+}
+
+TEST(ForkManager, UnshieldingToScriptOnlyForkTestnet) {
+    SelectParams(CBaseChainParams::TESTNET);
+
+    int unshieldingToScriptOnlyForkHeight = 2000000;
+    EXPECT_EQ(ForkManager::getInstance().mustUnshieldToScript(unshieldingToScriptOnlyForkHeight - 1), false);
+    EXPECT_EQ(ForkManager::getInstance().mustUnshieldToScript(unshieldingToScriptOnlyForkHeight), true);
+    EXPECT_EQ(ForkManager::getInstance().mustUnshieldToScript(unshieldingToScriptOnlyForkHeight + 1), true);
+}
+
+TEST(ForkManager, UnshieldingToScriptOnlyForkRegtest) {
+    SelectParams(CBaseChainParams::REGTEST);
+
+    int unshieldingToScriptOnlyForkHeight = 1010;
+    EXPECT_EQ(ForkManager::getInstance().mustUnshieldToScript(unshieldingToScriptOnlyForkHeight - 1), false);
+    EXPECT_EQ(ForkManager::getInstance().mustUnshieldToScript(unshieldingToScriptOnlyForkHeight), true);
+    EXPECT_EQ(ForkManager::getInstance().mustUnshieldToScript(unshieldingToScriptOnlyForkHeight + 1), true);
+}
+
 TEST(ForkManager, HighestFork) {
     SelectParams(CBaseChainParams::MAIN);
     const Fork* highestFork = ForkManager::getInstance().getHighestFork();
-    EXPECT_EQ(typeid(*highestFork), typeid(ShieldedPoolDeprecationFork));
+    EXPECT_EQ(typeid(*highestFork), typeid(UnshieldingToScriptOnlyFork));
 }
