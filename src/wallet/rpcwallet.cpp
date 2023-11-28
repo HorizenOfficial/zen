@@ -41,6 +41,7 @@
 #include "consensus/validation.h"
 
 #include "zen/forks/fork11_shieldedpooldeprecationfork.h"
+#include "zen/forks/fork12_unshieldingtoscriptonlyfork.h"
 
 using namespace std;
 
@@ -88,12 +89,50 @@ namespace{
     {
         int shieldedPoolDeprecationForkHeight = GetShieldedPoolDeprecationForkHeight();
 
-        return static_cast<std::string>("\nWARNING: This method ") +
-                                       ((chainActive.Height() + 1 >= shieldedPoolDeprecationForkHeight) ? "has been " : "is going to be ") +
+        return static_cast<std::string>("\nWARNING: This method has been ") +
                                        (fullDeprecation ? "fully " : "partially ") +
                                         "deprecated at block height " + std::to_string(shieldedPoolDeprecationForkHeight - 1) +
                                         " due to shielded pool deprecation hard fork.";
     }
+
+
+    const char* unshieldingToScriptOnlyErrorMessage = "This method is deprecated due to unshielding to script only hard fork.";
+
+    //! Method for getting unshielding to script only hard fork height
+    /*!
+      \return hard fork height
+    */
+    int GetUnshieldingToScriptOnlyForkHeight()
+    {
+        CBaseChainParams::Network network = Params().NetworkIDString() == "main" ? CBaseChainParams::Network::MAIN :
+                                            Params().NetworkIDString() == "test" ? CBaseChainParams::Network::TESTNET :
+                                                                                   CBaseChainParams::Network::REGTEST;
+        return UnshieldingToScriptOnlyFork{}.getHeight(network);
+    }
+
+    //! Method for identifying if unshielding RPC methods are deprecated
+    /*!
+      \return shielding RPC methods deprecated
+    */
+    bool AreUnshieldingRPCMethodsDeprecated()
+    {
+        return chainActive.Height() + 1 >= GetUnshieldingToScriptOnlyForkHeight();
+    }
+
+    //! Method for providing warning message associated to unshielding RPC methods deprecation
+    /*!
+      \return warning message
+    */
+    std::string UnsieldingRPCMethodsDeprecationWarning()
+    {
+        int unshieldingToScriptOnlyForkHeight = GetUnshieldingToScriptOnlyForkHeight();
+
+        return static_cast<std::string>("\nWARNING: This method ") +
+                                       ((chainActive.Height() + 1 >= unshieldingToScriptOnlyForkHeight) ? "has been " : "is going to be ") +
+                                        "partially deprecated at block height " + std::to_string(unshieldingToScriptOnlyForkHeight - 1) +
+                                        " due to unshielding to script only hard fork.";
+    }
+
 }
 
 extern void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
@@ -5257,6 +5296,9 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
             "z_sendmany \"fromaddress\" [{\"address\":... ,\"amount\":...},...] ( minconf ) ( fee ) (sendChangeToSource)\n"
             + ShieldingRPCMethodsDeprecationWarning(false) + "\n"
             + "Details: sending transparent funds to shielded addresses " + (AreShieldingRPCMethodsDeprecated() ? "has been " : "is going to be ") + "deprecated.\n"
+            + UnsieldingRPCMethodsDeprecationWarning() + "\n"
+            + "Details: sending shielded funds to script addresses " + (AreShieldingRPCMethodsDeprecated() ? "has been " : "is going to be ") + "deprecated.\n"
+
             "\nSend multiple times. Amounts are double-precision floating point numbers."
             "\nChange from a taddr flows to a new taddr address, while change from zaddr returns to itself."
             "\nWhen sending coinbase UTXOs to a zaddr, change is not allowed. The entire value of the UTXO(s) must be consumed."
@@ -5383,6 +5425,18 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
         fromTaddr && zaddrRecipients.size() > 0)
     {
         throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, shieldedPoolDeprecationErrorMessage);
+    }
+
+    // we want to forbid unshielding to non-script addresses
+    if (chainActive.Height() + 1 >= GetUnshieldingToScriptOnlyForkHeight() &&
+        !fromTaddr && taddrRecipients.size() > 0)
+    {
+        for (const auto taddrRecipient: taddrRecipients)
+        {
+            CBitcoinAddress address(std::get<0>(taddrRecipient));
+            if (!address.IsScript())
+                throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, unshieldingToScriptOnlyErrorMessage);
+        }
     }
 
     // Check the number of zaddr outputs does not exceed the limit.
@@ -6061,8 +6115,10 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
             + strDisabledMsg
             + ShieldingRPCMethodsDeprecationWarning(false) + "\n"
             + "Details: merging transparent funds to shielded address " + (AreShieldingRPCMethodsDeprecated() ? "has been " : "is going to be ") + "deprecated.\n"
-            "\nMerge multiple UTXOs and notes into a single UTXO or note." +
-            (AreShieldingRPCMethodsDeprecated() ? "" : "\nCoinbase UTXOs are ignored; use `z_shieldcoinbase` to combine those into a single note.") +
+            + UnsieldingRPCMethodsDeprecationWarning() + "\n"
+            + "Details: merging shielded funds to script address " + (AreShieldingRPCMethodsDeprecated() ? "has been " : "is going to be ") + "deprecated.\n"
+            + "\nMerge multiple UTXOs and notes into a single UTXO or note."
+            + (AreShieldingRPCMethodsDeprecated() ? "" : "\nCoinbase UTXOs are ignored; use `z_shieldcoinbase` to combine those into a single note.") +            
             "\n\nThis is an asynchronous operation, and UTXOs selected for merging will be locked. If there is an error, they"
             "\nare unlocked. The RPC call `listlockunspent` can be used to return a list of locked UTXOs."
             "\n\nThe number of UTXOs and notes selected for merging can be limited by the caller. If the transparent limit"
@@ -6226,6 +6282,13 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
         (useAny || useAnyUTXO || taddrs.size() > 0) && isToZaddr)
     {
         throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, shieldedPoolDeprecationErrorMessage);
+    }
+
+    // we want to forbid unshielding to non-script addresses
+    if (chainActive.Height() + 1 >= GetUnshieldingToScriptOnlyForkHeight() &&
+        !isToZaddr && !taddr.IsScript())
+    {
+        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, unshieldingToScriptOnlyErrorMessage);
     }
 
     MergeToAddressRecipient recipient(destaddress, memo);
