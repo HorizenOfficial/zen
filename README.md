@@ -120,7 +120,7 @@ Running Regression Tests
     pip install --upgrade websocket-client requests
     ```
 
-    2. MacOS
+    2. macOS
     ```{r, engine='bash'}
     brew install python
     pip install --upgrade pyzmq websocket-client requests
