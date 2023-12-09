@@ -103,7 +103,7 @@ cd zen
 
 ```
 sudo update-alternatives --config x86_64-w64-mingw32-g++
-(chose: /usr/bin/x86_64-w64-mingw32-g++-posix)
+Choose the option: /usr/bin/x86_64-w64-mingw32-g++-posix.
 
 export HOST=x86_64-w64-mingw32
 ./zcutil/build.sh -j$(nproc)
