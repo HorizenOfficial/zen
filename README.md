@@ -99,7 +99,7 @@ cd zen
 ./zcutil/build-mac-clang.sh
 ```
 
-* Install for Windows (Cross-Compiled, building on Windows is not supported yet)
+* Install for Windows (Cross-Compiled, Building on Windows is not currently supported)
 
 ```
 sudo update-alternatives --config x86_64-w64-mingw32-g++
