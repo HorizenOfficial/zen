@@ -1123,7 +1123,7 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
                 {
                     for (auto const& out: vout)
                     {
-                        if (out.scriptPubKey.GetType() != CScript::ScriptType::P2SH)
+                        if (!out.scriptPubKey.IsPayToScriptHash())
                         {
                             return state.DoS(dosLevel,
                                              error("ContextualCheck(): tx unshielding to not P2SH deprecation"),

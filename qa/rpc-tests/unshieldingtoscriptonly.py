@@ -14,7 +14,7 @@ from test_framework.util import assert_equal, assert_greater_than, \
 import sys
 
 RPC_VERIFY_REJECTED = -26
-RPC_HARD_FORK_DEPRECATION = -40 # TODO: update
+RPC_HARD_FORK_DEPRECATION = -40
 Z_FEE = 0.0001
 
 class ShieldedPoolDeprecationTest (BitcoinTestFramework):

@@ -123,7 +123,7 @@ namespace{
     /*!
       \return warning message
     */
-    std::string UnsieldingRPCMethodsDeprecationWarning()
+    std::string UnshieldingRPCMethodsDeprecationWarning()
     {
         int unshieldingToScriptOnlyForkHeight = GetUnshieldingToScriptOnlyForkHeight();
 
@@ -5296,8 +5296,8 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
             "z_sendmany \"fromaddress\" [{\"address\":... ,\"amount\":...},...] ( minconf ) ( fee ) (sendChangeToSource)\n"
             + ShieldingRPCMethodsDeprecationWarning(false) + "\n"
             + "Details: sending transparent funds to shielded addresses " + (AreShieldingRPCMethodsDeprecated() ? "has been " : "is going to be ") + "deprecated.\n"
-            + UnsieldingRPCMethodsDeprecationWarning() + "\n"
-            + "Details: sending shielded funds to script addresses " + (AreShieldingRPCMethodsDeprecated() ? "has been " : "is going to be ") + "deprecated.\n"
+            + UnshieldingRPCMethodsDeprecationWarning() + "\n"
+            + "Details: sending shielded funds to non-script addresses " + (AreUnshieldingRPCMethodsDeprecated() ? "has been " : "is going to be ") + "deprecated.\n"
 
             "\nSend multiple times. Amounts are double-precision floating point numbers."
             "\nChange from a taddr flows to a new taddr address, while change from zaddr returns to itself."
@@ -5421,17 +5421,17 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
     }
 
     // we want to forbid shielding transactions
-    if (chainActive.Height() + 1 >= GetShieldedPoolDeprecationForkHeight() &&
+    if (AreShieldingRPCMethodsDeprecated() &&
         fromTaddr && zaddrRecipients.size() > 0)
     {
         throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, shieldedPoolDeprecationErrorMessage);
     }
 
     // we want to forbid unshielding to non-script addresses
-    if (chainActive.Height() + 1 >= GetUnshieldingToScriptOnlyForkHeight() &&
+    if (AreUnshieldingRPCMethodsDeprecated() &&
         !fromTaddr && taddrRecipients.size() > 0)
     {
-        for (const auto taddrRecipient: taddrRecipients)
+        for (const auto& taddrRecipient: taddrRecipients)
         {
             CBitcoinAddress address(std::get<0>(taddrRecipient));
             if (!address.IsScript())
@@ -5940,7 +5940,7 @@ UniValue z_shieldcoinbase(const UniValue& params, bool fHelp)
             + HelpExampleRpc("z_shieldcoinbase", "\"taddr\", \"zaddr\"")
         );
 
-    if (chainActive.Height() + 1 >= GetShieldedPoolDeprecationForkHeight())
+    if (AreShieldingRPCMethodsDeprecated())
     {
         throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, shieldedPoolDeprecationErrorMessage);
     }
@@ -6114,9 +6114,9 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
             "z_mergetoaddress [\"fromaddress\", ... ] \"toaddress\" ( fee ) ( transparent_limit ) ( shielded_limit ) ( memo )\n"
             + strDisabledMsg
             + ShieldingRPCMethodsDeprecationWarning(false) + "\n"
-            + "Details: merging transparent funds to shielded address " + (AreShieldingRPCMethodsDeprecated() ? "has been " : "is going to be ") + "deprecated.\n"
-            + UnsieldingRPCMethodsDeprecationWarning() + "\n"
-            + "Details: merging shielded funds to script address " + (AreShieldingRPCMethodsDeprecated() ? "has been " : "is going to be ") + "deprecated.\n"
+            + "Details: merging transparent funds to shielded addresses " + (AreShieldingRPCMethodsDeprecated() ? "has been " : "is going to be ") + "deprecated.\n"
+            + UnshieldingRPCMethodsDeprecationWarning() + "\n"
+            + "Details: merging shielded funds to non-script addresses " + (AreUnshieldingRPCMethodsDeprecated() ? "has been " : "is going to be ") + "deprecated.\n"
             + "\nMerge multiple UTXOs and notes into a single UTXO or note."
             + (AreShieldingRPCMethodsDeprecated() ? "" : "\nCoinbase UTXOs are ignored; use `z_shieldcoinbase` to combine those into a single note.") +            
             "\n\nThis is an asynchronous operation, and UTXOs selected for merging will be locked. If there is an error, they"
@@ -6278,14 +6278,14 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
     }
 
     // we want to forbid shielding transactions
-    if (chainActive.Height() + 1 >= GetShieldedPoolDeprecationForkHeight() &&
+    if (AreShieldingRPCMethodsDeprecated() &&
         (useAny || useAnyUTXO || taddrs.size() > 0) && isToZaddr)
     {
         throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, shieldedPoolDeprecationErrorMessage);
     }
 
     // we want to forbid unshielding to non-script addresses
-    if (chainActive.Height() + 1 >= GetUnshieldingToScriptOnlyForkHeight() &&
+    if (AreUnshieldingRPCMethodsDeprecated() &&
         !isToZaddr && !taddr.IsScript())
     {
         throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, unshieldingToScriptOnlyErrorMessage);
