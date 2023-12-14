@@ -577,7 +577,7 @@ TEST(ForkManager, UnshieldingToScriptOnlyForkMainnet) {
 TEST(ForkManager, UnshieldingToScriptOnlyForkTestnet) {
     SelectParams(CBaseChainParams::TESTNET);
 
-    int unshieldingToScriptOnlyForkHeight = 2000000;
+    int unshieldingToScriptOnlyForkHeight = 1396500;
     EXPECT_EQ(ForkManager::getInstance().mustUnshieldToScript(unshieldingToScriptOnlyForkHeight - 1), false);
     EXPECT_EQ(ForkManager::getInstance().mustUnshieldToScript(unshieldingToScriptOnlyForkHeight), true);
     EXPECT_EQ(ForkManager::getInstance().mustUnshieldToScript(unshieldingToScriptOnlyForkHeight + 1), true);
