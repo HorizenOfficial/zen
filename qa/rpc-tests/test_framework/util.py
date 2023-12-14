@@ -786,3 +786,18 @@ def download_snapshot(snapshot_filename, temporary_dir):
 
     # returns the complete path to the saved filename, to be used with import_data_to_data_dir()
     return local_filename
+
+def send_shielding_raw(node, minimum_amount, zcaddress):
+    (total_in, inputs) = gather_inputs(node, minimum_amount)
+    shielding_tx = node.createrawtransaction(inputs, {})
+    joinsplit_result = node.zcrawjoinsplit(shielding_tx, {}, {zcaddress: total_in - Decimal(0.01)}, total_in - Decimal(0.01), 0)
+    shielding_tx = node.signrawtransaction(joinsplit_result["rawtxn"])
+    shielding_tx_id = node.sendrawtransaction(shielding_tx["hex"])
+    return shielding_tx_id, joinsplit_result["encryptednote1"]
+
+def send_unshielding_raw(node, note, key, toaddress):
+    outputs = { toaddress : note["amount"] - Decimal(0.01)}
+    unshielding_tx = node.createrawtransaction([], outputs)
+    joinsplit_result = node.zcrawjoinsplit(unshielding_tx, {note["note"] : key}, {}, 0, note["amount"]) #for sure high fee here
+    unshielding_tx = node.signrawtransaction(joinsplit_result["rawtxn"])
+    unshielding_tx_id = node.sendrawtransaction(unshielding_tx["hex"])

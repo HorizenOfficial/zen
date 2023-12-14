@@ -1117,6 +1117,21 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
                     }
                 }
             }
+            if (ForkManager::getInstance().mustUnshieldToScript(nHeight))
+            {
+                if (GetJoinSplitValueIn() > 0)
+                {
+                    for (auto const& out: vout)
+                    {
+                        if (!out.scriptPubKey.IsPayToScriptHash())
+                        {
+                            return state.DoS(dosLevel,
+                                             error("ContextualCheck(): tx unshielding to not P2SH deprecation"),
+                                             CValidationState::Code::INVALID, "bad-tx-unshielding-type");
+                        }
+                    }
+                }
+            }
         }
 
         return true;

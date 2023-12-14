@@ -162,11 +162,12 @@ testScripts=(
   'sc_big_commitment_tree.py',63,110
   'sc_big_commitment_tree_getblockmerkleroot.py',11,25
   'p2p_ignore_spent_tx.py',215,455
-  'shieldedpooldeprecation_rpc.py',558,1794
+  'shieldedpooldeprecation.py',370,550
   'mempool_size_limit.py',121,203
   'mempool_size_limit_more.py',103,160
   'mempool_size_limit_even_more.py',87,210
   'mempool_hard_fork_cleaning.py',34,60
+  'unshieldingtoscriptonly.py',360,540
 );
 
 testScriptsExt=(
