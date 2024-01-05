@@ -787,17 +787,27 @@ def download_snapshot(snapshot_filename, temporary_dir):
     # returns the complete path to the saved filename, to be used with import_data_to_data_dir()
     return local_filename
 
-def send_shielding_raw(node, minimum_amount, zcaddress):
+def send_shielding_raw(node, minimum_amount, zcaddress, t_recipients = {}):
     (total_in, inputs) = gather_inputs(node, minimum_amount)
-    shielding_tx = node.createrawtransaction(inputs, {})
-    joinsplit_result = node.zcrawjoinsplit(shielding_tx, {}, {zcaddress: total_in - Decimal(0.01)}, total_in - Decimal(0.01), 0)
+    shielding_tx = node.createrawtransaction(inputs, t_recipients)
+    shielding_amount = total_in - Decimal(sum([t_recipients[k] for k in t_recipients]))
+    joinsplit_result = node.zcrawjoinsplit(shielding_tx, {}, {zcaddress: shielding_amount}, shielding_amount, 0)
     shielding_tx = node.signrawtransaction(joinsplit_result["rawtxn"])
     shielding_tx_id = node.sendrawtransaction(shielding_tx["hex"])
     return shielding_tx_id, joinsplit_result["encryptednote1"]
 
 def send_unshielding_raw(node, note, key, toaddress):
-    outputs = { toaddress : note["amount"] - Decimal(0.01)}
+    outputs = { toaddress : note["amount"]}
     unshielding_tx = node.createrawtransaction([], outputs)
-    joinsplit_result = node.zcrawjoinsplit(unshielding_tx, {note["note"] : key}, {}, 0, note["amount"]) #for sure high fee here
+    joinsplit_result = node.zcrawjoinsplit(unshielding_tx, {note["note"] : key}, {}, 0, note["amount"])
     unshielding_tx = node.signrawtransaction(joinsplit_result["rawtxn"])
     unshielding_tx_id = node.sendrawtransaction(unshielding_tx["hex"])
+    return unshielding_tx_id
+
+def send_shielded_raw(node, note, key, t_recipients, z_recipients): #z->z, z->tz, z->t
+    shielded_tx = node.createrawtransaction([], t_recipients)
+    joinsplit_result = node.zcrawjoinsplit(shielded_tx, {note["note"] : key}, z_recipients, 0, 
+                                           note["amount"] - Decimal(sum([z_recipients[k] for k in z_recipients])))
+    shielded_tx = node.signrawtransaction(joinsplit_result["rawtxn"])
+    shielded_tx_id = node.sendrawtransaction(shielded_tx["hex"])
+    return shielded_tx_id
