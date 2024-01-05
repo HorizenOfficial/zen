@@ -622,7 +622,6 @@ libzencash_a_SOURCES = \
     zen/forks/fork9_sidechainversionfork.cpp\
     zen/forks/fork10_nonceasingsidechainfork.cpp\
     zen/forks/fork11_shieldedpooldeprecationfork.cpp\
-    zen/forks/fork12_unshieldingtoscriptonlyfork.cpp\
     zen/tlsmanager.cpp\
     zen/delay.cpp \
     zen/websocket_server.cpp

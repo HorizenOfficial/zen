@@ -142,11 +142,6 @@ public:
      */
     bool isShieldingForbidden(int height) const;
 
-    /**
-     * @brief returns true if the unshielding (z->t) transactions must be performed towards script addresses
-     */
-    bool mustUnshieldToScript(int height) const;
-
     // ---------- forks redefined methods ----------
 
 private:

@@ -144,11 +144,6 @@ public:
      */
     virtual bool isShieldingForbidden() const = 0;
 
-    /**
-     * @brief returns true if the unshielding (z->t) transactions must be performed towards script addresses
-     */
-    virtual bool mustUnshieldToScript() const = 0;
-
 protected:
     
     /**
