@@ -51,7 +51,9 @@ struct WitnessAnchorData {
 
 class AsyncRPCOperation_sendmany : public AsyncRPCOperation {
 public:
-    AsyncRPCOperation_sendmany(CMutableTransaction contextualTx, const std::string& fromAddress, std::vector<SendManyRecipient>&& tOutputs, std::vector<SendManyRecipient>&& zOutputs, int minDepth, CAmount fee = ASYNC_RPC_OPERATION_DEFAULT_MINERS_FEE, UniValue contextInfo = NullUniValue, bool sendChangeToSource = false);
+    AsyncRPCOperation_sendmany(CMutableTransaction contextualTx, const std::string& fromAddress, std::vector<SendManyRecipient>&& tOutputs, 
+        std::vector<SendManyRecipient>&& zOutputs, int minDepth, CAmount fee = ASYNC_RPC_OPERATION_DEFAULT_MINERS_FEE, 
+        UniValue contextInfo = NullUniValue, bool sendChangeToSource = false, bool canSpendCoinBase = false);
     virtual ~AsyncRPCOperation_sendmany();
     
     // We don't want to be copied or moved around
@@ -82,6 +84,7 @@ private:
     CBitcoinAddress fromtaddr_;
     PaymentAddress frompaymentaddress_;
     SpendingKey spendingkey_;
+    bool canSpendCoinbase_;
     
     uint256 joinSplitPubKey_;
     unsigned char joinSplitPrivKey_[crypto_sign_SECRETKEYBYTES];
@@ -139,8 +142,8 @@ public:
     
     // Delegated methods
     
-    void add_taddr_change_output_to_tx(CAmount amount, bool sendCangeToSource = false) {
-        delegate->add_taddr_change_output_to_tx(amount, sendCangeToSource);
+    void add_taddr_change_output_to_tx(CAmount amount, bool sendChangeToSource = false) {
+        delegate->add_taddr_change_output_to_tx(amount, sendChangeToSource);
     }
     
     void add_taddr_outputs_to_tx() {

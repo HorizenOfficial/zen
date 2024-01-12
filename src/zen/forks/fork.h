@@ -144,6 +144,11 @@ public:
      */
     virtual bool isShieldingForbidden() const = 0;
 
+    /**
+     * @brief returns true if the shielded pool has been removed (no more t->z, z->z, z->t)
+     */
+    virtual bool isShieldedPoolRemoved() const = 0;
+
 protected:
     
     /**

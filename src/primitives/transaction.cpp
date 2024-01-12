@@ -1016,9 +1016,9 @@ bool CTransaction::IsVersionStandard(int nHeight) const {
 
     // groth fork
     const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight);
-    bool isGROTHActive = (shieldedTxVersion == GROTH_TX_VERSION);
+    bool isAfterGROTHActivation = (shieldedTxVersion == GROTH_TX_VERSION);
 
-    if(!isGROTHActive)
+    if(!isAfterGROTHActivation)
     {
         // sidechain fork is after groth one
         assert(!areSidechainsSupported);
@@ -1050,9 +1050,10 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
 
     //Valid txs are:
     // at any height
-    // at height < groth_fork v>=1 txs with PHGR proofs
-    // at height >= groth_fork v=-3 shielded with GROTH proofs and v=1 transparent with joinsplit empty
-    // at height >= sidechain_fork same as above but also v=-4 with joinsplit empty
+    // at height < groth_fork, v>=1 txs with PHGR proofs
+    // at height >= groth_fork, v=-3 shielded with GROTH proofs and v=1 transparent with joinsplit empty
+    // at height >= sidechain_fork, same as above but also v=-4 with joinsplit empty
+    // at height >= shielded_pool_removal_fork, v=1 transparent or v=-4 sidechain (both with joinsplit empty)
 
     // sidechain fork (happens after groth fork)
     int sidechainTxVersion = 0; 
@@ -1066,9 +1067,10 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
 
     // groth fork
     const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight);
-    bool isGROTHActive = (shieldedTxVersion == GROTH_TX_VERSION);
+    bool isAfterGROTHActivation = (shieldedTxVersion == GROTH_TX_VERSION);
+    // GROTH being the last shielded pool tx version is checked by unit test HighestShieldedPoolTxVersion
 
-    if(isGROTHActive)
+    if(isAfterGROTHActivation)
     {
         //verify if transaction is transparent or related to sidechain...
         if (nVersion == TRANSPARENT_TX_VERSION  ||
@@ -1096,26 +1098,37 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
         // ... or the actual shielded version
         if(nVersion != GROTH_TX_VERSION)
         {
-            LogPrintf("%s():%d - rejecting (ver=%d) transaction at block height %d - groth_active[%d], sidechain_active[%d]\n",
-                __func__, __LINE__, nVersion, nHeight, (int)isGROTHActive, (int)areSidechainsSupported);
+            LogPrintf("%s():%d - rejecting (ver=%d) transaction at block height %d - after_groth_activation[%d], sidechain_active[%d]\n",
+                __func__, __LINE__, nVersion, nHeight, (int)isAfterGROTHActivation, (int)areSidechainsSupported);
             return state.DoS(dosLevel,
                              error("ContextualCheck(): unexpected tx version"),
                              CValidationState::Code::INVALID, "bad-tx-version-unexpected");
         }
         else
         {
-            // check for shielded pool deprecation as per ZenIP42204
-            if (ForkManager::getInstance().isShieldingForbidden(nHeight))
+            const bool shieldedPoolRemoved = ForkManager::getInstance().isShieldedPoolRemoved(nHeight);
+
+            if (!shieldedPoolRemoved)
             {
-                for (int index = 0; index < vjoinsplit.size(); ++index)
+                // check for shielded pool deprecation as per ZenIP42204
+                if (ForkManager::getInstance().isShieldingForbidden(nHeight))
                 {
-                    if (vjoinsplit[index].vpub_old > 0)
+                    for (int index = 0; index < vjoinsplit.size(); ++index)
                     {
-                        return state.DoS(dosLevel,
-                                         error("ContextualCheck(): tx conflicting with shielded pool deprecation"),
-                                         CValidationState::Code::INVALID, "bad-tx-shielded-pool-deprecation-conflict");
+                        if (vjoinsplit[index].vpub_old > 0)
+                        {
+                            return state.DoS(dosLevel,
+                                             error("ContextualCheck(): tx conflicting with shielded pool deprecation"),
+                                             CValidationState::Code::INVALID, "bad-tx-shielded-pool-deprecation-conflict");
+                        }
                     }
                 }
+            }
+            else
+            {
+                return state.DoS(dosLevel,
+                             error("ContextualCheck(): tx conflicting with shielded pool removal"),
+                             CValidationState::Code::INVALID, "bad-tx-shielded-pool-removal-conflict");
             }
         }
 
@@ -1128,8 +1141,8 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
 
         if(nVersion < TRANSPARENT_TX_VERSION)
         {
-            LogPrintf("%s():%d - rejecting (ver=%d) transaction at block height %d - groth_active[%d] (shieldedTxVersion=%d), sidechain_active[%d]\n",
-                __func__, __LINE__, nVersion, nHeight, (int)isGROTHActive, shieldedTxVersion, (int)areSidechainsSupported);
+            LogPrintf("%s():%d - rejecting (ver=%d) transaction at block height %d - after_groth_activation[%d] (shieldedTxVersion=%d), sidechain_active[%d]\n",
+                __func__, __LINE__, nVersion, nHeight, (int)isAfterGROTHActivation, shieldedTxVersion, (int)areSidechainsSupported);
             return state.DoS(0,
                              error("ContextualCheck(): unexpected tx version"),
                              CValidationState::Code::INVALID, "bad-tx-version-unexpected");

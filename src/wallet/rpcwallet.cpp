@@ -11,6 +11,7 @@
 #include "net.h"
 #include "netbase.h"
 #include "rpc/server.h"
+#include "rpc/utils.h"
 #include "timedata.h"
 #include "util.h"
 #include "utilmoneystr.h"
@@ -40,8 +41,6 @@
 #include "sc/sidechainrpc.h"
 #include "consensus/validation.h"
 
-#include "zen/forks/fork11_shieldedpooldeprecationfork.h"
-
 using namespace std;
 
 using namespace libzcash;
@@ -51,49 +50,6 @@ namespace{
     int GetJoinSplitSize(int shieldedTxVersion) {
         return JSDescription::getNewInstance(shieldedTxVersion == GROTH_TX_VERSION).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION, shieldedTxVersion);
     }    
-}
-
-// anonymous namespace related to shielded pool deprecation hard fork
-// TODO: REMOVE ONCE SHIELDED POOL DEPRECATION HARD FORK IS "HIGHLY FINAL"
-namespace{
-    const char* shieldedPoolDeprecationErrorMessage = "This method is deprecated due to shielded pool deprecation hard fork.";
-
-    //! Method for getting shielded pool deprecation hard fork height
-    /*!
-      \return hard fork height
-    */
-    int GetShieldedPoolDeprecationForkHeight()
-    {
-        CBaseChainParams::Network network = Params().NetworkIDString() == "main" ? CBaseChainParams::Network::MAIN :
-                                            Params().NetworkIDString() == "test" ? CBaseChainParams::Network::TESTNET :
-                                                                                   CBaseChainParams::Network::REGTEST;
-        return ShieldedPoolDeprecationFork{}.getHeight(network);
-    }
-
-    //! Method for identifying if shielding RPC methods are deprecated
-    /*!
-      \return shielding RPC methods deprecated
-    */
-    bool AreShieldingRPCMethodsDeprecated()
-    {
-        return chainActive.Height() + 1 >= GetShieldedPoolDeprecationForkHeight();
-    }
-
-    //! Method for providing warning message associated to shielding RPC methods deprecation
-    /*!
-      \param fullDeprecation the flag identifying if full deprecation is considered (instead of partial deprecation)
-      \return warning message
-    */
-    std::string ShieldingRPCMethodsDeprecationWarning(bool fullDeprecation = true)
-    {
-        int shieldedPoolDeprecationForkHeight = GetShieldedPoolDeprecationForkHeight();
-
-        return static_cast<std::string>("\nWARNING: This method ") +
-                                       ((chainActive.Height() + 1 >= shieldedPoolDeprecationForkHeight) ? "has been " : "is going to be ") +
-                                       (fullDeprecation ? "fully " : "partially ") +
-                                        "deprecated at block height " + std::to_string(shieldedPoolDeprecationForkHeight - 1) +
-                                        " due to shielded pool deprecation hard fork.";
-    }
 }
 
 extern void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
@@ -4106,6 +4062,8 @@ UniValue z_listunspent(const UniValue& params, bool fHelp)
     if (fHelp || params.size() > 4)
         throw runtime_error(
             "z_listunspent ( minconf maxconf includeWatchonly [\"zaddr\",...] )\n"
+            + ShieldedPoolRPCMethodsWarning(true) + "\n"
+            + "Details: shielded pool transactions (t->z, z->z, z->t) " + (AreShieldedPoolRPCMethodsDisabled() ? "have been " : "are going to be ") + "disabled.\n"
             "\nReturns array of unspent shielded notes with between minconf and maxconf (inclusive) confirmations.\n"
             "Optionally filter to only include notes sent to specified addresses.\n"
             "When minconf is 0, unspent notes with zero confirmations are returned, even though they are not immediately spendable.\n"
@@ -4292,6 +4250,8 @@ UniValue zc_sample_joinsplit(const UniValue& params, bool fHelp)
     if (fHelp) {
         throw runtime_error(
             "zcsamplejoinsplit\n"
+            + ShieldedPoolRPCMethodsWarning(true) + "\n"
+            + "Details: shielded pool transactions (t->z, z->z, z->t) " + (AreShieldedPoolRPCMethodsDisabled() ? "have been " : "are going to be ") + "disabled.\n"
             "Perform a joinsplit and return the JSDescription.\n"
         );
     }
@@ -4332,6 +4292,9 @@ UniValue zc_benchmark(const UniValue& params, bool fHelp)
         throw runtime_error(
             "zcbenchmark benchmarktype samplecount\n"
             "\n"
+            + ShieldedPoolRPCMethodsWarning(true) + "\n"
+            + "Details: shielded pool transactions (t->z, z->z, z->t) " + (AreShieldedPoolRPCMethodsDisabled() ? "have been " : "are going to be ") + "disabled.\n"
+
             "Runs a benchmark of the selected type samplecount times,\n"
             "returning the running times of each sample.\n"
             "\n"
@@ -4476,6 +4439,9 @@ UniValue zc_raw_receive(const UniValue& params, bool fHelp)
         throw runtime_error(
             "zcrawreceive zcsecretkey encryptednote\n"
             "\n"
+            + ShieldedPoolRPCMethodsWarning(true) + "\n"
+            + "Details: shielded pool transactions (t->z, z->z, z->t) " + (AreShieldedPoolRPCMethodsDisabled() ? "have been " : "are going to be ") + "disabled.\n"
+
             "DEPRECATED. Decrypts encryptednote and checks if the coin commitments\n"
             "are in the blockchain as indicated by the \"exists\" result.\n"
 
@@ -4564,6 +4530,8 @@ UniValue zc_raw_joinsplit(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 5) {
         throw runtime_error(
             "zcrawjoinsplit rawtx inputs outputs vpub_old vpub_new\n"
+            + ShieldedPoolRPCMethodsWarning(true) + "\n"
+            + "Details: shielded pool transactions (t->z, z->z, z->t) " + (AreShieldedPoolRPCMethodsDisabled() ? "have been " : "are going to be ") + "disabled.\n"
             "DEPRECATED. Splices a joinsplit into rawtx. Inputs are unilaterally confidential.\n"
             "Outputs are confidential between sender/receiver. The vpub_old and\n"
             "vpub_new values are globally public and move transparent value into\n"
@@ -4756,8 +4724,10 @@ UniValue zc_raw_keygen(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 0) {
         throw runtime_error(
             "zcrawkeygen\n"
+            + ShieldedPoolRPCMethodsWarning(true) + "\n"
+            + "Details: shielded pool transactions (t->z, z->z, z->t) " + (AreShieldedPoolRPCMethodsDisabled() ? "have been " : "are going to be ") + "disabled.\n"
             "DEPRECATED. Generate a zcaddr which can send and receive confidential values.\n"
-            
+
             "\nResult:\n"
             "{\n"
             "  \"zcaddress\": zcaddr,\n"
@@ -4794,11 +4764,14 @@ UniValue z_getnewaddress(const UniValue& params, bool fHelp)
     if (fHelp || params.size() > 0)
         throw runtime_error(
             "z_getnewaddress\n"
+            + ShieldedPoolRPCMethodsWarning(true) + "\n"
+            + "Details: shielded pool transactions (t->z, z->z, z->t) " + (AreShieldedPoolRPCMethodsDisabled() ? "have been " : "are going to be ") + "disabled.\n"
+
             "\nReturns a new zaddr for receiving payments.\n"
-            
+
             "\nResult:\n"
             "\"horizenaddress\"    (string) the new zaddr\n"
-            
+
             "\nExamples:\n"
             + HelpExampleCli("z_getnewaddress", "")
             + HelpExampleRpc("z_getnewaddress", "")
@@ -4822,17 +4795,19 @@ UniValue z_listaddresses(const UniValue& params, bool fHelp)
     if (fHelp || params.size() > 1)
         throw runtime_error(
             "z_listaddresses ( includeWatchonly )\n"
+            + ShieldedPoolRPCMethodsWarning(true) + "\n"
+            + "Details: shielded pool transactions (t->z, z->z, z->t) " + (AreShieldedPoolRPCMethodsDisabled() ? "have been " : "are going to be ") + "disabled.\n"
             "\nReturns the list of zaddr belonging to the wallet.\n"
-            
+
             "\nArguments:\n"
             "1. includeWatchonly (bool, optional, default=false) Also include watchonly addresses (see 'z_importviewingkey')\n"
-            
+
             "\nResult:\n"
             "[                     (json array of string)\n"
             "  \"zaddr\"           (string) a zaddr belonging to the wallet\n"
             "  ,...\n"
             "]\n"
-            
+
             "\nExamples:\n"
             + HelpExampleCli("z_listaddresses", "")
             + HelpExampleRpc("z_listaddresses", "")
@@ -4919,12 +4894,15 @@ UniValue z_listreceivedbyaddress(const UniValue& params, bool fHelp)
     if (fHelp || params.size()==0 || params.size() >2)
         throw runtime_error(
             "z_listreceivedbyaddress \"address\" ( minconf )\n"
+            + ShieldedPoolRPCMethodsWarning(true) + "\n"
+            + "Details: shielded pool transactions (t->z, z->z, z->t) " + (AreShieldedPoolRPCMethodsDisabled() ? "have been " : "are going to be ") + "disabled.\n"
+
             "\nReturn a list of amounts received by a zaddr belonging to the node’s wallet\n"
-            
+
             "\nArguments:\n"
             "1. \"address\"         (string) the private address\n"
             "2. minconf             (numeric, optional, default=1) only include transactions confirmed at least this many times\n"
-            
+
             "\nResult:\n"
             "{\n"
             "  \"txid\": xxxxx,     (string) the transaction id\n"
@@ -4933,7 +4911,7 @@ UniValue z_listreceivedbyaddress(const UniValue& params, bool fHelp)
             "  \"jsindex\": n       (numeric) the joinsplit index\n"
             "  \"jsoutindex\": n    (numeric) the output index of the joinsplit\n"
             "}\n"
-            
+
             "\nExamples:\n"
             + HelpExampleCli("z_listreceivedbyaddress", "\"ztfaW34Gj9FrnGUEf833ywDVL62NWXBM81u6EQnM6VR45eYnXhwztecW1SjxA7JrmAXKJhxhj3vDNEpVCQoSvVoSpmbhtjf\"")
             + HelpExampleRpc("z_listreceivedbyaddress", "\"ztfaW34Gj9FrnGUEf833ywDVL62NWXBM81u6EQnM6VR45eYnXhwztecW1SjxA7JrmAXKJhxhj3vDNEpVCQoSvVoSpmbhtjf\"")
@@ -4991,17 +4969,19 @@ UniValue z_getbalance(const UniValue& params, bool fHelp)
     if (fHelp || params.size()==0 || params.size() >2)
         throw runtime_error(
             "z_getbalance \"address\" ( minconf )\n"
+            + ShieldedPoolRPCMethodsWarning(true) + "\n"
+            + "Details: shielded pool transactions (t->z, z->z, z->t) " + (AreShieldedPoolRPCMethodsDisabled() ? "have been " : "are going to be ") + "disabled.\n"
             "\nReturns the balance of a taddr or zaddr belonging to the node’s wallet.\n"
             "\nCAUTION: If address is a watch-only zaddr, the returned balance may be larger than the actual balance,"
             "\nbecause spends cannot be detected with incoming viewing keys.\n"
-            
+
             "\nArguments:\n"
             "1. \"address\"      (string) the selected address, it may be a transparent or private address\n"
             "2. minconf          (numeric, optional, default=1) only include transactions confirmed at least this many times\n"
-            
+
             "\nResult:\n"
             "amount              (numeric) the total amount in " + CURRENCY_UNIT + " received for this addresss\n"
-            
+
             "\nExamples:\n"
             "\nThe total amount received by address \"myaddress\"\n"
             + HelpExampleCli("z_getbalance", "\"myaddress\"") +
@@ -5058,14 +5038,16 @@ UniValue z_gettotalbalance(const UniValue& params, bool fHelp)
     if (fHelp || params.size() > 2)
         throw runtime_error(
             "z_gettotalbalance ( minconf includeWatchonly )\n"
+            + ShieldedPoolRPCMethodsWarning(true) + "\n"
+            + "Details: shielded pool transactions (t->z, z->z, z->t) " + (AreShieldedPoolRPCMethodsDisabled() ? "have been " : "are going to be ") + "disabled.\n"
             "\nReturn the total value of funds stored in the node’s wallet.\n"
             "\nCAUTION: If the wallet contains watch-only zaddrs, the returned private balance may be larger than the actual balance,"
             "\nbecause spends cannot be detected with incoming viewing keys.\n"
-            
+
             "\nArguments:\n"
             "1. minconf                    (numeric, optional, default=1) only include private and transparent transactions confirmed at least this many times\n"
             "2. includeWatchonly           (bool, optional, default=false) also include balance in watchonly addresses (see 'importaddress' and 'z_importviewingkey')\n"
-            
+
             "\nResult:\n"
             "{\n"
             "  \"transparent\": xxxxx,     (numeric) the total balance of transparent funds\n"
@@ -5119,13 +5101,15 @@ UniValue z_getoperationresult(const UniValue& params, bool fHelp)
     if (fHelp || params.size() > 1)
         throw runtime_error(
             "z_getoperationresult ([\"operationid\", ... ]) \n"
+            + ShieldedPoolRPCMethodsWarning(true) + "\n"
+            + "Details: shielded pool transactions (t->z, z->z, z->t) " + (AreShieldedPoolRPCMethodsDisabled() ? "have been " : "are going to be ") + "disabled.\n"
             "\nRetrieve the result and status of an operation which has finished, and then remove the operation from memory."
             + HelpRequiringPassphrase() + "\n"
-            
+
             "\nArguments:\n"
             "1. \"operationid\"                  (array, optional) a list of operation ids we are interested in\n"
             "                                     if not provided, examine all operations known to the node\n"
-            
+
             "\nResult:\n"
             "\" [\"                              (array) a list of JSON objects\n"
             "      {\n"
@@ -5135,7 +5119,7 @@ UniValue z_getoperationresult(const UniValue& params, bool fHelp)
             "      }\n"
             "      ,...\n"
             "   ]\n"
-            
+
             "\nExamples:\n"
             + HelpExampleCli("z_getoperationresult", "'[\"operationid\", ... ]'")
             + HelpExampleRpc("z_getoperationresult", "'[\"operationid\", ... ]'")
@@ -5153,13 +5137,15 @@ UniValue z_getoperationstatus(const UniValue& params, bool fHelp)
     if (fHelp || params.size() > 1)
         throw runtime_error(
             "z_getoperationstatus ([\"operationid\", ... ]) \n"
+            + ShieldedPoolRPCMethodsWarning(true) + "\n"
+            + "Details: shielded pool transactions (t->z, z->z, z->t) " + (AreShieldedPoolRPCMethodsDisabled() ? "have been " : "are going to be ") + "disabled.\n"
             "\nGet operation status and any associated result or error data.  The operation will remain in memory."
             + HelpRequiringPassphrase() + "\n"
-            
+
             "\nArguments:\n"
             "1. \"operationid\"                               (array, optional) a list of operation ids we are interested in\n"
             "                                                  if not provided, examine all operations known to the node\n"
-            
+
             "\nResult:\n"
             "\" [\"                                           (array) a list of JSON objects\n"
             "      {\n"
@@ -5170,7 +5156,7 @@ UniValue z_getoperationstatus(const UniValue& params, bool fHelp)
             "      }\n"
             "      ,...\n"
             "   ]\n"
-            
+
             "\nExamples:\n"
             + HelpExampleCli("z_getoperationstatus", "'[\"operationid\", ... ]'")
             + HelpExampleRpc("z_getoperationstatus", "'[\"operationid\", ... ]'")
@@ -5255,8 +5241,10 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
     if (fHelp || params.size() < 2 || params.size() > 5)
         throw runtime_error(
             "z_sendmany \"fromaddress\" [{\"address\":... ,\"amount\":...},...] ( minconf ) ( fee ) (sendChangeToSource)\n"
-            + ShieldingRPCMethodsDeprecationWarning(false) + "\n"
-            + "Details: sending transparent funds to shielded addresses " + (AreShieldingRPCMethodsDeprecated() ? "has been " : "is going to be ") + "deprecated.\n"
+            + ShieldingRPCMethodsDisablingWarning(false) + "\n"
+            + "Details: sending transparent funds to shielded addresses has been disabled.\n"
+            + ShieldedPoolRPCMethodsWarning(false) + "\n"
+            + "Details: shielded pool transactions (t->z, z->z, z->t) " + (AreShieldedPoolRPCMethodsDisabled() ? "have been " : "are going to be ") + "disabled.\n"
             "\nSend multiple times. Amounts are double-precision floating point numbers."
             "\nChange from a taddr flows to a new taddr address, while change from zaddr returns to itself."
             "\nWhen sending coinbase UTXOs to a zaddr, change is not allowed. The entire value of the UTXO(s) must be consumed."
@@ -5378,11 +5366,18 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
         nTotalOut += nAmount;
     }
 
+    bool isShielded = !fromTaddr || zaddrRecipients.size() > 0;
+
     // we want to forbid shielding transactions
-    if (chainActive.Height() + 1 >= GetShieldedPoolDeprecationForkHeight() &&
-        fromTaddr && zaddrRecipients.size() > 0)
+    if (AreShieldingRPCMethodsDisabled() && fromTaddr && zaddrRecipients.size() > 0)
     {
-        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, shieldedPoolDeprecationErrorMessage);
+        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("shielded pool deprecation"));
+    }
+
+    // we want to forbid any shielded pool transaction
+    if (AreShieldedPoolRPCMethodsDisabled() && isShielded)
+    {
+        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("shielded pool removal"));
     }
 
     // Check the number of zaddr outputs does not exceed the limit.
@@ -5433,6 +5428,8 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
         }
     }
 
+    // We check if we can directly spend coinbase outputs (this is possible only after fork11)
+    bool fCanSpendCoinBase = !ForkManager::getInstance().mustCoinBaseBeShielded(chainActive.Height() + 1);
 
     // Use input parameters as the optional context info to be returned by z_getoperationstatus and z_getoperationresult.
     UniValue o(UniValue::VOBJ);
@@ -5443,14 +5440,14 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
     UniValue contextInfo = o;
 
     CMutableTransaction contextualTx;
-    bool isShielded = !fromTaddr || zaddrRecipients.size() > 0;
     contextualTx.nVersion = 1;
     if(isShielded) {
         contextualTx.nVersion = shieldedTxVersion;
     }
     // Create operation and add to global queue
     std::shared_ptr<AsyncRPCQueue> q = getAsyncRPCQueue();
-    std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(contextualTx, fromaddress, std::move(taddrRecipients), std::move(zaddrRecipients), nMinDepth, nFee, contextInfo, sendChangeToSource) );
+    std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(contextualTx, fromaddress, 
+        std::move(taddrRecipients), std::move(zaddrRecipients), nMinDepth, nFee, contextInfo, sendChangeToSource, fCanSpendCoinBase) );
     q->addOperation(operation);
     AsyncRPCOperationId operationId = operation->getId();
     return operationId;
@@ -5461,7 +5458,7 @@ UniValue sc_send_certificate(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() < 8  )
+    if (fHelp || params.size() < 8)
         throw runtime_error(
             "sc_send_certificate scid epochNumber quality endEpochCumScTxCommTreeRoot scProof transfers forwardTransferScFee mainchainBackwardTransferScFee [fee] [vFieldElementCertificateField] [vBitVectorCertificateField]\n"
             "\nSend cross chain backward transfers from SC to MC as a certificate."
@@ -5855,7 +5852,7 @@ UniValue z_shieldcoinbase(const UniValue& params, bool fHelp)
     if (fHelp || params.size() < 2 || params.size() > 4)
         throw runtime_error(
             "z_shieldcoinbase \"fromaddress\" \"tozaddress\" ( fee ) ( limit )\n"
-            + ShieldingRPCMethodsDeprecationWarning() + "\n"
+            + ShieldingRPCMethodsDisablingWarning(true) + "\n"
             "\nShield transparent coinbase funds by sending to a shielded zaddr.  This is an asynchronous operation and utxos"
             "\nselected for shielding will be locked.  If there is an error, they are unlocked.  The RPC call `listlockunspent`"
             "\ncan be used to return a list of locked utxos.  The number of coinbase utxos selected for shielding can be limited"
@@ -5886,9 +5883,9 @@ UniValue z_shieldcoinbase(const UniValue& params, bool fHelp)
             + HelpExampleRpc("z_shieldcoinbase", "\"taddr\", \"zaddr\"")
         );
 
-    if (chainActive.Height() + 1 >= GetShieldedPoolDeprecationForkHeight())
+    if (AreShieldingRPCMethodsDisabled())
     {
-        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, shieldedPoolDeprecationErrorMessage);
+        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("shielded pool deprecation"));
     }
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -6059,10 +6056,12 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
         throw runtime_error(
             "z_mergetoaddress [\"fromaddress\", ... ] \"toaddress\" ( fee ) ( transparent_limit ) ( shielded_limit ) ( memo )\n"
             + strDisabledMsg
-            + ShieldingRPCMethodsDeprecationWarning(false) + "\n"
-            + "Details: merging transparent funds to shielded address " + (AreShieldingRPCMethodsDeprecated() ? "has been " : "is going to be ") + "deprecated.\n"
-            "\nMerge multiple UTXOs and notes into a single UTXO or note." +
-            (AreShieldingRPCMethodsDeprecated() ? "" : "\nCoinbase UTXOs are ignored; use `z_shieldcoinbase` to combine those into a single note.") +
+            + ShieldingRPCMethodsDisablingWarning(false) + "\n"
+            + "Details: merging transparent funds to shielded address has been disabled.\n"
+            + ShieldedPoolRPCMethodsWarning(false) + "\n"
+            + "Details: shielded pool transactions (t->z, z->z, z->t) " + (AreShieldedPoolRPCMethodsDisabled() ? "have been " : "are going to be ") + "disabled.\n"
+            + "\nMerge multiple UTXOs and notes into a single UTXO or note."
+            + "\nCoinbase UTXOs are ignored; use `z_shieldcoinbase` to combine those into a single note." +
             "\n\nThis is an asynchronous operation, and UTXOs selected for merging will be locked. If there is an error, they"
             "\nare unlocked. The RPC call `listlockunspent` can be used to return a list of locked UTXOs."
             "\n\nThe number of UTXOs and notes selected for merging can be limited by the caller. If the transparent limit"
@@ -6222,10 +6221,17 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
     }
 
     // we want to forbid shielding transactions
-    if (chainActive.Height() + 1 >= GetShieldedPoolDeprecationForkHeight() &&
+    if (AreShieldingRPCMethodsDisabled() &&
         (useAny || useAnyUTXO || taddrs.size() > 0) && isToZaddr)
     {
-        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, shieldedPoolDeprecationErrorMessage);
+        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("shielded pool deprecation"));
+    }
+
+    // we want to forbid any shielded pool transaction
+    if (AreShieldedPoolRPCMethodsDisabled() &&
+        (useAny || useAnyNote || zaddrs.size() > 0 || isToZaddr)) // (potentially) non-transparent tx
+    {
+        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("shielded pool removal"));
     }
 
     MergeToAddressRecipient recipient(destaddress, memo);
@@ -6408,17 +6414,19 @@ UniValue z_listoperationids(const UniValue& params, bool fHelp)
     if (fHelp || params.size() > 1)
         throw runtime_error(
             "z_listoperationids\n"
+            + ShieldedPoolRPCMethodsWarning(true) + "\n"
+            + "Details: shielded pool transactions (t->z, z->z, z->t) " + (AreShieldedPoolRPCMethodsDisabled() ? "have been " : "are going to be ") + "disabled.\n"
             "\nReturns the list of operation ids currently known to the wallet.\n"
-            
+
             "\nArguments:\n"
             "1. \"status\"         (string, optional) filter result by the operation's state state e.g. \"success\"\n"
-            
+
             "\nResult:\n"
             "[                     (json array of string)\n"
             "  \"operationid\"     (string) an operation id belonging to the wallet\n"
             "  ,...\n"
             "]\n"
-            
+
             "\nExamples:\n"
             + HelpExampleCli("z_listoperationids", "")
             + HelpExampleRpc("z_listoperationids", "")

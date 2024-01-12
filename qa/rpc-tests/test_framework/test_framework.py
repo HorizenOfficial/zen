@@ -25,10 +25,11 @@ from test_framework.util import assert_equal, check_json_precision, \
 MINER_REWARD_POST_H200 = 7.50
 
 ForkHeights = {
-    'MINIMAL_SC':                420,
-    'SC_VERSION':                450,
-    'NON_CEASING_SC':            480,
-    'SHIELDED_POOL_DEPRECATION': 990
+    'MINIMAL_SC':                  420,
+    'SC_VERSION':                  450,
+    'NON_CEASING_SC':              480,
+    'SHIELDED_POOL_DEPRECATION':   990,
+    'SHIELDED_POOL_REMOVAL':       1010,
 }
 
 class syncType(Enum):

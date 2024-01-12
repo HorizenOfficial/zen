@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include "zen/forkmanager.h"
 #include "chainparams.h"
-#include "zen/forks/fork11_shieldedpooldeprecationfork.h"
+#include "zen/forks/fork12_shieldedpoolremovalfork.h"
 
 using namespace zen;
 
@@ -529,6 +529,9 @@ TEST(ForkManager, ShieldedPoolDeprecationForkMainnet) {
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight - 1), true);
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight), false);
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight + 1), false);
+    EXPECT_EQ(ForkManager::getInstance().isShieldingForbidden(shieldedPoolDeprecationForkHeight - 1), false);
+    EXPECT_EQ(ForkManager::getInstance().isShieldingForbidden(shieldedPoolDeprecationForkHeight), true);
+    EXPECT_EQ(ForkManager::getInstance().isShieldingForbidden(shieldedPoolDeprecationForkHeight + 1), true);
 }
 
 TEST(ForkManager, ShieldedPoolDeprecationForkTestnet) {
@@ -538,6 +541,9 @@ TEST(ForkManager, ShieldedPoolDeprecationForkTestnet) {
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight - 1), true);
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight), false);
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight + 1), false);
+    EXPECT_EQ(ForkManager::getInstance().isShieldingForbidden(shieldedPoolDeprecationForkHeight - 1), false);
+    EXPECT_EQ(ForkManager::getInstance().isShieldingForbidden(shieldedPoolDeprecationForkHeight), true);
+    EXPECT_EQ(ForkManager::getInstance().isShieldingForbidden(shieldedPoolDeprecationForkHeight + 1), true);
 }
 
 TEST(ForkManager, ShieldedPoolDeprecationForkRegtest) {
@@ -547,6 +553,9 @@ TEST(ForkManager, ShieldedPoolDeprecationForkRegtest) {
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight - 1), false);
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight), false);
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight + 1), false);
+    EXPECT_EQ(ForkManager::getInstance().isShieldingForbidden(shieldedPoolDeprecationForkHeight - 1), false);
+    EXPECT_EQ(ForkManager::getInstance().isShieldingForbidden(shieldedPoolDeprecationForkHeight), true);
+    EXPECT_EQ(ForkManager::getInstance().isShieldingForbidden(shieldedPoolDeprecationForkHeight + 1), true);
 
     bool alreadyPresent = !mapArgs.insert({"-regtestprotectcoinbase", ""}).second;
     EXPECT_EQ(ForkManager::getInstance().mustCoinBaseBeShielded(shieldedPoolDeprecationForkHeight - 1), true);
@@ -556,8 +565,43 @@ TEST(ForkManager, ShieldedPoolDeprecationForkRegtest) {
         mapArgs.erase("-regtestprotectcoinbase");
 }
 
+TEST(ForkManager, ShieldedPoolRemovalForkMainnet) {
+    SelectParams(CBaseChainParams::MAIN);
+
+    int shieldedPoolRemovalForkHeight = 2000000; // PLACEHOLDER
+    EXPECT_EQ(ForkManager::getInstance().isShieldedPoolRemoved(shieldedPoolRemovalForkHeight - 1), false);
+    EXPECT_EQ(ForkManager::getInstance().isShieldedPoolRemoved(shieldedPoolRemovalForkHeight), true);
+    EXPECT_EQ(ForkManager::getInstance().isShieldedPoolRemoved(shieldedPoolRemovalForkHeight + 1), true);
+}
+
+TEST(ForkManager, ShieldedPoolRemovalForkTestnet) {
+    SelectParams(CBaseChainParams::TESTNET);
+
+    int shieldedPoolRemovalForkHeight = 1404200;
+    EXPECT_EQ(ForkManager::getInstance().isShieldedPoolRemoved(shieldedPoolRemovalForkHeight - 1), false);
+    EXPECT_EQ(ForkManager::getInstance().isShieldedPoolRemoved(shieldedPoolRemovalForkHeight), true);
+    EXPECT_EQ(ForkManager::getInstance().isShieldedPoolRemoved(shieldedPoolRemovalForkHeight + 1), true);
+}
+
+TEST(ForkManager, ShieldedPoolRemovalForkRegtest) {
+    SelectParams(CBaseChainParams::REGTEST);
+
+    int shieldedPoolRemovalForkHeight = 1010;
+    EXPECT_EQ(ForkManager::getInstance().isShieldedPoolRemoved(shieldedPoolRemovalForkHeight - 1), false);
+    EXPECT_EQ(ForkManager::getInstance().isShieldedPoolRemoved(shieldedPoolRemovalForkHeight), true);
+    EXPECT_EQ(ForkManager::getInstance().isShieldedPoolRemoved(shieldedPoolRemovalForkHeight + 1), true);
+}
+
 TEST(ForkManager, HighestFork) {
     SelectParams(CBaseChainParams::MAIN);
     const Fork* highestFork = ForkManager::getInstance().getHighestFork();
-    EXPECT_EQ(typeid(*highestFork), typeid(ShieldedPoolDeprecationFork));
+    EXPECT_EQ(typeid(*highestFork), typeid(ShieldedPoolRemovalFork));
+}
+
+TEST(ForkManager, HighestShieldedPoolTxVersion) {
+    SelectParams(CBaseChainParams::MAIN);
+    const Fork* highestFork = ForkManager::getInstance().getHighestFork();
+    // this check is associated to CTransaction::ContextualCheck() control flow
+    // it expects GROTH to be the last shielded pool tx version
+    EXPECT_EQ(highestFork->getShieldedTxVersion(), GROTH_TX_VERSION);
 }

@@ -32,7 +32,7 @@ public:
     /**
      * @brief canSendCommunityFundsToTransparentAddress true if community funds can be sent to a transparent address
      */
-    inline virtual bool canSendCommunityFundsToTransparentAddress(CBaseChainParams::Network network) const;
+    virtual bool canSendCommunityFundsToTransparentAddress(CBaseChainParams::Network network) const;
 
     /**
      * @brief getReplayProtectionLevel returns the replay protection level provided by the current fork
@@ -108,6 +108,11 @@ public:
      * @brief returns true if the shielding (t->z) transactions are forbidden
      */
     inline virtual bool isShieldingForbidden() const { return false; };
+
+    /**
+     * @brief returns true if the shielded pool has been removed (no more t->z, z->z, z->t)
+     */
+    inline virtual bool isShieldedPoolRemoved() const { return false; };
 };
 
 }

@@ -149,6 +149,7 @@ BITCOIN_CORE_H = \
   consensus/consensus.h \
   consensus/params.h \
   consensus/validation.h \
+  consolecolors.h \
   core_io.h \
   core_memusage.h \
   deprecation.h \
@@ -182,6 +183,7 @@ BITCOIN_CORE_H = \
   rpc/client.h \
   rpc/protocol.h \
   rpc/server.h \
+  rpc/utils.h \
   scheduler.h \
   script/interpreter.h \
   script/script.h \
@@ -272,6 +274,7 @@ libbitcoin_server_a_SOURCES = \
   rpc/net.cpp \
   rpc/rawtransaction.cpp \
   rpc/server.cpp \
+  rpc/utils.cpp \
   sc/asyncproofverifier.cpp \
   sc/sidechainTxsCommitmentBuilder.cpp \
   sc/sidechainTxsCommitmentGuard.cpp \
@@ -622,6 +625,7 @@ libzencash_a_SOURCES = \
     zen/forks/fork9_sidechainversionfork.cpp\
     zen/forks/fork10_nonceasingsidechainfork.cpp\
     zen/forks/fork11_shieldedpooldeprecationfork.cpp\
+    zen/forks/fork12_shieldedpoolremovalfork.cpp\
     zen/tlsmanager.cpp\
     zen/delay.cpp \
     zen/websocket_server.cpp

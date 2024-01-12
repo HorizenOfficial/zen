@@ -56,8 +56,11 @@ AsyncRPCOperation_sendmany::AsyncRPCOperation_sendmany(
         int minDepth,
         CAmount fee,
         UniValue contextInfo,
-        bool sendChangeToSource) :
-        tx_(contextualTx), fromaddress_(fromAddress), t_outputs_(std::move(tOutputs)), z_outputs_(std::move(zOutputs)), mindepth_(minDepth), fee_(fee), contextinfo_(contextInfo), sendChangeToSource_(sendChangeToSource)
+        bool sendChangeToSource,
+        bool canSpendCoinBase) :
+        tx_(contextualTx), fromaddress_(fromAddress), t_outputs_(std::move(tOutputs)), 
+        z_outputs_(std::move(zOutputs)), mindepth_(minDepth), fee_(fee), contextinfo_(contextInfo), 
+        sendChangeToSource_(sendChangeToSource), canSpendCoinbase_(canSpendCoinBase)
 {
     assert(fee_ >= 0);
 
@@ -202,7 +205,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
     assert(isfromtaddr_ != isfromzaddr_);
 
     bool isSingleZaddrOutput = (t_outputs_.size()==0 && z_outputs_.size()==1);
-    bool isMultipleZaddrOutput = (t_outputs_.size()==0 && z_outputs_.size()>=1);
+    bool isMultipleZaddrOutput = (t_outputs_.size()==0 && z_outputs_.size()>1);
     bool isPureTaddrOnlyTx = (isfromtaddr_ && z_outputs_.size() == 0);
     CAmount minersFee = fee_;
 
@@ -215,12 +218,13 @@ bool AsyncRPCOperation_sendmany::main_impl() {
                 throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds, no UTXOs found for taddr from address.");
             }
         } else {
-            bool b = find_utxos(false);
-            if (!b) {
-                if (isMultipleZaddrOutput) {
+            if (isMultipleZaddrOutput) {
+                if (!find_utxos(false)) {
                     throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Could not find any non-coinbase UTXOs to spend. Coinbase UTXOs can only be sent to a single zaddr recipient.");
-                } else {
-                    throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Could not find any non-coinbase UTXOs to spend.");
+                }
+            } else {
+                if (!find_utxos(canSpendCoinbase_)) {
+                    throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Could not find any UTXOs to spend.");
                 }
             }
         }
@@ -426,18 +430,21 @@ bool AsyncRPCOperation_sendmany::main_impl() {
 
         if (change > 0) {
             if (selectedUTXOCoinbase) {
-                assert(isSingleZaddrOutput);
-                throw JSONRPCError(RPC_WALLET_ERROR, strprintf(
-                    "Change %s not allowed. When protecting coinbase funds, the wallet does not "
-                    "allow any change as there is currently no way to specify a change address "
-                    "in z_sendmany.", FormatMoney(change)));
-            } else {
-                add_taddr_change_output_to_tx(change, sendChangeToSource_);
-                LogPrint("zrpc", "%s: transparent change in transaction output (amount=%s)\n",
-                        getId(),
-                        FormatMoney(change)
-                        );
+                assert(!isMultipleZaddrOutput);
+                if (isSingleZaddrOutput)
+                {
+                    throw JSONRPCError(RPC_WALLET_ERROR, strprintf(
+                        "Change %s not allowed. When protecting coinbase funds, the wallet does not "
+                        "allow any change as there is currently no way to specify a change address "
+                        "in z_sendmany.", FormatMoney(change)));
+                }
             }
+
+            add_taddr_change_output_to_tx(change, sendChangeToSource_);
+            LogPrint("zrpc", "%s: transparent change in transaction output (amount=%s)\n",
+                     getId(),
+                     FormatMoney(change)
+                    );
         }
 
         // Create joinsplits, where each output represents a zaddr recipient.

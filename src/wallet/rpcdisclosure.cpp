@@ -4,6 +4,7 @@
 
 #include "base58.h"
 #include "rpc/server.h"
+#include "rpc/utils.h"
 #include "init.h"
 #include "main.h"
 #include "script/script.h"
@@ -50,10 +51,13 @@ UniValue z_getpaymentdisclosure(const UniValue& params, bool fHelp)
     if (fHelp || params.size() < 3 || params.size() > 4 )
         throw runtime_error(
             "z_getpaymentdisclosure \"txid\" \"js_index\" \"output_index\" (\"message\") \n"
+            + ShieldedPoolRPCMethodsWarning(true) + "\n"
+            + "Details: shielded pool transactions (t->z, z->z, z->t) " + (AreShieldedPoolRPCMethodsDisabled() ? "have been " : "are going to be ") + "disabled.\n"
+
             "\nGenerate a payment disclosure for a given joinsplit output.\n"
             "\nEXPERIMENTAL FEATURE\n"
             + strPaymentDisclosureDisabledMsg +
-            
+
             "\nArguments:\n"
 
             "1. \"txid\"            (string, required) the transaction id\n"
@@ -164,13 +168,16 @@ UniValue z_validatepaymentdisclosure(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "z_validatepaymentdisclosure \"paymentdisclosure\"\n"
+            + ShieldedPoolRPCMethodsWarning(true) + "\n"
+            + "Details: shielded pool transactions (t->z, z->z, z->t) " + (AreShieldedPoolRPCMethodsDisabled() ? "have been " : "are going to be ") + "disabled.\n"
+
             "\nValidates a payment disclosure.\n"
             "\nEXPERIMENTAL FEATURE\n"
             + strPaymentDisclosureDisabledMsg +
-            
+
             "\nArguments:\n"
             "1. \"paymentdisclosure\"                (string, required) hex data string, with \"zpd:\" prefix\n"
-            
+
             "\nResult:\n"
             "{\n                                     (array) information about the payment disclosure\n"
                 "\"txid\": \"hash\",                 (string) the transaction id\n"
@@ -187,7 +194,7 @@ UniValue z_validatepaymentdisclosure(const UniValue& params, bool fHelp)
                 "\"commitmentMatch\": true|false,    (boolean) if the commitment derived from payment disclosure match blockchain commitment or not\n"
                 "\"valid\": true|false               (boolean) if the payment disclosure is valid or not\n"
             "}\n"
-            
+
             "\nExamples:\n"
             + HelpExampleCli("z_validatepaymentdisclosure", "\"zpd:706462ff004c561a0447ba2ec51184e6c204...\"")
             + HelpExampleRpc("z_validatepaymentdisclosure", "\"zpd:706462ff004c561a0447ba2ec51184e6c204...\"")
