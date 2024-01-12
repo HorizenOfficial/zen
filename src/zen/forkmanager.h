@@ -142,6 +142,11 @@ public:
      */
     bool isShieldingForbidden(int height) const;
 
+    /**
+     * @brief returns true if the shielded pool has been removed (no more t->z, z->z, z->t)
+     */
+    bool isShieldedPoolRemoved(int height) const;
+
     // ---------- forks redefined methods ----------
 
 private:
