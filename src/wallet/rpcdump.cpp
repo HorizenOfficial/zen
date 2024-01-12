@@ -4,6 +4,7 @@
 
 #include "base58.h"
 #include "rpc/server.h"
+#include "rpc/utils.h"
 #include "init.h"
 #include "main.h"
 #include "script/script.h"
@@ -239,14 +240,17 @@ UniValue z_importwallet(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "z_importwallet \"filename\"\n"
+            + ShieldedPoolRPCMethodsWarning(true) + "\n"
+            + "Details: shielded pool transactions (t->z, z->z, z->t) " + (AreShieldedPoolRPCMethodsDisabled() ? "have been " : "are going to be ") + "disabled.\n"
+
             "\nImports taddr and zaddr keys from a wallet export file (see z_exportwallet).\n"
-            
+
             "\nArguments:\n"
             "1. \"filename\"    (string, required) the wallet file\n"
 
             "\nResult:\n"
             "Nothing\n"
-            
+
             "\nExamples:\n"
             "\nDump the wallet\n"
             + HelpExampleCli("z_exportwallet", "\"filename\"") +
@@ -454,14 +458,17 @@ UniValue z_exportwallet(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "z_exportwallet \"filename\"\n"
+            + ShieldedPoolRPCMethodsWarning(true) + "\n"
+            + "Details: shielded pool transactions (t->z, z->z, z->t) " + (AreShieldedPoolRPCMethodsDisabled() ? "have been " : "are going to be ") + "disabled.\n"
+
             "\nExports all wallet keys, for taddr and zaddr, in a human-readable format.  Overwriting an existing file is not permitted.\n"
             "\nArguments:\n"
-            
+
             "1. \"filename\"    (string, required) The filename, saved in folder set by zend -exportdir option\n"
-            
+
             "\nResult:\n"
             "\"path\"           (string) the full path of the destination file\n"
-            
+
             "\nExamples:\n"
             + HelpExampleCli("z_exportwallet", "\"filename\"")
             + HelpExampleRpc("z_exportwallet", "\"filename\"")
@@ -592,8 +599,11 @@ UniValue z_importkey(const UniValue& params, bool fHelp)
     if (fHelp || params.size() < 1 || params.size() > 3)
         throw runtime_error(
             "z_importkey \"zkey\" ( rescan startHeight )\n"
+            + ShieldedPoolRPCMethodsWarning(true) + "\n"
+            + "Details: shielded pool transactions (t->z, z->z, z->t) " + (AreShieldedPoolRPCMethodsDisabled() ? "have been " : "are going to be ") + "disabled.\n"
+
             "\nAdds a zkey (as returned by z_exportkey) to your wallet.\n"
-            
+
             "\nArguments:\n"
             "1. \"zkey\"           (string, required) the zkey (see z_exportkey)\n"
             "2. rescan             (string, optional, default=\"whenkeyisnew\") rescan the wallet for transactions - can be \"yes\", \"no\" or \"whenkeyisnew\"\n"
@@ -602,7 +612,7 @@ UniValue z_importkey(const UniValue& params, bool fHelp)
 
             "\nResult:\n"
             "Nothing\n"
-            
+
             "\nExamples:\n"
             "\nExport a zkey\n"
             + HelpExampleCli("z_exportkey", "\"myaddress\"") +
@@ -693,14 +703,17 @@ UniValue z_importviewingkey(const UniValue& params, bool fHelp)
     if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(
             "z_importviewingkey \"vkey\" ( rescan startHeight )\n"
+            + ShieldedPoolRPCMethodsWarning(true) + "\n"
+            + "Details: shielded pool transactions (t->z, z->z, z->t) " + (AreShieldedPoolRPCMethodsDisabled() ? "have been " : "are going to be ") + "disabled.\n"
+
             "\nAdds a viewing key (as returned by z_exportviewingkey) to your wallet.\n"
-            
+
             "\nArguments:\n"
             "1. \"vkey\"           (string, required) the viewing key (see z_exportviewingkey)\n"
             "2. rescan             (string, optional, default=\"whenkeyisnew\") rescan the wallet for transactions - can be \"yes\", \"no\" or \"whenkeyisnew\"\n"
             "3. startHeight        (numeric, optional, default=0) block height to start rescan from\n"
             "\nNote: This call can take minutes to complete if rescan is true.\n"
-            
+
             "\nExamples:\n"
             "\nImport a viewing key\n"
             + HelpExampleCli("z_importviewingkey", "\"vkey\"") +
@@ -784,15 +797,18 @@ UniValue z_exportkey(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "z_exportkey \"zaddr\"\n"
+            + ShieldedPoolRPCMethodsWarning(true) + "\n"
+            + "Details: shielded pool transactions (t->z, z->z, z->t) " + (AreShieldedPoolRPCMethodsDisabled() ? "have been " : "are going to be ") + "disabled.\n"
+
             "\nReveals the zkey corresponding to 'zaddr'.\n"
             "Then the z_importkey can be used with this output.\n"
-            
+
             "\nArguments:\n"
             "1. \"zaddr\"   (string, required) the zaddr for the private key\n"
-            
+
             "\nResult:\n"
             "\"key\"        (string) the private key\n"
-            
+
             "\nExamples:\n"
             + HelpExampleCli("z_exportkey", "\"myaddress\"")
             + HelpExampleCli("z_importkey", "\"zkey\"")
@@ -824,14 +840,17 @@ UniValue z_exportviewingkey(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "z_exportviewingkey \"zaddr\"\n"
+            + ShieldedPoolRPCMethodsWarning(true) + "\n"
+            + "Details: shielded pool transactions (t->z, z->z, z->t) " + (AreShieldedPoolRPCMethodsDisabled() ? "have been " : "are going to be ") + "disabled.\n"
+
             "\nReveals the viewing key corresponding to 'zaddr'.\n"
             "Then the z_importviewingkey can be used with this output\n"
-            
+
             "\nArguments:\n"
             "1. \"zaddr\"   (string, required) the zaddr for the viewing key\n"
             "\nResult:\n"
             "\"vkey\"       (string) the viewing key\n"
-            
+
             "\nExamples:\n"
             + HelpExampleCli("z_exportviewingkey", "\"zaddr\"")
             + HelpExampleRpc("z_exportviewingkey", "\"zaddr\"")

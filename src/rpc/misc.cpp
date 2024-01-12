@@ -11,6 +11,7 @@
 #include "net.h"
 #include "netbase.h"
 #include "rpc/server.h"
+#include "rpc/utils.h"
 #include "txmempool.h"
 #include "util.h"
 #ifdef ENABLE_WALLET
@@ -223,6 +224,8 @@ UniValue z_validateaddress(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "z_validateaddress \"zaddr\"\n"
+            + ShieldedPoolRPCMethodsWarning(true) + "\n"
+            + "Details: shielded pool transactions (t->z, z->z, z->t) " + (AreShieldedPoolRPCMethodsDisabled() ? "have been " : "are going to be ") + "disabled.\n"
             "\nReturn information about the given zaddress.\n"
 
             "\nArguments:\n"
