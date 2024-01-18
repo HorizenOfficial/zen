@@ -17,7 +17,7 @@ if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
     sudo apt-get autoremove --purge
     sudo rm -f /etc/default/docker
     # shellcheck disable=SC2086
-    sudo apt-get -y --no-install-recommends -o Dpkg::Options::="--force-confnew" install ${DOCKER_UPDATE_PACKAGES}
+    sudo apt-get -y --no-install-recommends --reinstall -o Dpkg::Options::="--force-confnew" install ${DOCKER_UPDATE_PACKAGES}
     ls /proc/sys/fs/binfmt_misc/
     if [ "${TRAVIS_CPU_ARCH}" = "amd64" ]; then
       docker run --rm --privileged multiarch/qemu-user-static --reset -p yes

@@ -32,8 +32,8 @@
 //          a previously released assembly.
 
 //! These need to be macros, as clientversion.cpp's and bitcoin*-res.rc's voodoo requires it
-#define CLIENT_VERSION_MAJOR 4
-#define CLIENT_VERSION_MINOR 1
+#define CLIENT_VERSION_MAJOR 5
+#define CLIENT_VERSION_MINOR 0
 #define CLIENT_VERSION_REVISION 99
 #define CLIENT_VERSION_BUILD 51
 
@@ -44,7 +44,7 @@
  * Copyright year (2009-this)
  * Todo: update this when changing our copyright comments in the source
  */
-#define COPYRIGHT_YEAR 2023
+#define COPYRIGHT_YEAR 2024
 
 #endif //HAVE_CONFIG_H
 
