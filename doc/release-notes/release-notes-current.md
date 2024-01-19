@@ -3,8 +3,7 @@ zend v5.0.99
 
 ## Important Notes
 
-### Shielded pool removal
-
+## New Features and Improvements
 
 ## Bugfixes and Minor Changes
 

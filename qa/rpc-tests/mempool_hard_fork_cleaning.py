@@ -27,10 +27,6 @@ class Test (BitcoinTestFramework):
         '''
         In this test we want to check that a tx becoming irrevocably invalid after hard-fork overcome
         is actually removed from mempool.
-
-        The test is composed of two sections:
-        1. Reach sidechains fork, create a sidechain, disconnect one block and check that the sidechain creation is evicted
-        2. Reach a height close to the shielded pool deprecation fork, create a shielding tx, mine one block, check that the tx is evicted
         '''
 
         # ####################################################################################################
