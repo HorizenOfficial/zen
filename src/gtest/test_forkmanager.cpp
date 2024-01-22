@@ -568,7 +568,7 @@ TEST(ForkManager, ShieldedPoolDeprecationForkRegtest) {
 TEST(ForkManager, ShieldedPoolRemovalForkMainnet) {
     SelectParams(CBaseChainParams::MAIN);
 
-    int shieldedPoolRemovalForkHeight = 2000000; // PLACEHOLDER
+    int shieldedPoolRemovalForkHeight = 1502800;
     EXPECT_EQ(ForkManager::getInstance().isShieldedPoolRemoved(shieldedPoolRemovalForkHeight - 1), false);
     EXPECT_EQ(ForkManager::getInstance().isShieldedPoolRemoved(shieldedPoolRemovalForkHeight), true);
     EXPECT_EQ(ForkManager::getInstance().isShieldedPoolRemoved(shieldedPoolRemovalForkHeight + 1), true);

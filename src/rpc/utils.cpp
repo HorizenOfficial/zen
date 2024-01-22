@@ -87,7 +87,7 @@ std::string ShieldedPoolRPCMethodsWarning(bool deprecation)
 
     return std::string(TXT_BIRED "\nWARNING: " TXT_BIBLK "This method " +
             std::string(AreShieldedPoolRPCMethodsDisabled() ? "has been " : "will be ") +
-            (deprecation ? "deprecated " : "partially disabled (only t->t allowed)") +
+            (deprecation ? "deprecated " : "partially disabled (only t->t allowed) ") +
             "at block height " + std::to_string(shieldedPoolRemovalForkHeight - 1) + " " +
             "due to shielded pool removal hard fork." TXT_NORML);
 }
