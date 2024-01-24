@@ -14,7 +14,7 @@ Note that a backup is a duplicate of data needed to spend ZEC so where you keep 
 
 These instructions are specific for the officially supported Zcash Linux client. For backing up with third-party wallets, please consult with user guides or support channels provided for those services.
 
-There are multiple ways to make sure you have at least one other copy of the private keys needed to spend your ZEC and view your shielded ZEC.
+There are multiple ways to make sure you have at least one other copy of the private keys needed to spend your ZEN.
 
 For all methods, you will need to include an export directory setting in your config file (`zcash.conf` located in the data directory which is `~/.zcash/` unless it's been overridden with `datadir=` setting):
 
@@ -36,7 +36,27 @@ If you generate a new Zcash address, it will not be reflected in the backup file
 
 If your original `wallet.dat` file becomes inaccessible for whatever reason, you can use your backup by copying it into your data directory and renaming the copy to `wallet.dat`.
 
-### Using `z_exportwallet` & `z_importwallet`
+### Using `dumpprivkey` & `importprivkey`
+
+For exporting a single private key for a transparent address, you can use the command inherited from Bitcoin:
+
+`zcash-cli dumpprivkey <t-address>`
+
+This will return the private key and will not create a new file.
+
+To import a private key for a transparent address, use:
+
+`zcash-cli importprivkey <t-priv-key>`
+
+See the command's help documentation for instructions on fine-tuning the wallet rescan:
+
+`zcash-cli help importprivkey`
+
+### Using `dumpwallet`
+
+This command inherited from Bitcoin will export private keys in a human readable way.
+
+### Using `z_exportwallet` & `z_importwallet` (deprecated)
 
 If you prefer to have an export of your private keys in human readable format, you can use:
 
@@ -48,17 +68,11 @@ To import keys into a wallet which were previously exported to a file, use:
 
 `zcash-cli z_importwallet </path/to/exportdir/nameofbackup>`
 
-### Using `z_exportkey`, `z_importkey`, `dumpprivkey` & `importprivkey`
+### Using `z_exportkey` & `z_importkey` (deprecated)
 
 If you prefer to export a single private key for a shielded address, you can use:
 
 `zcash-cli z_exportkey <z-address>`
-
-This will return the private key and will not create a new file.
-
-For exporting a single private key for a transparent address, you can use the command inherited from Bitcoin:
-
-`zcash-cli dumpprivkey <t-address>`
 
 This will return the private key and will not create a new file.
 
@@ -75,17 +89,3 @@ The rescanning process can take a few minutes for a new private key. To skip it,
 For other instructions on fine-tuning the wallet rescan, see the command's help documentation:
 
 `zcash-cli help z_importkey`
-
-To import a private key for a transparent address, use:
-
-`zcash-cli importprivkey <t-priv-key>`
-
-This has the same functionality as `z_importkey` but works with transparent addresses.
-
-See the command's help documentation for instructions on fine-tuning the wallet rescan:
-
-`zcash-cli help importprivkey`
-
-### Using `dumpwallet`
-
-This command inherited from Bitcoin is deprecated. It will export private keys in a similar fashion as `z_exportwallet` but only for transparent addresses.

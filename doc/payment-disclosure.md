@@ -1,4 +1,4 @@
-# Payment Disclosure (Experimental Feature)
+# Payment Disclosure (Deprecated Feature)
 
 **Summary**
 
