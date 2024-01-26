@@ -13,7 +13,7 @@ Wallet Encryption
 
 Wallet encryption is disabled, for several reasons:
 
-- Shielded transactions (they are not supported anymore, these reasons are kept for history only)
+- Shielded transactions, which are no longer supported, these reasons are kept for historical reference only
     - Encrypted wallets are unable to correctly detect shielded spends (due to the
   nature of unlinkability of JoinSplits) and can incorrectly show larger
   available shielded balances until the next time the wallet is unlocked. This
@@ -62,7 +62,7 @@ Private spending keys for z addresses are never logged.
 Potentially-Missing Required Modifications
 ------------------------------------------
 
-In addition to potential mistakes in code we added to Zen, and
+In addition to potential mistakes in the code we added to Zen, and
 potential mistakes in our modifications to Zen, it is also possible
 that there were potential changes we were supposed to make to Zen but
 didn't, either because we didn't even consider making those changes, or we ran

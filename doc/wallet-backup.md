@@ -2,7 +2,7 @@
 
 ## Overview
 
-Backing up your Zen private keys is the best way to be proactive about preventing loss of access to your ZEN.
+Backing up your Zen private keys is the best way to be proactive about preventing the loss of access to your ZEN.
 
 Problems resulting from bugs in the code, user error, device failure, etc. may lead to losing access to your wallet (and as a result, the private keys of addresses which are required to spend from them).
 
@@ -62,7 +62,7 @@ If you prefer to have an export of your private keys in human readable format, y
 
 `zen-cli z_exportwallet <nameofbackup>`
 
-This will generate a file in the export directory listing all transparent and shielded private keys with their associated public addresses. The file path will be returned in the command line.
+This will generate a file in the export directory listing all transparent keys with their associated public addresses. The file path will be returned in the command line.
 
 To import keys into a wallet which were previously exported to a file, use:
 
