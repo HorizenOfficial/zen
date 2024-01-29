@@ -33,10 +33,6 @@ SECURITY
 - Sidechains state provability, powered by zk-SNARKs
 - TLS end-to-end encryption - Available for Secure and Super nodes
 
-PRIVACY 
-- Shielded transactions, powered by zk-SNARKs
-- Privacy-preserving sidechains supported out-of-the-box, powered by zk-SNARKs
-
 SCALABILITY 
 - Extended RPC interface to create and dispatch sidechain declaration, forward transfers, mainchain backward transfer requests, ceased sidechain withdrawals, and certificates.
 - Sidechain declaration with customizable zk-SNARK verification key
