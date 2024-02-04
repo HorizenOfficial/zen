@@ -1200,7 +1200,7 @@ CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertifi
         return CValidationState::Code::INVALID;
     }
 
-    if (!CheckQuality(cert))
+    if (!sidechain.CheckQuality(cert))
     {
         LogPrintf("%s():%d - ERROR: cert %s with invalid quality %d\n", __func__, __LINE__, certHash.ToString(), cert.quality);
         return CValidationState::Code::INVALID;
