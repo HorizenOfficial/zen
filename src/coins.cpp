@@ -731,15 +731,9 @@ bool CCoinsViewCache::CheckQuality(const CScCertificate& cert) const
     {
         return info.CheckQuality(cert);
     }
-    else
-    {
-        LogPrint("cert", "%s.%s():%d - cert %s has no scid in blockchain\n",
-            __FILE__, __func__, __LINE__, cert.GetHash().ToString());
-    }
-
-    LogPrint("cert", "%s.%s():%d - cert %s q=%d : OK, no better quality certs for same sc/epoch are in blockchain\n",
-        __FILE__, __func__, __LINE__, cert.GetHash().ToString(), cert.quality);
-    return true;
+    LogPrint("cert", "%s.%s():%d - cert %s has no scid in blockchain\n",
+        __FILE__, __func__, __LINE__, cert.GetHash().ToString());
+    return false;
 }
 
 
