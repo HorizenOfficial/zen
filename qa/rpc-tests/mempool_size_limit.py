@@ -7,7 +7,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.test_framework import ForkHeights
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
-    start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs,\
+    start_nodes, sync_blocks, sync_mempools, connect_nodes, mark_logs,\
     get_epoch_data, hex_str_to_bytes, swap_bytes, download_snapshot
 from test_framework.mc_test.mc_test import *
 import os
@@ -362,7 +362,7 @@ class mempool_size_limit(BitcoinTestFramework):
                 ['-debug=cert', '-debug=mempool', '-maxorphantx=10000', f'-maxmempool={NODE1_LIMIT_B / 1000000}', '-minconf=0', '-allownonstandardtx', '-datacarriersize=512', '-maxtipage=3153600000']
             ])
 
-        connect_nodes_bi(self.nodes, 0, 1)
+        connect_nodes(self.nodes, 0, 1)
         self.sync_all()
 
     def setup_test(self):
