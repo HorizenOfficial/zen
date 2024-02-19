@@ -831,21 +831,22 @@ inline bool CTxMemPool::checkTxImmatureExpenditures(const CTransaction& tx, cons
         std::map<uint256, CTxMemPoolEntry>::const_iterator it2 = mapTx.find(txin.prevout.hash);
         if (it2 != mapTx.end())
             continue;
- 
-        // if input is the out of a cert in mempool, it must be the case when the output is the change,
-        // and can happen for instance after a chain reorg.
-        // This tx must be removed because unconfirmed certificate change can not be spent
-        std::map<uint256, CCertificateMemPoolEntry>::const_iterator it3 = mapCertificate.find(txin.prevout.hash);
-        if (it3 != mapCertificate.end()) {
-            // check this is the cert change
-            assert(!it3->second.GetCertificate().IsBackwardTransfer(txin.prevout.n));
 
-            LogPrint("mempool", "%s():%d - adding tx[%s] to list for removing since spends output %d of cert[%s] in mempool\n",
-                __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.n, txin.prevout.hash.ToString());
+        // if input is the output of a cert in mempool, then that output can be:
+        //  - a non-bwt, then tx must be removed because unconfirmed cert change can not be spent (by a tx)
+        //  - a bwt (non-ceasing, if ceasing would have already been removed as immature), the tx must be removed (immature)
+        // this can happen for instance after a chain reorg
+        std::map<uint256, CCertificateMemPoolEntry>::const_iterator it3 = mapCertificate.find(txin.prevout.hash);
+        if (it3 != mapCertificate.end())
+        {
+            LogPrint("mempool", "%s():%d - adding tx[%s] to list for removing since spends %s output %d of cert[%s] in mempool\n",
+                     __func__, __LINE__,
+                     tx.GetHash().ToString(), it3->second.GetCertificate().IsBackwardTransfer(txin.prevout.n) ? "bwt" : "non-bwt",
+                     txin.prevout.n, txin.prevout.hash.ToString());
 
             return false;
         }
- 
+
         // the tx input has not been found in the mempool, therefore must be in blockchain
         const CCoins *coins = pcoins->AccessCoins(txin.prevout.hash);
         if (fSanityCheck) assert(coins);
@@ -886,14 +887,21 @@ inline bool CTxMemPool::checkCertImmatureExpenditures(const CScCertificate& cert
         std::map<uint256, CTxMemPoolEntry>::const_iterator it2 = mapTx.find(txin.prevout.hash);
         if (it2 != mapTx.end())
             continue;
- 
-        // if input is the output of a cert in mempool, it must be the case when the output is the change, and it is legal.
-        // This can happen for instance after a chain reorg.
+
+        // if input is the output of a cert in mempool, then that output can be:
+        //  - a non-bwt, then cert must not be removed because unconfirmed cert change can be spent (by a cert)
+        //  - a bwt (non-ceasing, if ceasing would have already been removed as immature), the cert must be removed (immature)
+        // this can happen for instance after a chain reorg
         std::map<uint256, CCertificateMemPoolEntry>::const_iterator it3 = mapCertificate.find(txin.prevout.hash);
         if (it3 != mapCertificate.end()) {
-            // check this is the cert change
-            assert(!it3->second.GetCertificate().IsBackwardTransfer(txin.prevout.n));
-            continue;
+            if (!it3->second.GetCertificate().IsBackwardTransfer(txin.prevout.n))
+                continue;
+            else
+            {
+                LogPrint("mempool", "%s():%d - adding cert[%s] to list for removing since spends bwt output %d of cert[%s] in mempool\n",
+                         __func__, __LINE__, cert.GetHash().ToString(), txin.prevout.n, txin.prevout.hash.ToString());
+                return false;
+            }
         }
  
         // the cert input has not been found in the mempool, therefore must be in blockchain
@@ -1361,10 +1369,10 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             //since sc creation is in mempool, there must not be in blockchain another sc re-declaring it
             assert(!pcoins->HaveSidechain(scCreation.GetScId()));
 
-            //there cannot be no certificates for unconfirmed sidechains
+            //there should not be any certificate for an unconfirmed sidechain
             assert(mapSidechains.at(scCreation.GetScId()).mBackwardCertificates.empty());
 
-            //there cannot be no csw nullifiers for unconfirmed sidechains
+            //there should not be any csw nullifier for an unconfirmed sidechain
             assert(mapSidechains.at(scCreation.GetScId()).cswNullifiers.empty());
             assert(mapSidechains.at(scCreation.GetScId()).cswTotalAmount == 0);
         }
