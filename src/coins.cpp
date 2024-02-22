@@ -133,17 +133,17 @@ bool CCoins::IsFromCert() const {
     return (nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f);
 }
 
-bool CCoins::isOutputMature(unsigned int outPos, int nSpendingHeigh) const
+bool CCoins::isOutputMature(unsigned int outPos, int nSpendingHeight) const
 {
     if (!IsCoinBase() && !IsFromCert())
         return true;
 
     if (IsCoinBase())
-        return nSpendingHeigh >= (nHeight + COINBASE_MATURITY);
+        return nSpendingHeight >= (nHeight + COINBASE_MATURITY);
 
     //Hereinafter a cert
     if (outPos >= nFirstBwtPos)
-        return nSpendingHeigh >= nBwtMaturityHeight;
+        return nSpendingHeight >= nBwtMaturityHeight;
     else
         return true;
 }

@@ -61,7 +61,9 @@ public:
     const CAmount mainchainBackwardTransferRequestScFee;
 
     // memory only
-    const int nFirstBwtPos;
+    const int nFirstBwtPos; // this is "if there are any bwt then they start at this pos,
+                            //          but there is no guarantee at this pos there is a bwt
+                            //          (there can be nothing at all)"
 
     /** Construct a CScCertificate that qualifies as IsNull() */
     CScCertificate(int versionIn = SC_CERT_VERSION);
