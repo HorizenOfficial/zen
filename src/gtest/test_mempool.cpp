@@ -430,7 +430,7 @@ public:
     }
 
     CNodeExt():
-        CNode(INVALID_SOCKET, CAddress(ip(0xa0b0c002)), "", true)
+        CNode(nullptr, CAddress(ip(0xa0b0c002)), "", true)
     {
     }
 
