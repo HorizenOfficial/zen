@@ -731,15 +731,9 @@ bool CCoinsViewCache::CheckQuality(const CScCertificate& cert) const
     {
         return info.CheckQuality(cert);
     }
-    else
-    {
-        LogPrint("cert", "%s.%s():%d - cert %s has no scid in blockchain\n",
-            __FILE__, __func__, __LINE__, cert.GetHash().ToString());
-    }
-
-    LogPrint("cert", "%s.%s():%d - cert %s q=%d : OK, no better quality certs for same sc/epoch are in blockchain\n",
-        __FILE__, __func__, __LINE__, cert.GetHash().ToString(), cert.quality);
-    return true;
+    LogPrint("cert", "%s.%s():%d - cert %s has no scid in blockchain\n",
+        __FILE__, __func__, __LINE__, cert.GetHash().ToString());
+    return false;
 }
 
 
@@ -1206,7 +1200,7 @@ CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertifi
         return CValidationState::Code::INVALID;
     }
 
-    if (!CheckQuality(cert))
+    if (!sidechain.CheckQuality(cert))
     {
         LogPrintf("%s():%d - ERROR: cert %s with invalid quality %d\n", __func__, __LINE__, certHash.ToString(), cert.quality);
         return CValidationState::Code::INVALID;
