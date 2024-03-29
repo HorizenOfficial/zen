@@ -7,12 +7,12 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.test_framework import ForkHeights
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import initialize_chain_clean, get_epoch_data, swap_bytes, \
-    start_nodes, connect_nodes_bi, mark_logs
+    start_nodes, mark_logs
 from test_framework.mc_test.mc_test import *
 from decimal import Decimal
 
 DEBUG_MODE    = 1
-NUMB_OF_NODES = 2
+NUMB_OF_NODES = 1
 EPOCH_LENGTH  = 0
 
 FT_SC_FEE      = Decimal('0')
@@ -29,7 +29,8 @@ PARAMS_NAME = "sc"
 #   this transaction in a block
 # - Invalidate the block containing the certificate; the certificate gets pushed back to the
 #   mempool, creating a conflict with the transaction
-# - Under normal circumstances, the transaction should be purged from the mempool
+# - Under normal circumstances, the transaction should be purged from the mempool (see 
+# `CTxMemPool::checkTxImmatureExpenditures()` inside `txmempool.cpp`)
 
 class non_ceasing_sc_mempool_conflict(BitcoinTestFramework):
 
@@ -42,10 +43,6 @@ class non_ceasing_sc_mempool_conflict(BitcoinTestFramework):
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args=
             [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-debug=zendoo_mc_cryptolib', '-scproofqueuesize=0', '-logtimemicros=1']] * NUMB_OF_NODES)
-
-        connect_nodes_bi(self.nodes, 0, 1)
-        self.is_network_split = False
-        self.sync_all()
 
     def try_send_certificate(self, node_idx, scid, epoch_number, quality, ref_height, mbtr_fee, ft_fee, bt, expect_failure, failure_reason=None):
         scid_swapped = str(swap_bytes(scid))
@@ -83,14 +80,14 @@ class non_ceasing_sc_mempool_conflict(BitcoinTestFramework):
         creation_amount = Decimal("50")
         bwt_amount_1    = Decimal("3")
         address         = "dada"
-        btw_address     = self.nodes[0].getnewaddress()
+        bwt_address     = self.nodes[0].getnewaddress()
 
         ##############################################
         # Preliminaries:
         # - reach non-ceasing sc fork
         # - create a new sc
-        mark_logs("Node 0 generates {} block".format(ForkHeights['NON_CEASING_SC']), self.nodes, DEBUG_MODE, color='c')
-        self.nodes[0].generate(ForkHeights['NON_CEASING_SC'])
+        mark_logs("Node 0 generates {} block".format(ForkHeights['NON_CEASING_SC'] + 2), self.nodes, DEBUG_MODE, color='c')
+        self.nodes[0].generate(ForkHeights['NON_CEASING_SC'] + 2)
         self.sync_all()
 
         # generate wCertVk and constant
@@ -117,36 +114,18 @@ class non_ceasing_sc_mempool_conflict(BitcoinTestFramework):
 
         mark_logs("Node 0 confirms sc creation generating 2 blocks", self.nodes, DEBUG_MODE, color='e')
         self.nodes[0].generate(2)[0]
-        sc_creation_height = self.nodes[0].getblockcount() - 1
         self.sync_all()
         print()
 
         ##############################################
         # Step one:
-        # - send the certificate for epoch 0 - not really mandatory
-        epoch_number = 0
-        ref_quality = 2
-        ref_height = sc_creation_height
-        amount_cert_0 = {"address": btw_address, "amount": bwt_amount_1}
-        cert_0 = self.try_send_certificate(0, scid, epoch_number, ref_quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_0, False)
-
-        ##############################################
-        # Step two:
-        # - mine a few blocks to advance epoch
-        mark_logs("Node 0 confirms the certificate submission generating 2 blocks. We also change epoch 0 -> 1", self.nodes, DEBUG_MODE, color='e')
-        self.nodes[0].generate(5)
-        self.sync_all()
-        print()
-
-        ##############################################
-        # Step three:
         # - send certificate for epoch 1
         # - mine one block
-        amounts = {"address": btw_address, "amount": bwt_amount_1}
+        amounts = {"address": bwt_address, "amount": bwt_amount_1}
 
-        epoch_number = 1
+        epoch_number = 0
         ref_quality = 2
-        ref_height = self.nodes[0].getblockcount() - 2
+        ref_height = self.nodes[0].getblockcount() - 1
         cert_1 = self.try_send_certificate(0, scid, epoch_number, ref_quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amounts, False)
         self.sync_all()
 
@@ -155,33 +134,33 @@ class non_ceasing_sc_mempool_conflict(BitcoinTestFramework):
         print()
 
         ##############################################
-        # Step four:
-        # - send a transaction spending the BTW out
-        mark_logs("Node 0 submits a transaction that spends the BTW output", self.nodes, DEBUG_MODE, color='c')
-        btw = self.nodes[0].gettransaction(cert_1)['details'][0] # Not mandatory, but this is the btw
+        # Step two:
+        # - send a transaction spending the BWT out
+        mark_logs("Node 0 submits a transaction that spends the BWT output", self.nodes, DEBUG_MODE, color='c')
+        bwt = self.nodes[0].gettransaction(cert_1)['details'][0] # Not mandatory, but this is the bwt
         cert_tx_id = self.nodes[0].gettransaction(cert_1)['txid']
         amount          = Decimal('2')
         inputs          = [{"txid": cert_tx_id, "vout": 1}]
         outputs         = {self.nodes[0].getnewaddress(): amount}
         rawTx           = self.nodes[0].createrawtransaction(inputs, outputs)
         tx_rawtx        = self.nodes[0].signrawtransaction(rawTx)
-        tx_spending_btw = self.nodes[0].sendrawtransaction(tx_rawtx['hex'], True)
+        tx_spending_bwt = self.nodes[0].sendrawtransaction(tx_rawtx['hex'], True)
 
-        self.sync_all()     # Send the transaction to all the nodes
+        self.sync_all()
         print()
 
         ##############################################
-        # Step five:
+        # Step three:
         # - invalidate the block
         mark_logs("Node 0 invalidates the block containing the certificate, sending it back to the mempool, along with the transaction.", self.nodes, DEBUG_MODE, color='c')
         self.nodes[0].invalidateblock(block_to_revert[0])
-        mark_logs("Node 0 should be fine", self.nodes, DEBUG_MODE, color='g')
+        mark_logs("Node 0 should be fine with it", self.nodes, DEBUG_MODE, color='g')
         rawmempool = self.nodes[0].getrawmempool()
         print()
 
         # Check that the tx is no longer in the mempool, and the cert is
-        mark_logs("The tx which spends the btw should no longer be in the mempool", self.nodes, DEBUG_MODE, color='g')
-        assert(tx_spending_btw not in rawmempool)
+        mark_logs("The tx which spends the bwt should no longer be in the mempool", self.nodes, DEBUG_MODE, color='g')
+        assert(tx_spending_bwt not in rawmempool)
         mark_logs("The last certificate should be back in the mempool", self.nodes, DEBUG_MODE, color='g')
         assert(cert_tx_id in rawmempool)
 
