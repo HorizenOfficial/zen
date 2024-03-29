@@ -168,6 +168,7 @@ testScripts=(
   'mempool_size_limit_even_more.py',106,224
   'mempool_hard_fork_cleaning.py',156,344
   'shieldedpoolremoval.py',377,855
+  'sc_mempool_conflict.py',32,45
 );
 
 testScriptsExt=(
