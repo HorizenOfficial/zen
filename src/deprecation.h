@@ -5,8 +5,8 @@
 #ifndef ZCASH_DEPRECATION_H
 #define ZCASH_DEPRECATION_H
 
-static const int APPROX_RELEASE_HEIGHT = 1493670;
-static const int WEEKS_UNTIL_DEPRECATION = 15;
+static const int APPROX_RELEASE_HEIGHT = 1542900;
+static const int WEEKS_UNTIL_DEPRECATION = 21;
 static const int DEPRECATION_HEIGHT = APPROX_RELEASE_HEIGHT + (WEEKS_UNTIL_DEPRECATION * 7 * 24 * 24);
 
 // Number of blocks before deprecation to warn users
