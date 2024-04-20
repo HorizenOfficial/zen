@@ -134,6 +134,21 @@ Running Regression Tests
     ./qa/zcash/full_test_suite.py ${TEST_ARGS}
     ```
 
+Updating existing installation built from source
+----------------
+```{r, engine='bash'}
+cd zen
+# Get updated source from repository
+git fetch origin
+git checkout master
+git pull
+
+# Build
+./zcutil/build.sh -j$(nproc)
+# Build for platforms without adx, bmi2 CPU flags
+./zcutil/build.sh --legacy-cpu -j$(nproc)
+```
+
 Security Warnings
 ----------------
 
