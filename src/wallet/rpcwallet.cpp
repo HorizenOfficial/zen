@@ -4008,8 +4008,15 @@ UniValue listunspent(const UniValue& params, bool fHelp)
 
     // Find unspent coinbase utxos and update estimated size
     for (const auto& [address, utxo_vec]: utxo_map) {
-        for (const COutput& out: utxo_vec) {
+        auto addr_str = CBitcoinAddress(address).ToString();
+        std::string account_name;
 
+        auto map_entry = pwalletMain->mapAddressBook.find(address);
+        if (map_entry != pwalletMain->mapAddressBook.end())
+            account_name = map_entry->second.name;
+
+
+        for (const COutput& out: utxo_vec) {
             CAmount nValue = out.tx->getTxBase()->GetVout()[out.pos].nValue;
             const CScript& pk = out.tx->getTxBase()->GetVout()[out.pos].scriptPubKey;
             results.get_vec().emplace_back(UniValue::VOBJ);
@@ -4019,17 +4026,15 @@ UniValue listunspent(const UniValue& params, bool fHelp)
             entry.pushKV("isCert", out.tx->getTxBase()->IsCertificate());
             entry.pushKV("generated", out.tx->getTxBase()->IsCoinBase());
 
-            auto addr_str = CBitcoinAddress(address).ToString();
             entry.pushKV("address", addr_str);
-            auto map_entry = pwalletMain->mapAddressBook.find(address);
-            if (map_entry != pwalletMain->mapAddressBook.end())
-                entry.pushKV("account", map_entry->second.name);
+            if (!account_name.empty())
+                entry.pushKV("account", account_name);
 
             entry.pushKV("scriptPubKey", HexStr(pk.begin(), pk.end()));
             if (pk.IsPayToScriptHash()) {
-                const CScriptID& hash = boost::get<CScriptID>(address);
+                const CScriptID& script_hash = boost::get<CScriptID>(address);
                 CScript redeemScript;
-                if (pwalletMain->GetCScript(hash, redeemScript))
+                if (pwalletMain->GetCScript(script_hash, redeemScript))
                     entry.pushKV("redeemScript", HexStr(redeemScript.begin(), redeemScript.end()));
             }
             entry.pushKV("amount",ValueFromAmount(nValue));
