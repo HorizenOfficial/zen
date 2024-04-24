@@ -2847,6 +2847,73 @@ CAmount CWallet::GetImmatureWatchOnlyBalance() const
     return nTotal;
 }
 
+map<CTxDestination, vector<COutput>> CWallet::AvailableCoinsOptimized(const set<CBitcoinAddress>& setAddresses, int minDepth, int maxDepth, bool fOnlyConfirmed, const CCoinControl *coinControl, bool fIncludeZeroValue, bool fIncludeCoinBase, bool fIncludeCommunityFund) const
+{
+    map<CTxDestination, vector<COutput>> res;
+
+    for (MAP_WALLET_CONST_IT it = mapWallet.begin(); it != mapWallet.end(); ++it)
+    {
+        const uint256& wtxid = it->first;
+        const CWalletTransactionBase* pcoin = (*it).second.get();
+        CTxDestination address;
+
+        int nDepth = pcoin->GetDepthInMainChain();
+
+        if (nDepth < minDepth || nDepth > maxDepth)
+            continue;
+
+        if (!CheckFinalTx(*pcoin->getTxBase()))
+            continue;
+
+        if (fOnlyConfirmed && !pcoin->IsTrusted())
+            continue;
+
+        if (pcoin->getTxBase()->IsCoinBase() && !fIncludeCoinBase && !fIncludeCommunityFund)
+            continue;
+
+        if (!pcoin->HasMatureOutputs())
+            continue;
+
+        for (unsigned int voutPos = 0; voutPos < pcoin->getTxBase()->GetVout().size(); voutPos++) {
+            isminetype mine = IsMine(pcoin->getTxBase()->GetVout()[voutPos]);
+            if (!IsSpent(wtxid, voutPos) &&
+                 mine != ISMINE_NO &&
+                !IsLockedCoin((*it).first, voutPos) &&
+                (pcoin->getTxBase()->GetVout()[voutPos].nValue > 0 || fIncludeZeroValue) &&
+                (!coinControl || !coinControl->HasSelected() ||
+                  coinControl->fAllowOtherInputs || coinControl->IsSelected((*it).first, voutPos)
+                ))
+            {
+                if (pcoin->getTxBase()->IsCoinBase()) {
+                    const CCoins *coins = pcoinsTip->AccessCoins(wtxid);
+                    assert(coins);
+
+                    if (IsCommunityFund(coins, voutPos)) {
+                        if(!fIncludeCommunityFund)
+                            continue;
+                    } else {
+                        if(!fIncludeCoinBase)
+                            continue;
+                    }
+                } else if (pcoin->getTxBase()->IsCertificate()) {
+                    if (pcoin->IsOutputMature(voutPos) != CCoins::outputMaturity::MATURE)
+                        continue;
+
+                    LogPrint("cert", "%s():%d - cert[%s] out[%d], amount=%s, spendable[%s]\n", __func__, __LINE__,
+                        pcoin->getTxBase()->GetHash().ToString(), voutPos, FormatMoney(pcoin->getTxBase()->GetVout()[voutPos].nValue), ((mine & ISMINE_SPENDABLE) != ISMINE_NO)?"Y":"N");
+                }
+
+                if (!ExtractDestination(pcoin->getTxBase()->GetVout()[voutPos].scriptPubKey, address) || (!setAddresses.empty() && setAddresses.count(address) == 0))
+                    continue;
+
+                res[address].emplace_back(pcoin, voutPos, nDepth, (mine & ISMINE_SPENDABLE) != ISMINE_NO);
+            }
+
+        }
+    }
+    return res;
+}
+
 /**
  * populate vCoins with vector of available COutputs.
  */
