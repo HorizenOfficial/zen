@@ -99,6 +99,7 @@ public:
 
     bool push_back(const UniValue& val);
     bool push_backV(const std::vector<UniValue>& vec);
+    std::vector<UniValue>& get_vec() { return values; };
 
     void _pushKV(const std::string& key, const UniValue& val);
     bool pushKV(const std::string& key, const UniValue& val);

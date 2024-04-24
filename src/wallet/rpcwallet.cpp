@@ -3997,9 +3997,8 @@ UniValue listunspent(const UniValue& params, bool fHelp)
             CBitcoinAddress address(input.get_str());
             if (!address.IsValid())
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid horizen address: ")+input.get_str());
-            if (setAddress.count(address))
+            if (!setAddress.insert(address).second)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, duplicated address: ")+input.get_str());
-           setAddress.insert(address);
         }
     }
 
@@ -4007,49 +4006,44 @@ UniValue listunspent(const UniValue& params, bool fHelp)
     vector<COutput> vecOutputs;
     assert(pwalletMain != NULL);
     LOCK2(cs_main, pwalletMain->cs_wallet);
-    pwalletMain->AvailableCoins(vecOutputs, false, NULL, true, true);
-    for(const COutput& out: vecOutputs) {
-        if (out.nDepth < nMinDepth || out.nDepth > nMaxDepth)
-            continue;
+    auto utxo_map = pwalletMain->AvailableCoinsOptimized(setAddress, nMinDepth, nMaxDepth, false, NULL, true, true);
 
-        if (setAddress.size()) {
-            CTxDestination address;
-            if (!ExtractDestination(out.tx->getTxBase()->GetVout()[out.pos].scriptPubKey, address))
-                continue;
+    // Find unspent coinbase utxos and update estimated size
+    for (const auto& [address, utxo_vec]: utxo_map) {
+        auto addr_str = CBitcoinAddress(address).ToString();
+        std::string account_name;
 
-            if (!setAddress.count(address))
-                continue;
-        }
+        auto map_entry = pwalletMain->mapAddressBook.find(address);
+        if (map_entry != pwalletMain->mapAddressBook.end())
+            account_name = map_entry->second.name;
 
-        CAmount nValue = out.tx->getTxBase()->GetVout()[out.pos].nValue;
-        const CScript& pk = out.tx->getTxBase()->GetVout()[out.pos].scriptPubKey;
-        UniValue entry(UniValue::VOBJ);
-        entry.pushKV("txid", out.tx->getTxBase()->GetHash().GetHex());
-        entry.pushKV("vout", out.pos);
-        entry.pushKV("isCert", out.tx->getTxBase()->IsCertificate());
-        entry.pushKV("generated", out.tx->getTxBase()->IsCoinBase());
 
-        CTxDestination address;
-        if (ExtractDestination(out.tx->getTxBase()->GetVout()[out.pos].scriptPubKey, address)) {
-            entry.pushKV("address", CBitcoinAddress(address).ToString());
-            if (pwalletMain->mapAddressBook.count(address))
-                entry.pushKV("account", pwalletMain->mapAddressBook[address].name);
-        }
-        entry.pushKV("scriptPubKey", HexStr(pk.begin(), pk.end()));
-        if (pk.IsPayToScriptHash()) {
-            CTxDestination address;
-            if (ExtractDestination(pk, address)) {
-                const CScriptID& hash = boost::get<CScriptID>(address);
+        for (const COutput& out: utxo_vec) {
+            CAmount nValue = out.tx->getTxBase()->GetVout()[out.pos].nValue;
+            const CScript& pk = out.tx->getTxBase()->GetVout()[out.pos].scriptPubKey;
+            results.get_vec().emplace_back(UniValue::VOBJ);
+            UniValue& entry = results.get_vec().back();
+            entry.pushKV("txid", out.tx->getTxBase()->GetHash().GetHex());
+            entry.pushKV("vout", out.pos);
+            entry.pushKV("isCert", out.tx->getTxBase()->IsCertificate());
+            entry.pushKV("generated", out.tx->getTxBase()->IsCoinBase());
+
+            entry.pushKV("address", addr_str);
+            if (!account_name.empty())
+                entry.pushKV("account", account_name);
+
+            entry.pushKV("scriptPubKey", HexStr(pk.begin(), pk.end()));
+            if (pk.IsPayToScriptHash()) {
+                const CScriptID& script_hash = boost::get<CScriptID>(address);
                 CScript redeemScript;
-                if (pwalletMain->GetCScript(hash, redeemScript))
+                if (pwalletMain->GetCScript(script_hash, redeemScript))
                     entry.pushKV("redeemScript", HexStr(redeemScript.begin(), redeemScript.end()));
             }
+            entry.pushKV("amount",ValueFromAmount(nValue));
+            entry.pushKV("satoshis", nValue);
+            entry.pushKV("confirmations",out.nDepth);
+            entry.pushKV("spendable", out.fSpendable);
         }
-        entry.pushKV("amount",ValueFromAmount(nValue));
-        entry.pushKV("satoshis", nValue);
-        entry.pushKV("confirmations",out.nDepth);
-        entry.pushKV("spendable", out.fSpendable);
-        results.push_back(entry);
     }
 
     return results;
