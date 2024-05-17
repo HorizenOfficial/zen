@@ -1199,3 +1199,62 @@ TEST_F(WalletTest, NoteLocking) {
     EXPECT_FALSE(wallet.IsLockedNote(jsoutpt.hash, jsoutpt.js, jsoutpt.n));
     EXPECT_FALSE(wallet.IsLockedNote(jsoutpt2.hash, jsoutpt2.js, jsoutpt2.n));
 }
+
+TEST_F(WalletTest, HaveWatchOnly) {
+    TestWallet wallet;
+
+    EXPECT_FALSE(wallet.HaveWatchOnly());
+
+    // Add watch only scripts for multiple types
+
+    // P2SH
+    CScriptID script_id;
+    GetRandBytes((unsigned char*)&script_id, sizeof(script_id));
+    CScript p2sh_scriptPubKey_wo_replay;
+    p2sh_scriptPubKey_wo_replay << ToByteVector(script_id) << OP_EQUAL;
+    EXPECT_TRUE(wallet.AddWatchOnly(p2sh_scriptPubKey_wo_replay));
+
+    // P2PK
+    std::vector<unsigned char> rnd_bytes(PUBLIC_KEY_SIZE);
+    GetRandBytes(rnd_bytes.data(), PUBLIC_KEY_SIZE);
+    CPubKey pubkey(rnd_bytes.begin(), rnd_bytes.end());
+    CScript p2pk_scriptPubKey_wo_replay;
+    p2pk_scriptPubKey_wo_replay << OP_HASH160 << ToByteVector(pubkey) << OP_CHECKSIG;
+    EXPECT_TRUE(wallet.AddWatchOnly(p2pk_scriptPubKey_wo_replay));
+
+    // P2PKH
+    CScript p2pkh_scriptPubKey_wo_replay;
+    p2pkh_scriptPubKey_wo_replay << OP_DUP << OP_HASH160 << ToByteVector(pubkey.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
+    EXPECT_TRUE(wallet.AddWatchOnly(p2pkh_scriptPubKey_wo_replay));
+
+    EXPECT_TRUE(wallet.HaveWatchOnly());
+
+    // Add replay protection to each of the previous scripts
+    uint256 random_block_hash = GetRandHash();
+
+    CScript p2sh_scriptPubKey_w_replay = p2sh_scriptPubKey_wo_replay;
+    p2sh_scriptPubKey_w_replay << ToByteVector(random_block_hash) << 21 << OP_CHECKBLOCKATHEIGHT;
+
+    CScript p2pk_scriptPubKey_w_replay = p2pk_scriptPubKey_wo_replay;
+    p2pk_scriptPubKey_w_replay << ToByteVector(random_block_hash) << 21 << OP_CHECKBLOCKATHEIGHT;
+
+    CScript p2pkh_scriptPubKey_w_replay = p2pkh_scriptPubKey_wo_replay;
+    p2pkh_scriptPubKey_w_replay << ToByteVector(random_block_hash) << 21 << OP_CHECKBLOCKATHEIGHT;
+
+    // Check that scripts with replay protection are found
+    EXPECT_TRUE(wallet.HaveWatchOnly(p2sh_scriptPubKey_w_replay));
+    EXPECT_TRUE(wallet.HaveWatchOnly(p2pk_scriptPubKey_w_replay));
+    EXPECT_TRUE(wallet.HaveWatchOnly(p2pkh_scriptPubKey_w_replay));
+
+    // Check that scripts without replay protection are found
+    EXPECT_TRUE(wallet.HaveWatchOnly(p2sh_scriptPubKey_wo_replay));
+    EXPECT_TRUE(wallet.HaveWatchOnly(p2pk_scriptPubKey_wo_replay));
+    EXPECT_TRUE(wallet.HaveWatchOnly(p2pkh_scriptPubKey_wo_replay));
+
+    // Check that another script is not found
+    CScriptID another_script_id;
+    GetRandBytes((unsigned char*)&another_script_id, sizeof(another_script_id));
+    CScript another_p2sh_scriptPubKey_w_replay;
+    another_p2sh_scriptPubKey_w_replay << OP_HASH160 << ToByteVector(another_script_id) << OP_EQUAL << ToByteVector(random_block_hash) << 21 << OP_CHECKBLOCKATHEIGHT;
+    EXPECT_FALSE(wallet.HaveWatchOnly(another_p2sh_scriptPubKey_w_replay));
+}
