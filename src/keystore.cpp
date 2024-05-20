@@ -79,16 +79,10 @@ bool CBasicKeyStore::HaveWatchOnly(const CScript &dest) const
 
     /* We assume that dest could be a script with OP_CHECKBLOCKATHEIGHT. In this case we cant search
      * for full match with watchonly scripts, cause OP_CHECKBLOCKATHEIGHT arguments are different all the time.
-     * So, instead, check that dest starts with some of the scripts from setWatchOnly */
-    //auto predicate = [&dest](const CScript& script) {
-    //    auto res = search(begin(dest), end(dest), begin(script), end(script));
-    //    return res == begin(dest);
-    //    //return std::memcmp(dest.data(), script.data(), script.size()) == 0;
-    //};
-
+     * So, instead, check that dest starts with some of the script from setWatchOnly */
     for (size_t len: setWatchOnlyLengths) {
         if (len <= dest.size() && setWatchOnly.find(CScript(dest.begin(), dest.begin()+len)) != setWatchOnly.end()) {
-          return true;
+            return true;
         }
     }
 
