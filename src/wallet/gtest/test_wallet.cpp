@@ -1198,7 +1198,6 @@ TEST_F(WalletTest, NoteLocking) {
 }
 
 TEST_F(WalletTest, HaveWatchOnly) {
-    SelectParams(CBaseChainParams::REGTEST);
     TestWallet wallet;
 
     EXPECT_FALSE(wallet.HaveWatchOnly());
@@ -1217,7 +1216,7 @@ TEST_F(WalletTest, HaveWatchOnly) {
     GetRandBytes(rnd_bytes.data(), PUBLIC_KEY_SIZE);
     CPubKey pubkey(rnd_bytes.begin(), rnd_bytes.end());
     CScript p2pk_scriptPubKey_wo_replay;
-    p2pk_scriptPubKey_wo_replay << ToByteVector(pubkey) << OP_CHECKSIG;
+    p2pk_scriptPubKey_wo_replay << OP_HASH160 << ToByteVector(pubkey) << OP_CHECKSIG;
     EXPECT_TRUE(wallet.AddWatchOnly(p2pk_scriptPubKey_wo_replay));
 
     // P2PKH
@@ -1253,6 +1252,6 @@ TEST_F(WalletTest, HaveWatchOnly) {
     CScriptID another_script_id;
     GetRandBytes((unsigned char*)&another_script_id, sizeof(another_script_id));
     CScript another_p2sh_scriptPubKey_w_replay;
-    another_p2sh_scriptPubKey_w_replay << ToByteVector(another_script_id) << OP_EQUAL << ToByteVector(random_block_hash) << 21 << OP_CHECKBLOCKATHEIGHT;
+    another_p2sh_scriptPubKey_w_replay << OP_HASH160 << ToByteVector(another_script_id) << OP_EQUAL << ToByteVector(random_block_hash) << 21 << OP_CHECKBLOCKATHEIGHT;
     EXPECT_FALSE(wallet.HaveWatchOnly(another_p2sh_scriptPubKey_w_replay));
 }
