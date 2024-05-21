@@ -1,3 +1,6 @@
+// Copyright (c) 2018 Zen Blockchain Foundation
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 // Equihash solver
 // Copyright (c) 2016 John Tromp, The Zcash developers
 

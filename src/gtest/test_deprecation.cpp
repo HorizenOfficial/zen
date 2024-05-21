@@ -1,3 +1,6 @@
+// Copyright (c) 2018-2022 Zen Blockchain Foundation
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 

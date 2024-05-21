@@ -1,3 +1,6 @@
+// Copyright (c) 2019-2023 Zen Blockchain Foundation
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #include "sc/sidechainrpc.h"
 #include "primitives/transaction.h"
 #include <boost/foreach.hpp>
