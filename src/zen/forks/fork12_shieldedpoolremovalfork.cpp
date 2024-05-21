@@ -1,3 +1,6 @@
+// Copyright (c) 2024 The Horizen Foundation
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #include "fork12_shieldedpoolremovalfork.h"
 
 namespace zen {

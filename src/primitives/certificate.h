@@ -1,4 +1,5 @@
 // Copyright (c) 2020-2022 Zen Blockchain Foundation
+// Copyright (c) 2024 The Horizen Foundation
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #ifndef _CERTIFICATE_H
