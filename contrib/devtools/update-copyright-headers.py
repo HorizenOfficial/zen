@@ -6,7 +6,7 @@ subfolders to exclude, date range for filtering modified files, and the copyrigh
 
 Usage:
     python update-copyright-headers.py [directory] [--exclude-dir [EXCLUDE_DIR [EXCLUDE_DIR ...]]] [--extensions [EXTENSIONS [EXTENSIONS ...]]]
-                                       [--since YYYY-MM-DD] [--until YYYY-MM-DD] [--copyright-holder COPYRIGHT_HOLDER]
+                                       [--since YYYY-MM-DD] [--until YYYY-MM-DD] [--copyright-holder COPYRIGHT_HOLDER] [--exclude-commit [EXCLUDE_COMMIT [EXCLUDE_COMMIT ...]]]
 """
 
 import argparse
@@ -43,6 +43,8 @@ def parse_arguments():
                         help="End date (format: YYYY-MM-DD) for filtering changed files, by default current time (now)")
     parser.add_argument("--copyright-holder", default=DEFAULT_COPYRIGHT_HOLDER,
                         help=f"Copyright holder name (default: '{DEFAULT_COPYRIGHT_HOLDER}')")
+    parser.add_argument("--exclude-commit", nargs='*', default=[],
+                        help="Commits to exclude from the changes made to files, by default automatically detected)")
     return parser.parse_args()
 
 def validate_arguments(args):
@@ -67,6 +69,57 @@ def validate_arguments(args):
         print("Error: until_date must be higher than since_date.")
         exit(1)
 
+    # Check if excluded commits are valid and convert them to proper objects
+    repo = git.Repo(search_parent_directories=True)
+
+    commit_objects = []
+    for commit_hash in args.exclude_commit:
+        try:
+            commit = repo.commit(commit_hash)
+            commit_objects.append(commit)
+        except git.BadName:
+            print(f"Error: Commit '{commit_hash}' is invalid (not found in the Git history for the specified range).")
+            exit(1)
+
+    assert(len(commit_objects) == len(args.exclude_commit))
+    args.exclude_commit = commit_objects
+
+def guess_commits_to_be_excluded(since_date, until_date):
+    """
+    Guess the commits that the user may want to exclude from the check.
+    The best use case is to exclude commits that changed the copyright header itself.
+
+    The "guess" is based on the content of the commit message (so, expect it to be not 100% accurate).
+    """
+    repo = git.Repo(search_parent_directories=True)
+    commits = list(repo.iter_commits(since=since_date, until=until_date))
+    excluded = [commit for commit in commits if "update-copyright-headers" in commit.message or "copyright" in commit.summary]
+    return excluded
+
+def confirm_excluded_commits(excluded_commits):
+    """
+    Ask user for confirmation about the list of commits to be excluded.
+    The user can decide to proceed with the proposed selection,
+    ignore the selection or abort.
+    """
+    print("The following commits have been automatically selected "
+          "for exclusion as they may refer to copyright updates:\n")
+    for commit in excluded_commits:
+        print(f"[{commit.hexsha}] {commit.committed_datetime}")
+        print(commit.summary)
+        print()
+
+    while True:
+        answer = input("Do you want to proceed? [Yes/No/Ignore]: ")
+
+        match answer.lower():
+            case "y":
+                return excluded_commits
+            case "n":
+                exit(1)
+            case "i":
+                return []
+
 def list_files(path, exclude_folders, extensions):
     """
     Recursively traverse a directory and return a list of files with specified extensions.
@@ -86,7 +139,7 @@ def list_files(path, exclude_folders, extensions):
 
     return file_list
 
-def files_modified_within_date_range(files, since_date, until_date):
+def files_modified_within_date_range(files, since_date, until_date, excluded_commits):
     """
     Check if files in the list were modified within the specified date range.
     Return a list of tuples (file, start_year, end_year) for modified files.
@@ -94,8 +147,10 @@ def files_modified_within_date_range(files, since_date, until_date):
     modified_files = []
     repo = git.Repo(search_parent_directories=True)
     for file in files:
-        commits = repo.iter_commits(paths=file, since=since_date, until=until_date)
-        commits = list(commits)
+        # Consider only commits that are not explicitly excluded
+        commits = list(repo.iter_commits(paths=file, since=since_date, until=until_date))
+        commits = [commit for commit in commits if commit.hexsha not in set(map(lambda c: c.hexsha, excluded_commits))]
+
         if commits:
             start_year = commits[-1].committed_datetime.year
             end_year = commits[0].committed_datetime.year
@@ -178,13 +233,26 @@ if __name__ == "__main__":
     # Validate input arguments
     validate_arguments(args)
 
+    # Check excluded commits
+    if not args.exclude_commit:
+        args.exclude_commit = guess_commits_to_be_excluded(args.since, args.until)
+        args.exclude_commit = confirm_excluded_commits(args.exclude_commit)
+
+    # Print the list of excluded commits
+    if args.exclude_commit:
+        print("Excluding the following commits:")
+        for commit in args.exclude_commit:
+            print(commit.hexsha)
+    else:
+        print("No commits to exclude.")
+
     # Get the list of files in the directory
     print("Gathering files to be checked...")
     project_files = list_files(args.directory, args.exclude_dir, args.extensions)
 
     # Get files modified, eventually filtering by the specified date range
     print(f"Finding files modified between {args.since} and {args.until}...")
-    modified_files = files_modified_within_date_range(project_files, args.since, args.until)
+    modified_files = files_modified_within_date_range(project_files, args.since, args.until, args.exclude_commit)
 
     # Check and eventually updated the copyright headers for each modified file
     print(f"Updating copyright headers for '{args.copyright_holder}'...\n")
