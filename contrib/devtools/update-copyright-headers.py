@@ -100,7 +100,7 @@ def find_copyright_line(lines, copyright_holder):
     Find the line containing the copyright header or the line where it should be inserted.
     Return the index of the line, since_year, and until_year (if present).
     """
-    pattern = r"// Copyright \(c\) (\d{4})(?:-(\d{4}))? %s" % copyright_holder
+    pattern = fr"// Copyright \(c\) (\d{{{4}}})(?:-(\d{{{4}}}))? {copyright_holder}"
 
     for i, line in enumerate(lines):
         if not line.startswith("// Copyright (c) "):
