@@ -33,8 +33,8 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description="List files in a directory recursively")
     parser.add_argument("directory", nargs='?', default="src",
                         help="Path to the directory (default: 'src')")
-    parser.add_argument("--exclude-dir", nargs='?', default=DEFAULT_EXCLUDED_SUBDIRS,
-                        help=f"Subfolders to exclude from listing, by default {DEFAULT_EXCLUDED_SUBDIRS}")
+    parser.add_argument("--exclude-dir", nargs='*', default=DEFAULT_EXCLUDED_SUBDIRS,
+                        help=f"Folders to exclude from listing, by default {DEFAULT_EXCLUDED_SUBDIRS}")
     parser.add_argument("--extensions", nargs='?', default=DEFAULT_INCLUDED_EXTENSIONS,
                         help=f"Extensions of files to include in the list, by default {DEFAULT_INCLUDED_EXTENSIONS}")
     parser.add_argument("--since", nargs='?', default=DEFAULT_SINCE_DATE, type=lambda s: datetime.strptime(s, '%Y-%m-%d'),
@@ -54,11 +54,12 @@ def validate_arguments(args):
         print("Error: Invalid directory path.")
         exit(1)
 
-    # Check if the specified excluded subfolders exist
+    # Check if the specified excluded folders exist
     for folder in args.exclude_dir:
-        path = os.path.join(args.directory, folder)
+        # Check if the folder path is absolute or relative
+        path = folder if os.path.isabs(folder) else os.path.join(args.directory, folder)
         if not os.path.exists(path):
-            print(f"Error: Folder '{path}' does not exist in the specified directory.")
+            print(f"Error: Folder '{path}' does not exist.")
             exit(1)
 
     # Check if both --since and --until are provided
@@ -71,12 +72,18 @@ def list_files(path, exclude_folders, extensions):
     Recursively traverse a directory and return a list of files with specified extensions.
     """
     file_list = []
+
+    # Get the absolute path of excluded folders
+    absolute_path = os.path.abspath(path)
+    absolute_excluded_folders = [os.path.normpath(folder) if os.path.isabs(folder) else os.path.normpath(os.path.join(absolute_path, folder)) for folder in exclude_folders]
+
     for root, dirs, files in os.walk(path):
-        # Exclude specified subfolders
-        dirs[:] = [d for d in dirs if d not in exclude_folders]
+        # Exclude specified folders by comparing the absolute path
+        dirs[:] = [d for d in dirs if os.path.abspath(os.path.join(root, d)) not in absolute_excluded_folders]
         for file in files:
             if file.endswith(tuple(extensions)):
                 file_list.append(os.path.join(root, file))
+
     return file_list
 
 def files_modified_within_date_range(files, since_date, until_date):
