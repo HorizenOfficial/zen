@@ -1,3 +1,6 @@
+// Copyright (c) 2019 Zen Blockchain Foundation
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 //
 // Copyright (c) 2016-2017 Vinnie Falco (vinnie dot falco at gmail dot com)
 //

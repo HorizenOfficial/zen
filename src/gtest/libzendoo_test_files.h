@@ -1,3 +1,6 @@
+// Copyright (c) 2020-2021 Zen Blockchain Foundation
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #ifndef _LIBZENDOO_TEST_FILES_H
 #define _LIBZENDOO_TEST_FILES_H
 

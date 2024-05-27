@@ -1,3 +1,6 @@
+// Copyright (c) 2022 Zen Blockchain Foundation
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 int GenZero(int n)
 {
     return 0;

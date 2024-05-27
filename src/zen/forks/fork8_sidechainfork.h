@@ -1,3 +1,6 @@
+// Copyright (c) 2020 Zen Blockchain Foundation
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #ifndef _SIDECHAINFORK_H
 #define _SIDECHAINFORK_H
 

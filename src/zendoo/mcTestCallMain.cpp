@@ -1,3 +1,6 @@
+// Copyright (c) 2023 Zen Blockchain Foundation
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #include "zendoo/mcTestCall.h"
 #include "base58.h" // DecodeBase58
 

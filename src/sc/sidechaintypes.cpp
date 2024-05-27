@@ -1,3 +1,6 @@
+// Copyright (c) 2021-2023 Zen Blockchain Foundation
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #include "sc/sidechaintypes.h"
 #include "util.h"
 #include <consensus/consensus.h>

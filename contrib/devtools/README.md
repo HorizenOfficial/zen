@@ -38,18 +38,22 @@ Configuring the github-merge tool for the bitcoin repository is done in the foll
     git config --global user.signingkey mykeyid (if you want to GPG sign)
 
 
-fix-copyright-headers.py
+update-copyright-headers.py
 ===========================
 
-Every year newly updated files need to have its copyright headers updated to reflect the current year.
-If you run this script from src/ it will automatically update the year on the copyright header for all
-.cpp and .h files if these have a git commit from the current year.
+This script takes care of updating the copyright headers in the source files of the repository.
+The script works by checking git history for each file and detecting if there were any changes
+within a date range, file by file.
 
-For example a file changed in 2014 (with 2014 being the current year):
-```// Copyright (c) 2009-2013 The Bitcoin Core developers```
+If the header is already available, it's just updated (if needed), otherwise a new line is
+appended to the headers section (at the beginning of the file).
 
-would be changed to:
-```// Copyright (c) 2009-2014 The Bitcoin Core developers```
+Example usage:
+```python contrib/devtools/updated-copyright-headers.py```
+
+By default the script updates the header `The Horizen Foundation` taking into account changes
+since 2023-09-28. The behavior can be modified by passing optional arguments, for instance:
+```python contrib/devtools/update-copyright-headers.py --since 2018-01-18 --until 2023-09-27 --copyright-holder "Zen Blockchain Foundation"```
 
 
 symbol-check.py

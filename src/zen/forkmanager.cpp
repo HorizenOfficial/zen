@@ -1,4 +1,6 @@
 // Copyright (c) 2017 The Zen Core developers
+// Copyright (c) 2018-2023 Zen Blockchain Foundation
+// Copyright (c) 2023-2024 The Horizen Foundation
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
