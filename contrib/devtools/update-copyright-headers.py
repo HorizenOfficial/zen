@@ -44,7 +44,7 @@ def parse_arguments():
     parser.add_argument("--copyright-holder", default=DEFAULT_COPYRIGHT_HOLDER,
                         help=f"Copyright holder name (default: '{DEFAULT_COPYRIGHT_HOLDER}')")
     parser.add_argument("--exclude-commit", nargs='*', default=[],
-                        help="Commits to exclude from the changes made to files, by default automatically detected)")
+                        help="Commits to exclude from the changes made to files, by default automatically detected")
     return parser.parse_args()
 
 def validate_arguments(args):
