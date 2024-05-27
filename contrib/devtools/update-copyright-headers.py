@@ -93,7 +93,7 @@ def guess_commits_to_be_excluded(since_date, until_date):
     """
     repo = git.Repo(search_parent_directories=True)
     commits = list(repo.iter_commits(since=since_date, until=until_date))
-    excluded = [commit for commit in commits if "update-copyright-headers" in commit.message or "copyright" in commit.summary]
+    excluded = [commit for commit in commits if "update-copyright-headers".lower() in commit.message.lower() or "copyright".lower() in commit.summary.lower()]
     return excluded
 
 def confirm_excluded_commits(excluded_commits):
