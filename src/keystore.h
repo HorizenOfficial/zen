@@ -68,7 +68,7 @@ template<> struct std::hash<CScript> {
     std::size_t operator()(CScript const& s) const noexcept {
         size_t res = 0;
         for (size_t i = 0; i < s.size(); i++) {
-            res ^= s[i] + 0x9e3779b9 + (res << 6) + (res >> 2);
+            boost::hash_combine(res, s[i]);
         }
         return res;
     }

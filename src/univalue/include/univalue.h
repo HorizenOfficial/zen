@@ -99,7 +99,7 @@ public:
 
     bool push_back(const UniValue& val);
     bool push_backV(const std::vector<UniValue>& vec);
-    std::vector<UniValue>& get_vec() { return values; };
+    UniValue& emplace_back(VType type) { values.emplace_back(type); return values.back(); };
 
     void _pushKV(const std::string& key, const UniValue& val);
     bool pushKV(const std::string& key, const UniValue& val);

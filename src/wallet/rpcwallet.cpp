@@ -4004,13 +4004,13 @@ UniValue listunspent(const UniValue& params, bool fHelp)
 
     UniValue results(UniValue::VARR);
     vector<COutput> vecOutputs;
-    assert(pwalletMain != NULL);
+    assert(pwalletMain);
     LOCK2(cs_main, pwalletMain->cs_wallet);
-    auto utxo_map = pwalletMain->AvailableCoinsOptimized(setAddress, nMinDepth, nMaxDepth, false, NULL, true, true);
+    auto utxo_map = pwalletMain->AvailableCoinsByAddress(setAddress, nMinDepth, nMaxDepth, false, NULL, true, true);
 
     // Find unspent coinbase utxos and update estimated size
     for (const auto& [address, utxo_vec]: utxo_map) {
-        auto addr_str = CBitcoinAddress(address).ToString();
+        std::string addr_str = CBitcoinAddress(address).ToString();
         std::string account_name;
 
         auto map_entry = pwalletMain->mapAddressBook.find(address);
@@ -4021,8 +4021,7 @@ UniValue listunspent(const UniValue& params, bool fHelp)
         for (const COutput& out: utxo_vec) {
             CAmount nValue = out.tx->getTxBase()->GetVout()[out.pos].nValue;
             const CScript& pk = out.tx->getTxBase()->GetVout()[out.pos].scriptPubKey;
-            results.get_vec().emplace_back(UniValue::VOBJ);
-            UniValue& entry = results.get_vec().back();
+            UniValue& entry = results.emplace_back(UniValue::VOBJ);
             entry.pushKV("txid", out.tx->getTxBase()->GetHash().GetHex());
             entry.pushKV("vout", out.pos);
             entry.pushKV("isCert", out.tx->getTxBase()->IsCertificate());
