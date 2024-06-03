@@ -1,5 +1,6 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
+// Copyright (c) 2024 The Horizen Foundation
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -14,6 +15,7 @@
 #include "zcash/Address.hpp"
 #include "zcash/NoteEncryption.hpp"
 
+#include <unordered_set>
 #include <boost/signals2/signal.hpp>
 #include <boost/variant.hpp>
 
@@ -63,9 +65,19 @@ public:
     virtual bool GetViewingKey(const libzcash::PaymentAddress &address, libzcash::ViewingKey& vkOut) const =0;
 };
 
+template<> struct std::hash<CScript> {
+    std::size_t operator()(CScript const& s) const noexcept {
+        size_t res = 0;
+        for (size_t i = 0; i < s.size(); i++) {
+            boost::hash_combine(res, s[i]);
+        }
+        return res;
+    }
+};
+
 typedef std::map<CKeyID, CKey> KeyMap;
 typedef std::map<CScriptID, CScript > ScriptMap;
-typedef std::set<CScript> WatchOnlySet;
+typedef std::unordered_set<CScript> WatchOnlySet;
 typedef std::map<libzcash::PaymentAddress, libzcash::SpendingKey> SpendingKeyMap;
 typedef std::map<libzcash::PaymentAddress, libzcash::ViewingKey> ViewingKeyMap;
 typedef std::map<libzcash::PaymentAddress, ZCNoteDecryption> NoteDecryptorMap;
@@ -77,6 +89,7 @@ protected:
     KeyMap mapKeys;
     ScriptMap mapScripts;
     WatchOnlySet setWatchOnly;
+    std::unordered_set<size_t> setWatchOnlyLengths;
     SpendingKeyMap mapSpendingKeys;
     ViewingKeyMap mapViewingKeys;
     NoteDecryptorMap mapNoteDecryptors;

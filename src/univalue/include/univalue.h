@@ -1,5 +1,6 @@
 // Copyright 2014 BitPay Inc.
 // Copyright 2015 Bitcoin Core Developers
+// Copyright (c) 2024 The Horizen Foundation
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or https://opensource.org/licenses/mit-license.php.
 
@@ -99,6 +100,7 @@ public:
 
     bool push_back(const UniValue& val);
     bool push_backV(const std::vector<UniValue>& vec);
+    UniValue& emplace_back(VType type) { values.emplace_back(type); return values.back(); };
 
     void _pushKV(const std::string& key, const UniValue& val);
     bool pushKV(const std::string& key, const UniValue& val);

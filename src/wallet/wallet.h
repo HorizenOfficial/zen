@@ -1,6 +1,7 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
 // Copyright (c) 2018-2023 Zen Blockchain Foundation
+// Copyright (c) 2024 The Horizen Foundation
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -953,6 +954,9 @@ public:
 private:
     std::map<uint256, std::shared_ptr<CWalletTransactionBase> > mapWallet;
     std::map<uint256, CScCertificateStatusUpdateInfo> mapSidechains;
+    bool AvailableTx(int& nDepth, const CWalletTransactionBase* pcoin, int minDepth, int maxDepth, bool fIncludeCoinBase, bool fIncludeCommunityFund, bool fOnlyConfirmed) const;
+    bool AvailableCoin(isminetype& mine, const uint256& wtxid, const CWalletTransactionBase* pcoin, unsigned int voutPos, const CCoinControl *coinControl, bool fIncludeZeroValue, bool fIncludeCoinBase, bool fIncludeCommunityFund) const;
+
 public:
     const std::map<uint256, std::shared_ptr<CWalletTransactionBase> > & getMapWallet() const  {return mapWallet;}
     //No need for mapWallet setter, meaning that mapWallet is only read outside CWallet class
@@ -977,6 +981,7 @@ public:
     //! check whether we are allowed to upgrade (or already support) to the named feature
     bool CanSupportFeature(enum WalletFeature wf) { AssertLockHeld(cs_wallet); return nWalletMaxVersion >= wf; }
 
+    std::map<CTxDestination, std::vector<COutput>> AvailableCoinsByAddress(const std::set<CBitcoinAddress>& setAddresses, int minDepth, int maxDepth, bool fOnlyConfirmed=true, const CCoinControl *coinControl=nullptr, bool fIncludeZeroValue=false, bool fIncludeCoinBase=true, bool fIncludeCommunityFund=true) const;
     void AvailableCoins(std::vector<COutput>& vCoins, bool fOnlyConfirmed=true, const CCoinControl *coinControl = nullptr, bool fIncludeZeroValue=false, bool fIncludeCoinBase=true, bool fIncludeCommunityFund=true) const;
     bool SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins,
         std::set<std::pair<const CWalletTransactionBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet) const;
