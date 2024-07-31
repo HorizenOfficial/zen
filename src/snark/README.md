@@ -14,7 +14,7 @@ Copyright (c) 2012-2014 SCIPR Lab and contributors (see [AUTHORS] file).
 [TOC]
 
 <!---
-  NOTE: the file you are reading is in Markdown format, which is is fairly readable
+  NOTE: the file you are reading is in Markdown format, which is fairly readable
   directly, but can be converted into an HTML file with much nicer formatting.
   To do so, run "make doc" (this requires the python-markdown package) and view
   the resulting file README.html. Alternatively, view the latest HTML version at
