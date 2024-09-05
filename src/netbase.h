@@ -12,6 +12,7 @@
 
 #include "compat.h"
 #include "serialize.h"
+#include "util/sock.h"
 
 #include <stdint.h>
 #include <string>
@@ -196,12 +197,23 @@ bool LookupHost(const char *pszName, std::vector<CNetAddr>& vIP, unsigned int nM
 bool Lookup(const char *pszName, CService& addr, int portDefault = 0, bool fAllowLookup = true);
 bool Lookup(const char *pszName, std::vector<CService>& vAddr, int portDefault = 0, bool fAllowLookup = true, unsigned int nMaxSolutions = 0);
 bool LookupNumeric(const char *pszName, CService& addr, int portDefault = 0);
-bool ConnectSocket(const CService &addr, SOCKET& hSocketRet, int nTimeout, bool *outProxyConnectionFailed = 0);
-bool ConnectSocketByName(CService &addr, SOCKET& hSocketRet, const char *pszDest, int portDefault, int nTimeout, bool *outProxyConnectionFailed = 0);
+
+/**
+ * Create a TCP socket in the given address family.
+ * @param[in] address_family The socket is created in the same address family as this address.
+ * @return pointer to the created Sock object or unique_ptr that owns nothing in case of failure
+ */
+std::unique_ptr<Sock> CreateSockTCP(const CService& address_family);
+
+/**
+ * Socket factory. Defaults to `CreateSockTCP()`, but can be overridden by unit tests.
+ */
+extern std::function<std::unique_ptr<Sock>(const CService&)> CreateSock;
+
+std::unique_ptr<Sock> ConnectSocket(const CService &addr, int nTimeout, bool *outProxyConnectionFailed = 0);
+std::unique_ptr<Sock> ConnectSocketByName(CService &addr, const char *pszDest, int portDefault, int nTimeout, bool *outProxyConnectionFailed = 0);
 /** Return readable error string for a network error code */
 std::string NetworkErrorString(int err);
-/** Close socket and set hSocket to INVALID_SOCKET */
-bool CloseSocket(SOCKET& hSocket);
 /** Disable or enable blocking-mode for a socket */
 bool SetSocketNonBlocking(SOCKET& hSocket, bool fNonBlocking);
 /**
