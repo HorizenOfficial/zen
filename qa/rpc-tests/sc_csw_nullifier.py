@@ -437,7 +437,7 @@ class CswNullifierTest(BitcoinTestFramework):
         n2_bal = self.nodes[2].z_gettotalbalance()['total']
         mark_logs("Node2 has {} confirmed balance".format(n2_bal), self.nodes, DEBUG_MODE)
 
-        # check we have still 1.0 coin in the the SC balance (12-6-4-1=1)
+        # check we have still 1.0 coin in the SC balance (12-6-4-1=1)
         sc_bal_n2 = self.nodes[2].getscinfo(scid)['items'][0]['balance']
         mark_logs("sc balance from Node2 view is: {}".format(sc_bal_n2), self.nodes, DEBUG_MODE)
         assert_equal(Decimal(sc_bal_n2), Decimal('1.0'))
