@@ -159,7 +159,7 @@ class updateFee(BitcoinTestFramework):
         self.sync_all()
 
         ### Create a network split:
-        ### 1. disconnect nodes 1 and 2, so that the the nets are nodes 0, 1 and 2, 3
+        ### 1. disconnect nodes 1 and 2, so that the nets are nodes 0, 1 and 2, 3
         ### 2. in the first round, node 0 sends many small txs to sc; save the node balances
         ### 3. node 2 mines block
         ### 4. rejoin the network
@@ -403,7 +403,7 @@ class updateFee(BitcoinTestFramework):
         self.sync_all()
 
         ### Unlike for ceasing sidechains, we can already create a split:
-        ### 1. disconnect nodes 1 and 2, so that the the nets are nodes 0, 1 and 2, 3
+        ### 1. disconnect nodes 1 and 2, so that the nets are nodes 0, 1 and 2, 3
         ### 2. node 0 sends many small txs to sc; save the node balances
         ### 3. node 2 generate a certificate for epoch 0
         ### 4. node 2 mines a block to validate the certificate and ends epoch 0

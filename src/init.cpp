@@ -1281,7 +1281,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         LogPrintf("Startup time: %s\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()));
     LogPrintf("Default data directory %s\n", GetDefaultDataDir().string());
     LogPrintf("Using data directory %s\n", GetDataDir().string());
-    // This print might not be correct, since at this point the options in the the zen.conf have already been read, and if a custom datadir has
+    // This print might not be correct, since at this point the options in the zen.conf have already been read, and if a custom datadir has
     // ben specified, the config file would be erroneously printed to be there
     //    LogPrintf("Using config file %s\n", GetConfigFile().string());
     LogPrintf("Using at most %i connections (%i file descriptors available)\n", nMaxConnections, nFD);
