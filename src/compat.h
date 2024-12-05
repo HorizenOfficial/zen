@@ -89,6 +89,14 @@ typedef u_int SOCKET;
 #define THREAD_PRIORITY_ABOVE_NORMAL    (-2)
 #endif
 
+// The type of the option value passed to getsockopt & setsockopt
+// differs between Windows and non-Windows.
+#ifndef WIN32
+typedef void* sockopt_arg_type;
+#else
+typedef char* sockopt_arg_type;
+#endif
+
 #if HAVE_DECL_STRNLEN == 0
 size_t strnlen( const char *start, size_t max_len);
 #endif // HAVE_DECL_STRNLEN
@@ -100,5 +108,12 @@ bool static inline IsSelectableSocket(SOCKET s) {
     return (s < FD_SETSIZE);
 #endif
 }
+
+// Note these both should work with the current usage of poll, but best to be safe
+// WIN32 poll is broken https://daniel.haxx.se/blog/2012/10/10/wsapoll-is-broken/
+// __APPLE__ poll is broke https://github.com/bitcoin/bitcoin/pull/14336#issuecomment-437384408
+#if defined(__linux__)
+#define USE_POLL
+#endif
 
 #endif // BITCOIN_COMPAT_H
