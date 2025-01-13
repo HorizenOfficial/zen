@@ -1,2 +1,3 @@
 DEBIAN/manpages/zen-cli.1
 DEBIAN/manpages/zend.1
+DEBIAN/manpages/dumper.1

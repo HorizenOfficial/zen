@@ -11,7 +11,7 @@
 #include "coins.h"
 #include "leveldbwrapper.h"
 
-#include <map>
+#include <unordered_map>
 #include <string>
 #include <utility>
 #include <vector>
@@ -48,6 +48,13 @@ static const int64_t nMinDbCache = 4;
 
 static const std::string DEFAULT_INDEX_VERSION_STR = "0.0";
 static const std::string CURRENT_INDEX_VERSION_STR = "1.0";
+
+struct AddressInfo {
+    CScript::ScriptType type = CScript::ScriptType::UNKNOWN;
+    bool                pubkey_known = false;
+    size_t              count = 0;
+    CAmount             amount = 0;
+};
 
 struct CDiskTxPos : public CDiskBlockPos
 {
@@ -153,6 +160,7 @@ public:
                     CCswNullifiersMap& cswNullifies)                           override;
     bool GetStats(CCoinsStats &stats)                                    const override;
     void Dump_info() const;
+    std::unordered_map<std::string, AddressInfo> dumpUtxoSet() const;
 };
 
 /** Access to the block database (blocks/index/) */

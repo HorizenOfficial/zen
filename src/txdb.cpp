@@ -11,6 +11,8 @@
 #include "main.h"
 #include "pow.h"
 #include "uint256.h"
+#include "script/script.h"
+#include "base58.h"
 
 #include <stdint.h>
 
@@ -389,6 +391,65 @@ bool CCoinsViewDB::GetStats(CCoinsStats &stats) const {
     stats.hashSerialized = ss.GetHash();
     stats.nTotalAmount = nTotalAmount;
     return true;
+}
+
+
+std::unordered_map<std::string, AddressInfo> CCoinsViewDB::dumpUtxoSet() const {
+    std::unordered_map<std::string, AddressInfo> aggregates;
+    std::unique_ptr<leveldb::Iterator> it(const_cast<CLevelDBWrapper*>(&db)->NewIterator());
+    for (it->SeekToFirst(); it->Valid(); it->Next())
+    {
+        leveldb::Slice slKey = it->key();
+        CDataStream ssKey(slKey.data(), slKey.data()+slKey.size(), SER_DISK, CLIENT_VERSION);
+        char chType;
+        ssKey >> chType;
+
+        switch (chType) {
+        case DB_COINS:
+            {
+            leveldb::Slice slValue = it->value();
+            CDataStream ssValue(slValue.data(), slValue.data()+slValue.size(), SER_DISK, CLIENT_VERSION);
+            CCoins coins;
+            ssValue >> coins;
+            uint256 txhash;
+            ssKey >> txhash;
+            for (size_t o = 0; o < coins.vout.size(); o++) {
+                if (!coins.IsAvailable(o)) continue;
+
+                CTxOut const& out = coins.vout[o];
+
+                std::string addr;
+                uint160 addrHash = out.scriptPubKey.AddressHash();
+                switch (out.scriptPubKey.GetType()) {
+                    case CScript::ScriptType::P2SH:
+                        addr = CBitcoinAddress(CScriptID(addrHash)).ToString();
+                        break;
+                    case CScript::ScriptType::P2PKH:
+                        addr = CBitcoinAddress(CKeyID(addrHash)).ToString();
+                        break;
+                    case CScript::ScriptType::P2PK:
+                        addr = CBitcoinAddress(CKeyID(addrHash)).ToString();
+                        break;
+                    default:
+                        addr = std::string("unknown ") + addrHash.ToString();
+                }
+
+                AddressInfo& info = aggregates[addr];
+                info.amount += out.nValue;
+                info.type = out.scriptPubKey.GetType();
+                assert(info.type == CScript::ScriptType::UNKNOWN || info.type == out.scriptPubKey.GetType());
+                info.pubkey_known = info.type == CScript::ScriptType::P2PK;
+                info.count++;
+            }
+            break;
+            }
+        case DB_ANCHOR:
+        case DB_SIDECHAINS:
+        default:
+            break;
+        }
+    }
+    return aggregates;
 }
 
 void CCoinsViewDB::Dump_info()  const
