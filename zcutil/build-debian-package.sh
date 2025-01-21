@@ -42,9 +42,12 @@ chmod 0755 -R "$BUILD_DIR"/*
 #cp "$SRC_DEB"/postrm "$BUILD_DIR"/DEBIAN
 #cp "$SRC_DEB"/preinst "$BUILD_DIR"/DEBIAN
 #cp "$SRC_DEB"/prerm "$BUILD_DIR"/DEBIAN
+# Strip the dumper binary, no need to bloat the package with redundant debug symbols
+strip $SRC_PATH/src/dumper
 # Copy binaries
 cp "$SRC_PATH"/src/zend "$DEB_BIN"
 cp "$SRC_PATH"/src/zen-cli "$DEB_BIN"
+cp $SRC_PATH/src/dumper $DEB_BIN
 cp "$SRC_PATH"/zcutil/fetch-params.sh "$DEB_BIN"/zen-fetch-params
 # Copy docs
 cp "$SRC_PATH"/doc/release-notes/release-notes-$(cut -d "-" -f 1-2 <<<${PACKAGE_VERSION})* "$DEB_DOC"/changelog ||
@@ -55,6 +58,7 @@ cp -r "$SRC_DEB"/examples "$DEB_DOC"
 # Copy manpages
 cp "$SRC_DOC"/man/zend.1 "$DEB_MAN"/zend.1
 cp "$SRC_DOC"/man/zen-cli.1 "$DEB_MAN"/zen-cli.1
+cp "$SRC_DOC"/man/dumper.1 "$DEB_MAN"/dumper.1
 cp "$SRC_DOC"/man/zen-fetch-params.1 "$DEB_MAN"/zen-fetch-params.1
 # Copy bash completion files
 cp "$SRC_PATH"/contrib/zend.bash-completion "$DEB_CMP"/zend
@@ -65,12 +69,13 @@ gzip --best -n "$DEB_DOC"/changelog.Debian
 
 gzip --best -n "$DEB_MAN"/zend.1
 gzip --best -n "$DEB_MAN"/zen-cli.1
+gzip --best -n $DEB_MAN/dumper.1
 gzip --best -n "$DEB_MAN"/zen-fetch-params.1
 
 cd "$SRC_PATH"/contrib
 
 # Create the control file
-dpkg-shlibdeps "$DEB_BIN"/zend "$DEB_BIN"/zen-cli
+dpkg-shlibdeps "$DEB_BIN"/zend "$DEB_BIN"/zen-cli "$DEB_BIN"/dumper
 dpkg-gencontrol -P"$BUILD_DIR" -v"$DEBVERSION"
 
 # Create the Debian package

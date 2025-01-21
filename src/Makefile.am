@@ -444,6 +444,40 @@ libbitcoin_cli_a_SOURCES = \
 nodist_libbitcoin_util_a_SOURCES = $(srcdir)/obj/build.h
 #
 
+dumper_SOURCES = dumper.cpp
+dumper_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+dumper_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) $(COVERAGE_FLAGS)
+dumper_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(COVERAGE_FLAGS)
+
+dumper_LDADD = \
+  $(LIBBITCOIN_SERVER) \
+  $(LIBBITCOIN_COMMON) \
+  $(LIBUNIVALUE) \
+  $(LIBBITCOIN_UTIL) \
+  $(LIBBITCOIN_CRYPTO) \
+  $(LIBZCASH) \
+  $(LIBZENCASH) \
+  $(LIBSNARK) \
+  $(LIBLEVELDB) \
+  $(LIBMEMENV) \
+  $(LIBSECP256K1) \
+  libbitcoin_wallet.a \
+  $(BOOST_LIBS) \
+  $(BDB_LIBS) \
+  $(SSL_LIBS) \
+  $(CRYPTO_LIBS) \
+  $(EVENT_PTHREADS_LIBS) \
+  $(EVENT_LIBS) \
+  $(LIBBITCOIN_CRYPTO) \
+  $(LIBZCASH_LIBS)
+
+if ENABLE_ZMQ
+dumper_LDADD += $(LIBBITCOIN_ZMQ) $(ZMQ_LIBS)
+endif
+
+noinst_PROGRAMS += \
+  dumper
+
 # bitcoind binary #
 zend_SOURCES = bitcoind.cpp
 zend_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
