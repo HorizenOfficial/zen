@@ -149,6 +149,11 @@ public:
      */
     bool isShieldedPoolRemoved(int height) const;
 
+    /**
+     * @brief returns true if the creation of new sidechains or forward transfers to existing sidechains has been stopped
+     */
+    bool isScCreationAndFwdtStopped(int height) const;
+
     // ---------- forks redefined methods ----------
 
 private:

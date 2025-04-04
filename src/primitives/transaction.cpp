@@ -1084,6 +1084,14 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
                                  CValidationState::Code::INVALID, "bad-txns-transparent-jsnotempty");
             }
 
+            // check that after this fork point we do not have any new sidechain creation or forward transfer to existing ones.
+            if (ForkManager::getInstance().isScCreationAndFwdtStopped(nHeight)) {
+                if (!vsc_ccout.empty() || !vft_ccout.empty()) {
+                    return state.DoS(dosLevel, error("ContextualCheck(): sc tx with sc creation output or fwdt output, but thei are illegat at this height"),
+                                     CValidationState::Code::INVALID, "bad-tx-sc-creation-fwdt-stopped");
+                }
+            }
+
             //enforce that any eventual SC creation output is using a valid sidechain version for the current active fork
             for (const CTxScCreationOut& scCreationOutput : vsc_ccout)
             {
