@@ -8,8 +8,8 @@ namespace zen
 
 StopScCreationAndFwdtFork::StopScCreationAndFwdtFork()
 {
-    setHeightMap({{CBaseChainParams::Network::MAIN, 10000000},      // TODO check this
+    setHeightMap({{CBaseChainParams::Network::MAIN, 100000000},      // TODO set this
                   {CBaseChainParams::Network::REGTEST, 5020},       // Must be high enough so not to make some testnet script fail because the threshold is crossed
-                  {CBaseChainParams::Network::TESTNET, 10000000}}); // TODO check this
+                  {CBaseChainParams::Network::TESTNET, 100000000}}); // TODO set this
 }
 } // namespace zen
