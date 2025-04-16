@@ -93,6 +93,7 @@ public:
     std::string GetCommunityFundAddressAtHeight(int height, Fork::CommunityFundType cfType) const;
     CScript GetCommunityFundScriptAtHeight(int height, Fork::CommunityFundType cfType) const;
     void SetSubsidyHalvingInterval(int val) { consensus.nSubsidyHalvingInterval = val;}
+    bool SkipScOpForkCheck() const;
 protected:
     CChainParams() {}
 
@@ -122,6 +123,7 @@ protected:
     int  nScMaxWithdrawalEpochLength = 0;
     int  nScMaxNumberOfCswInputsInMempool = 0;
     Checkpoints::CCheckpointData checkpointData;
+    bool fSkipScOpForkCheck = false;
 };
 
 /**
