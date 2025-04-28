@@ -15,7 +15,7 @@ from test_framework.util import initialize_chain_clean, \
     stop_nodes, wait_bitcoinds
 
 DEBUG_MODE = 1
-NUMB_OF_NODES = 3
+NUMB_OF_NODES = 2
 EPOCH_LENGTH = 5
 
 
@@ -109,7 +109,6 @@ class ScCrFwtStop(BitcoinTestFramework):
         mark_logs("Node 1 generates {} block for reaching a pre-fork point, where no new SC creations "
                   "will be allowed as well as fw transfers to existing ones".format(delta), self.nodes, DEBUG_MODE)
         self.nodes[0].generate(delta)
-        # self.nodes[1].generate(ForkHeights['STOP_SC_CR_AND_FWDT']-2)
         self.sync_all()
         current_height = self.nodes[0].getblockcount()
         mark_logs(("active chain height = %d" % current_height), self.nodes, DEBUG_MODE)
@@ -137,13 +136,13 @@ class ScCrFwtStop(BitcoinTestFramework):
         bl = self.nodes[0].generate(1)[0]
         pprint.pprint(self.nodes[0].getblock(bl))
 
-        mark_logs("Check we do have the new SC in netowrk part 0", self.nodes, DEBUG_MODE)
+        mark_logs("Check we do have the new SC in network part 0", self.nodes, DEBUG_MODE)
         sc_info_pre = self.nodes[0].getscinfo(ret['scid'])
         pprint.pprint(sc_info_pre)
         assert_true(1 == len(sc_info_pre['items']))
 
         # ----------------------Network Part 1
-        mark_logs("Node 1 generates 2 nodes, crossing the fork point and reaching the longest chain", self.nodes,
+        mark_logs("Node 1 generates 2 blocks, crossing the fork point and reaching the longest chain", self.nodes,
                   DEBUG_MODE)
         self.nodes[1].generate(2)
 
@@ -153,7 +152,7 @@ class ScCrFwtStop(BitcoinTestFramework):
 
         sc_info_post = self.nodes[0].getscinfo(ret['scid'])
 
-        mark_logs("Check we do not have the new SC in the joint netowrk", self.nodes, DEBUG_MODE)
+        mark_logs("Check we do not have the new SC in the joint network", self.nodes, DEBUG_MODE)
         pprint.pprint(sc_info_post)
         assert_true(0 == len(sc_info_post['items']))
 
@@ -250,10 +249,7 @@ class ScCrFwtStop(BitcoinTestFramework):
 
         self.sync_all()
 
-        mark_logs("...stopping and restarting nodes", self.nodes, DEBUG_MODE)
-        stop_nodes(self.nodes)
-        wait_bitcoinds()
-        self.setup_network(False)
+
 
 
 if __name__ == '__main__':
