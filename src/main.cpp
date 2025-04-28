@@ -82,6 +82,7 @@ CConditionVariable cvBlockChange;
 int nScriptCheckThreads = 0;
 bool fExperimentalMode = false;
 bool fImporting = false;
+bool fMaxBlockHeightReached = false;
 std::atomic<bool> fReindex = false;
 std::atomic<bool> fReindexFast = false;
 bool fTxIndex = false;
@@ -4212,6 +4213,14 @@ void static UpdateTip(CBlockIndex *pindexNew) {
       DateTimeStrFormat("%Y-%m-%d %H:%M:%S", chainActive.Tip()->GetBlockTime()),
       syncProgress, pcoinsTip->DynamicMemoryUsage() * (1.0 / (1<<20)), pcoinsTip->GetCacheSize());
 
+    // Check that the node has an optional limit on the max height to reach in the alignment phase (-maxblockheightforalign)
+    if (getMaxBlockHeightForAlignment() <= chainActive.Height())
+    {
+        LogPrintf("%s():%d - #### Maximum height %d reached for block processing according to optional setting -maxblockheightforalign!\n",
+        __func__, __LINE__, getMaxBlockHeightForAlignment());
+        fMaxBlockHeightReached = true;
+    }
+
     cvBlockChange.notify_all();
 }
 
@@ -4597,8 +4606,22 @@ bool ActivateBestChain(CValidationState &state, CBlock *pblock, bool &postponeRe
             pindexMostWork = FindMostWorkChain();
 
             // Whether we have anything to do at all.
-            if (pindexMostWork == NULL || pindexMostWork == chainActive.Tip())
+            if (pindexMostWork == NULL || pindexMostWork == chainActive.Tip() ||
+                (chainActive.Tip() && (getMaxBlockHeightForAlignment() <= chainActive.Tip()->nHeight)) )
+            {
+                if (chainActive.Tip() && (getMaxBlockHeightForAlignment() <= chainActive.Tip()->nHeight)) 
+                {
+                    LogPrintf("%s():%d - #### Maximum height %d reached. Chain tip: %d, pindexMostWork->nHeight=%d \n",
+                      __func__, __LINE__, getMaxBlockHeightForAlignment(), chainActive.Tip()->nHeight, pindexMostWork->nHeight);
+                }
+                else if (pindexMostWork == chainActive.Tip())
+                {
+                    LogPrintf("%s():%d - #### Nothing to do: tip==mostwork\n", __func__, __LINE__);
+                } else {
+                    LogPrintf("%s():%d - #### Nothing to do: pindexMostWork is NULL\n", __func__, __LINE__);
+                }
                 return true;
+            }
 
             bool postponeRelayTmp = false;
 
@@ -5485,6 +5508,12 @@ bool ProcessNewBlock(CValidationState &state, CNode* pfrom, CBlock* pblock, bool
         {
             return error("%s: AcceptBlock FAILED", __func__);
         }
+
+        // exit from method and do not continue if the height is past the optional setting
+        //if (getMaxBlockHeightForAlignment() <= pindex->nHeight) {
+        //    LogPrintf("%s():%d - #### Maximum height %d reached for block processing according to optional setting -maxblockheightforalign!\n",
+        //        __func__, __LINE__, getMaxBlockHeightForAlignment());
+        //}
     }
 
     bool postponeRelay = false;
@@ -7655,13 +7684,14 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         CheckBlockIndex();
     }
 
-    else if (strCommand == NetMsgType::BLOCK && !fImporting && !fReindex && !fReindexFast) // Ignore blocks received while importing
+    else if (strCommand == NetMsgType::BLOCK && !fImporting && !fReindex && !fReindexFast && !fMaxBlockHeightReached) // Ignore blocks received while importing or when a specific flag is active
     {
         CBlock block;
         vRecv >> block;
 
         CInv inv(MSG_BLOCK, block.GetHash());
         LogPrint("net", "%s():%d - received block %s peer=%d\n", __func__, __LINE__, inv.hash.ToString(), pfrom->id);
+        LogPrintf("%s():%d - block hash=%s, flag=%d\n", __func__, __LINE__, block.GetHash().ToString(), fMaxBlockHeightReached);
 
         pfrom->AddInventoryKnown(inv);
 
@@ -7671,6 +7701,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         // Such an unrequested block may still be processed, subject to the
         // conditions in AcceptBlock().
         bool forceProcessing = pfrom->fWhitelisted && !IsInitialBlockDownload();
+
         ProcessNewBlock(state, pfrom, &block, forceProcessing, NULL);
         if (state.IsInvalid())
         {
@@ -8822,3 +8853,24 @@ bool getRequireStandard()
     static int retVal( getInitRequireStandard() );
     return retVal;
 }
+
+static int getInitMaxBlockHeightForAlignment()
+{
+    const string& flagStr = "-maxblockheightforalign";
+    int val = (int)(GetArg(flagStr, INT_MAX));
+    if (val != INT_MAX && mapArgs.count(flagStr)) {
+        // the GetArg() method returns 0 in case of bad input string (which btw is not good), log the settings 
+        const string& argStr = mapArgs[flagStr];
+        LogPrintf("%s::%s():%d - Using optional flag: %s=%s\n", __FILE__, __func__, __LINE__, flagStr, argStr);
+    }
+
+    return val;
+}
+
+int getMaxBlockHeightForAlignment()
+{
+    // gets constructed just one time
+    static int retVal( getInitMaxBlockHeightForAlignment() );
+    return retVal;
+}
+
