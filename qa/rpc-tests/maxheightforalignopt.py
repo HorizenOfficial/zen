@@ -69,7 +69,8 @@ class MaxHeightForAlign(BitcoinTestFramework):
 
     def run_test(self):
         """
-        Test description: TODO
+        Test description: Check that a node started with the -maxblockheightforalign optional flag stops processing new
+                          blocks after the chain height limit is reached.
         """
 
         mark_logs("Node 0 generates 1 block", self.nodes, DEBUG_MODE)
