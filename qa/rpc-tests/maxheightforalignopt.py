@@ -3,16 +3,12 @@
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
-import pprint
 import time
-from decimal import Decimal
 
-from test_framework.authproxy import JSONRPCException
-from test_framework.mc_test.mc_test import *
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.test_framework import ForkHeights
 from test_framework.util import initialize_chain_clean, \
-    sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, assert_true, assert_false, start_node, \
+    sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, assert_true, start_node, \
     stop_nodes, wait_bitcoinds, assert_equal
 
 DEBUG_MODE = 1
@@ -20,6 +16,7 @@ NUMB_OF_NODES = 3
 EPOCH_LENGTH = 5
 OPT_MAX_BLOCK_HEIGHT1 = 450
 OPT_MAX_BLOCK_HEIGHT2 = 440
+
 
 def local_sync_blocks(node, counts, wait=1, p=False, limit_loop=0):
     """
@@ -32,11 +29,12 @@ def local_sync_blocks(node, counts, wait=1, p=False, limit_loop=0):
             if loop_num > limit_loop:
                 break
         n = node.getblockcount()
-        if p :
+        if p:
             print(n)
         if counts <= n:
             break
         time.sleep(wait)
+
 
 class MaxHeightForAlign(BitcoinTestFramework):
 
@@ -45,10 +43,9 @@ class MaxHeightForAlign(BitcoinTestFramework):
         sync_blocks(self.nodes[0:1])
         sync_mempools(self.nodes)
 
-
     def setup_chain(self, split=False):
         print("Initializing test directory " + self.options.tmpdir)
-        initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES+1)
+        initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES + 1)
 
     def setup_network(self, split=False):
         self.nodes = []
@@ -127,7 +124,7 @@ class MaxHeightForAlign(BitcoinTestFramework):
         mark_logs(s, self.nodes, DEBUG_MODE)
         self.nodes.append(start_node(NUMB_OF_NODES, self.options.tmpdir,
                                      extra_args=['-debug=py', '-debug=mempool', '-logtimemicros=1',
-                                                 '-maxblockheightforalign=%d' % OPT_MAX_BLOCK_HEIGHT2] ))
+                                                 '-maxblockheightforalign=%d' % OPT_MAX_BLOCK_HEIGHT2]))
 
         #  Node 3 is connected to node 0, can not go beyond is height:
         #     3 <-> 0 <-> 1 <-> 2
@@ -142,8 +139,8 @@ class MaxHeightForAlign(BitcoinTestFramework):
         assert_equal(OPT_MAX_BLOCK_HEIGHT2, current_height_3)
 
         # check we can propagate tx to all mempools even if block heights are different
-        tAddr = self.nodes[1].getnewaddress()
-        self.nodes[0].sendtoaddress(tAddr, 1.0)
+        t_addr = self.nodes[1].getnewaddress()
+        self.nodes[0].sendtoaddress(t_addr, 1.0)
         sync_mempools(self.nodes)
 
         mpsz = len(self.nodes[0].getrawmempool())

@@ -4213,12 +4213,13 @@ void static UpdateTip(CBlockIndex *pindexNew) {
       DateTimeStrFormat("%Y-%m-%d %H:%M:%S", chainActive.Tip()->GetBlockTime()),
       syncProgress, pcoinsTip->DynamicMemoryUsage() * (1.0 / (1<<20)), pcoinsTip->GetCacheSize());
 
-    // Check that the node has an optional limit on the max height to reach in the alignment phase (-maxblockheightforalign)
-    if (getMaxBlockHeightForAlignment() <= chainActive.Height())
+    // Check that the node has an optional limit on the max height to reach in the alignment phase (-maxblockheightforalign), and set a global flag to
+    // true, which will prevent the handling of further block processing for this node
+    fMaxBlockHeightReached = (getMaxBlockHeightForAlignment() <= chainActive.Height());
+    if (fMaxBlockHeightReached)
     {
         LogPrintf("%s():%d - #### Maximum height %d reached for block processing according to optional setting -maxblockheightforalign!\n",
         __func__, __LINE__, getMaxBlockHeightForAlignment());
-        fMaxBlockHeightReached = true;
     }
 
     cvBlockChange.notify_all();
@@ -4613,12 +4614,6 @@ bool ActivateBestChain(CValidationState &state, CBlock *pblock, bool &postponeRe
                 {
                     LogPrintf("%s():%d - #### Maximum height %d reached. Chain tip: %d, pindexMostWork->nHeight=%d \n",
                       __func__, __LINE__, getMaxBlockHeightForAlignment(), chainActive.Tip()->nHeight, pindexMostWork->nHeight);
-                }
-                else if (pindexMostWork == chainActive.Tip())
-                {
-                    LogPrintf("%s():%d - #### Nothing to do: tip==mostwork\n", __func__, __LINE__);
-                } else {
-                    LogPrintf("%s():%d - #### Nothing to do: pindexMostWork is NULL\n", __func__, __LINE__);
                 }
                 return true;
             }
@@ -5508,12 +5503,6 @@ bool ProcessNewBlock(CValidationState &state, CNode* pfrom, CBlock* pblock, bool
         {
             return error("%s: AcceptBlock FAILED", __func__);
         }
-
-        // exit from method and do not continue if the height is past the optional setting
-        //if (getMaxBlockHeightForAlignment() <= pindex->nHeight) {
-        //    LogPrintf("%s():%d - #### Maximum height %d reached for block processing according to optional setting -maxblockheightforalign!\n",
-        //        __func__, __LINE__, getMaxBlockHeightForAlignment());
-        //}
     }
 
     bool postponeRelay = false;
@@ -7691,7 +7680,6 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
         CInv inv(MSG_BLOCK, block.GetHash());
         LogPrint("net", "%s():%d - received block %s peer=%d\n", __func__, __LINE__, inv.hash.ToString(), pfrom->id);
-        LogPrintf("%s():%d - block hash=%s, flag=%d\n", __func__, __LINE__, block.GetHash().ToString(), fMaxBlockHeightReached);
 
         pfrom->AddInventoryKnown(inv);
 
