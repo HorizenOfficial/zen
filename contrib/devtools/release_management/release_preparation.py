@@ -156,7 +156,7 @@ def update_checkpoints():
 
     # Find the line numbers containing the last checkpoint
     # for both mainnet and testnet
-    line_numbers = rmu.find_lines_containing(os.path.join(config[rmu.k_repository_root], "src/chainparams.cpp"), '.*\(.*uint256S.*0x.*\).*\).*\,')
+    line_numbers = rmu.find_lines_containing(os.path.join(config[rmu.k_repository_root], "src/chainparams.cpp"), r'.*\(.*uint256S.*0x.*\).*\).*\,')
     if (len(line_numbers) < 2):
         print(f"Unable to find checkpoints lines in src/chainparams.cpp file")
         sys.exit(-1)
@@ -229,7 +229,7 @@ def update_changelog():
             print("Wrong release date; modify and retry.")
             sys.exit(-1)
     
-    line_numbers = rmu.find_lines_containing(os.path.join(config[rmu.k_repository_root], "contrib/debian/changelog"), 'zen \(.*\).*')
+    line_numbers = rmu.find_lines_containing(os.path.join(config[rmu.k_repository_root], "contrib/debian/changelog"), r'zen \(.*\).*')
     if (len(line_numbers) < 1):
         print(f"Unable to find line \"zen\" in contrib/debian/changelog file")
         sys.exit(-1)
