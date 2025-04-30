@@ -588,7 +588,6 @@ std::string HelpMessage(HelpMessageMode mode)
     }
 
     strUsage += HelpMessageOpt("-maxtipage=<n>", "regtest only - Set the maximum tip age used for the relay of chain blocks)");
-    strUsage += HelpMessageOpt("-skipscopforkcheck", strprintf("regtest only - do not check deprecation of sc_create / sc_send method based on fork point (default: %d))", false));
 
     return strUsage;
 }

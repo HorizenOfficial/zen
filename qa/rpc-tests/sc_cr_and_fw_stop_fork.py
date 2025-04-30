@@ -29,15 +29,7 @@ class ScCrFwtStop(BitcoinTestFramework):
         self.nodes = []
 
         for i in range(0, NUMB_OF_NODES):
-            if i == 0:
-                # in the node 0 set a regtest flag for skipping the checks in the RPC commands.
-                # This allows to test the consensus rules without blocking the rpc commands
-                self.nodes += [start_node(i, self.options.tmpdir,
-                                          extra_args=['-debug=py', '-debug=sc', '-logtimemicros=1',
-                                                      '-skipscopforkcheck=1'])]
-            else:
-                self.nodes += [start_node(i, self.options.tmpdir,
-                                          extra_args=['-debug=py', '-debug=sc', '-logtimemicros=1'])]
+            self.nodes += [start_node(i, self.options.tmpdir, extra_args=['-debug=py', '-debug=sc', '-logtimemicros=1'])]
 
         for k in range(0, NUMB_OF_NODES - 1):
             connect_nodes_bi(self.nodes, k, k + 1)
@@ -159,30 +151,6 @@ class ScCrFwtStop(BitcoinTestFramework):
         mark_logs("Check tx={} is not in mempool...".format(creating_tx), self.nodes, DEBUG_MODE)
         assert_false(creating_tx in self.nodes[0].getrawmempool())
         assert_false(creating_tx in self.nodes[1].getrawmempool())
-
-        mark_logs("Node 0 tries to create a new SC, expecting error", self.nodes, DEBUG_MODE)
-        try:
-            self.nodes[0].sc_create(cmd_input)
-        except JSONRPCException as e:
-            error_string = e.error['message']
-            print(error_string)
-            expected_substring = "16: bad-tx-sc-creation-fwdt-stopped"
-            assert expected_substring in error_string, f"'{error_string}' does not contain '{expected_substring}'"
-        else:
-            raise RuntimeError("An exception was expected")
-
-        mark_logs("Node 0 tries to send " + str(fwt_amount) + " coins to SC1, expecting error", self.nodes, DEBUG_MODE)
-        try:
-            self.nodes[0].sc_send(ft_cmd_input)
-        except JSONRPCException as e:
-            error_string = e.error['message']
-            print(error_string)
-            expected_substring = "16: bad-tx-sc-creation-fwdt-stopped"
-            assert expected_substring in error_string, f"'{error_string}' does not contain '{expected_substring}'"
-        else:
-            raise RuntimeError("An exception was expected")
-
-        self.sync_all()
 
         mark_logs("Node 1 tries to create a new SC, expecting error", self.nodes, DEBUG_MODE)
         try:

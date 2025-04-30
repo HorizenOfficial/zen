@@ -809,7 +809,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
-    if (!Params().SkipScOpForkCheck() && ForkManager::getInstance().isScCreationAndFwdtStopped(chainActive.Height() + 1)) {
+    if (ForkManager::getInstance().isScCreationAndFwdtStopped(chainActive.Height() + 1)) {
         throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("sc creation stop"));
     }
 
@@ -1195,7 +1195,7 @@ UniValue sc_send(const UniValue& params, bool fHelp)
     LOCK2(cs_main, pwalletMain->cs_wallet);
     RPCTypeCheck(params, boost::assign::list_of (UniValue::VARR)(UniValue::VOBJ));
 
-    if (!Params().SkipScOpForkCheck() && ForkManager::getInstance().isScCreationAndFwdtStopped(chainActive.Height() + 1)) {
+    if (ForkManager::getInstance().isScCreationAndFwdtStopped(chainActive.Height() + 1)) {
         throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("sc fwdt stop"));
     }
 
