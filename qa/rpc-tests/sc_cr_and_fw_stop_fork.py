@@ -29,15 +29,7 @@ class ScCrFwtStop(BitcoinTestFramework):
         self.nodes = []
 
         for i in range(0, NUMB_OF_NODES):
-            if i == 0:
-                # in the node 0 set a regtest flag for skipping the checks in the RPC commands.
-                # This allows to test the consensus rules without blocking the rpc commands
-                self.nodes += [start_node(i, self.options.tmpdir,
-                                          extra_args=['-debug=py', '-debug=sc', '-logtimemicros=1',
-                                                      '-skipscopforkcheck=1'])]
-            else:
-                self.nodes += [start_node(i, self.options.tmpdir,
-                                          extra_args=['-debug=py', '-debug=sc', '-logtimemicros=1'])]
+            self.nodes += [start_node(i, self.options.tmpdir, extra_args=['-debug=py', '-debug=sc', '-logtimemicros=1'])]
 
         for k in range(0, NUMB_OF_NODES - 1):
             connect_nodes_bi(self.nodes, k, k + 1)
@@ -113,6 +105,29 @@ class ScCrFwtStop(BitcoinTestFramework):
         current_height = self.nodes[0].getblockcount()
         mark_logs(("active chain height = %d" % current_height), self.nodes, DEBUG_MODE)
 
+        # crete raw txs useful for testing consensus rules after fork-point
+        sc_cr = [{
+            "version": 0,
+            "epoch_length": EPOCH_LENGTH,
+            "amount": creation_amount,
+            "address": "dada",
+            "wCertVk": mc_test.generate_params("sc3"),
+            "constant": generate_random_field_element_hex()
+        }]
+        raw_tx = self.nodes[1].createrawtransaction([], {}, [], sc_cr, [])
+        funded_tx = self.nodes[1].fundrawtransaction(raw_tx)
+        signed_sc_cr_tx = self.nodes[1].signrawtransaction(funded_tx['hex'])
+
+        sc_ft = [{
+            "address": "abc",
+            "amount": fwt_amount,
+            "scid": scid,
+            "mcReturnAddress": mc_return_address
+        }]
+        raw_tx = self.nodes[1].createrawtransaction([], {}, [], [], sc_ft)
+        funded_tx = self.nodes[1].fundrawtransaction(raw_tx)
+        signed_sc_ft_tx = self.nodes[1].signrawtransaction(funded_tx['hex'])
+
         mark_logs("---------------- Split the network --------------", self.nodes, DEBUG_MODE)
         self.split_network(0)
 
@@ -160,30 +175,6 @@ class ScCrFwtStop(BitcoinTestFramework):
         assert_false(creating_tx in self.nodes[0].getrawmempool())
         assert_false(creating_tx in self.nodes[1].getrawmempool())
 
-        mark_logs("Node 0 tries to create a new SC, expecting error", self.nodes, DEBUG_MODE)
-        try:
-            self.nodes[0].sc_create(cmd_input)
-        except JSONRPCException as e:
-            error_string = e.error['message']
-            print(error_string)
-            expected_substring = "16: bad-tx-sc-creation-fwdt-stopped"
-            assert expected_substring in error_string, f"'{error_string}' does not contain '{expected_substring}'"
-        else:
-            raise RuntimeError("An exception was expected")
-
-        mark_logs("Node 0 tries to send " + str(fwt_amount) + " coins to SC1, expecting error", self.nodes, DEBUG_MODE)
-        try:
-            self.nodes[0].sc_send(ft_cmd_input)
-        except JSONRPCException as e:
-            error_string = e.error['message']
-            print(error_string)
-            expected_substring = "16: bad-tx-sc-creation-fwdt-stopped"
-            assert expected_substring in error_string, f"'{error_string}' does not contain '{expected_substring}'"
-        else:
-            raise RuntimeError("An exception was expected")
-
-        self.sync_all()
-
         mark_logs("Node 1 tries to create a new SC, expecting error", self.nodes, DEBUG_MODE)
         try:
             self.nodes[1].sc_create(cmd_input)
@@ -208,7 +199,7 @@ class ScCrFwtStop(BitcoinTestFramework):
 
         self.sync_all()
 
-        mark_logs("Node 1 tries to create a new SC via a raw tx, expecting error", self.nodes, DEBUG_MODE)
+        mark_logs("Node 1 tries to create a new SC via a RPC raw tx, expecting error", self.nodes, DEBUG_MODE)
         sc_cr = [{
             "version": 0,
             "epoch_length": EPOCH_LENGTH,
@@ -228,7 +219,7 @@ class ScCrFwtStop(BitcoinTestFramework):
         else:
             raise RuntimeError("An exception was expected")
 
-        mark_logs("Node 1 tries to send " + str(fwt_amount) + " coins to SC1 via raw tx, expecting error", self.nodes,
+        mark_logs("Node 1 tries to send " + str(fwt_amount) + " coins to SC1 via RPC raw tx, expecting error", self.nodes,
                   DEBUG_MODE)
         sc_ft = [{
             "address": "abc",
@@ -248,6 +239,29 @@ class ScCrFwtStop(BitcoinTestFramework):
             raise RuntimeError("An exception was expected")
 
         self.sync_all()
+
+        mark_logs("Node 1 tries to create a new SC via a sendraw tx, expecting error", self.nodes, DEBUG_MODE)
+        try:
+            self.nodes[1].sendrawtransaction(signed_sc_ft_tx['hex'])
+        except JSONRPCException as e:
+            error_string = e.error['message']
+            print(error_string)
+            expected_substring = "16: bad-tx-sc-creation-fwdt-stopped"
+            assert expected_substring in error_string, f"'{error_string}' does not contain '{expected_substring}'"
+        else:
+            raise RuntimeError("An exception was expected")
+
+        mark_logs("Node 1 tries to send " + str(fwt_amount) + " coins to SC1 via sendraw tx, expecting error", self.nodes,
+                  DEBUG_MODE)
+        try:
+            self.nodes[1].sendrawtransaction(signed_sc_cr_tx['hex'])
+        except JSONRPCException as e:
+            error_string = e.error['message']
+            print(error_string)
+            expected_substring = "16: bad-tx-sc-creation-fwdt-stopped"
+            assert expected_substring in error_string, f"'{error_string}' does not contain '{expected_substring}'"
+        else:
+            raise RuntimeError("An exception was expected")
 
 
 
