@@ -162,68 +162,68 @@ os: linux
       - DOCKER_IS_DEB=true
       - TEST_CMD="./qa/zen/test-fetch-params.sh"
 
-
-  - &amd64_osx_xcode14_2_unit-tests
-    env:
-      - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="btest gtest util-test secp256k1 libsnark univalue"
-      - MAKEFLAGS="--disable-libs --legacy-cpu"
-  # TODO figure out why the excluded tests are failing on MacOS in Travis when we migrate to OSX 10.14 after 10.13 EOL
-  - &amd64_osx_xcode14_2_rpc-tests_1
-    env:
-      - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:1 --rpc-macrebalance"
-      - MAKEFLAGS="--disable-libs --legacy-cpu"
-  - &amd64_osx_xcode14_2_rpc-tests_2
-    env:
-      - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:2 --rpc-macrebalance"
-      - MAKEFLAGS="--disable-libs --legacy-cpu"
-  - &amd64_osx_xcode14_2_rpc-tests_3
-    env:
-      - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:3 --rpc-macrebalance"
-      - MAKEFLAGS="--disable-libs --legacy-cpu"
-  - &amd64_osx_xcode14_2_rpc-tests_4
-    env:
-      - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:4 --rpc-macrebalance"
-      - MAKEFLAGS="--disable-libs --legacy-cpu"
-  - &amd64_osx_xcode14_2_rpc-tests_5
-    env:
-      - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:5 --rpc-macrebalance"
-      - MAKEFLAGS="--disable-libs --legacy-cpu"
-  - &amd64_osx_xcode14_2_rpc-tests_6
-    env:
-      - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:6 --rpc-macrebalance"
-      - MAKEFLAGS="--disable-libs --legacy-cpu"
-  - &amd64_osx_xcode14_2_rpc-tests_7
-    env:
-      - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:7 --rpc-macrebalance"
-      - MAKEFLAGS="--disable-libs --legacy-cpu"
-  - &amd64_osx_xcode14_2_rpc-tests_8
-    env:
-      - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:8 --rpc-macrebalance"
-      - MAKEFLAGS="--disable-libs --legacy-cpu"
-  - &amd64_osx_xcode14_2_rpc-tests_9
-    env:
-      - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:9 --rpc-macrebalance"
-      - MAKEFLAGS="--disable-libs --legacy-cpu"
-  - &amd64_osx_xcode14_2_rpc-tests_10
-    env:
-      - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:10 --rpc-macrebalance"
-      - MAKEFLAGS="--disable-libs --legacy-cpu"
-  - &amd64_osx_xcode14_2_rpc-tests_11
-    env:
-      - TEST_CMD="./qa/zcash/full_test_suite.py"
-      - TEST_ARGS="rpc --rpc-runonly=wallet_mergetoaddress_2.py"
-      - MAKEFLAGS="--disable-libs --legacy-cpu"
+## Travis CI stopped support for macOS starting March 31st, 2025: https://docs.travis-ci.com/user/reference/osx/
+#  - &amd64_osx_xcode14_2_unit-tests
+#    env:
+#      - TEST_CMD="./qa/zcash/full_test_suite.py"
+#      - TEST_ARGS="btest gtest util-test secp256k1 libsnark univalue"
+#      - MAKEFLAGS="--disable-libs --legacy-cpu"
+#  # TODO figure out why the excluded tests are failing on MacOS in Travis when we migrate to OSX 10.14 after 10.13 EOL
+#  - &amd64_osx_xcode14_2_rpc-tests_1
+#    env:
+#      - TEST_CMD="./qa/zcash/full_test_suite.py"
+#      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:1 --rpc-macrebalance"
+#      - MAKEFLAGS="--disable-libs --legacy-cpu"
+#  - &amd64_osx_xcode14_2_rpc-tests_2
+#    env:
+#      - TEST_CMD="./qa/zcash/full_test_suite.py"
+#      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:2 --rpc-macrebalance"
+#      - MAKEFLAGS="--disable-libs --legacy-cpu"
+#  - &amd64_osx_xcode14_2_rpc-tests_3
+#    env:
+#      - TEST_CMD="./qa/zcash/full_test_suite.py"
+#      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:3 --rpc-macrebalance"
+#      - MAKEFLAGS="--disable-libs --legacy-cpu"
+#  - &amd64_osx_xcode14_2_rpc-tests_4
+#    env:
+#      - TEST_CMD="./qa/zcash/full_test_suite.py"
+#      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:4 --rpc-macrebalance"
+#      - MAKEFLAGS="--disable-libs --legacy-cpu"
+#  - &amd64_osx_xcode14_2_rpc-tests_5
+#    env:
+#      - TEST_CMD="./qa/zcash/full_test_suite.py"
+#      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:5 --rpc-macrebalance"
+#      - MAKEFLAGS="--disable-libs --legacy-cpu"
+#  - &amd64_osx_xcode14_2_rpc-tests_6
+#    env:
+#      - TEST_CMD="./qa/zcash/full_test_suite.py"
+#      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:6 --rpc-macrebalance"
+#      - MAKEFLAGS="--disable-libs --legacy-cpu"
+#  - &amd64_osx_xcode14_2_rpc-tests_7
+#    env:
+#      - TEST_CMD="./qa/zcash/full_test_suite.py"
+#      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:7 --rpc-macrebalance"
+#      - MAKEFLAGS="--disable-libs --legacy-cpu"
+#  - &amd64_osx_xcode14_2_rpc-tests_8
+#    env:
+#      - TEST_CMD="./qa/zcash/full_test_suite.py"
+#      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:8 --rpc-macrebalance"
+#      - MAKEFLAGS="--disable-libs --legacy-cpu"
+#  - &amd64_osx_xcode14_2_rpc-tests_9
+#    env:
+#      - TEST_CMD="./qa/zcash/full_test_suite.py"
+#      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:9 --rpc-macrebalance"
+#      - MAKEFLAGS="--disable-libs --legacy-cpu"
+#  - &amd64_osx_xcode14_2_rpc-tests_10
+#    env:
+#      - TEST_CMD="./qa/zcash/full_test_suite.py"
+#      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py,wallet_mergetoaddress_2.py --rpc-split=10:10 --rpc-macrebalance"
+#      - MAKEFLAGS="--disable-libs --legacy-cpu"
+#  - &amd64_osx_xcode14_2_rpc-tests_11
+#    env:
+#      - TEST_CMD="./qa/zcash/full_test_suite.py"
+#      - TEST_ARGS="rpc --rpc-runonly=wallet_mergetoaddress_2.py"
+#      - MAKEFLAGS="--disable-libs --legacy-cpu"
 
 .com.github.horizenofficial.zen.job-definitions:
   - &prepare_docker_amd64
@@ -272,17 +272,18 @@ os: linux
       - bash -c "RENAME_FOLDER='true' RENAME_SUFFIX='_clean' ${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/get_archive.sh ${B2_DL_DECOMPRESS_FOLDER} ${B2_DL_FILENAME}"
       - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/travis_stay_alive.sh"
       - bash -c '${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/test/run_test.sh "${TEST_CMD}" "${TEST_ARGS}"'
-  - &test_osx_xcode14_2
-    if: NOT env(SKIP_TESTS) AND NOT env(SKIP_OSX) OR tag IS present # Never skip MacOS when running the CI for a tag
-    os: osx
-    osx_image: xcode14.2
-    cache:
-      directories:
-        - "$HOME/ZcashParams"
-    script:
-      - bash -c "RENAME_FOLDER='true' RENAME_SUFFIX='_clean' ${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/get_archive.sh ${B2_DL_DECOMPRESS_FOLDER} ${B2_DL_FILENAME}"
-      - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/travis_stay_alive.sh"
-      - bash -c '${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/test/run_test.sh "${TEST_CMD}" "${TEST_ARGS}"'
+## Travis CI stopped support for macOS starting March 31st, 2025: https://docs.travis-ci.com/user/reference/osx/
+#  - &test_osx_xcode14_2
+#    if: NOT env(SKIP_TESTS) AND NOT env(SKIP_OSX) OR tag IS present # Never skip MacOS when running the CI for a tag
+#    os: osx
+#    osx_image: xcode14.2
+#    cache:
+#      directories:
+#        - "$HOME/ZcashParams"
+#    script:
+#      - bash -c "RENAME_FOLDER='true' RENAME_SUFFIX='_clean' ${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/get_archive.sh ${B2_DL_DECOMPRESS_FOLDER} ${B2_DL_FILENAME}"
+#      - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/travis_stay_alive.sh"
+#      - bash -c '${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/test/run_test.sh "${TEST_CMD}" "${TEST_ARGS}"'
   - &finalize_docker_amd64_x-large
     os: linux
     dist: focal
@@ -310,14 +311,15 @@ jobs:
       <<: *prepare_docker_amd64
       <<: *docker_amd64_windows_ubuntu_focal
 
-    # check that needed build tools are available
-    - stage: Prepare
-      if: NOT env(SKIP_OSX) OR tag IS present
-      os: osx
-      osx_image: xcode14.2
-      cache: false
-      script:
-        - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/prepare/check_apple_deps.sh"
+## Travis CI stopped support for macOS starting March 31st, 2025: https://docs.travis-ci.com/user/reference/osx/
+#    # check that needed build tools are available
+#    - stage: Prepare
+#      if: NOT env(SKIP_OSX) OR tag IS present
+#      os: osx
+#      osx_image: xcode14.2
+#      cache: false
+#      script:
+#        - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/prepare/check_apple_deps.sh"
 
     # Docker based builds
     - stage: Build
@@ -338,25 +340,26 @@ jobs:
     - stage: Build
       <<: *build_docker_amd64_x-large
       <<: *docker_amd64_windows_ubuntu_focal_legacy_cpu
-    # osx build
-    - stage: Build
-      if: NOT env(SKIP_OSX) OR tag IS present
-      os: osx
-      osx_image: xcode14.2
-      env:
-        - MAKEFLAGS="--disable-libs --legacy-cpu"
-      cache:
-        directories:
-          - "$HOME/.ccache"
-          - depends/built
-          - depends/sources
-          - depends/work
-          - depends/x86_64*
-      script:
-        - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/travis_stay_alive.sh"
-        - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/prepare/check_apple_deps.sh"
-        - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/build/build_${TRAVIS_CPU_ARCH}_${TRAVIS_OS_NAME}_${TRAVIS_OSX_IMAGE}.sh"
-        - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/push_archive.sh ${B2_UL_COMPRESS_FOLDER} ${B2_UL_FILENAME}"
+## Travis CI stopped support for macOS starting March 31st, 2025: https://docs.travis-ci.com/user/reference/osx/
+#    # osx build
+#    - stage: Build
+#      if: NOT env(SKIP_OSX) OR tag IS present
+#      os: osx
+#      osx_image: xcode14.2
+#      env:
+#        - MAKEFLAGS="--disable-libs --legacy-cpu"
+#      cache:
+#        directories:
+#          - "$HOME/.ccache"
+#          - depends/built
+#          - depends/sources
+#          - depends/work
+#          - depends/x86_64*
+#      script:
+#        - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/travis_stay_alive.sh"
+#        - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/prepare/check_apple_deps.sh"
+#        - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/build/build_${TRAVIS_CPU_ARCH}_${TRAVIS_OS_NAME}_${TRAVIS_OSX_IMAGE}.sh"
+#        - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/push_archive.sh ${B2_UL_COMPRESS_FOLDER} ${B2_UL_FILENAME}"
     # Docker based tests
     - stage: Test
       <<: *test_docker_amd64_x-large
@@ -400,43 +403,44 @@ jobs:
     - stage: Test
       <<: *test_docker_amd64
       <<: *docker_amd64_linux_ubuntu_focal_test-fetch-params
-    # osx based tests
-    - stage: Test
-      <<: *test_osx_xcode14_2
-      <<: *amd64_osx_xcode14_2_unit-tests
-    - stage: Test
-      <<: *test_osx_xcode14_2
-      <<: *amd64_osx_xcode14_2_rpc-tests_1
-    - stage: Test
-      <<: *test_osx_xcode14_2
-      <<: *amd64_osx_xcode14_2_rpc-tests_2
-    - stage: Test
-      <<: *test_osx_xcode14_2
-      <<: *amd64_osx_xcode14_2_rpc-tests_3
-    - stage: Test
-      <<: *test_osx_xcode14_2
-      <<: *amd64_osx_xcode14_2_rpc-tests_4
-    - stage: Test
-      <<: *test_osx_xcode14_2
-      <<: *amd64_osx_xcode14_2_rpc-tests_5
-    - stage: Test
-      <<: *test_osx_xcode14_2
-      <<: *amd64_osx_xcode14_2_rpc-tests_6
-    - stage: Test
-      <<: *test_osx_xcode14_2
-      <<: *amd64_osx_xcode14_2_rpc-tests_7
-    - stage: Test
-      <<: *test_osx_xcode14_2
-      <<: *amd64_osx_xcode14_2_rpc-tests_8
-    - stage: Test
-      <<: *test_osx_xcode14_2
-      <<: *amd64_osx_xcode14_2_rpc-tests_9
-    - stage: Test
-      <<: *test_osx_xcode14_2
-      <<: *amd64_osx_xcode14_2_rpc-tests_10
-    - stage: Test
-      <<: *test_osx_xcode14_2
-      <<: *amd64_osx_xcode14_2_rpc-tests_11
+## Travis CI stopped support for macOS starting March 31st, 2025: https://docs.travis-ci.com/user/reference/osx/
+#    # osx based tests
+#    - stage: Test
+#      <<: *test_osx_xcode14_2
+#      <<: *amd64_osx_xcode14_2_unit-tests
+#    - stage: Test
+#      <<: *test_osx_xcode14_2
+#      <<: *amd64_osx_xcode14_2_rpc-tests_1
+#    - stage: Test
+#      <<: *test_osx_xcode14_2
+#      <<: *amd64_osx_xcode14_2_rpc-tests_2
+#    - stage: Test
+#      <<: *test_osx_xcode14_2
+#      <<: *amd64_osx_xcode14_2_rpc-tests_3
+#    - stage: Test
+#      <<: *test_osx_xcode14_2
+#      <<: *amd64_osx_xcode14_2_rpc-tests_4
+#    - stage: Test
+#      <<: *test_osx_xcode14_2
+#      <<: *amd64_osx_xcode14_2_rpc-tests_5
+#    - stage: Test
+#      <<: *test_osx_xcode14_2
+#      <<: *amd64_osx_xcode14_2_rpc-tests_6
+#    - stage: Test
+#      <<: *test_osx_xcode14_2
+#      <<: *amd64_osx_xcode14_2_rpc-tests_7
+#    - stage: Test
+#      <<: *test_osx_xcode14_2
+#      <<: *amd64_osx_xcode14_2_rpc-tests_8
+#    - stage: Test
+#      <<: *test_osx_xcode14_2
+#      <<: *amd64_osx_xcode14_2_rpc-tests_9
+#    - stage: Test
+#      <<: *test_osx_xcode14_2
+#      <<: *amd64_osx_xcode14_2_rpc-tests_10
+#    - stage: Test
+#      <<: *test_osx_xcode14_2
+#      <<: *amd64_osx_xcode14_2_rpc-tests_11
     - stage: Finalize_coverage
       <<: *finalize_docker_amd64_x-large
       <<: *docker_amd64_linux_ubuntu_jammy
