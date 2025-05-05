@@ -13,9 +13,9 @@ from test_framework.util import initialize_chain_clean, \
 
 DEBUG_MODE = 1
 NUMB_OF_NODES = 3
-EPOCH_LENGTH = 5
-OPT_MAX_BLOCK_HEIGHT1 = 450
-OPT_MAX_BLOCK_HEIGHT2 = 440
+START_TEST_HEIGHT = 100
+OPT_MAX_BLOCK_HEIGHT1 = 120
+OPT_MAX_BLOCK_HEIGHT2 = 110
 
 
 def local_sync_blocks(node, counts, wait=1, p=False, limit_loop=0):
@@ -40,7 +40,6 @@ class MaxHeightForAlign(BitcoinTestFramework):
 
     def sync_all_but_node0(self):
         sync_blocks(self.nodes[1:])
-        sync_blocks(self.nodes[0:1])
         sync_mempools(self.nodes)
 
     def setup_chain(self, split=False):
@@ -77,11 +76,12 @@ class MaxHeightForAlign(BitcoinTestFramework):
         self.nodes[0].generate(1)
         self.sync_all()
 
-        mark_logs("Node 2 generates {} block".format(ForkHeights['MINIMAL_SC']), self.nodes, DEBUG_MODE)
-        self.nodes[2].generate(ForkHeights['MINIMAL_SC'])
+
+        mark_logs("Node 2 generates {} block".format(START_TEST_HEIGHT), self.nodes, DEBUG_MODE)
+        self.nodes[2].generate(START_TEST_HEIGHT)
         self.sync_all_but_node0()
 
-        mark_logs("Node 1 generates {} blocks".format(49), self.nodes, DEBUG_MODE)
+        mark_logs("Node 2 generates {} blocks".format(49), self.nodes, DEBUG_MODE)
         self.nodes[2].generate(49)
         self.sync_all_but_node0()
         time.sleep(3)
@@ -100,7 +100,7 @@ class MaxHeightForAlign(BitcoinTestFramework):
 
         num_of_conn = len(self.nodes[0].getpeerinfo())
         mark_logs("Node 0 has still {} connections to its peer".format(num_of_conn), self.nodes, DEBUG_MODE)
-        assert_equal(num_of_conn, 2, "Unexpected num of conn to node 1")
+        assert_equal(num_of_conn, 2, "Unexpected num of conn")
 
         mark_logs("...stopping and restarting nodes", self.nodes, DEBUG_MODE)
         stop_nodes(self.nodes)
@@ -140,8 +140,12 @@ class MaxHeightForAlign(BitcoinTestFramework):
         assert_equal(OPT_MAX_BLOCK_HEIGHT2, current_height_3)
 
         # check we can propagate tx to all mempools even if block heights are different
-        t_addr = self.nodes[1].getnewaddress()
-        self.nodes[0].sendtoaddress(t_addr, 1.0)
+        utx = self.nodes[0].listunspent()
+        inputs  = [ {'txid' : utx[0]['txid'], 'vout' : utx[0]['vout']}]
+        outputs = { self.nodes[1].getnewaddress() : utx[0]['amount'] }
+        rawtx   = self.nodes[0].createrawtransaction(inputs, outputs)
+        rawtx   = self.nodes[0].signrawtransaction(rawtx)
+        self.nodes[0].sendrawtransaction(rawtx['hex'])
         sync_mempools(self.nodes)
 
         mpsz = len(self.nodes[0].getrawmempool())
