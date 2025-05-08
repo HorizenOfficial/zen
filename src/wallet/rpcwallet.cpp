@@ -735,6 +735,10 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
+    if (ForkManager::getInstance().areTransactionsStopped(chainActive.Height() + 1)) {
+        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("transaction are stopped"));
+    }
+
     CBitcoinAddress address(params[0].get_str());
     if (!address.IsValid())
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
@@ -809,9 +813,10 @@ UniValue sc_create(const UniValue& params, bool fHelp)
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
-    if (ForkManager::getInstance().isScCreationAndFwdtStopped(chainActive.Height() + 1)) {
-        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("sc creation stop"));
+    if (ForkManager::getInstance().areTransactionsStopped(chainActive.Height() + 1)) {
+        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("transaction are stopped"));
     }
+
 
     // valid input keywords
     static const std::set<std::string> validKeyArgs =
@@ -1195,8 +1200,8 @@ UniValue sc_send(const UniValue& params, bool fHelp)
     LOCK2(cs_main, pwalletMain->cs_wallet);
     RPCTypeCheck(params, boost::assign::list_of (UniValue::VARR)(UniValue::VOBJ));
 
-    if (ForkManager::getInstance().isScCreationAndFwdtStopped(chainActive.Height() + 1)) {
-        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("sc fwdt stop"));
+    if (ForkManager::getInstance().areTransactionsStopped(chainActive.Height() + 1)) {
+        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("transaction are stopped"));
     }
 
     // valid keywords in optional params
@@ -2165,6 +2170,10 @@ UniValue sendfrom(const UniValue& params, bool fHelp)
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
+    if (ForkManager::getInstance().areTransactionsStopped(chainActive.Height() + 1)) {
+        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("transaction are stopped"));
+    }
+
     string strAccount = AccountFromValue(params[0]);
     CBitcoinAddress address(params[1].get_str());
     if (!address.IsValid())
@@ -2241,6 +2250,10 @@ UniValue sendmany(const UniValue& params, bool fHelp)
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    if (ForkManager::getInstance().areTransactionsStopped(chainActive.Height() + 1)) {
+        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("transaction are stopped"));
+    }
 
     string strAccount = AccountFromValue(params[0]);
     UniValue sendTo = params[1].get_obj();

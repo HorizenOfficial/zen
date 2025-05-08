@@ -1050,6 +1050,14 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
     if (!CheckBlockAtHeight(state, nHeight, dosLevel))
         return false;
 
+    // after this fork point we do not have any transaction flowing
+    if (!IsCoinBase() && ForkManager::getInstance().areTransactionsStopped(nHeight)) {
+        LogPrintf("%s():%d - rejecting (ver=%d) transaction %s at block height %d\n",
+            __func__, __LINE__, nVersion, GetHash().ToString(), nHeight);
+        return state.DoS(dosLevel, error("ContextualCheck(): tx are illegal at this height"),
+            CValidationState::Code::INVALID, "bad-txs-stopped");
+    }
+
     //Valid txs are:
     // at any height
     // at height < groth_fork, v>=1 txs with PHGR proofs
@@ -1082,14 +1090,6 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
             if(!GetVjoinsplit().empty()) {
                 return state.DoS(dosLevel, error("ContextualCheck(): transparent or sc tx but vjoinsplit not empty"),
                                  CValidationState::Code::INVALID, "bad-txns-transparent-jsnotempty");
-            }
-
-            // check that after this fork point we do not have any new sidechain creation or forward transfer to existing ones.
-            if (ForkManager::getInstance().isScCreationAndFwdtStopped(nHeight)) {
-                if (!vsc_ccout.empty() || !vft_ccout.empty()) {
-                    return state.DoS(dosLevel, error("ContextualCheck(): sc tx with sc creation output or fwdt output, but they are illegal at this height"),
-                                     CValidationState::Code::INVALID, "bad-tx-sc-creation-fwdt-stopped");
-                }
             }
 
             //enforce that any eventual SC creation output is using a valid sidechain version for the current active fork

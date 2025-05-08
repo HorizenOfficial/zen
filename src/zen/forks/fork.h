@@ -154,7 +154,7 @@ public:
     /**
      * @brief returns true if the creation of new sidechains or forward transfers to existing sidechains has been stopped
      */
-    virtual bool isScCreationAndFwdtStopped() const = 0;
+    virtual bool areTransactionsStopped() const = 0;
 
 protected:
     

@@ -12,12 +12,11 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.test_framework import ForkHeights
 from test_framework.util import initialize_chain_clean, \
     sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, assert_true, assert_false, start_node, \
-    stop_nodes, wait_bitcoinds
+    assert_equal, swap_bytes, get_epoch_data
 
 DEBUG_MODE = 1
 NUMB_OF_NODES = 2
 EPOCH_LENGTH = 5
-
 
 class ScCrFwtStop(BitcoinTestFramework):
 
@@ -39,10 +38,14 @@ class ScCrFwtStop(BitcoinTestFramework):
         self.is_network_split = split
         self.sync_all()
 
+
+
+
+
     def run_test(self):
+
         """
-        Test that after reaching the proper fork height, it is not possible to create a new sidechain or to do a fwd
-        transfer to an existing one. More in details:
+        Test that after reaching the proper fork height, it is not possible to send any transaction. More in details:
         - Reach a chain height 1 block before the fork point
         - Create a new SC so that the tx goes into the mempool
         - Split the network:
@@ -246,7 +249,7 @@ class ScCrFwtStop(BitcoinTestFramework):
         except JSONRPCException as e:
             error_string = e.error['message']
             print(error_string)
-            expected_substring = "16: bad-tx-sc-creation-fwdt-stopped"
+            expected_substring = "16: bad-txs-stopped"
             assert expected_substring in error_string, f"'{error_string}' does not contain '{expected_substring}'"
         else:
             raise RuntimeError("An exception was expected")
@@ -258,12 +261,47 @@ class ScCrFwtStop(BitcoinTestFramework):
         except JSONRPCException as e:
             error_string = e.error['message']
             print(error_string)
-            expected_substring = "16: bad-tx-sc-creation-fwdt-stopped"
+            expected_substring = "16: bad-txs-stopped"
             assert expected_substring in error_string, f"'{error_string}' does not contain '{expected_substring}'"
         else:
             raise RuntimeError("An exception was expected")
 
+        # check we can not even send normal tx
+        utx = self.nodes[0].listunspent()
+        inputs  = [ {'txid' : utx[0]['txid'], 'vout' : utx[0]['vout']}]
+        outputs = { self.nodes[1].getnewaddress() : utx[0]['amount'] }
+        rawtx   = self.nodes[0].createrawtransaction(inputs, outputs)
+        rawtx   = self.nodes[0].signrawtransaction(rawtx)
+        try:
+            self.nodes[0].sendrawtransaction(rawtx['hex'])
+        except JSONRPCException as e:
+            error_string = e.error['message']
+            print(error_string)
+            expected_substring = "16: bad-txs-stopped"
+            assert expected_substring in error_string, f"'{error_string}' does not contain '{expected_substring}'"
+        else:
+            raise RuntimeError("An exception was expected")
 
+        outputs = {self.nodes[1].getnewaddress():1.1,self.nodes[1].getnewaddress():1.2,self.nodes[1].getnewaddress():0.1,self.nodes[1].getnewaddress():1.3,self.nodes[1].getnewaddress():0.2,self.nodes[1].getnewaddress():0.3}
+        try:
+            self.nodes[0].sendmany("", outputs)
+        except JSONRPCException as e:
+            error_string = e.error['message']
+            print(error_string)
+            expected_substring = "This method is disabled"
+            assert expected_substring in error_string, f"'{error_string}' does not contain '{expected_substring}'"
+        else:
+            raise RuntimeError("An exception was expected")
+
+        try:
+            self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1.1)
+        except JSONRPCException as e:
+            error_string = e.error['message']
+            print(error_string)
+            expected_substring = "This method is disabled"
+            assert expected_substring in error_string, f"'{error_string}' does not contain '{expected_substring}'"
+        else:
+            raise RuntimeError("An exception was expected")
 
 
 if __name__ == '__main__':
