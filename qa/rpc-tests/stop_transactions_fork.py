@@ -11,14 +11,14 @@ from test_framework.mc_test.mc_test import *
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.test_framework import ForkHeights
 from test_framework.util import initialize_chain_clean, \
-    sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, assert_true, assert_false, start_node, \
-    assert_equal, swap_bytes, get_epoch_data
+    sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, assert_true, assert_false, start_node, assert_equal
 
 DEBUG_MODE = 1
-NUMB_OF_NODES = 2
+NUMB_OF_NODES = 3
 EPOCH_LENGTH = 5
 
-class ScCrFwtStop(BitcoinTestFramework):
+
+class StopTransactions(BitcoinTestFramework):
 
     def setup_chain(self, split=False):
         print("Initializing test directory " + self.options.tmpdir)
@@ -28,7 +28,8 @@ class ScCrFwtStop(BitcoinTestFramework):
         self.nodes = []
 
         for i in range(0, NUMB_OF_NODES):
-            self.nodes += [start_node(i, self.options.tmpdir, extra_args=['-debug=py', '-debug=sc', '-logtimemicros=1'])]
+            self.nodes += [
+                start_node(i, self.options.tmpdir, extra_args=['-debug=py', '-debug=sc', '-logtimemicros=1'])]
 
         for k in range(0, NUMB_OF_NODES - 1):
             connect_nodes_bi(self.nodes, k, k + 1)
@@ -37,10 +38,6 @@ class ScCrFwtStop(BitcoinTestFramework):
         sync_mempools(self.nodes[1:NUMB_OF_NODES])
         self.is_network_split = split
         self.sync_all()
-
-
-
-
 
     def run_test(self):
 
@@ -56,6 +53,7 @@ class ScCrFwtStop(BitcoinTestFramework):
              evicted since the fork point has been reached
            . The SC info is not retrievable anymore and no SC creation tx can be found in the mempool
         - Try creating a new SC and try to fwt to existing SC: it is not possible anymore after the fork point
+        - Try other ways of sending funds via RPC commands and verify that they fail
         """
 
         mark_logs("Node 1 generates 1 block", self.nodes, DEBUG_MODE)
@@ -130,6 +128,12 @@ class ScCrFwtStop(BitcoinTestFramework):
         raw_tx = self.nodes[1].createrawtransaction([], {}, [], [], sc_ft)
         funded_tx = self.nodes[1].fundrawtransaction(raw_tx)
         signed_sc_ft_tx = self.nodes[1].signrawtransaction(funded_tx['hex'])
+
+        utx = self.nodes[0].listunspent()
+        inputs = [{'txid': utx[0]['txid'], 'vout': utx[0]['vout']}]
+        outputs = {self.nodes[1].getnewaddress(): utx[0]['amount']}
+        rawtx = self.nodes[0].createrawtransaction(inputs, outputs)
+        rawtx = self.nodes[0].signrawtransaction(rawtx)
 
         mark_logs("---------------- Split the network --------------", self.nodes, DEBUG_MODE)
         self.split_network(0)
@@ -222,7 +226,8 @@ class ScCrFwtStop(BitcoinTestFramework):
         else:
             raise RuntimeError("An exception was expected")
 
-        mark_logs("Node 1 tries to send " + str(fwt_amount) + " coins to SC1 via RPC raw tx, expecting error", self.nodes,
+        mark_logs("Node 1 tries to send " + str(fwt_amount) + " coins to SC1 via RPC raw tx, expecting error",
+                  self.nodes,
                   DEBUG_MODE)
         sc_ft = [{
             "address": "abc",
@@ -254,7 +259,8 @@ class ScCrFwtStop(BitcoinTestFramework):
         else:
             raise RuntimeError("An exception was expected")
 
-        mark_logs("Node 1 tries to send " + str(fwt_amount) + " coins to SC1 via sendraw tx, expecting error", self.nodes,
+        mark_logs("Node 1 tries to send " + str(fwt_amount) + " coins to SC1 via sendraw tx, expecting error",
+                  self.nodes,
                   DEBUG_MODE)
         try:
             self.nodes[1].sendrawtransaction(signed_sc_cr_tx['hex'])
@@ -267,11 +273,6 @@ class ScCrFwtStop(BitcoinTestFramework):
             raise RuntimeError("An exception was expected")
 
         # check we can not even send normal tx
-        utx = self.nodes[0].listunspent()
-        inputs  = [ {'txid' : utx[0]['txid'], 'vout' : utx[0]['vout']}]
-        outputs = { self.nodes[1].getnewaddress() : utx[0]['amount'] }
-        rawtx   = self.nodes[0].createrawtransaction(inputs, outputs)
-        rawtx   = self.nodes[0].signrawtransaction(rawtx)
         try:
             self.nodes[0].sendrawtransaction(rawtx['hex'])
         except JSONRPCException as e:
@@ -282,7 +283,10 @@ class ScCrFwtStop(BitcoinTestFramework):
         else:
             raise RuntimeError("An exception was expected")
 
-        outputs = {self.nodes[1].getnewaddress():1.1,self.nodes[1].getnewaddress():1.2,self.nodes[1].getnewaddress():0.1,self.nodes[1].getnewaddress():1.3,self.nodes[1].getnewaddress():0.2,self.nodes[1].getnewaddress():0.3}
+        # test sendmany() cmd
+        outputs = {self.nodes[1].getnewaddress(): 1.1, self.nodes[1].getnewaddress(): 1.2,
+                   self.nodes[1].getnewaddress(): 0.1, self.nodes[1].getnewaddress(): 1.3,
+                   self.nodes[1].getnewaddress(): 0.2, self.nodes[1].getnewaddress(): 0.3}
         try:
             self.nodes[0].sendmany("", outputs)
         except JSONRPCException as e:
@@ -293,6 +297,7 @@ class ScCrFwtStop(BitcoinTestFramework):
         else:
             raise RuntimeError("An exception was expected")
 
+        # test sendtoaddress() cmd
         try:
             self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1.1)
         except JSONRPCException as e:
@@ -303,6 +308,22 @@ class ScCrFwtStop(BitcoinTestFramework):
         else:
             raise RuntimeError("An exception was expected")
 
+        # mine some more blocks and verify that a new miner has spendable utxo after 100 blocks (coinbase txes are OK)
+        block_hash = self.nodes[2].generate(1)[-1]
+        self.sync_all()
+
+        block_data = self.nodes[0].getblock(block_hash, 1)
+        tx_data = block_data["tx"]
+        pprint.pprint(tx_data[0])
+        value = self.nodes[0].getrawtransaction(tx_data[0], 1)["vout"][0]['valueZat']
+
+        self.nodes[2].generate(100)
+        self.sync_all()
+        utx_node2 = self.nodes[2].listunspent()
+        pprint.pprint(utx_node2)
+        assert_equal(utx_node2[0]['satoshis'], value)
+
+
 
 if __name__ == '__main__':
-    ScCrFwtStop().main()
+    StopTransactions().main()

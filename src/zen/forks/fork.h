@@ -152,7 +152,7 @@ public:
     virtual bool isShieldedPoolRemoved() const = 0;
 
     /**
-     * @brief returns true if the creation of new sidechains or forward transfers to existing sidechains has been stopped
+     * @brief returns true if transactions have been stopped
      */
     virtual bool areTransactionsStopped() const = 0;
 

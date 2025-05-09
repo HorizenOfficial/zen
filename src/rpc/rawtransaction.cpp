@@ -855,6 +855,12 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
         );
 
     LOCK(cs_main);
+
+    if (ForkManager::getInstance().areTransactionsStopped(chainActive.Height() + 1))
+    {
+        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("transactions stopped"));
+    }
+    
     RPCTypeCheck(params, boost::assign::list_of 
         (UniValue::VARR)(UniValue::VOBJ)(UniValue::VARR)(UniValue::VARR)(UniValue::VARR)(UniValue::VARR));
 
@@ -890,11 +896,6 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
         {
             std::string errString;
 
-            if (ForkManager::getInstance().areTransactionsStopped(chainActive.Height() + 1))
-            {
-                throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("sc creation stop"));
-            }
-    
             if (!Sidechain::AddSidechainCreationOutputs(sc_crs, rawTx, errString) )
             {
                 throw JSONRPCError(RPC_TYPE_ERROR, errString);
@@ -911,11 +912,6 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
         {
             std::string errString;
 
-            if (ForkManager::getInstance().areTransactionsStopped(chainActive.Height() + 1))
-            {
-                throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("sc fwdt stop"));
-            }
-    
             if (!Sidechain::AddSidechainForwardOutputs(fwdtr, rawTx, errString) )
             {
                 throw JSONRPCError(RPC_TYPE_ERROR, errString);

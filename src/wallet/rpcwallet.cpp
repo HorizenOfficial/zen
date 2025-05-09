@@ -736,7 +736,7 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     if (ForkManager::getInstance().areTransactionsStopped(chainActive.Height() + 1)) {
-        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("transaction are stopped"));
+        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("transactions stopped"));
     }
 
     CBitcoinAddress address(params[0].get_str());
@@ -814,7 +814,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     if (ForkManager::getInstance().areTransactionsStopped(chainActive.Height() + 1)) {
-        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("transaction are stopped"));
+        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("transactions stopped"));
     }
 
 
@@ -1201,7 +1201,7 @@ UniValue sc_send(const UniValue& params, bool fHelp)
     RPCTypeCheck(params, boost::assign::list_of (UniValue::VARR)(UniValue::VOBJ));
 
     if (ForkManager::getInstance().areTransactionsStopped(chainActive.Height() + 1)) {
-        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("transaction are stopped"));
+        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("transactions stopped"));
     }
 
     // valid keywords in optional params
@@ -2171,7 +2171,7 @@ UniValue sendfrom(const UniValue& params, bool fHelp)
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     if (ForkManager::getInstance().areTransactionsStopped(chainActive.Height() + 1)) {
-        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("transaction are stopped"));
+        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("transactions stopped"));
     }
 
     string strAccount = AccountFromValue(params[0]);
@@ -2252,7 +2252,7 @@ UniValue sendmany(const UniValue& params, bool fHelp)
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     if (ForkManager::getInstance().areTransactionsStopped(chainActive.Height() + 1)) {
-        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("transaction are stopped"));
+        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("transactions stopped"));
     }
 
     string strAccount = AccountFromValue(params[0]);

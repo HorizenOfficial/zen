@@ -1050,7 +1050,7 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
     if (!CheckBlockAtHeight(state, nHeight, dosLevel))
         return false;
 
-    // after this fork point we do not have any transaction flowing
+    // after this fork point we do not have any transaction flowing but coinbase txes
     if (!IsCoinBase() && ForkManager::getInstance().areTransactionsStopped(nHeight)) {
         LogPrintf("%s():%d - rejecting (ver=%d) transaction %s at block height %d\n",
             __func__, __LINE__, nVersion, GetHash().ToString(), nHeight);
