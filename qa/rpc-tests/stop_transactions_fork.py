@@ -323,6 +323,7 @@ class StopTransactions(BitcoinTestFramework):
         pprint.pprint(utx_node2)
         assert_equal(utx_node2[0]['satoshis'], value)
 
+        #TODO check certificates
 
 
 if __name__ == '__main__':
