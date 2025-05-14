@@ -11,11 +11,15 @@ from test_framework.mc_test.mc_test import *
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.test_framework import ForkHeights
 from test_framework.util import initialize_chain_clean, \
-    sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, assert_true, assert_false, start_node, assert_equal
+    sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, assert_true, assert_false, start_node, assert_equal, \
+    swap_bytes, get_epoch_data
 
 DEBUG_MODE = 1
 NUMB_OF_NODES = 3
-EPOCH_LENGTH = 5
+EPOCH_LENGTH = 0
+SC_VERSION = 2
+SC_PARAMS_NAME = "sc"
+CERT_FEE       = Decimal('0.00015')
 
 
 class StopTransactions(BitcoinTestFramework):
@@ -39,6 +43,36 @@ class StopTransactions(BitcoinTestFramework):
         self.is_network_split = split
         self.sync_all()
 
+    def try_send_certificate(self, node_idx, scid, epoch_number, quality, ref_height, mbtr_fee, ft_fee, bt, expect_failure, failure_reason=None):
+        scid_swapped = str(swap_bytes(scid))
+        _, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[node_idx], 0, True, ref_height)
+        proof = self.mc_test.create_test_proof(SC_PARAMS_NAME,
+                                               scid_swapped,
+                                               epoch_number,
+                                               quality,
+                                               mbtr_fee,
+                                               ft_fee,
+                                               epoch_cum_tree_hash,
+                                               prev_cert_hash,
+                                               constant = self.constant,
+                                               pks      = [bt["address"]],
+                                               amounts  = [bt["amount"]])
+
+        mark_logs("Node {} sends cert of quality {} epoch {} ref {} with bwt of {}, expecting {}".format(node_idx, quality, epoch_number, ref_height, bt["amount"], "failure" if expect_failure else "success"), self.nodes, DEBUG_MODE)
+        try:
+            cert = self.nodes[node_idx].sc_send_certificate(scid, epoch_number, quality,
+                epoch_cum_tree_hash, proof, [bt], ft_fee, mbtr_fee, CERT_FEE)
+            assert(not expect_failure)
+            mark_logs("Sent certificate {}".format(cert), self.nodes, DEBUG_MODE)
+            return cert
+        except JSONRPCException as e:
+            errorString = e.error['message']
+            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            assert(expect_failure)
+            if failure_reason is not None:
+                assert(failure_reason in errorString)
+            return None
+
     def run_test(self):
 
         """
@@ -60,23 +94,24 @@ class StopTransactions(BitcoinTestFramework):
         self.nodes[1].generate(1)
         self.sync_all()
 
-        mark_logs("Node 0 generates {} block".format(ForkHeights['MINIMAL_SC']), self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(ForkHeights['MINIMAL_SC'])
+        mark_logs("Node 0 generates {} block".format(ForkHeights['NON_CEASING_SC']), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(ForkHeights['NON_CEASING_SC'])
         self.sync_all()
 
         # sidechain creation
         # -------------------
         creation_amount = Decimal("1.0")
         # generate wCertVk and constant
-        mc_test = CertTestUtils(self.options.tmpdir, self.options.srcdir)
+        self.mc_test = CertTestUtils(self.options.tmpdir, self.options.srcdir)
+        vk = self.mc_test.generate_params(SC_PARAMS_NAME, keyrot=True)
+        self.constant = generate_random_field_element_hex()
         cmd_input = {
-            "version": 0,
+            "version": SC_VERSION,
             "withdrawalEpochLength": EPOCH_LENGTH,
             "toaddress": "dada",
             "amount": creation_amount,
-            "wCertVk": mc_test.generate_params("sc1"),
-            "constant": generate_random_field_element_hex(),
-            "minconf": 0
+            "wCertVk": vk,
+            "constant": self.constant,
         }
 
         ret = self.nodes[0].sc_create(cmd_input)
@@ -109,10 +144,10 @@ class StopTransactions(BitcoinTestFramework):
         # crete raw txs useful for testing consensus rules after fork-point
         sc_cr = [{
             "version": 0,
-            "epoch_length": EPOCH_LENGTH,
+            "epoch_length": 5,
             "amount": creation_amount,
             "address": "dada",
-            "wCertVk": mc_test.generate_params("sc3"),
+            "wCertVk": self.mc_test.generate_params("sc3"),
             "constant": generate_random_field_element_hex()
         }]
         raw_tx = self.nodes[1].createrawtransaction([], {}, [], sc_cr, [])
@@ -142,10 +177,10 @@ class StopTransactions(BitcoinTestFramework):
         mark_logs("Node 0 creates SC2", self.nodes, DEBUG_MODE)
         cmd_input = {
             "version": 0,
-            "withdrawalEpochLength": EPOCH_LENGTH,
+            "withdrawalEpochLength": 5,
             "toaddress": "dada",
             "amount": creation_amount,
-            "wCertVk": mc_test.generate_params("sc2"),
+            "wCertVk": self.mc_test.generate_params("sc2"),
             "constant": generate_random_field_element_hex()
         }
         ret = self.nodes[0].sc_create(cmd_input)
@@ -212,7 +247,7 @@ class StopTransactions(BitcoinTestFramework):
             "epoch_length": EPOCH_LENGTH,
             "amount": creation_amount,
             "address": "dada",
-            "wCertVk": mc_test.generate_params("sc3"),
+            "wCertVk": self.mc_test.generate_params("sc3"),
             "constant": generate_random_field_element_hex()
         }]
 
