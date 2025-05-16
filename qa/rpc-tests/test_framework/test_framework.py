@@ -30,7 +30,7 @@ ForkHeights = {
     'NON_CEASING_SC':              480,
     'SHIELDED_POOL_DEPRECATION':   990,
     'SHIELDED_POOL_REMOVAL':       1010,
-    'STOP_SC_CR_AND_FWDT':         5020,
+    'STOP_TRANSACTIONS':           5020,
 }
 
 class syncType(Enum):

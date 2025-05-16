@@ -119,9 +119,9 @@ public:
     inline virtual bool isShieldedPoolRemoved() const { return false; };
 
     /**
-     * @brief returns true if the creation of new sidechains or forward transfers to existing sidechains has been stopped
+     * @brief returns true if transactions have been stopped
      */
-    inline virtual bool isScCreationAndFwdtStopped() const { return false; };
+    inline virtual bool areTransactionsStopped() const { return false; };
 };
 
 }

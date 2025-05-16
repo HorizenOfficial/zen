@@ -19,7 +19,7 @@
 #include "forks/fork10_nonceasingsidechainfork.h"
 #include "forks/fork11_shieldedpooldeprecationfork.h"
 #include "forks/fork12_shieldedpoolremovalfork.h"
-#include "forks/fork13_stopsccreationandfwdtfork.h"
+#include "forks/fork13_stoptransactionsfork.h"
 
 namespace zen {
 
@@ -209,8 +209,8 @@ bool ForkManager::isShieldedPoolRemoved(int height) const {
     return getForkAtHeight(height)->isShieldedPoolRemoved();
 }
 
-bool ForkManager::isScCreationAndFwdtStopped(int height) const {
-    return getForkAtHeight(height)->isScCreationAndFwdtStopped();
+bool ForkManager::areTransactionsStopped(int height) const {
+    return getForkAtHeight(height)->areTransactionsStopped();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -236,7 +236,7 @@ ForkManager::ForkManager() {
     registerFork(new NonCeasingSidechainFork());
     registerFork(new ShieldedPoolDeprecationFork());
     registerFork(new ShieldedPoolRemovalFork());
-    registerFork(new StopScCreationAndFwdtFork());
+    registerFork(new StopTransactionsFork());
 }
 
 /**
