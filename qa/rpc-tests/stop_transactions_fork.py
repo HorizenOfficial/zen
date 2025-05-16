@@ -19,9 +19,9 @@ NUMB_OF_NODES = 3
 EPOCH_LENGTH = 0
 SC_VERSION = 2
 SC_PARAMS_NAME = "sc"
-CERT_FEE       = Decimal('0.00015')
-FT_SC_FEE      = Decimal('0')
-MBTR_SC_FEE    = Decimal('0.5')
+CERT_FEE = Decimal('0.0001')
+FT_SC_FEE = Decimal('0')
+MBTR_SC_FEE = Decimal('0')
 
 
 class StopTransactions(BitcoinTestFramework):
@@ -45,34 +45,43 @@ class StopTransactions(BitcoinTestFramework):
         self.is_network_split = split
         self.sync_all()
 
-    def try_send_certificate(self, node_idx, scid, epoch_number, quality, ref_height, mbtr_fee, ft_fee, bt, expect_failure, failure_reason=None):
+    def try_send_certificate(self, node_idx, scid, quality, bt):
         scid_swapped = str(swap_bytes(scid))
+        epoch_number = self.nodes[node_idx].getscinfo(scid)['items'][0]['epoch']
+        ref_height = self.nodes[node_idx].getblockcount() -1
         _, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[node_idx], 0, True, ref_height)
+        if len(bt) == 0:
+            pks = []
+            amounts = []
+            bt_list = []
+        else:
+            pks = [bt["address"]],
+            amounts = [bt["amount"]]
+            bt_list = [bt]
+
         proof = self.mc_test.create_test_proof(SC_PARAMS_NAME,
                                                scid_swapped,
                                                epoch_number,
                                                quality,
-                                               mbtr_fee,
-                                               ft_fee,
+                                               MBTR_SC_FEE,
+                                               FT_SC_FEE,
                                                epoch_cum_tree_hash,
                                                prev_cert_hash,
                                                constant = self.constant,
-                                               pks      = [],
-                                               amounts  = [])
+                                               pks = pks,
+                                               amounts = amounts)
 
-        mark_logs("Node {} sends cert of quality {} epoch {} ref {}, expecting {}".format(node_idx, quality, epoch_number, ref_height, "failure" if expect_failure else "success"), self.nodes, DEBUG_MODE)
+
+        mark_logs("Node {} sends cert of quality {} epoch {} ref {}".format(node_idx, quality, epoch_number, ref_height), self.nodes, DEBUG_MODE)
         try:
             cert = self.nodes[node_idx].sc_send_certificate(scid, epoch_number, quality,
-                epoch_cum_tree_hash, proof, [bt], ft_fee, mbtr_fee, CERT_FEE)
-            assert(not expect_failure)
+                epoch_cum_tree_hash, proof, bt_list, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("Sent certificate {}".format(cert), self.nodes, DEBUG_MODE)
             return cert
         except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
-            assert(expect_failure)
-            if failure_reason is not None:
-                assert(failure_reason in errorString)
+
             return None
 
     def run_test(self):
@@ -131,13 +140,12 @@ class StopTransactions(BitcoinTestFramework):
         self.sync_all()
 
         current_height = self.nodes[0].getblockcount()
-        sc_creation_height = current_height - 1
         mark_logs(("active chain height = %d: testing before sidechain fork" % current_height), self.nodes, DEBUG_MODE)
 
         # reach the height where the next block is the last before the fork point
         delta = ForkHeights['STOP_TRANSACTIONS'] - current_height - 2
 
-        mark_logs("Node 1 generates {} block for reaching a pre-fork point, where no new SC creations "
+        mark_logs("Node 1 generates {} blocks for reaching a pre-fork point, where no new SC creations "
                   "will be allowed as well as fw transfers to existing ones".format(delta), self.nodes, DEBUG_MODE)
         self.nodes[0].generate(delta)
         self.sync_all()
@@ -361,16 +369,13 @@ class StopTransactions(BitcoinTestFramework):
         pprint.pprint(utx_node2)
         assert_equal(utx_node2[0]['satoshis'], value)
 
-        #TODO check certificates
-        sc_info = self.nodes[0].getscinfo(scid)
-        epoch_number = 0
-        ref_quality = 2
-        ref_height = sc_creation_height - 1
-        amount_cert_1 = {}
-        self.try_send_certificate(0, scid, epoch_number, ref_quality, ref_height,
-                                  MBTR_SC_FEE, FT_SC_FEE, amount_cert_1, False)
+        # SC's submitter node sends an empty certificate, verify we still receive it even if we have stopped all normal
+        # transactions.
+        cert_hash = self.try_send_certificate(node_idx=0, scid=scid, quality=2, bt={})
+        self.sync_all()
 
-
+        decoded_cert = self.nodes[1].getrawtransaction(cert_hash, 1)
+        assert_equal(int(decoded_cert['cert']['totalAmount']), 0)
 
 if __name__ == '__main__':
     StopTransactions().main()
