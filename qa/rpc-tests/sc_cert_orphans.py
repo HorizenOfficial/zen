@@ -295,7 +295,7 @@ class sc_cert_orphans(BitcoinTestFramework):
         assert_equal(True, tx2 in self.nodes[0].getrawmempool())
 
         # (10) Node0 invalidates one more block, tx1, cert1, cert2 are restored in mempool but tx2 disappears
-        # tx2 is removed from mempool because it spends cert2 change that is is now unconfirmed
+        # tx2 is removed from mempool because it spends cert2 change that is now unconfirmed
         block_inv = self.nodes[0].getbestblockhash()
         mark_logs("Node 0 invalidates latest block with height = {}".format(self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
         self.nodes[0].invalidateblock(block_inv)
