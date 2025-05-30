@@ -151,6 +151,11 @@ public:
      */
     virtual bool isShieldedPoolRemoved() const = 0;
 
+    /**
+     * @brief returns true if the creation of new sidechains or forward transfers to existing sidechains has been stopped
+     */
+    virtual bool isScCreationAndFwdtStopped() const = 0;
+
 protected:
     
     /**

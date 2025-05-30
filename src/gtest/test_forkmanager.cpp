@@ -5,7 +5,7 @@
 #include <gtest/gtest.h>
 #include "zen/forkmanager.h"
 #include "chainparams.h"
-#include "zen/forks/fork12_shieldedpoolremovalfork.h"
+#include "zen/forks/fork13_stopsccreationandfwdtfork.h"
 
 using namespace zen;
 
@@ -596,10 +596,37 @@ TEST(ForkManager, ShieldedPoolRemovalForkRegtest) {
     EXPECT_EQ(ForkManager::getInstance().isShieldedPoolRemoved(shieldedPoolRemovalForkHeight + 1), true);
 }
 
+TEST(ForkManager, StopScCreationAndFwdtForkMainnet) {
+    SelectParams(CBaseChainParams::MAIN);
+
+    int forkHeight = 100000000;      // TODO set this
+    EXPECT_EQ(ForkManager::getInstance().isScCreationAndFwdtStopped(forkHeight - 1), false);
+    EXPECT_EQ(ForkManager::getInstance().isScCreationAndFwdtStopped(forkHeight), true);
+    EXPECT_EQ(ForkManager::getInstance().isScCreationAndFwdtStopped(forkHeight + 1), true);
+}
+
+TEST(ForkManager, StopScCreationAndFwdtForkTestnet) {
+    SelectParams(CBaseChainParams::TESTNET);
+
+    int forkHeight = 100000000;      // TODO set this
+    EXPECT_EQ(ForkManager::getInstance().isScCreationAndFwdtStopped(forkHeight - 1), false);
+    EXPECT_EQ(ForkManager::getInstance().isScCreationAndFwdtStopped(forkHeight), true);
+    EXPECT_EQ(ForkManager::getInstance().isScCreationAndFwdtStopped(forkHeight + 1), true);
+}
+
+TEST(ForkManager, StopScCreationAndFwdtForkRegtest) {
+    SelectParams(CBaseChainParams::REGTEST);
+
+    int forkHeight = 5020;
+    EXPECT_EQ(ForkManager::getInstance().isScCreationAndFwdtStopped(forkHeight - 1), false);
+    EXPECT_EQ(ForkManager::getInstance().isScCreationAndFwdtStopped(forkHeight), true);
+    EXPECT_EQ(ForkManager::getInstance().isScCreationAndFwdtStopped(forkHeight + 1), true);
+}
+
 TEST(ForkManager, HighestFork) {
     SelectParams(CBaseChainParams::MAIN);
     const Fork* highestFork = ForkManager::getInstance().getHighestFork();
-    EXPECT_EQ(typeid(*highestFork), typeid(ShieldedPoolRemovalFork));
+    EXPECT_EQ(typeid(*highestFork), typeid(StopScCreationAndFwdtFork));
 }
 
 TEST(ForkManager, HighestShieldedPoolTxVersion) {
