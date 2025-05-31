@@ -612,7 +612,7 @@ Tests:
 - `7357893` Prioritize and display -testsafemode status in UI
 - `f321d6b` Add key generation/verification to ECC sanity check
 - `132ea9b` miner_tests: Disable checkpoints so they don't fail the subsidy-change test
-- `bc6cb41` QA RPC tests: Add tests block proposals
+- `bc6cb41` QA RPC tests: Add tests block block proposals
 - `f67a9ce` Use deterministically generated script tests
 - `11d7a7d` [RPC] add rpc-test for http keep-alive (persistent connections)
 - `34318d7` RPC-test based on invalidateblock for mempool coinbase spends
