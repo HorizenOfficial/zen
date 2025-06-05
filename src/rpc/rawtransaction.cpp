@@ -32,6 +32,7 @@
 #include <univalue.h>
 #include "sc/sidechain.h"
 #include "sc/sidechainrpc.h"
+#include "utils.h"
 
 using namespace std;
 
@@ -854,6 +855,12 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
         );
 
     LOCK(cs_main);
+
+    if (ForkManager::getInstance().areTransactionsStopped(chainActive.Height() + 1))
+    {
+        throw JSONRPCError(RPC_HARD_FORK_DEPRECATION, GetDisablingErrorMessage("transactions stopped"));
+    }
+    
     RPCTypeCheck(params, boost::assign::list_of 
         (UniValue::VARR)(UniValue::VOBJ)(UniValue::VARR)(UniValue::VARR)(UniValue::VARR)(UniValue::VARR));
 
@@ -888,6 +895,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
         if (sc_crs.size())
         {
             std::string errString;
+
             if (!Sidechain::AddSidechainCreationOutputs(sc_crs, rawTx, errString) )
             {
                 throw JSONRPCError(RPC_TYPE_ERROR, errString);
@@ -903,6 +911,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
         if (fwdtr.size())
         {
             std::string errString;
+
             if (!Sidechain::AddSidechainForwardOutputs(fwdtr, rawTx, errString) )
             {
                 throw JSONRPCError(RPC_TYPE_ERROR, errString);

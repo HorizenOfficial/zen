@@ -149,6 +149,11 @@ public:
      */
     bool isShieldedPoolRemoved(int height) const;
 
+    /**
+     * @brief returns true if transactions have been stopped
+     */
+    bool areTransactionsStopped(int height) const;
+
     // ---------- forks redefined methods ----------
 
 private:

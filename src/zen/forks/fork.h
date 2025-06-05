@@ -151,6 +151,11 @@ public:
      */
     virtual bool isShieldedPoolRemoved() const = 0;
 
+    /**
+     * @brief returns true if transactions have been stopped
+     */
+    virtual bool areTransactionsStopped() const = 0;
+
 protected:
     
     /**

@@ -5,7 +5,7 @@
 #include <gtest/gtest.h>
 #include "zen/forkmanager.h"
 #include "chainparams.h"
-#include "zen/forks/fork12_shieldedpoolremovalfork.h"
+#include "zen/forks/fork13_stoptransactionsfork.h"
 
 using namespace zen;
 
@@ -596,10 +596,37 @@ TEST(ForkManager, ShieldedPoolRemovalForkRegtest) {
     EXPECT_EQ(ForkManager::getInstance().isShieldedPoolRemoved(shieldedPoolRemovalForkHeight + 1), true);
 }
 
+TEST(ForkManager, StopTransactionsForkMainnet) {
+    SelectParams(CBaseChainParams::MAIN);
+
+    int forkHeight = 100000000;      // TODO set this
+    EXPECT_EQ(ForkManager::getInstance().areTransactionsStopped(forkHeight - 1), false);
+    EXPECT_EQ(ForkManager::getInstance().areTransactionsStopped(forkHeight), true);
+    EXPECT_EQ(ForkManager::getInstance().areTransactionsStopped(forkHeight + 1), true);
+}
+
+TEST(ForkManager, StopTransactionsForkTestnet) {
+    SelectParams(CBaseChainParams::TESTNET);
+
+    int forkHeight = 100000000;      // TODO set this
+    EXPECT_EQ(ForkManager::getInstance().areTransactionsStopped(forkHeight - 1), false);
+    EXPECT_EQ(ForkManager::getInstance().areTransactionsStopped(forkHeight), true);
+    EXPECT_EQ(ForkManager::getInstance().areTransactionsStopped(forkHeight + 1), true);
+}
+
+TEST(ForkManager, StopTransactionsForkRegtest) {
+    SelectParams(CBaseChainParams::REGTEST);
+
+    int forkHeight = 5020;
+    EXPECT_EQ(ForkManager::getInstance().areTransactionsStopped(forkHeight - 1), false);
+    EXPECT_EQ(ForkManager::getInstance().areTransactionsStopped(forkHeight), true);
+    EXPECT_EQ(ForkManager::getInstance().areTransactionsStopped(forkHeight + 1), true);
+}
+
 TEST(ForkManager, HighestFork) {
     SelectParams(CBaseChainParams::MAIN);
     const Fork* highestFork = ForkManager::getInstance().getHighestFork();
-    EXPECT_EQ(typeid(*highestFork), typeid(ShieldedPoolRemovalFork));
+    EXPECT_EQ(typeid(*highestFork), typeid(StopTransactionsFork));
 }
 
 TEST(ForkManager, HighestShieldedPoolTxVersion) {

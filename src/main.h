@@ -333,6 +333,8 @@ int getScMinWithdrawalEpochLength();
 int getScMaxWithdrawalEpochLength();
 int getCheckBlockAtHeightMinAge();
 bool getRequireStandard();
+int getMaxBlockHeightForAlignment();
+
 
 CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams);
 

@@ -117,6 +117,11 @@ public:
      * @brief returns true if the shielded pool has been removed (no more t->z, z->z, z->t)
      */
     inline virtual bool isShieldedPoolRemoved() const { return false; };
+
+    /**
+     * @brief returns true if transactions have been stopped
+     */
+    inline virtual bool areTransactionsStopped() const { return false; };
 };
 
 }

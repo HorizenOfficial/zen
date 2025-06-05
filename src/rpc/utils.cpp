@@ -12,7 +12,7 @@
 
 extern CChain chainActive;
 
-// utilities for managing shielded pool deprecation / removal height detection
+// utilities for managing features and methods deprecation / removal height detection
 // and warning generation
 const std::string GetDisablingErrorMessage(const std::string& forkName)
 {
