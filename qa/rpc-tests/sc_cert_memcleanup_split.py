@@ -54,7 +54,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         Create a SC, advance two epochs, move to the limit of the safe guard and then split the network. 
         One network part sends fwt, mbtr and a certificate, all of them are stored in mempool.
         The other network part sends a certificate and mines one block reaching a longer chain height.
-        When the network is joined, verify that the SC is alive, fwt is still in the mempool of the the
+        When the network is joined, verify that the SC is alive, fwt is still in the mempool of the
         loosing network part, but cert and mbtr have been removed from those mempool.
         '''
 

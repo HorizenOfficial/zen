@@ -130,7 +130,7 @@ retrieve the chain from the last known block to the new tip.
 
 At present, zcashd does not try to resend a notification if there was
 a problem confirming receipt.  Support for delivery guarantees such as
-*at-least-once* and *exactly-once* will be added in in a future update.
+*at-least-once* and *exactly-once* will be added in a future update.
 
 Currently, zcashd appends an up-counting sequence number to each notification
 which allows listeners to detect lost notifications.
