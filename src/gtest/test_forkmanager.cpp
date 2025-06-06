@@ -608,7 +608,7 @@ TEST(ForkManager, StopTransactionsForkMainnet) {
 TEST(ForkManager, StopTransactionsForkTestnet) {
     SelectParams(CBaseChainParams::TESTNET);
 
-    int forkHeight = 100000000;      // TODO set this
+    int forkHeight = 1700420;
     EXPECT_EQ(ForkManager::getInstance().areTransactionsStopped(forkHeight - 1), false);
     EXPECT_EQ(ForkManager::getInstance().areTransactionsStopped(forkHeight), true);
     EXPECT_EQ(ForkManager::getInstance().areTransactionsStopped(forkHeight + 1), true);
