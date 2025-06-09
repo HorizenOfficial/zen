@@ -1,0 +1,92 @@
+# path to zend project root
+repository_root: "./"
+# new release version (format "major.minor.patch", suffix must not be included if beta or candidate or alpha)
+version: "6.0.0"
+# build number (0-24 for beta (1-25), 25-49 for candidate (1-25), 50 for official, 51+ for alpha (1+))
+build_number: "25"
+# mainnet config
+mainnet:
+  # height for checkpoint (if empty, current last block is used)
+  checkpoint_height: "1774100"
+  # total transaction from genesis block up to checkpoint (can be found in "debug.log" file)
+  total_transactions: "38533873"
+# testnet config
+testnet:
+  # height for checkpoint (if empty, current last block is used)
+  checkpoint_height: "1688300"
+  # total transaction from genesis block up to checkpoint (can be found in "debug.log" file)
+  total_transactions: "2640936"
+# release date (format "%a, %d %b %Y", e.g. "Mon, 2 Jan 2023")
+release_date: "Mon, 9 Jun 2025"
+# approximated release height (mainnet)
+approx_release_height: "1775300"
+# weeks until deprecation
+weeks_until_deprecation: "24"
+# script steps flow
+script_steps:
+  # initialize_check_main_checked_out (sub)step
+  initialize_check_main_checked_out:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # initialize_check_no_pending_changes (sub)step
+  initialize_check_no_pending_changes:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # initialize_create_branch (sub)step
+  initialize_create_branch:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # set_client_version step
+  set_client_version:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # update_checkpoints step
+  update_checkpoints:
+    # skip step
+    skip: True
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # update_changelog step
+  update_changelog:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # update_deprecation_height step
+  update_deprecation_height:
+    # skip step
+    skip: True
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # build_zend step
+  build_zend:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # update_man_pages step
+  update_man_pages:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # update_release_notes step
+  update_release_notes:
+    # skip step
+    skip: False
+    # stop before step (user interaction for proceeding)
+    stop: False
+  # check_dependencies step
+  check_dependencies:
+    # skip step
+    skip: True
+    # stop before step (user interaction for proceeding)
+    stop: False
