@@ -1,4 +1,4 @@
-zend v5.0.99
+zend v6.0.99
 =========
 
 ## Important Notes
