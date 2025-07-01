@@ -8,7 +8,7 @@ namespace zen
 
 StopTransactionsFork::StopTransactionsFork()
 {
-    setHeightMap({{CBaseChainParams::Network::MAIN, 100000000},      // TODO set this
+    setHeightMap({{CBaseChainParams::Network::MAIN, 1807300},
                   {CBaseChainParams::Network::REGTEST, 5020},       // Must be high enough so not to make some testnet script fail because the threshold is crossed
                   {CBaseChainParams::Network::TESTNET, 1700420}});
 }

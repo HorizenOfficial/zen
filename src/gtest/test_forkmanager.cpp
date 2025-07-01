@@ -599,7 +599,7 @@ TEST(ForkManager, ShieldedPoolRemovalForkRegtest) {
 TEST(ForkManager, StopTransactionsForkMainnet) {
     SelectParams(CBaseChainParams::MAIN);
 
-    int forkHeight = 100000000;      // TODO set this
+    int forkHeight = 1807300;
     EXPECT_EQ(ForkManager::getInstance().areTransactionsStopped(forkHeight - 1), false);
     EXPECT_EQ(ForkManager::getInstance().areTransactionsStopped(forkHeight), true);
     EXPECT_EQ(ForkManager::getInstance().areTransactionsStopped(forkHeight + 1), true);
