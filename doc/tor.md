@@ -4,7 +4,7 @@
 
 It is possible to run Zen as a Tor hidden service, and connect to such services.
 
-### BASIC Tor INSTALL AND CONFIGUATION
+### BASIC Tor INSTALL AND CONFIGURATION
 
 
 1. Install Tor from the official Repository (Debian based only)
