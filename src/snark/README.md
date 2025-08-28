@@ -256,7 +256,7 @@ with some (currently sparse) comments, install the `doxygen` and `graphviz` pack
 
     $ make doxy
 
-(this may take a few minutes). Then view the resulting [`doxygen/index.html`](doxygen/index.html).
+(this may take a few minutes). Then view the resulting [`doxygen/index.html`](../doxygen/index.html).
 
 ### Using libsnark as a library
 
