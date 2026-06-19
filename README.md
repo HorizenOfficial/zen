@@ -1,5 +1,5 @@
 > [!IMPORTANT]  
-> This repository has been archived; consequently, vulnerability submissions are no longer being accepted.
+> This repository has been archived; consequently, vulnerability submissions are no longer being accepted.<br/>
 > Further information regarding the current Horizen chain can be found here: https://horizen-2-docs.horizen.io/
 
 Zend
