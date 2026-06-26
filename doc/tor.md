@@ -4,7 +4,7 @@
 
 It is possible to run Zen as a Tor hidden service, and connect to such services.
 
-### BASIC Tor INSTALL AND CONFIGUATION
+### BASIC Tor INSTALL AND CONFIGURATION
 
 
 1. Install Tor from the official Repository (Debian based only)
@@ -228,7 +228,7 @@ sudo apt-get install meek-client
 If using Ubuntu, an AppArmor definition is also required to resolve a 'permission denied' error:
 ```
 sudo su -c "echo '  /usr/bin/meek-client ix,' >> /etc/apparmor.d/abstractions/tor"
-sudo systemctl resetart apparmor.service
+sudo systemctl restart apparmor.service
 ```
 2. Add these lines to your `/etc/tor/torrc` file:
 ```
